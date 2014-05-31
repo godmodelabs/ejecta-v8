@@ -1,0 +1,31 @@
+#ifndef __CLIENTANDROID_H
+#define __CLIENTANDROID_H	1
+
+#include <jni.h>
+#include "ClientAbstract.h"
+
+class ClientAndroid : public ClientAbstract {
+public:
+	JNIEnv* envCache;
+	JavaVM *cachedJVM;
+	jobject assetManager;
+	jobject v8Engine;
+	const char* loadFile (const char* path);
+	const char* loadFile (const char* path, unsigned int* length);
+	void on (const char* event, void* cbPtr, void *thisObjPtr);
+	~ClientAndroid();
+
+	static jint throwNoSuchFieldError( JNIEnv *env, char *message );
+
+	unsigned char *_magnifierImage;
+	unsigned int _magnifierWidth;
+	unsigned int _magnifierHeight;
+	unsigned int _magnifierTexWidth;
+	unsigned int _magnifierTexHeight;
+	unsigned char *_maskImage;
+};
+
+// http://stackoverflow.com/questions/5991615/unable-to-get-jnienv-value-in-arbitrary-context
+JNIEnv* JNU_GetEnv();
+
+#endif
