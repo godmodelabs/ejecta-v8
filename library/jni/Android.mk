@@ -42,27 +42,23 @@ include $(PREBUILT_STATIC_LIBRARY)
 # Our JNI stuff
 include $(CLEAR_VARS)
 
-
 LOCAL_MODULE	:= libbgjs
 #LOCAL_CFLAGS    :=  -g -fno-omit-frame-pointer -fno-strict-aliasing -I ~/bin/android-ndk-latest/sources/cxx-stl/stlport/stlport/ # -Werror #-Ijni/pixman/pixman -Ijni/cairo/src -Ijni/cairo-extra -Ijni/pixman-extra -Wno-missing-field-initializers -Wno-attributes
 #LOCAL_CFLAGS	:= -fcxx-exceptions 
 LOCAL_C_INCLUDES	:= $(LOCAL_PATH)/ejecta/EJCanvas $(LOCAL_PATH)/utils
-# LOCAL_C_INCLUDES	:= 
-#LOCAL_C_INCLUDES	:= $(LOCAL_PATH)/cairo $(LOCAL_PATH)/pixman $(LOCAL_PATH)/pixman/pixman $(LOCAL_PATH)/pixman-extra $(LOCAL_PATH)/cairo-extra 
-#LOCAL_SRC_FILES := gl_code.cpp v8Engine.cpp Canvas.cpp CanvasGradient.cpp CanvasPattern.cpp CanvasRenderingContext2d.cpp color.cpp Image.cpp \
-ImageData.cpp init.cpp PixelArray.cpp v8Canvas.cpp v8JNI.cpp
+
 LOCAL_SRC_FILES		:= bgjs/BGJSContext.cpp bgjs/ClientAndroid.cpp bgjs/BGJSModule.cpp bgjs/BGJSClass.cpp \
 	utils/mallocdebug.cpp \
 	bgjs/BGJSJavaWrapper.cpp \
-	bgjs/modules/AjaxModule.cpp bgjs/modules/BGJSGLModule.cpp chart/PushModule.cpp \
-	chart/ChartingUIModule.cpp chart/AuthModule.cpp chart/IAPModule.cpp \
+	bgjs/modules/AjaxModule.cpp bgjs/modules/BGJSGLModule.cpp \
 	bgjs/BGJSCanvasContext.cpp bgjs/BGJSView.cpp bgjs/BGJSGLView.cpp \
 	ejecta/EJCanvas/EJCanvasContext.cpp ejecta/EJConvert.cpp \
 	ejecta/EJCanvas/EJPath.cpp ejecta/EJCanvas/EJTexture.cpp ejecta/EJCanvas/NdkMisc.cpp ejecta/EJCanvas/EJImageData.cpp \
 	ejecta/EJCanvas/EJFont.cpp ejecta/EJCanvas/CGCompat.cpp ejecta/EJCanvas/EJCanvasContextScreen.cpp \
-	lodepng/lodepng.cpp \
-	chart/BGJSChartingModule.cpp chart/BGJSChartView.cpp chart/ChartingClientAndroid.cpp
-	
+	lodepng/lodepng.cpp $(subst jni, ., $(wildcard $(LOCAL_PATH)/submodules/*.cpp))
+
+# $(warning $(subst jni, ., $(wildcard $(LOCAL_PATH)/submodules/*.cpp)))
+
 LOCAL_LDLIBS    := -llog -lGLESv1_CM  -lm -landroid -ljnigraphics -lEGL #-L../libs/armeabi -lv8_base -lv8_snapshot -ljnigraphics
 LOCAL_STATIC_LIBRARIES	:= v8-base-prebuilt v8-snapshot-prebuilt freetype  # libcairo libpixman cpufeatures 
 
