@@ -1,6 +1,8 @@
 package ag.boersego.bgjs.sample;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 
@@ -18,7 +20,9 @@ public class FragmentFactory {
             fragment = new DemoWebviewFragment();
             arguments.putString(DemoEjectaFragment.ARG_ITEM_ID, argument.replace("webview:", ""));
         } else if (argument.startsWith("url:")) {
-            // TODO
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setData(Uri.parse(argument.replace("url:", "")));
+            ctx.startActivity(i);
         } else {
             fragment = new DemoEjectaFragment();
             arguments.putString(DemoEjectaFragment.ARG_ITEM_ID, argument);

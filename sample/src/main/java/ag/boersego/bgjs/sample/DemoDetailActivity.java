@@ -47,6 +47,8 @@ public class DemoDetailActivity extends ActionBarActivity {
                 getSupportFragmentManager().beginTransaction()
                         .add(R.id.demo_detail_container, fragment)
                         .commit();
+            } else {
+                finish();
             }
         }
     }
