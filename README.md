@@ -11,6 +11,8 @@ This port focuses on Android for now but could easily run on all OS that support
 We have included pre-built shared libraries for v8, as compiling for Android can be a hassle. Further work is needed
 to support newer versions of v8, as many things have changed there (see TODO).
 
+You can download the sample app from Play Store: https://play.google.com/store/apps/details?id=ag.boersego.bgjs.sample
+
 
 Building
 --------
