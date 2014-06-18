@@ -2,6 +2,7 @@ package ag.boersego.bgjs.sample;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 
 import ag.boersego.bgjs.V8Engine;
@@ -17,7 +18,7 @@ import ag.boersego.bgjs.V8Engine;
  * <p>
  * The activity makes heavy use of fragments. The list of items is a
  * {@link DemoListFragment} and the item details
- * (if present) is a {@link DemoDetailFragment}.
+ * (if present) is a {@link DemoEjectaFragment}.
  * <p>
  * This activity also implements the required
  * {@link DemoListFragment.Callbacks} interface
@@ -68,19 +69,19 @@ public class DemoListActivity extends FragmentActivity
             // In two-pane mode, show the detail view in this activity by
             // adding or replacing the detail fragment using a
             // fragment transaction.
-            Bundle arguments = new Bundle();
-            arguments.putString(DemoDetailFragment.ARG_ITEM_ID, id);
-            DemoDetailFragment fragment = new DemoDetailFragment();
-            fragment.setArguments(arguments);
-            getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.demo_detail_container, fragment)
-                    .commit();
+            Fragment fragment = FragmentFactory.createFragment(id, this);
+
+            if (fragment != null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.demo_detail_container, fragment)
+                        .commit();
+            }
 
         } else {
             // In single-pane mode, simply start the detail activity
             // for the selected item ID.
             Intent detailIntent = new Intent(this, DemoDetailActivity.class);
-            detailIntent.putExtra(DemoDetailFragment.ARG_ITEM_ID, id);
+            detailIntent.putExtra(DemoEjectaFragment.ARG_ITEM_ID, id);
             startActivity(detailIntent);
         }
     }

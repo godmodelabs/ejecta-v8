@@ -113,31 +113,33 @@ function startPlasma(ui,view,config) {
 	});
 }
 
-if (typeof document != "undefined") {
-	// Only runs in browser
-	// w = window.innerWidth * window.devicePixelRatio;
-	//h = window.innerHeight * window.devicePixelRatio;
-	w = window.innerWidth;
-	h = window.innerHeight;
-	w2 = w/2;
-	h2 = h/2;
+function domReady() {
+    if (typeof document != "undefined") {
+        // Only runs in browser
+        // w = window.innerWidth * window.devicePixelRatio;
+        //h = window.innerHeight * window.devicePixelRatio;
+        w = window.innerWidth;
+        h = window.innerHeight;
+        w2 = w/2;
+        h2 = h/2;
 
-	console.log("width, height: " + w + ", " + h);
+        console.log("width, height: " + w + ", " + h);
 
-	var canvas = document.getElementById('canvas');
-	canvas.width = w;
-	canvas.height = h;
+        var canvas = document.getElementById('canvas');
+        canvas.width = w;
+        canvas.height = h;
 
-	var ctx = canvas.getContext('2d');
+        ctx = canvas.getContext('2d');
 
-	requestNextFrame = function () {
-		if (typeof requestAnimationFrame == "undefined") {
-			setTimeout(animate, 16);
-		} else {
-			requestAnimationFrame(animate);
-		}
-	}
+        requestNextFrame = function () {
+            if (typeof requestAnimationFrame == "undefined") {
+                setTimeout(animate, 16);
+            } else {
+                requestAnimationFrame(animate);
+            }
+        }
 
-	setup();
+        setup();
 
+    }
 }

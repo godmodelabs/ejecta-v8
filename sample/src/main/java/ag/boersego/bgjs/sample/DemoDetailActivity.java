@@ -2,8 +2,9 @@ package ag.boersego.bgjs.sample;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.NavUtils;
+import android.support.v7.app.ActionBarActivity;
 import android.view.MenuItem;
 
 
@@ -14,7 +15,7 @@ import android.view.MenuItem;
  * in a {@link DemoListActivity}.
  * <p>
  * This activity is mostly just a 'shell' activity containing nothing
- * more than a {@link DemoDetailFragment}.
+ * more than a {@link DemoEjectaFragment}.
  */
 public class DemoDetailActivity extends ActionBarActivity {
 
@@ -36,16 +37,17 @@ public class DemoDetailActivity extends ActionBarActivity {
         // http://developer.android.com/guide/components/fragments.html
         //
         if (savedInstanceState == null) {
-            // Create the detail fragment and add it to the activity
-            // using a fragment transaction.
-            Bundle arguments = new Bundle();
-            arguments.putString(DemoDetailFragment.ARG_ITEM_ID,
-                    getIntent().getStringExtra(DemoDetailFragment.ARG_ITEM_ID));
-            DemoDetailFragment fragment = new DemoDetailFragment();
-            fragment.setArguments(arguments);
-            getSupportFragmentManager().beginTransaction()
-                    .add(R.id.demo_detail_container, fragment)
-                    .commit();
+            // Yes, this is super ugly, and I just quickly hacked this together to have a sample :)
+
+
+            final String argument = getIntent().getStringExtra(DemoEjectaFragment.ARG_ITEM_ID);
+            Fragment fragment = FragmentFactory.createFragment(argument, this);
+
+            if (fragment != null) {
+                getSupportFragmentManager().beginTransaction()
+                        .add(R.id.demo_detail_container, fragment)
+                        .commit();
+            }
         }
     }
 

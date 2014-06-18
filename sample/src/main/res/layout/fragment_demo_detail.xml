@@ -3,4 +3,4 @@
     android:id="@+id/demo_detail"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="ag.boersego.bgjs.sample.DemoDetailFragment" />
+    tools:context="ag.boersego.bgjs.sample.DemoEjectaFragment" />

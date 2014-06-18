@@ -25,7 +25,9 @@ public class DummyContent {
 
     static {
         // Add 3 sample items.
-        addItem(new DummyItem("startPlasma", "Plasma"));
+        addItem(new DummyItem("startPlasma", "Run in Ejecta-v8 View"));
+        addItem(new DummyItem("webview:demo.html", "Run in WebView"));
+        addItem(new DummyItem("url:", "Run in external browser"));
     }
 
     private static void addItem(DummyItem item) {
