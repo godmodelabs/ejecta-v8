@@ -86,6 +86,8 @@ public class DemoDetailFragment extends Fragment implements V8Engine.V8EngineHan
             return;
         }
 
+        Log.d(TAG, "Creating GL view and calling callback " + mScriptCb);
+
         if (Build.VERSION.SDK_INT > 10) {
             // HC and up have TextureVew
             final V8TextureView tv = new V8TextureView(getActivity(), mScriptCb, "") {

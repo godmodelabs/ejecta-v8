@@ -25,9 +25,7 @@ public class DummyContent {
 
     static {
         // Add 3 sample items.
-        addItem(new DummyItem("1", "Item 1"));
-        addItem(new DummyItem("2", "Item 2"));
-        addItem(new DummyItem("3", "Item 3"));
+        addItem(new DummyItem("startPlasma", "Plasma"));
     }
 
     private static void addItem(DummyItem item) {
