@@ -198,7 +198,7 @@ void EJCanvasContext::prepare() {
 #endif
 
 	glViewport(0, 0, viewportWidth, viewportHeight);
-	LOGD("prepare. New viewport %ux%u", viewportWidth, viewportHeight);
+	LOGD("prepare. New viewport %ux%u for projection %ux%u", viewportWidth, viewportHeight, width, height);
 	checkGlError("glViewport(prepare)");
 
 	glMatrixMode(GL_PROJECTION);

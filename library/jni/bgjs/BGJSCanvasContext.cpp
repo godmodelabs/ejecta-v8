@@ -92,8 +92,8 @@ void BGJSCanvasContext::resize (int widthp, int heightp, bool resizeOnly) {
 	viewportWidth = width = widthp;
 	viewportHeight = height = heightp;
 
-	bufferHeight = viewportHeight *= backingStoreRatio;
-	bufferWidth = viewportWidth *= backingStoreRatio;
+	bufferHeight = viewportHeight; //  *= backingStoreRatio;
+	bufferWidth = viewportWidth; //  *= backingStoreRatio;
 
 	// reallocate color buffer backing based on the current layer size
 #ifndef SIMPLE_STENCIL

@@ -64,10 +64,14 @@ public:
 			const AccessorInfo &info);
 	static Handle<Value> getHeight(Local<String> property,
 			const AccessorInfo &info);
+    static Handle<Value> getPixelRatio(Local<String> property,
+			const AccessorInfo &info);
 	static void setWidth(Local<String> property, Local<Value> value,
 			const AccessorInfo& info);
 	static void setHeight(Local<String> property, Local<Value> value,
 			const AccessorInfo& info);
+	static void setPixelRatio(Local<String> property, Local<Value> value,
+    			const AccessorInfo& info);
 };
 
 v8::Persistent<v8::Function> BGJSGLModule::g_classRefCanvasGL;
@@ -447,12 +451,28 @@ Handle<Value> BGJSCanvasGL::getHeight(Local<String> property,
 	return scope.Close(Integer::New(value));
 }
 
+Handle<Value> BGJSCanvasGL::getPixelRatio(Local<String> property,
+		const AccessorInfo &info) {
+	HandleScope scope;
+	Local<Object> self = info.Holder();
+	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+	void* ptr = wrap->Value();
+	float value = static_cast<BGJSCanvasGL*>(ptr)->_view->context2d->backingStoreRatio;
+	LOGD("getPixelRatio %f", value);
+	return scope.Close(Number::New(value));
+}
+
 void BGJSCanvasGL::setHeight(Local<String> property, Local<Value> value,
 		const AccessorInfo& info) {
 	// NOP
 }
 
 void BGJSCanvasGL::setWidth(Local<String> property, Local<Value> value,
+		const AccessorInfo& info) {
+	// NOP
+}
+
+void BGJSCanvasGL::setPixelRatio(Local<String> property, Local<Value> value,
 		const AccessorInfo& info) {
 	// NOP
 }
@@ -924,6 +944,8 @@ void BGJSGLModule::doRequire(v8::Handle<v8::Object> target) {
 			BGJSCanvasGL::setWidth);
 	bgjshtmlit->SetAccessor(String::New("height"), BGJSCanvasGL::getHeight,
 			BGJSCanvasGL::setHeight);
+    bgjshtmlit->SetAccessor(String::New("devicePixelRatio"), BGJSCanvasGL::getPixelRatio,
+			BGJSCanvasGL::setPixelRatio);
 
 	// Call on construction
 	bgjshtmlit->SetCallAsFunctionHandler(BGJSGLModule::js_canvas_constructor);

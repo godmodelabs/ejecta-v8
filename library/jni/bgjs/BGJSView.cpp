@@ -52,6 +52,22 @@ Handle<Value> getHeight(Local<String> property, const AccessorInfo &info) {
 	return Integer::New(value);
 }
 
+Handle<Value> getPixelRatio(Local<String> property, const AccessorInfo &info) {
+	Local<Object> self = info.Holder();
+	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+	void* ptr = wrap->Value();
+	float value = static_cast<BGJSView*>(ptr)->pixelRatio;
+
+#ifdef DEBUG
+	LOGD("getPixelRatio %f", value);
+#endif
+	return Number::New(value);
+}
+
+void setPixelRatio(Local<String> property, Local<Value> value,
+		const AccessorInfo& info) {
+}
+
 void setHeight(Local<String> property, Local<Value> value,
 		const AccessorInfo& info) {
 	Local<Object> self = info.Holder();
@@ -86,11 +102,13 @@ Handle<Value> BGJSView::js_view_on(const Arguments& args) {
 	return v8::Undefined();
 }
 
-BGJSView::BGJSView(BGJSContext *ctx) {
+BGJSView::BGJSView(BGJSContext *ctx, float pixelRatio) {
 	opened = false;
 	_contentObj = 0;
 
 	noClearOnFlip = false;
+
+	this->pixelRatio = pixelRatio;
 
 	// Create new JS BGJSView object
 	this->_jsContext = ctx;
@@ -100,6 +118,7 @@ BGJSView::BGJSView(BGJSContext *ctx) {
 	bgjsgl->SetInternalFieldCount(1);
 	bgjsgl->SetAccessor(String::New("width"), getWidth, setWidth);
 	bgjsgl->SetAccessor(String::New("height"), getHeight, setHeight);
+	bgjsgl->SetAccessor(String::New("devicePixelRatio"), getPixelRatio, setPixelRatio);
 
 	// bgjsgl->SetAccessor(String::New("magnifierPoint"), getMagnifierPoint, setMagnifierPoint);
 

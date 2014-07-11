@@ -34,7 +34,7 @@ static void checkGlError(const char* op) {
 }
 
 BGJSGLView::BGJSGLView(BGJSContext *ctx, float pixelRatio) :
-		BGJSView(ctx) {
+		BGJSView(ctx, pixelRatio) {
 
 	_firstFrameRequest = 0;
 	_nextFrameRequest = 0;
