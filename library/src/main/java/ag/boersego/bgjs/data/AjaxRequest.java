@@ -38,6 +38,7 @@ public class AjaxRequest implements Runnable {
 	private String mReferer;
 	
 	public int connectionTimeout = 12000;
+    public int readTimeout = 5000;
 	private String mErrorData;
 	private int mErrorCode;
 	protected Exception mErrorThrowable;
@@ -119,7 +120,7 @@ public class AjaxRequest implements Runnable {
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setInstanceFollowRedirects(true);
 			connection.setConnectTimeout(connectionTimeout);
-			connection.setReadTimeout(5000);
+			connection.setReadTimeout(readTimeout);
 			Locale here = Locale.getDefault();
 			
 			if (AjaxRequest.mUserAgent == null) {
