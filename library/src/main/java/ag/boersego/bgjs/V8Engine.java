@@ -38,7 +38,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 	protected float mDensity;
 
 	private static final String TAG = "V8Engine";
-	private static boolean DEBUG = false;
+	private static boolean DEBUG = true;
     private V8UrlCache mCache;
 
     public static void doDebug (boolean debug) {
