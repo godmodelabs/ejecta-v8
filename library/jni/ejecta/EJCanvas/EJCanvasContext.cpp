@@ -432,6 +432,7 @@ void EJCanvasContext::fillRectX (float x, float y, float w, float h) {
 
 	EJColorRGBA color = state->fillColor;
 	color.rgba.a = (float)color.rgba.a * state->globalAlpha;
+	// LOGD("fillRect. (%f, %f) w %f h %f  rgba(%d,%d,%d,%.3f)", x, y, w, h, color.rgba.r, color.rgba.g, color.rgba.b, (float)color.rgba.a/255.0f);
 	this->pushRectX (x, y, w, h, 0, 0, 0, 0, color, state->transform);
 	// [self pushRectX:x y:y w:w h:h tx:0 ty:0 tw:0 th:0 color:color withTransform:state->transform];
 }

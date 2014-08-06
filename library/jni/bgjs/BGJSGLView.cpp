@@ -100,7 +100,7 @@ void BGJSGLView::swapBuffers() {
 	if (!noClearOnFlip) {
 		EGLDisplay display = eglGetCurrentDisplay();
 		EGLSurface surface = eglGetCurrentSurface(EGL_DRAW);
-		eglSurfaceAttrib(display, surface, EGL_SWAP_BEHAVIOR, EGL_BUFFER_PRESERVED);
+		eglSurfaceAttrib(display, surface, EGL_SWAP_BEHAVIOR, EGL_BUFFER_DESTROYED);
 		EGLBoolean res = eglSwapBuffers (display, surface);
 	}
 }

@@ -92,6 +92,7 @@ void js_context_set_fillStyle(Local<String> property, Local<Value> value,
 		const AccessorInfo &info) {
 	CONTEXT_FETCH_VAR;
 	__context->state->fillColor = JSValueToColorRGBA(value);
+	 // LOGD(" setFillStyle rgba(%d,%d,%d,%.3f)", __context->state->fillColor.rgba.r, __context->state->fillColor.rgba.g, __context->state->fillColor.rgba.b, (float)__context->state->fillColor.rgba.a/255.0f);
 }
 
 Handle<Value> js_context_get_strokeStyle(Local<String> property,
@@ -620,6 +621,7 @@ static Handle<Value> js_context_clearRect(const Arguments& args) {
 	float w = Local<Number>::Cast(args[2])->Value();
 	float h = Local<Number>::Cast(args[3])->Value();
 	__context->clearRectX(x, y, w, h);
+	// LOGD("clearRect %f %f . w %f h %f", x, y, w, h);
 	return v8::Undefined();
 }
 
@@ -631,6 +633,7 @@ static Handle<Value> js_context_fillRect(const Arguments& args) {
 	float w = Local<Number>::Cast(args[2])->Value();
 	float h = Local<Number>::Cast(args[3])->Value();
 	__context->fillRectX(x, y, w, h);
+	// LOGD("fillRect %f %f . w %f h %f", x, y, w, h);
 	return v8::Undefined();
 }
 

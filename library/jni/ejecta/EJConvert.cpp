@@ -3,6 +3,9 @@
 
 #include "EJConvert.h"
 
+#include "NdkMisc.h"
+#define LOG_TAG	"EJConvert"
+
 using namespace v8;
 
 EJColorRGBA JSValueToColorRGBA(Local<Value> value) {
@@ -59,6 +62,8 @@ EJColorRGBA JSValueToColorRGBA(Local<Value> value) {
 			}
 		}
 	}
+
+	// LOGD(" setFillStyle %s rgba(%d,%d,%d,%.3f)", jsc, c.rgba.r, c.rgba.g, c.rgba.b, (float)c.rgba.a/255.0f);
 	return c;
 }
 
