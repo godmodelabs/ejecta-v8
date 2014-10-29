@@ -25,6 +25,62 @@ public class AjaxRequest implements Runnable {
 
 		public void error(String data, int code, Throwable tr, AjaxRequest request);
 	}
+
+    public static class AjaxTrafficCounter {
+
+        private static long trafficIn = 0, trafficOut = 0;
+        private static int[] trafficInPerMinute = { -1, -1, -1, -1, -1, -1};
+        private static int[] trafficOutPerMinute = { -1, -1, -1, -1, -1, -1};
+        private static int lastTimeSlot;
+
+        public static long getInTraffic() {
+            return trafficIn;
+        }
+
+        public static long getOutTraffic() {
+            return trafficOut;
+        }
+
+        public static int getInTrafficPerMinute() {
+            int numFieldsFound = 0, sum = 0;
+            for (int i = 0; i < 6; i++) {
+                if (trafficInPerMinute[i] > -1) {
+                    sum += trafficInPerMinute[i];
+                    numFieldsFound++;
+                }
+            }
+            return sum / numFieldsFound;
+        }
+
+        public static int getOutTrafficPerMinute() {
+            int numFieldsFound = 0, sum = 0;
+            for (int i = 0; i < 6; i++) {
+                if (trafficInPerMinute[i] > -1) {
+                    sum += trafficOutPerMinute[i];
+                    numFieldsFound++;
+                }
+            }
+            return sum / numFieldsFound;
+        }
+
+        public static void addTraffic(final int outTraffic, final int inTraffic) {
+            final int nowSlot = (int)(System.currentTimeMillis() / 10000);
+            final int nowIndex = nowSlot % 6;
+            if (nowSlot != lastTimeSlot) {
+                trafficOutPerMinute[nowIndex] = -1;
+                trafficInPerMinute[nowIndex] = -1;
+                lastTimeSlot = nowSlot;
+            }
+            if (outTraffic > 0) {
+                trafficOut += outTraffic;
+                trafficOutPerMinute[nowIndex] += ((trafficOutPerMinute[nowIndex] < 0) ? 1 : 0) + outTraffic;
+            }
+            if (inTraffic > 0) {
+                trafficIn += inTraffic;
+                trafficInPerMinute[nowIndex] += ((trafficInPerMinute[nowIndex] < 0) ? 1 : 0) + inTraffic;
+            }
+        }
+    }
 	
 	protected String mUrl;
 	protected String mData;
@@ -212,6 +268,9 @@ public class AjaxRequest implements Runnable {
 			}
 			mSuccessData = responseStr;
 			mSuccessCode = connection.getResponseCode();
+
+            AjaxTrafficCounter.addTraffic(0, mSuccessData.length());
+
 			
 			if (mDebug) {
 				Log.d (TAG, "Response: " + mSuccessCode + "/" + responseStr);
