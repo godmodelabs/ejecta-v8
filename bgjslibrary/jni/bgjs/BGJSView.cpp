@@ -127,7 +127,7 @@ BGJSView::BGJSView(BGJSContext *ctx, float pixelRatio) {
 	this->jsViewOT = Persistent<v8::ObjectTemplate>::New(bgjsgl);
 }
 
-Handle<Value> BGJSView::startJS(const char* fnName, const char* configJson, Handle<Value> uiObj, long configId) {
+Handle<Value> BGJSView::startJS(const char* fnName, const char* configJson, Handle<Value> uiObj, long configId, bool hasIntradayQuotes) {
 	HandleScope scope;
 
 	Handle<Value> config;
@@ -144,9 +144,9 @@ Handle<Value> BGJSView::startJS(const char* fnName, const char* configJson, Hand
 	// Local<Object> instance = bgjsglft->GetFunction()->NewInstance();
 	this->_jsObj = Persistent<Object>::New(objInstance);
 
-	Handle<Value> argv[4] = { uiObj, this->_jsObj, config, Number::New(configId) };
+	Handle<Value> argv[5] = { uiObj, this->_jsObj, config, Number::New(configId), Number::New(hasIntradayQuotes) };
 
-	Handle<Value> res = this->_jsContext->callFunction(_jsContext->_context->Global(), fnName, 4,
+	Handle<Value> res = this->_jsContext->callFunction(_jsContext->_context->Global(), fnName, 5,
 			argv);
 	if (res->IsNumber()) {
 		_contentObj = res->ToNumber()->Value();

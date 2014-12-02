@@ -1138,7 +1138,7 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 		const char* cbStr = env->GetStringUTFChars(callbackName, NULL);
 
 		LOGI("setupGraphics(%s)", cbStr);
-		Handle<Value> res = view->startJS(cbStr, NULL, v8::Undefined(), 0);
+		Handle<Value> res = view->startJS(cbStr, NULL, v8::Undefined(), 0, false);
 		view->opened = true;
 		env->ReleaseStringUTFChars(callbackName, cbStr);
 
