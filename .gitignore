@@ -1,4 +1,5 @@
-library/build/*
-bgjsandroid-library.iml
-library/libs/*
-library/jni/submodules
+bgjslibrary/build/*
+*.iml
+bgjslibrary/libs/*
+bgjslibrary/obj/*
+bgjslibrary/jni/submodules
