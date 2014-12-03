@@ -138,10 +138,9 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		jlong jsCbPtr, jlong thisPtr, jlong errorCb, jboolean success, jboolean processData) {
 
 	BGJSContext* context = (BGJSContext*)ctxPtr;
-
-	const char *nativeString = env->GetStringUTFChars(dataStr, 0);
 	v8::Locker l;
 	Context::Scope context_scope(context->_context);
+	const char *nativeString = NULL;
 
 	HandleScope scope;
 	TryCatch trycatch;
@@ -156,9 +155,10 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 	Handle<Value> argarray[1];
 	int argcount = 1;
 
-	if (nativeString == 0 || dataStr == 0) {
+	if (dataStr == 0) {
 		argarray[0] = v8::Null();
 	} else {
+		nativeString = env->GetStringUTFChars(dataStr, 0);
 		Handle<Value> resultObj;
 		if (processData) {
 			resultObj = context->JsonParse(thisObj,
@@ -186,7 +186,9 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 	if (result.IsEmpty()) {
 		BGJSContext::ReportException(&trycatch);
 	}
-	env->ReleaseStringUTFChars(dataStr, nativeString);
+	if (nativeString) {
+		env->ReleaseStringUTFChars(dataStr, nativeString);
+	}
 	callbackP.Dispose();
 	thisObj.Dispose();
 	if (!errorP.IsEmpty()) {
