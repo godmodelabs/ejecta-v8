@@ -698,6 +698,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				mRenderCnt++;
 				
 				// We don't swap buffers here. Because we don't want to clear buffers on buffer swap, we need to do it in native code.
+                // This is important because JS Canvas also doesn't clear except via fillRect
 
 				synchronized (this) {
 					// If no rendering or other changes are pending, sleep till the next request
@@ -737,6 +738,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     V8TextureView.this.onGLRecreated(mJSId);
 					mReinitPending = false;
 				}
+
+                // The party that created V8TextureView might want to be notified once we have rendered a frame
 				if (mNeedsAttention) {
 					if (DEBUG) {
 						Log.d(TAG, "Attending V8TextureView super");

@@ -182,6 +182,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 
 		if (BuildConfig.DEBUG) {
 			try {
+                // TODO: Wait for debugger instead of sleeping a fixed amount
 				sleep(30);
 				if (DEBUG) {
 					Log.d(TAG, "Debugger can connect now");
