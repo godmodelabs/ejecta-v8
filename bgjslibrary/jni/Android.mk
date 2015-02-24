@@ -55,9 +55,9 @@ LOCAL_SRC_FILES		:= bgjs/BGJSContext.cpp bgjs/ClientAndroid.cpp bgjs/BGJSModule.
 	ejecta/EJCanvas/EJCanvasContext.cpp ejecta/EJConvert.cpp \
 	ejecta/EJCanvas/EJPath.cpp ejecta/EJCanvas/EJTexture.cpp ejecta/EJCanvas/NdkMisc.cpp ejecta/EJCanvas/EJImageData.cpp \
 	ejecta/EJCanvas/EJFont.cpp ejecta/EJCanvas/CGCompat.cpp ejecta/EJCanvas/EJCanvasContextScreen.cpp \
-	lodepng/lodepng.cpp $(subst jni, ., $(wildcard $(LOCAL_PATH)/submodules/*.cpp))
+	lodepng/lodepng.cpp $(subst jni, ., $(wildcard $(LOCAL_PATH)/../../../ejectav8-submodules/*.cpp))
 
-# $(warning $(subst jni, ., $(wildcard $(LOCAL_PATH)/submodules/*.cpp)))
+# $(warning $(subst jni, ., $(wildcard $(LOCAL_PATH)/../../../ejectav8-submodules/*.cpp)))
 
 LOCAL_LDLIBS    := -llog -lGLESv1_CM  -lm -landroid -ljnigraphics -lEGL #-L../libs/armeabi -lv8_base -lv8_snapshot -ljnigraphics
 LOCAL_STATIC_LIBRARIES	:= v8-base-prebuilt v8-snapshot-prebuilt freetype  # libcairo libpixman cpufeatures 
