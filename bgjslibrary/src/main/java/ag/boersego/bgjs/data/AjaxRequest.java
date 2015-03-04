@@ -1,5 +1,8 @@
 package ag.boersego.bgjs.data;
 
+import android.os.Build;
+import android.util.Log;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,9 +13,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Locale;
-
-import android.os.Build;
-import android.util.Log;
 
 
 public class AjaxRequest implements Runnable {
@@ -49,16 +49,22 @@ public class AjaxRequest implements Runnable {
                     numFieldsFound++;
                 }
             }
+            if (numFieldsFound <= 0) {
+                return 0;
+            }
             return sum / numFieldsFound;
         }
 
         public static int getOutTrafficPerMinute() {
             int numFieldsFound = 0, sum = 0;
             for (int i = 0; i < 6; i++) {
-                if (trafficInPerMinute[i] > -1) {
+                if (trafficOutPerMinute[i] > -1) {
                     sum += trafficOutPerMinute[i];
                     numFieldsFound++;
                 }
+            }
+            if (numFieldsFound <= 0) {
+                return 0;
             }
             return sum / numFieldsFound;
         }
@@ -95,11 +101,11 @@ public class AjaxRequest implements Runnable {
 	
 	public int connectionTimeout = 12000;
     public int readTimeout = 5000;
-	private String mErrorData;
-	private int mErrorCode;
+	protected String mErrorData;
+	protected int mErrorCode;
 	protected Exception mErrorThrowable;
 	protected String mSuccessData;
-	private int mSuccessCode;
+	protected int mSuccessCode;
 	
 	protected boolean mDoRunOnUiThread = true;
 	
