@@ -23,3 +23,6 @@
 -keep class * extends ag.boersego.bgjs.V8BackedJavaClass {
   public *;
 }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
