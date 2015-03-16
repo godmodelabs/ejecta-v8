@@ -26,6 +26,10 @@ public class AjaxRequest implements Runnable {
 		public void error(String data, int code, Throwable tr, AjaxRequest request);
 	}
 
+    /**
+     * This traffic-counting code is also in Java-WebSocket.
+     * TODO: Share code.
+     */
     public static class AjaxTrafficCounter {
 
         private static long trafficIn = 0, trafficOut = 0;
@@ -236,7 +240,7 @@ public class AjaxRequest implements Runnable {
 			BufferedReader rd = new BufferedReader(new InputStreamReader(is));
 			String line;
 			StringBuilder response = new StringBuilder(4096);
-			
+
 			// TODO: Optimize me
 			while ((line = rd.readLine()) != null) {
 				response.append(line);

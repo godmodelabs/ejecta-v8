@@ -1,3 +1,4 @@
+build/*
 bgjslibrary/build/*
 *.iml
 bgjslibrary/libs/*
