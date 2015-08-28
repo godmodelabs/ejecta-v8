@@ -246,6 +246,15 @@ std::vector<std::string> &split(const std::string &s, char delim,
 	return elems;
 }
 
+std::string BGJSContext::getPathName(std::string& path) {
+	size_t found = path.find_last_of("/");
+
+	if (found == string::npos) {
+		return path;
+	}
+	return path.substr(0, found);
+}
+
 std::string BGJSContext::normalize_path(std::string& path) {
 	std::vector < std::string > pathParts;
 	std::stringstream ss(path);
@@ -278,6 +287,57 @@ std::string BGJSContext::normalize_path(std::string& path) {
 	}
 	outPath.append("/").append(pathParts.at(length - 1));
 	return outPath;
+}
+
+Handle<Value> BGJSContext::normalizePath(const Arguments& args) {
+	if (args.Length() < 1) {
+		return v8::Undefined();
+	}
+
+	v8::Locker l;
+	HandleScope scope;
+
+	Local<String> filename = args[0]->ToString();
+
+	String::AsciiValue basename(filename);
+
+	// Catch errors
+	TryCatch try_catch;
+	std::string baseNameStr = std::string(*basename);
+
+	Local<Value> dirVal = Context::GetEntered()->GetData();
+	Local<String> dirName;
+	if (dirVal->IsUndefined()) {
+		dirName = String::New("js");
+	} else {
+		dirName = dirVal->ToString();
+	}
+	String::AsciiValue dirNameC(dirName);
+#ifdef DEBUG
+	LOGD("Dirname %s", *dirNameC);
+#endif
+
+	// Check if this is an internal module
+	requireHook module = _modules[baseNameStr];
+
+#ifdef DEBUG
+	LOGI("normalizePath %s %p %i", *basename, module, _modules.size());
+#endif
+
+	if (module) {
+		// For modules just return the name again
+		return scope.Close(filename);
+	}
+	std::string pathName;
+	std::string pathTemp = std::string(*dirNameC).append("/").append(baseNameStr);
+#ifdef DEBUG
+	LOGD("Pathtemp %s", pathTemp.c_str());
+#endif
+	pathName = normalize_path(pathTemp);
+	Local<String> normalizedPath = String::New(pathName.c_str());
+
+	return scope.Close(normalizedPath);
+
 }
 
 Handle<Value> BGJSContext::require(const Arguments& args) {
@@ -316,106 +376,115 @@ Handle<Value> BGJSContext::require(const Arguments& args) {
 	LOGD("Dirname %s", *dirNameC);
 #endif
 
-	const int length = baseNameStr.length();
-	if (length > 5 && baseNameStr[length - 1] == 'n'
-			&& baseNameStr[length - 2] == 'o' && baseNameStr[length - 3] == 's'
-			&& baseNameStr[length - 4] == 'j'
-			&& baseNameStr[length - 5] == '.') {
-		// The file is a json file, just open it and parse it
-		isJson = true;
-	} else {
-		// Check if this is an internal module
-		requireHook module = _modules[baseNameStr];
+	// Check if this is an internal module
+	requireHook module = _modules[baseNameStr];
 
 #ifdef DEBUG
-		LOGI("require %s %p %i", *basename, module, _modules.size());
+	LOGI("require %s %p %i", *basename, module, _modules.size());
 #endif
 
-		if (module) {
-			Local<Object> exports = Object::New();
-			module(exports);
-			CloneObject(args.This(), exports, sandbox);
-			return scope.Close(exports);
-		}
+	if (module) {
+		Local<Object> exports = Object::New();
+		module(exports);
+		CloneObject(args.This(), exports, sandbox);
+		return scope.Close(exports);
 	}
-	std::string pathName;
-	std::string basePath;
-	if (!isJson) {
-		std::string pathTemp = std::string(*dirNameC).append("/").append(baseNameStr);
-#ifdef DEBUG
-		LOGD("Pathtemp %s", pathTemp.c_str());
-#endif
-		pathName = normalize_path(pathTemp);
-		basePath = std::string(pathName);
+	std::string basePath = std::string(baseNameStr);
+	std::string pathName = std::string(basePath);
+	
 
-		// Check if this is a directory containing index.js or package.json
-		pathName.append("/package.json");
-		buf = this->_client->loadFile(pathName.c_str());
+	// Check if this is a directory containing index.js or package.json
+	pathName.append("/package.json");
+	buf = this->_client->loadFile(pathName.c_str());
 #ifdef DEBUG
-		LOGD("Opening file %s", pathName.c_str());
+	LOGD("Opening file %s", pathName.c_str());
 #endif
+	if (!buf) {
+		// It might be a directory with an index.js
+		std::string indexPath (basePath);
+		indexPath.append("/index.js");
+		
+		buf = this->_client->loadFile(indexPath.c_str());
+
+#ifdef DEBUG
+		LOGD("Opening file %s", indexPath.c_str());
+#endif
+
 		if (!buf) {
-			std::string indexPath (basePath);
-			indexPath.append("/index.js");
-			// It might be a directory with an index.js
-			buf = this->_client->loadFile(indexPath.c_str());
-
+			// So it might just be a js file
+			std::string jsPath (basePath);
+			jsPath.append(".js");
+			buf = this->_client->loadFile(jsPath.c_str());
 #ifdef DEBUG
-			LOGD("Opening file %s", indexPath.c_str());
+			LOGD("Opening file %s", jsPath.c_str());
 #endif
 
 			if (!buf) {
-				// TODO: Fix basepath here, it contains a filename
-				// So it might just be a js file
-
-
-				std::string jsPath (basePath);
-				basePath = std::string(*dirNameC);
-				jsPath.append(".js");
-				buf = this->_client->loadFile(jsPath.c_str());
+				// No JS file, but maybe JSON?
+				std::string jsonPath (basePath);
+				basePath = std::string(baseNameStr);
+				jsonPath.append(".json");
 #ifdef DEBUG
-				LOGD("Opening file %s", jsPath.c_str());
+				LOGD("Opening file %s", jsonPath.c_str());
 #endif
-			}
-		} else {
-			// Parse the package.json
-			// Create a string containing the JSON source
-			source = String::New(buf);
-			Handle<Object> res = BGJSContext::JsonParse(
-					BGJSContext::_context->Global(), source)->ToObject();
-			Handle<String> mainStr = String::New("main");
-			if (res->Has(mainStr)) {
-				Handle<String> jsFileName = res->Get(mainStr)->ToString();
-				String::AsciiValue jsFileNameC(jsFileName);
-#ifdef DEBUG
-				LOGD("Main JS file %s", *jsFileNameC);
-#endif
-				std::string indexPath (basePath);
-				indexPath.append("/").append(*jsFileNameC);
+				buf = this->_client->loadFile(jsonPath.c_str());
 				if (buf) {
-					free((void*) buf);
-					buf = NULL;
+					isJson = true;
+					basePath = getPathName(jsPath);
 				}
-
-				// It might be a directory with an index.js
-				buf = this->_client->loadFile(indexPath.c_str());
 			} else {
-				LOGE("%s doesn't have a main object: %s", pathName.c_str(), buf);
-				if (buf) {
-					free((void*) buf);
-					buf = NULL;
-				}
+				basePath = getPathName(jsPath);
 			}
 		}
 	} else {
-		std::string pathTemp = std::string(*dirNameC).append("/").append(baseNameStr);
+		// Parse the package.json
+		// Create a string containing the JSON source
+		source = String::New(buf);
+		Handle<Object> res = BGJSContext::JsonParse(
+				BGJSContext::_context->Global(), source)->ToObject();
+		Handle<String> mainStr = String::New("main");
+		if (res->Has(mainStr)) {
+			Handle<String> jsFileName = res->Get(mainStr)->ToString();
+			String::AsciiValue jsFileNameC(jsFileName);
+#ifdef DEBUG
+			LOGD("Main JS file %s", *jsFileNameC);
+#endif
+			std::string indexPath (basePath);
+			indexPath.append("/").append(*jsFileNameC);
+			if (buf) {
+				free((void*) buf);
+				buf = NULL;
+			}
+
+			// It might be a directory with an index.js
+			buf = this->_client->loadFile(indexPath.c_str());
+		} else {
+			LOGE("%s doesn't have a main object: %s", pathName.c_str(), buf);
+			if (buf) {
+				free((void*) buf);
+				buf = NULL;
+			}
+		}
+	}
+	
+	if (!buf) {
+		std::string pathTemp = std::string(baseNameStr);
+		basePath = getPathName(pathTemp);
 #ifdef DEBUG
 		LOGD("Pathtemp %s", pathTemp.c_str());
 #endif
-		pathName = normalize_path(pathTemp);
 		// pathName = normalize_path(baseNameStr);
-		basePath = std::string(pathName);
-		buf = this->_client->loadFile(pathName.c_str());
+		buf = this->_client->loadFile(pathTemp.c_str());
+
+		// Check if we are opening a JSON file
+		const int length = baseNameStr.length();
+		if (length > 5 && baseNameStr[length - 1] == 'n'
+				&& baseNameStr[length - 2] == 'o' && baseNameStr[length - 3] == 's'
+				&& baseNameStr[length - 4] == 'j'
+				&& baseNameStr[length - 5] == '.') {
+			// The file is a json file, just open it and parse it
+			isJson = true;
+		}
 	}
 
 	if (isJson) {
@@ -526,6 +595,13 @@ static Handle<Value> RequireCallback(const Arguments& args) {
 	BGJSContext *ctx = BGJSInfo::_jscontext;
 
 	return (ctx->require(args));
+}
+
+static Handle<Value> NormalizePathCallback(const Arguments& args) {
+
+	BGJSContext *ctx = BGJSInfo::_jscontext;
+
+	return (ctx->normalizePath(args));
 }
 
 void BGJSContext::setClient(ClientAbstract* client) {
@@ -868,6 +944,7 @@ BGJSContext::BGJSContext() {
 	global->Set(v8::String::New("console"), console);
 	// Set the int_require function in the global object
 	global->Set("int_require", v8::FunctionTemplate::New(RequireCallback));
+	global->Set("int_normalizePath", v8::FunctionTemplate::New(NormalizePathCallback));
 
 	global->SetAccessor(String::New("_locale"), BGJSContext::js_global_getLocale,
 			BGJSContext::js_global_setLocale);

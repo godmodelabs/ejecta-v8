@@ -65,6 +65,7 @@ public:
 	ClientAbstract* getClient();
 	void setLocale(const char* locale, const char* lang, const char* tz);
 	v8::Handle<v8::Value> require(const v8::Arguments& args);
+	v8::Handle<v8::Value> normalizePath(const v8::Arguments& args);
 	v8::Handle<v8::Value> callFunction(v8::Handle<v8::Object> recv, const char* name, int argc, v8::Handle<v8::Value> argv[]);
 	static v8::Handle<v8::Value> js_global_requestAnimationFrame (const v8::Arguments& args);
 	static v8::Handle<v8::Value> js_global_cancelAnimationFrame (const v8::Arguments& args);
@@ -110,6 +111,7 @@ private:
 	void CloneObject(v8::Handle<v8::Object> recv, v8::Handle<v8::Value> source,
 			v8::Handle<v8::Value> target);
 	std::string normalize_path(std::string& path);
+	std::string getPathName(std::string& path);
 	// Attributes
 	v8::Persistent<v8::Function> cloneObjectMethod;	// clone
 	v8::Persistent<v8::Function> jsonParseMethod;   // json parser
