@@ -4,6 +4,15 @@ android {
     compileSdkVersion 21
     buildToolsVersion '21.1.2'
 
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'x86', 'armeabi-v7a'
+            universalApk false
+        }
+    }
+
     /* defaultConfig {
         minSdkVersion 9
         targetSdkVersion 19
@@ -48,6 +57,11 @@ android {
     } */
 }
 
+repositories {
+    mavenCentral()
+}
+
 dependencies {
     compile fileTree(dir: 'libs', include: '*.jar')
+    // compile 'com.squareup.okhttp:okhttp:2.5.0'
 }
