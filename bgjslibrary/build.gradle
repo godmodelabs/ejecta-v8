@@ -4,14 +4,14 @@ android {
     compileSdkVersion 21
     buildToolsVersion '21.1.2'
 
-    splits {
+    /* splits {
         abi {
             enable true
             reset()
             include 'x86', 'armeabi-v7a'
             universalApk false
         }
-    }
+    } */
 
     /* defaultConfig {
         minSdkVersion 9
