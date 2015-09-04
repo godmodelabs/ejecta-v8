@@ -97,12 +97,10 @@ void BGJSGLView::setTouchPosition(int x, int y) {
 
 void BGJSGLView::swapBuffers() {
 	// At least HC on Tegra 2 doesn't like this
-	if (!noClearOnFlip) {
-		EGLDisplay display = eglGetCurrentDisplay();
-		EGLSurface surface = eglGetCurrentSurface(EGL_DRAW);
-		eglSurfaceAttrib(display, surface, EGL_SWAP_BEHAVIOR, EGL_BUFFER_DESTROYED);
-		EGLBoolean res = eglSwapBuffers (display, surface);
-	}
+	EGLDisplay display = eglGetCurrentDisplay();
+	EGLSurface surface = eglGetCurrentSurface(EGL_DRAW);
+	eglSurfaceAttrib(display, surface, EGL_SWAP_BEHAVIOR, noClearOnFlip ? EGL_BUFFER_PRESERVED : EGL_BUFFER_DESTROYED);
+	EGLBoolean res = eglSwapBuffers (display, surface);
 }
 
 void BGJSGLView::resize(int widthp, int heightp, bool resizeOnly) {
