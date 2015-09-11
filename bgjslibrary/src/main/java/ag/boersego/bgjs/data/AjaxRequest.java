@@ -19,6 +19,7 @@ public class AjaxRequest implements Runnable {
 
     private boolean mDebug;
     private V8UrlCache mCache;
+    private boolean mIsCancelled;
 
     public interface AjaxListener {
 		public void success(String data, int code, AjaxRequest request);
@@ -236,6 +237,9 @@ public class AjaxRequest implements Runnable {
 			}
 
 			// Get Response
+            if (mIsCancelled) {
+                return;
+            }
 			InputStream is = connection.getInputStream();
 			BufferedReader rd = new BufferedReader(new InputStreamReader(is));
 			String line;
@@ -243,6 +247,9 @@ public class AjaxRequest implements Runnable {
 
 			// TODO: Optimize me
 			while ((line = rd.readLine()) != null) {
+                if (mIsCancelled) {
+                    return;
+                }
 				response.append(line);
 				response.append('\r');
 			}
@@ -332,6 +339,13 @@ public class AjaxRequest implements Runnable {
 			}
 		}
 	}
+
+	public void cancel() {
+        mIsCancelled = true;
+        synchronized (this) {
+            this.notifyAll();
+        }
+    }
 	
 	public void runCallback() {
 		if (mSuccessData != null) {
