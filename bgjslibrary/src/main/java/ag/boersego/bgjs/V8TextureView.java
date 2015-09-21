@@ -31,7 +31,7 @@ import javax.microedition.khronos.egl.EGLSurface;
  *
  */
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-abstract public class V8TextureView extends TextureView implements TextureView.SurfaceTextureListener, IV8GL {
+abstract public class V8TextureView extends TextureView implements TextureView.SurfaceTextureListener {
 
     protected RenderThread mRenderThread;
 	private final MotionEvent.PointerCoords[] mTouches = new MotionEvent.PointerCoords[MAX_NUM_TOUCHES];
@@ -516,7 +516,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 	 * @author kread
 	 *
 	 */
-	private class RenderThread extends Thread implements IV8GL {
+	private class RenderThread extends Thread {
 		private static final String TAG = "V8RenderThread";
 
 		static final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
@@ -584,11 +584,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 		}
 
-        @Override
-        public void setRenderCallback(IV8GLViewOnRender listener) {
-
-        }
-
         public void requestRender() {
 			synchronized (this) {
 				mRenderPending = true;
@@ -598,11 +593,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				}
 			}
 		}
-
-        @Override
-        public void setInteractive(boolean b) {
-
-        }
 
         public void reinitGl() {
 			synchronized (this) {
