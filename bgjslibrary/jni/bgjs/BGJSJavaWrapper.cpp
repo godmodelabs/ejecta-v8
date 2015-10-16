@@ -236,7 +236,7 @@ bool BGJSJavaWrapper::apply (Local<Object> &v8obj, jobject &object, jclass &claz
 							// Source: http://stackoverflow.com/questions/1521607/check-double-variable-if-it-contains-an-integer-and-not-floating-point
 							double integralPart = 0.0;
 							if (modf(doubleVal, &integralPart) == 0.0) {
-								snprintf(scratchBuf, 99, "%li", (long int)doubleVal);
+								snprintf(scratchBuf, 99, "%lli", (long long int)doubleVal);
 							} else {
 								snprintf(scratchBuf, 99, "%f", doubleVal);
 							}

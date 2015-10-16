@@ -758,7 +758,7 @@ Handle<Value> BGJSContext::js_global_requestAnimationFrame(
 	HandleScope scope;
 	BGJSContext *ctx = BGJSInfo::_jscontext;
 
-	if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsObject()) {
+	if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
 		Persistent<Object> func = Persistent<Object>::New(args[0]->ToObject());
 		Handle<Object> objRef = args[1]->ToObject();
 		BGJSGLView* view = static_cast<BGJSGLView *>(External::Unwrap(
