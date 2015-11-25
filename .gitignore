@@ -4,3 +4,5 @@ bgjslibrary/build/*
 bgjslibrary/libs/*
 bgjslibrary/obj/*
 bgjslibrary/jni/submodules
+bgjsandroid.sublime-project
+bgjsandroid.sublime-workspace
