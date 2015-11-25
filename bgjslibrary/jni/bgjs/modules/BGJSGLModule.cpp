@@ -1087,7 +1087,7 @@ static void checkGlError(const char* op) {
 	}
 }
 
-JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env,
+JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env,
 		jobject obj, jlong ctxPtr, jobject javaGlView, jfloat pixelRatio, jboolean noClearOnFlip) {
 
 	v8::Locker l;
@@ -1103,11 +1103,11 @@ JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env
 	// Register GLView with context so that cancelAnimationRequest works.
 	ct->registerGLView(view);
 
-	return (jint) view;
+	return (jlong) view;
 }
 
 JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jint objPtr, jint width, jint height, jstring callbackName) {
+		jobject obj, jlong ctxPtr, jlong objPtr, jint width, jint height, jstring callbackName) {
 	v8::Locker l;
 	HandleScope scope;
 
@@ -1150,7 +1150,7 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jint objPtr) {
+		jobject obj, jlong ctxPtr, jlong objPtr) {
 	v8::Locker l;
 	HandleScope scope;
 
@@ -1168,14 +1168,14 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
 const GLfloat gTriangleVertices[] = { 0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
 
 JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_step(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jint jsPtr) {
+		jobject obj, jlong ctxPtr, jlong jsPtr) {
 	BGJSContext* ct = (BGJSContext*) ctxPtr;
 	BGJSGLView *view = (BGJSGLView*) jsPtr;
 	return BGJSGLModule::_bgjscontext->runAnimationRequests(view);
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jint jsPtr) {
+		jobject obj, jlong ctxPtr, jlong jsPtr) {
 	BGJSContext* ct = (BGJSContext*) ctxPtr;
 	BGJSGLView *view = (BGJSGLView*) jsPtr;
 	return view->call(view->_cbRedraw);
@@ -1183,7 +1183,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,
 
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
-		JNIEnv * env, jobject obj, jlong ctxPtr, jint objPtr, jstring typeStr,
+		JNIEnv * env, jobject obj, jlong ctxPtr, jlong objPtr, jstring typeStr,
 		jfloatArray xArr, jfloatArray yArr, jfloat scale) {
 	v8::Locker l;
 	HandleScope scope;

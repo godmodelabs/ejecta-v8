@@ -156,7 +156,7 @@ void BGJSGLView::requestRefresh() {
 #endif
 }
 
-int BGJSGLView::requestAnimationFrameForView(Persistent<Object> cb,
+int BGJSGLView::requestAnimationFrameForView(Persistent<Object> cb, Persistent<Object> thisObj,
 		int id) {
 	// make sure there is still room in the buffer
 #ifdef DEBUG
@@ -173,6 +173,7 @@ int BGJSGLView::requestAnimationFrameForView(Persistent<Object> cb,
 	request->callback = cb;
 	request->view = this;
 	request->valid = true;
+	request->thisObj = thisObj;
 	request->requestId = id;
 	_nextFrameRequest = (_nextFrameRequest + 1) % MAX_FRAME_REQUESTS;
 

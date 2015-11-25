@@ -625,6 +625,7 @@ void BGJSContext::cancelAnimationFrame(int id) {
 					&& request->view != NULL) {
 				request->valid = false;
 				request->callback.Dispose();
+				request->thisObj.Dispose();
 #ifdef DEBUG
 				LOGD("cancelAnimationFrame cancelled id %d", request->requestId);
 #endif
@@ -666,7 +667,7 @@ bool BGJSContext::runAnimationRequests(BGJSGLView* view) {
 			request->view->prepareRedraw();
 			Handle<Value> args[0];
 			Handle<Value> result = request->callback->CallAsFunction(
-					_context->Global(), 0, args);
+					request->thisObj, 0, args);
 
 			if (result.IsEmpty()) {
 				LOGE("Exception occured while running runAnimationRequest cb");
@@ -678,6 +679,7 @@ bool BGJSContext::runAnimationRequests(BGJSGLView* view) {
 			LOGD("runAnimation number %d %s", index, *fnName);
 #endif
 			request->callback.Dispose();
+			request->thisObj.Dispose();
 
 			request->view->endRedraw();
 			request->valid = false;
@@ -763,10 +765,16 @@ Handle<Value> BGJSContext::js_global_requestAnimationFrame(
 		Handle<Object> objRef = args[1]->ToObject();
 		BGJSGLView* view = static_cast<BGJSGLView *>(External::Unwrap(
 				objRef->GetInternalField(0)));
+		Persistent<Object> thisObj = Persistent<Object>::New(args.This());
 		if (func->IsFunction()) {
-			int id = view->requestAnimationFrameForView(func,
+			#ifdef DEBUG
+				LOGD("requestAnimationFrame: on BGJSGLView %p, %p", view, &thisObj);
+			#endif
+			int id = view->requestAnimationFrameForView(func, thisObj,
 					(ctx->_nextTimerId)++);
 			return scope.Close(Integer::New(id));
+		} else {
+			LOGI("requestAnimationFrame: Not a function");
 		}
 	} else {
 		LOGI("requestAnimationFrame: Wrong number or type of parameters");

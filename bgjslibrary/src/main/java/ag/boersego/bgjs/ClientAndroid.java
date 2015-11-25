@@ -14,14 +14,14 @@ public class ClientAndroid {
 	public static native boolean ajaxDone(long ctxPtr, String data, int responseCode, long jsCbPtr, long thisObj, long errorCb, boolean success, boolean processData);
 	
 	// BGJSGLModule
-    public static native int createGL(long ctxPtr, V8TextureView gl2jniView, float pixelRatio, boolean noClearOnFlip);
-    public static native int init(long ctxPtr, int objPtr, int width, int height, String callbackName);
-    public static native boolean step(long ctxPtr, int jsPtr);
-    public static native void setTouchPosition(long ctxPtr, int jsPtr, int x, int y);
-    public static native void sendTouchEvent(long ctxPtr, int objPtr, String typeStr,
+    public static native long createGL(long ctxPtr, V8TextureView gl2jniView, float pixelRatio, boolean noClearOnFlip);
+    public static native int init(long ctxPtr, long objPtr, int width, int height, String callbackName);
+    public static native boolean step(long ctxPtr, long jsPtr);
+    public static native void setTouchPosition(long ctxPtr, long jsPtr, int x, int y);
+    public static native void sendTouchEvent(long ctxPtr, long objPtr, String typeStr,
 			float[] xArr, float[] yArr, float scale);
-    public static native void redraw (long ctxPtr, int jsPtr);
-	public static native void close(long ctxPtr, int jsPtr);
+    public static native void redraw (long ctxPtr, long jsPtr);
+	public static native void close(long ctxPtr, long jsPtr);
 
     // BGJSModule
     public static native void cleanupNativeFnPtr (long nativePtr);

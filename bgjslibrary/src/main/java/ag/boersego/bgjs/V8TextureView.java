@@ -73,13 +73,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         DEBUG = debug;
     }
 
-    abstract public void onGLCreated (int jsId);
+    abstract public void onGLCreated (long jsId);
 
-    abstract public void onGLRecreated (int jsId);
+    abstract public void onGLRecreated (long jsId);
 
     abstract public void onGLCreateError (Exception ex);
 
-    abstract public void onRenderAttentionNeeded (int jsId);
+    abstract public void onRenderAttentionNeeded (long jsId);
 
     public void doNeedAttention(boolean b) {
         mRenderThread.setNeedAttention(b);
@@ -507,7 +507,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * Create the JNI side of OpenGL init. Can be overriden by subclasses to instantiate other BGJSGLView subclasses
      * @return pointer to JNI object
      */
-    protected int createGL () {
+    protected long createGL () {
         return ClientAndroid.createGL(V8Engine.getInstance().getNativePtr(), this, mScaling, false);
     }
 
@@ -531,7 +531,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		private EGLSurface mEglSurface;
 
 
-		private int mJSId;
+		private long mJSId;
 
 		private long mLastRenderSec;	// Used to calculate FPS
 		private int mRenderCnt;
@@ -589,7 +589,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				mRenderPending = true;
 				this.notifyAll();
 				if (DEBUG) {
-					Log.d(TAG, "Requested render");
+					Log.d(TAG, "Requested render mJSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0'));
 				}
 			}
 		}
@@ -684,6 +684,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				}
 
 				final boolean didDraw = ClientAndroid.step(V8Engine.getInstance().getNativePtr(), mJSId);
+
+                if (DEBUG) {
+                    Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
+                }
 
 				mRenderCnt++;
 				
