@@ -73,13 +73,15 @@ void BGJSCanvasContext::clipY (float y, float y2) {
 	state2->clipY2 = y2;
 
 	if(y==y2) {
-		// LOGD("Clipping disabled");
+		#ifdef DEBUG
+			LOGD("Clipping disabled");
+		#endif
 		glDisable(GL_SCISSOR_TEST);
 		return;
 	}
 
-	y = viewportHeight - EJVector2ApplyTransform( EJVector2Make(0, y), state->transform).y *backingStoreRatio;
-	y2 = viewportHeight - EJVector2ApplyTransform( EJVector2Make(0, y2), state->transform).y *backingStoreRatio;
+	y = viewportHeight - EJVector2ApplyTransform( EJVector2Make(0, y), state->transform).y; // *backingStoreRatio;
+	y2 = viewportHeight - EJVector2ApplyTransform( EJVector2Make(0, y2), state->transform).y; // *backingStoreRatio;
 
 	#ifdef DEBUG
 		LOGD("Clipping y=%f, y2=%f, so going from %f to %f", state2->clipY1, state2->clipY2, y2, (y-y2));
