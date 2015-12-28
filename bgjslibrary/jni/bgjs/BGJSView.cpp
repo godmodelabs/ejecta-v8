@@ -12,6 +12,8 @@
 
 // #define DEBUG_GL 1
 #undef DEBUG_GL
+// #define DEBUG 1
+#undef DEBUG
 
 #define LOG_TAG	"BGJSView"
 

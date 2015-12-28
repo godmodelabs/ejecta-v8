@@ -17,8 +17,9 @@
 
 #include "os-detection.h"
 
-#undef DEBUG
+// #undef DEBUG
 // #define DEBUG 1
+#undef DEBUG
 // #define DEBUG_GL 0
 #undef DEBUG_GL
 #define LOG_TAG "BGJSGLView"
@@ -104,6 +105,9 @@ void BGJSGLView::swapBuffers() {
 }
 
 void BGJSGLView::resize(int widthp, int heightp, bool resizeOnly) {
+#ifdef DEBUG
+	LOGI("Resize to %dx%d", widthp, heightp);
+#endif	
 	context2d->resize(widthp, heightp, resizeOnly);
 	this->width = widthp;
 	this->height = heightp;

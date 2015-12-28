@@ -16,6 +16,8 @@
 
 // #define DEBUG_GL 	1
 #undef DEBUG_GL
+// #define DEBUG 1
+#undef DEBUG
 
 using namespace v8;
 
@@ -79,7 +81,9 @@ void BGJSCanvasContext::clipY (float y, float y2) {
 	y = viewportHeight - EJVector2ApplyTransform( EJVector2Make(0, y), state->transform).y *backingStoreRatio;
 	y2 = viewportHeight - EJVector2ApplyTransform( EJVector2Make(0, y2), state->transform).y *backingStoreRatio;
 
-	// LOGD("Clipping y=%f, y2=%f, so going from %f to %f", state2->clipY1, state2->clipY2, y2, (y-y2));
+	#ifdef DEBUG
+		LOGD("Clipping y=%f, y2=%f, so going from %f to %f", state2->clipY1, state2->clipY2, y2, (y-y2));
+	#endif
 
 	glEnable(GL_SCISSOR_TEST);
 	glScissor(0,y2,5000,y-y2);
@@ -94,6 +98,10 @@ void BGJSCanvasContext::resize (int widthp, int heightp, bool resizeOnly) {
 
 	bufferHeight = viewportHeight; //  *= backingStoreRatio;
 	bufferWidth = viewportWidth; //  *= backingStoreRatio;
+
+	#ifdef DEBUG
+		LOGD("resize to %dx%d, buffer %dx%d", viewportWidth, viewportHeight, bufferWidth, bufferHeight);
+	#endif
 
 	// reallocate color buffer backing based on the current layer size
 #ifndef SIMPLE_STENCIL

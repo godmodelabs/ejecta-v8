@@ -6,8 +6,6 @@
 #include "v8.h"
 #include "../ejecta/EJConvert.h"
 
-// #define DEBUG 1
-
 #include <GLES/gl.h>
 
 #include <stdio.h>
@@ -16,6 +14,9 @@
 #include <android/bitmap.h>
 
 #include "../jniext.h"
+
+// #define DEBUG 1
+#undef DEBUG
 
 #define LOG_TAG "BGJSGLModule"
 
@@ -1112,11 +1113,6 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 	HandleScope scope;
 
 #ifdef DEBUG
-	printGLString("Version", GL_VERSION);
-	printGLString("Vendor", GL_VENDOR);
-	printGLString("Renderer", GL_RENDERER);
-	printGLString("Extensions", GL_EXTENSIONS);
-
 	LOGI("setupGraphics(%d, %d)", width, height);
 #endif
 	BGJSContext* ct = (BGJSContext*) ctxPtr;
@@ -1125,7 +1121,7 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 
 	BGJSGLView *view = (BGJSGLView*) objPtr;
 
-	if (width != view->width || height != view->height) {
+	if (width != view->width || height != view->height || !view->opened) {
 #ifdef DEBUG
 		LOGD("Resizing from %dx%d to %dx%d, resizeOnly %i", view->width, view->height, width, height, (int)(view->opened));
 #endif
