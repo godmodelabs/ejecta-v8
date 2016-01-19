@@ -105,7 +105,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 	 * Request a redraw
 	 */
 	public void requestRender() {
-		mRenderThread.requestRender();
+		if (mRenderThread != null) {
+			mRenderThread.requestRender();
+		}
 	}
 
 	@Override
