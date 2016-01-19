@@ -9,6 +9,10 @@ public:
 	JNIEnv* envCache;
 	JavaVM *cachedJVM;
 	jobject assetManager;
+	jclass bgjsPushHelper;
+	jclass chartingV8Engine;
+	jmethodID bgjsPushUnsubscribeMethod, bgjsPushSubscribeMethod;
+	jmethodID v8EnginegetIAPState;
 	jobject v8Engine;
 	const char* loadFile (const char* path);
 	const char* loadFile (const char* path, unsigned int* length);

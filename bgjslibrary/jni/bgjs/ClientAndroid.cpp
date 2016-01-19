@@ -44,8 +44,6 @@ using namespace v8;
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
-
-
 ClientAbstract::~ClientAbstract() {
 }
 
@@ -166,6 +164,50 @@ void ClientAndroid::on (const char* event, void* cbPtr, void *thisObjPtr) {
 	jstring eventStr = env->NewStringUTF(event);
 
 	env->CallStaticVoidMethod(clazz, mid, eventStr, (jlong)cbPtr, (jlong)thisObjPtr);
+}
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved)
+{
+    JNIEnv* env;
+    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        return -1;
+    }
+
+    // Get jclass with env->FindClass.
+    // Register methods with env->RegisterNatives.
+    jclass clazz = env->FindClass("ag/boersego/android/conn/BGJSPushHelper");
+	if (clazz == NULL) {
+		LOGE("Cannot find class BGJSPushHelper!");
+	} else {
+		_client->bgjsPushHelper = (jclass)env->NewGlobalRef(clazz);
+		jmethodID pushMethod = env->GetStaticMethodID(clazz,
+			"registerPush", "(Ljava/lang/String;JJ)I");
+		if (pushMethod) {
+			_client->bgjsPushSubscribeMethod = pushMethod;
+		} else {
+			LOGE("Cannot find static method BGJSPushHelper.registerPush!");
+		}
+
+		pushMethod = env->GetStaticMethodID(clazz, "unregisterPush", "(I)V");
+
+		if (pushMethod) {
+			_client->bgjsPushUnsubscribeMethod = pushMethod;
+		} else {
+			LOGE("Cannot find static method BGJSPushHelper.registerPush!");
+		}
+	}
+
+	clazz = env->FindClass("ag/boersego/chartingjs/ChartingV8Engine");
+
+	if (clazz == NULL) {
+		LOGE("Cannot find class ChartingV8Engine!");
+	} else {
+		_client->chartingV8Engine = (jclass)env->NewGlobalRef(clazz);
+		_client->v8EnginegetIAPState = env->GetStaticMethodID(clazz, "getIAPState", "(Ljava/lang/String;)Z");
+	}
+	
+
+    return JNI_VERSION_1_6;
 }
 
 /*
