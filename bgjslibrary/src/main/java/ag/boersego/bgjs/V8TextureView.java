@@ -82,7 +82,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     abstract public void onRenderAttentionNeeded (long jsId);
 
     public void doNeedAttention(boolean b) {
-        mRenderThread.setNeedAttention(b);
+		if(mRenderThread != null) {
+			mRenderThread.setNeedAttention(b);
+		}
     }
 
 	@Override
