@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import ag.boersego.bgjs.data.AjaxRequest;
 import ag.boersego.bgjs.data.V8UrlCache;
@@ -40,8 +41,9 @@ public class V8Engine extends Thread implements Handler.Callback {
 	private static final String TAG = "V8Engine";
 	private static boolean DEBUG = true && BuildConfig.DEBUG;
     private V8UrlCache mCache;
+	private ThreadPoolExecutor mTPExecutor;
 
-    public static void doDebug (boolean debug) {
+	public static void doDebug (boolean debug) {
         DEBUG = debug;
     }
 	
@@ -146,6 +148,10 @@ public class V8Engine extends Thread implements Handler.Callback {
         mCache = cache;
     }
 
+	public void setTPExecutor(final ThreadPoolExecutor executor) {
+		mTPExecutor = executor;
+	}
+
     public long getNativePtr() {
 		return mNativePtr;
 	}
@@ -169,6 +175,10 @@ public class V8Engine extends Thread implements Handler.Callback {
 	public static V8Engine getInstance() {
 		return getInstance(null, null);
 	}
+
+    public static V8Engine getCachedInstance() {
+        return mInstance;
+    }
 
     public void initializeV8(AssetManager assetManager) {
         mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity);
@@ -380,7 +390,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 			mReq.doRunOnUiThread(false);
 			mReq.setOutputType("application/json");
 
-			Thread thr = new Thread() {
+			final Runnable runnable = new Runnable() {
 				@Override
 				public void run() {
 					if (DEBUG) {
@@ -393,7 +403,12 @@ public class V8Engine extends Thread implements Handler.Callback {
 							.obtainMessage(MSG_AJAX, V8AjaxRequest.this));
 				}
 			};
-			thr.start();
+			if (mTPExecutor != null) {
+				mTPExecutor.execute(runnable);
+			} else {
+				final Thread thr = new Thread(runnable);
+				thr.start();
+			}
 		}
 
 		public void doCallBack() {
