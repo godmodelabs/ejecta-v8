@@ -6,4 +6,5 @@ package ag.boersego.bgjs.data;
  */
 public interface V8UrlCache {
     abstract public void storeInCache (String url, String response, int maxAge);
+    abstract public void storeInCache (String url, Object response, int maxAge);
 }

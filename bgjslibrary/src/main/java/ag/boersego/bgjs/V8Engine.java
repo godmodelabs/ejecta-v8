@@ -9,6 +9,7 @@ import android.os.Message;
 import android.util.Log;
 import android.util.SparseArray;
 
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -385,8 +386,13 @@ public class V8Engine extends Thread implements Handler.Callback {
 			mErrorCb = errorCb;
 			mSuccess = false;
 			mProcessData = processData;
-			mReq = new AjaxRequest(url, data, this, method);
-            mReq.setCacheInstance(mCache);
+			try {
+				mReq = new AjaxRequest(url, data, this, method);
+			} catch (URISyntaxException e) {
+				Log.e(TAG, "Cannot create URL", e);
+				ClientAndroid.ajaxDone(mNativePtr, null, 500, mCbPtr, mThisObj, mErrorCb, false, mProcessData);
+			}
+			mReq.setCacheInstance(mCache);
 			mReq.doRunOnUiThread(false);
 			mReq.setOutputType("application/json");
 

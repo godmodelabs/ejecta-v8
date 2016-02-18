@@ -10,6 +10,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Locale;
@@ -93,7 +95,7 @@ public class AjaxRequest implements Runnable {
         }
     }
 	
-	protected String mUrl;
+	protected URI mUrl;
 	protected String mData;
 	protected AjaxListener mCaller;
 	protected Object mDataObject;
@@ -121,31 +123,31 @@ public class AjaxRequest implements Runnable {
 		
 	}
 	
-	public void setUrl (String url) {
-		mUrl = url;
+	public void setUrl (String url) throws URISyntaxException {
+		mUrl = new URI(url);
 	}
 
-	public AjaxRequest(String targetURL, String data, AjaxListener caller) {
+	public AjaxRequest(String targetURL, String data, AjaxListener caller) throws URISyntaxException {
 		if (data != null) {
-			mUrl = targetURL + "?" + data;
+			mUrl = new URI(targetURL + "?" + data);
 		} else {
-			mUrl = targetURL;
+			mUrl = new URI(targetURL);
 		}
 		mData = data;
 		mCaller = caller;
 	}
 
 	public AjaxRequest(String url, String data, AjaxListener caller,
-			String method) {
+			String method) throws URISyntaxException {
 		mData = data;
 		mCaller = caller;
 		if (method == null) {
 			method = "GET";
 		}
 		if (method.equals("GET") && data != null) {
-			mUrl = url + "?" + data;
+			mUrl = new URI(url + "?" + data);
 		} else {
-			mUrl = url;
+			mUrl = new URI(url);
 		}
 		mMethod  = method;
 	}
@@ -177,13 +179,43 @@ public class AjaxRequest implements Runnable {
 	    mResultBuilder.append(URLEncoder.encode(value, "UTF-8"));
 	}
 
+	/**
+	 * Subclasses can override this to handle the InputStream directly instead of letting this
+     * class read it into a string completely
+	 * @param is the InputStream from the URL connection
+	 * @return true if the subclass handled reading the Stream
+	 */
+	protected void onInputStreamReady(final InputStream is, final HttpURLConnection connection) throws IOException {
+        BufferedReader rd = new BufferedReader(new InputStreamReader(is));
+        String line;
+        StringBuilder response = new StringBuilder(4096);
+
+        // TODO: Optimize me
+        while ((line = rd.readLine()) != null) {
+            if (mIsCancelled) {
+                return;
+            }
+            response.append(line);
+            response.append('\r');
+        }
+        rd.close();
+        mSuccessData = response.toString();
+
+        storeCacheObject(connection, mSuccessData);
+
+        if (mDebug) {
+            Log.d (TAG, "Response: " + mSuccessCode + "/" + mSuccessData);
+        }
+	}
+
 	@SuppressWarnings("ConstantConditions")
     public void run() {
 		URL url;
 		HttpURLConnection connection = null;
+        InputStream is = null;
 		try {
 			// Create connection
-			url = new URL(mUrl);
+			url = mUrl.toURL();
 			connection = (HttpURLConnection) url.openConnection();
 			connection.setInstanceFollowRedirects(true);
 			connection.setConnectTimeout(connectionTimeout);
@@ -240,64 +272,27 @@ public class AjaxRequest implements Runnable {
             if (mIsCancelled) {
                 return;
             }
-			InputStream is = connection.getInputStream();
-			BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-			String line;
-			StringBuilder response = new StringBuilder(4096);
+			is = connection.getInputStream();
+            final String responseStr;
+            int dataSizeGuess = connection.getContentLength();
+            if (dataSizeGuess > 0) {
+                AjaxTrafficCounter.addTraffic(0, dataSizeGuess);
+            }
+            mSuccessCode = connection.getResponseCode();
 
-			// TODO: Optimize me
-			while ((line = rd.readLine()) != null) {
-                if (mIsCancelled) {
-                    return;
-                }
-				response.append(line);
-				response.append('\r');
-			}
-			rd.close();
-			final String responseStr = response.toString();
-			
-			try {
-				String cc = connection.getHeaderField("Cache-Control");
-				if (cc != null && mMethod.equals("GET")) {
-					if (!cc.contains("no-store")) {
-						// Response is cacheable
-						if (cc.contains("max-age")) {
-							int maxAge;
-							int token = cc.indexOf("max-age=");
-							int start = cc.indexOf("=", token) + 1;
-							int end = cc.indexOf(",", start + 1);
-							if (end != -1) {
-								maxAge = Integer.parseInt(cc.substring(start, end));
-							} else {
-								maxAge = Integer.parseInt(cc.substring(start));
-							}
-							if (maxAge > 0 && mCache != null) {
-								mCache.storeInCache(mUrl, responseStr, maxAge);
-								if (mDebug) {
-									Log.d (TAG, "Stored in cache for " + maxAge + " secs");
-								}
-							}
-						}
-					}
-				}
-			} catch (Exception ex) {
-				Log.i (TAG, "Cannot set cache info", ex);
-			}
-			mSuccessData = responseStr;
-			mSuccessCode = connection.getResponseCode();
+            onInputStreamReady(is, connection);
 
-            AjaxTrafficCounter.addTraffic(0, mSuccessData.length());
-
-			
-			if (mDebug) {
-				Log.d (TAG, "Response: " + mSuccessCode + "/" + responseStr);
-			}
 		} catch (Exception e) {
 
 			String errDescription;
 			try {
                 if (connection != null) {
-                    InputStream is = connection.getErrorStream();
+                    if (is != null) {
+                        try {
+                            is.close();
+                        } catch (IOException ignored) { }
+                    }
+                    is = connection.getErrorStream();
                     if (is != null) {
                         BufferedReader rd = new BufferedReader(new InputStreamReader(is));
                         String line;
@@ -334,11 +329,50 @@ public class AjaxRequest implements Runnable {
 			}
 
 		} finally {
+            if (is != null) {
+                try {
+                    is.close();
+                } catch (IOException ignored) {}
+            }
 			if (connection != null) {
 				connection.disconnect();
 			}
 		}
 	}
+
+
+    protected void storeCacheObject(final HttpURLConnection connection, final Object cachedObject) {
+        if (connection == null) {
+            return;
+        }
+        try {
+            String cc = connection.getHeaderField("Cache-Control");
+            if (cc != null && mMethod.equals("GET")) {
+                if (!cc.contains("no-store")) {
+                    // Response is cacheable
+                    if (cc.contains("max-age")) {
+                        int maxAge;
+                        int token = cc.indexOf("max-age=");
+                        int start = cc.indexOf("=", token) + 1;
+                        int end = cc.indexOf(",", start + 1);
+                        if (end != -1) {
+                            maxAge = Integer.parseInt(cc.substring(start, end));
+                        } else {
+                            maxAge = Integer.parseInt(cc.substring(start));
+                        }
+                        if (maxAge > 0 && mCache != null) {
+                            mCache.storeInCache(mUrl.toString(), cachedObject, maxAge);
+                            if (mDebug) {
+                                Log.d (TAG, "Stored in cache for " + maxAge + " secs");
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Log.i (TAG, "Cannot set cache info", ex);
+        }
+    }
 
 	public void cancel() {
         mIsCancelled = true;
@@ -373,7 +407,7 @@ public class AjaxRequest implements Runnable {
 	
 	public String toString() {
 		if (mUrl != null) {
-			return mUrl;
+			return mUrl.toString();
 		}
 		
 		return "AjaxRequest uninitialized";
