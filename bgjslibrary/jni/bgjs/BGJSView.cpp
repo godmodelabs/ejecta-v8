@@ -164,12 +164,11 @@ Handle<Value> BGJSView::startJS(const char* fnName, const char* configJson, Hand
 void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 	TryCatch trycatch;
 	HandleScope scope;
+	if (!opened) {
+		return;
+	}
 
 	Handle<Value> args[] = { eventObjRef };
-
-	/* if (!_cbEvent) {
-		return;
-	} */
 
 	const int count = _cbEvent.size();
 
@@ -177,9 +176,14 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 
 
 	for (std::vector<Persistent<Object> >::size_type i = 0; i < count; i++) {
-		Handle<Value> result = _cbEvent[i]->CallAsFunction(_cbEvent[i], 1, args);
-		if (result.IsEmpty()) {
-			BGJSContext::ReportException(&trycatch);
+		if (!opened) {
+			return;
+		}
+		if (*_cbEvent[i]) {
+			Handle<Value> result = _cbEvent[i]->CallAsFunction(_cbEvent[i], 1, args);
+			if (result.IsEmpty()) {
+				BGJSContext::ReportException(&trycatch);
+			}
 		}
 	}
 }
@@ -201,22 +205,27 @@ void BGJSView::call(std::vector<Persistent<Object> > &list) {
 }
 
 BGJSView::~BGJSView() {
+	opened = false;
 	// Dispose of permanent references to event listeners
-	int count = _cbClose.size();
-	for (std::vector<Persistent<Object> >::size_type i = 0; i < count; i++) {
-		_cbClose[i].Dispose();
+	while (!_cbClose.empty()) {
+		v8::Persistent<v8::Object> item = _cbClose.back();
+		_cbClose.pop_back();
+		item.Dispose();
 	}
-	count = _cbResize.size();
-	for (std::vector<Persistent<Object> >::size_type i = 0; i < count; i++) {
-		_cbResize[i].Dispose();
+	while (!_cbResize.empty()) {
+		v8::Persistent<v8::Object> item = _cbResize.back();
+		_cbResize.pop_back();
+		item.Dispose();
 	}
-	count = _cbEvent.size();
-	for (std::vector<Persistent<Object> >::size_type i = 0; i < count; i++) {
-		_cbEvent[i].Dispose();
+	while (!_cbEvent.empty()) {
+		v8::Persistent<v8::Object> item = _cbEvent.back();
+		_cbEvent.pop_back();
+		item.Dispose();
 	}
-	count = _cbRedraw.size();
-	for (std::vector<Persistent<Object> >::size_type i = 0; i < count; i++) {
-		_cbRedraw[i].Dispose();
+	while (!_cbRedraw.empty()) {
+		v8::Persistent<v8::Object> item = _cbRedraw.back();
+		_cbRedraw.pop_back();
+		item.Dispose();
 	}
 	if (*this->jsViewOT && !this->jsViewOT.IsEmpty()) {
 		this->jsViewOT.Dispose();
