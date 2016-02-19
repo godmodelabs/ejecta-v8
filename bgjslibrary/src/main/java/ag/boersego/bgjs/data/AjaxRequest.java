@@ -4,25 +4,31 @@ import android.os.Build;
 import android.util.Log;
 
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Locale;
 
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
-public class AjaxRequest extends AjaxRequestDebug implements Runnable {
+
+public class AjaxRequest implements Runnable {
 
     private boolean mDebug;
     private V8UrlCache mCache;
     private boolean mIsCancelled;
+    private OkHttpClient mHttpClient;
+
+    public void setHttpClient(OkHttpClient httpClient) {
+        mHttpClient = httpClient;
+    }
 
     public interface AjaxListener {
 		public void success(String data, int code, AjaxRequest request);
@@ -121,7 +127,6 @@ public class AjaxRequest extends AjaxRequestDebug implements Runnable {
     private static final String TAG = "AjaxRequest";
 	
 	protected AjaxRequest() {
-        super("");
 		
 	}
 	
@@ -130,7 +135,6 @@ public class AjaxRequest extends AjaxRequestDebug implements Runnable {
 	}
 
 	public AjaxRequest(String targetURL, String data, AjaxListener caller) throws URISyntaxException {
-        super(targetURL);
 		if (data != null) {
 			mUrl = new URI(targetURL + "?" + data);
 		} else {
@@ -142,7 +146,6 @@ public class AjaxRequest extends AjaxRequestDebug implements Runnable {
 
 	public AjaxRequest(String url, String data, AjaxListener caller,
 			String method) throws URISyntaxException {
-        super(url);
 		mData = data;
 		mCaller = caller;
 		if (method == null) {
@@ -186,24 +189,12 @@ public class AjaxRequest extends AjaxRequestDebug implements Runnable {
 	/**
 	 * Subclasses can override this to handle the InputStream directly instead of letting this
      * class read it into a string completely
-	 * @param is the InputStream from the URL connection
-	 * @return true if the subclass handled reading the Stream
+	 * @param connection
+     * @return true if the subclass handled reading the Stream
 	 */
-	protected void onInputStreamReady(final InputStream is, final HttpURLConnection connection) throws IOException {
-        BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-        String line;
-        StringBuilder response = new StringBuilder(4096);
+	protected void onInputStreamReady(final Response connection) throws IOException {
 
-        // TODO: Optimize me
-        while ((line = rd.readLine()) != null) {
-            if (mIsCancelled) {
-                return;
-            }
-            response.append(line);
-            response.append('\r');
-        }
-        rd.close();
-        mSuccessData = response.toString();
+        mSuccessData = connection.body().string();
 
         storeCacheObject(connection, mSuccessData);
 
@@ -215,68 +206,34 @@ public class AjaxRequest extends AjaxRequestDebug implements Runnable {
 	@SuppressWarnings("ConstantConditions")
     public void run() {
 		URL url;
-		HttpURLConnection connection = null;
-        InputStream is = null;
+
+        Response response = null;
 		try {
 			// Create connection
-			url = mUrl.toURL();
-			connection = (HttpURLConnection) url.openConnection();
-			connection.setInstanceFollowRedirects(true);
-			connection.setConnectTimeout(connectionTimeout);
-			connection.setReadTimeout(readTimeout);
-			Locale here = Locale.getDefault();
-			
-			if (AjaxRequest.mUserAgent == null) {
-				AjaxRequest.mUserAgent = "myrmecophaga/" + version + " (Linux; U; Android " + Build.VERSION.RELEASE + "; " + here.getLanguage() + "-" + here.getCountry() + "; " + Build.MANUFACTURER + " " + Build.MODEL + " Build " + Build.DISPLAY + ") AppleWebKit/pi (KHTML, like Gecko) Version/4.0 Mobile Safari/beta";
-			}
-			connection.setRequestProperty("User-Agent", AjaxRequest.mUserAgent);
-			if (mReferer != null) {
-				connection.setRequestProperty("Referer", mReferer);
-			}
 
-            //noinspection ConstantConditions
-            if (mDebug) {
-				Log.d (TAG, "Opening URL " + mUrl);
-				/* connection.setDefaultUseCaches(false);
-				connection.setUseCaches(false); */
-			} else {
-				connection.setDefaultUseCaches(true);
-				connection.setUseCaches(true);
-			}
-			connection.setDoInput(true);
-			connection.setRequestMethod(mMethod);
+            if (AjaxRequest.mUserAgent == null) {
+                Locale here = Locale.getDefault();
+                AjaxRequest.mUserAgent = "myrmecophaga/" + version + " (Linux; U; Android " + Build.VERSION.RELEASE + "; " + here.getLanguage() + "-" + here.getCountry() + "; " + Build.MANUFACTURER + " " + Build.MODEL + " Build " + Build.DISPLAY + ") AppleWebKit/pi (KHTML, like Gecko) Version/4.0 Mobile Safari/beta";
+            }
+
+			url = mUrl.toURL();
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(url)
+                    .addHeader("User-Agent", mUserAgent)
+                    .addHeader("Referer", mReferer);
+			
+
 			if (mResultBuilder != null) {
 				mData = mResultBuilder.toString();
 			}
 			if (mData != null) {
-				if (mOutputType != null) {
-					connection.setRequestProperty("Content-Type",
-						mOutputType);
-				} else {
-					if (mMethod.equals("POST")) {
-						connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded ");
-					}
-				}
-				byte[] outData = mData.getBytes();
-
-				connection.setRequestProperty("Content-Length",
-                        Integer.toString(outData.length));
-				connection.setRequestProperty("Content-Language", "en-US");
-				connection.setDoOutput(true);
-
-                // TODO: Add post
-                super.preConnect(connection, null);
-
-				// Send request
-				OutputStream wr = connection.getOutputStream();
-				wr.write(outData);
-				if (mDebug) {
-					Log.d (TAG, mMethod + " DATA " + mData);
-				}
-				wr.close();
-			} else {
-                // TODO: Add post
-                super.preConnect(connection, null);
+                if (mOutputType != null) {
+                    requestBuilder.post(RequestBody.create(MediaType.parse(mOutputType), mData));
+                } else {
+                    if (mMethod.equals("POST")) {
+                        requestBuilder.post(RequestBody.create(MediaType.parse("application/x-www-form-urlencoded"), mData));
+                    }
+                }
             }
 
 
@@ -284,106 +241,45 @@ public class AjaxRequest extends AjaxRequestDebug implements Runnable {
             if (mIsCancelled) {
                 return;
             }
-			is = super.interpretResponseStream(connection.getInputStream());
+
+            final Request request = requestBuilder.build();
+
+            response = mHttpClient.newCall(request).execute();
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             final String responseStr;
-            int dataSizeGuess = connection.getContentLength();
+            int dataSizeGuess = (int) response.body().contentLength();
             if (dataSizeGuess > 0) {
                 AjaxTrafficCounter.addTraffic(0, dataSizeGuess);
             }
-            mSuccessCode = connection.getResponseCode();
-            super.postConnect();
+            mSuccessCode = response.code();
 
-            onInputStreamReady(is, connection);
+            onInputStreamReady(response);
 
 		} catch (Exception e) {
 
 			String errDescription;
-            if (e instanceof IOException) {
-                super.httpExchangeFailed((IOException)e);
+            if (response != null) {
+                mErrorData = response.message();
+                mErrorCode = response.code();
             }
-			try {
-                if (connection != null) {
-                    if (is != null) {
-                        try {
-                            is.close();
-                        } catch (IOException ignored) { }
-                    }
-                    is = connection.getErrorStream();
-                    if (is != null) {
-                        BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-                        String line;
-                        StringBuilder response = new StringBuilder(16384);
-
-                        // TODO: Optimize me
-                        while ((line = rd.readLine()) != null) {
-                            response.append(line);
-                            response.append('\r');
-                        }
-                        rd.close();
-                        errDescription = response.toString();
-                    } else {
-                        if (connection != null) {
-                            errDescription = connection.getResponseMessage();
-                        } else {
-                            errDescription = "connection is null";
-                        }
-                    }
-                } else {
-                    errDescription = "Connection is null";
-                }
-				Log.e (TAG, "Cannot load data from api: " + errDescription, e);
-				mErrorData = errDescription;
-                if (connection != null) {
-				    mErrorCode = connection.getResponseCode();
-                }
-				mErrorThrowable = e;
-			} catch (IOException ex) {
-				Log.e (TAG, "Cannot get error info", ex);
-				mErrorData = null;
-				mErrorCode = 0;
-				mErrorThrowable = ex;
-			}
+            Log.e (TAG, "Cannot load data from api: " + mErrorData, e);
+            mErrorThrowable = e;
 
 		} finally {
-            if (is != null) {
-                try {
-                    is.close();
-                } catch (IOException ignored) {}
+            if (response != null) {
+                response.body().close();
             }
-			if (connection != null) {
-				connection.disconnect();
-			}
 		}
 	}
 
 
-    protected void storeCacheObject(final HttpURLConnection connection, final Object cachedObject) {
+    protected void storeCacheObject(final Response connection, final Object cachedObject) {
         if (connection == null) {
             return;
         }
         try {
-            String cc = connection.getHeaderField("Cache-Control");
-            if (cc != null && mMethod.equals("GET")) {
-                if (!cc.contains("no-store")) {
-                    // Response is cacheable
-                    if (cc.contains("max-age")) {
-                        int maxAge;
-                        int token = cc.indexOf("max-age=");
-                        int start = cc.indexOf("=", token) + 1;
-                        int end = cc.indexOf(",", start + 1);
-                        if (end != -1) {
-                            maxAge = Integer.parseInt(cc.substring(start, end));
-                        } else {
-                            maxAge = Integer.parseInt(cc.substring(start));
-                        }
-                        if (maxAge > 0 && mCache != null) {
-                            mCache.storeInCache(mUrl.toString(), cachedObject, maxAge);
-                            if (mDebug) {
-                                Log.d (TAG, "Stored in cache for " + maxAge + " secs");
-                            }
-                        }
-                    }
-                }
+            if (!connection.cacheControl().noStore() && connection.request().method().equals("GET")) {
+                mCache.storeInCache(connection.request().url().toString(), cachedObject, connection.cacheControl().maxAgeSeconds());
             }
         } catch (Exception ex) {
             Log.i (TAG, "Cannot set cache info", ex);
