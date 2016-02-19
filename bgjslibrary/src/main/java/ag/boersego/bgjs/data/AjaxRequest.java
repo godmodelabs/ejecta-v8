@@ -3,6 +3,7 @@ package ag.boersego.bgjs.data;
 import android.os.Build;
 import android.util.Log;
 
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,7 +18,7 @@ import java.net.URLEncoder;
 import java.util.Locale;
 
 
-public class AjaxRequest implements Runnable {
+public class AjaxRequest extends AjaxRequestDebug implements Runnable {
 
     private boolean mDebug;
     private V8UrlCache mCache;
@@ -120,6 +121,7 @@ public class AjaxRequest implements Runnable {
     private static final String TAG = "AjaxRequest";
 	
 	protected AjaxRequest() {
+        super("");
 		
 	}
 	
@@ -128,6 +130,7 @@ public class AjaxRequest implements Runnable {
 	}
 
 	public AjaxRequest(String targetURL, String data, AjaxListener caller) throws URISyntaxException {
+        super(targetURL);
 		if (data != null) {
 			mUrl = new URI(targetURL + "?" + data);
 		} else {
@@ -139,6 +142,7 @@ public class AjaxRequest implements Runnable {
 
 	public AjaxRequest(String url, String data, AjaxListener caller,
 			String method) throws URISyntaxException {
+        super(url);
 		mData = data;
 		mCaller = caller;
 		if (method == null) {
@@ -256,9 +260,13 @@ public class AjaxRequest implements Runnable {
 				byte[] outData = mData.getBytes();
 
 				connection.setRequestProperty("Content-Length",
-						Integer.toString(outData.length));
+                        Integer.toString(outData.length));
 				connection.setRequestProperty("Content-Language", "en-US");
 				connection.setDoOutput(true);
+
+                // TODO: Add post
+                super.preConnect(connection, null);
+
 				// Send request
 				OutputStream wr = connection.getOutputStream();
 				wr.write(outData);
@@ -266,25 +274,33 @@ public class AjaxRequest implements Runnable {
 					Log.d (TAG, mMethod + " DATA " + mData);
 				}
 				wr.close();
-			}
+			} else {
+                // TODO: Add post
+                super.preConnect(connection, null);
+            }
+
 
 			// Get Response
             if (mIsCancelled) {
                 return;
             }
-			is = connection.getInputStream();
+			is = super.interpretResponseStream(connection.getInputStream());
             final String responseStr;
             int dataSizeGuess = connection.getContentLength();
             if (dataSizeGuess > 0) {
                 AjaxTrafficCounter.addTraffic(0, dataSizeGuess);
             }
             mSuccessCode = connection.getResponseCode();
+            super.postConnect();
 
             onInputStreamReady(is, connection);
 
 		} catch (Exception e) {
 
 			String errDescription;
+            if (e instanceof IOException) {
+                super.httpExchangeFailed((IOException)e);
+            }
 			try {
                 if (connection != null) {
                     if (is != null) {
