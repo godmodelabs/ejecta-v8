@@ -19,6 +19,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import ag.boersego.bgjs.data.AjaxRequest;
 import ag.boersego.bgjs.data.V8UrlCache;
+import okhttp3.OkHttpClient;
 
 public class V8Engine extends Thread implements Handler.Callback {
 
@@ -43,8 +44,9 @@ public class V8Engine extends Thread implements Handler.Callback {
 	private static boolean DEBUG = true && BuildConfig.DEBUG;
     private V8UrlCache mCache;
 	private ThreadPoolExecutor mTPExecutor;
+    private OkHttpClient mHttpClient;
 
-	public static void doDebug (boolean debug) {
+    public static void doDebug (boolean debug) {
         DEBUG = debug;
     }
 	
@@ -369,6 +371,10 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 	}
 
+	public void setHttpClient(final OkHttpClient client) {
+		mHttpClient = client;
+	}
+
 	public class V8AjaxRequest implements AjaxRequest.AjaxListener {
 		private AjaxRequest mReq;
 		private long mCbPtr;
@@ -393,6 +399,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 				ClientAndroid.ajaxDone(mNativePtr, null, 500, mCbPtr, mThisObj, mErrorCb, false, mProcessData);
 			}
 			mReq.setCacheInstance(mCache);
+            mReq.setHttpClient(mHttpClient);
 			mReq.doRunOnUiThread(false);
 			mReq.setOutputType("application/json");
 

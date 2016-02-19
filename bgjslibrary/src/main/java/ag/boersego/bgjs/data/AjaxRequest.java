@@ -219,9 +219,13 @@ public class AjaxRequest implements Runnable {
 			url = mUrl.toURL();
             Request.Builder requestBuilder = new Request.Builder()
                     .url(url)
-                    .addHeader("User-Agent", mUserAgent)
-                    .addHeader("Referer", mReferer);
-			
+                    .addHeader("User-Agent", mUserAgent);
+
+            if (mReferer != null) {
+                requestBuilder.addHeader("Referer", mReferer);
+            } else {
+                Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
+            }
 
 			if (mResultBuilder != null) {
 				mData = mResultBuilder.toString();
@@ -244,6 +248,10 @@ public class AjaxRequest implements Runnable {
 
             final Request request = requestBuilder.build();
 
+            if (mHttpClient == null) {
+                Log.d(TAG, "no http client");
+                throw new RuntimeException("no http client");
+            }
             response = mHttpClient.newCall(request).execute();
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             final String responseStr;
