@@ -222,7 +222,11 @@ public class AjaxRequest implements Runnable {
                     .addHeader("User-Agent", mUserAgent);
 
             if (mReferer != null) {
-                requestBuilder.addHeader("Referer", mReferer);
+                try {
+                    requestBuilder.addHeader("Referer", mReferer);
+                } catch (final Exception ex) {
+                    Log.e(TAG, "Cannot set referer", ex);
+                }
             } else {
                 Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
             }
