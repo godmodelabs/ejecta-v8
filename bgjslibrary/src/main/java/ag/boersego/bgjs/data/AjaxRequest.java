@@ -242,6 +242,10 @@ public class AjaxRequest implements Runnable {
                         requestBuilder.post(RequestBody.create(MediaType.parse("application/x-www-form-urlencoded"), mData));
                     }
                 }
+            } else if (mMethod != null) {
+                if (mMethod.equals("DELETE")) {
+                    requestBuilder.delete();
+                }
             }
 
 
@@ -249,6 +253,7 @@ public class AjaxRequest implements Runnable {
             if (mIsCancelled) {
                 return;
             }
+
 
             final Request request = requestBuilder.build();
 
