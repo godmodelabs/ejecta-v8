@@ -276,7 +276,10 @@ public class AjaxRequest implements Runnable {
 
 			String errDescription;
             if (response != null) {
-                mErrorData = response.message();
+                try {
+                    mErrorData = response.body().string();
+                } catch (Exception ignored) {
+                }
                 mErrorCode = response.code();
             }
             Log.e (TAG, "Cannot load data from api: " + mErrorData, e);
