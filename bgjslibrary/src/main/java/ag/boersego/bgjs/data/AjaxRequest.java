@@ -228,7 +228,9 @@ public class AjaxRequest implements Runnable {
                     Log.e(TAG, "Cannot set referer", ex);
                 }
             } else {
-                Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
+                try {
+                    Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
+                } catch (final Exception ignored) { }
             }
 
 			if (mResultBuilder != null) {
