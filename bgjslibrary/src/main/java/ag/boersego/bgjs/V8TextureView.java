@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.opengl.EGL14;
 import android.opengl.GLES10;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
@@ -51,8 +52,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 	private static final int MAX_NUM_TOUCHES = 10;
 	private static final int TOUCH_SLOP = 5;
 	private static final String TAG = "V8TextureView";
+    private int[] mEglVersion;
 
-	/**
+    /**
 	 * Create a new V8TextureView instance
 	 * @param context Context instance
 	 * @param jsCbName The name of the JS function to call once the view is created
@@ -303,14 +305,19 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 		private static final String TAG = "V8ConfigChooser";
 		private static final boolean DEBUG = false;
+        private final int[] mEglVersion;
 
-		public ConfigChooser(int r, int g, int b, int a, int depth, int stencil) {
+        public ConfigChooser(int r, int g, int b, int a, int depth, int stencil, int[] version) {
 			mRedSize = r;
 			mGreenSize = g;
 			mBlueSize = b;
 			mAlphaSize = a;
 			mDepthSize = depth;
 			mStencilSize = stencil;
+            mEglVersion = version;
+            if (DEBUG) {
+                Log.d(TAG, "EGL version " + version[0] + "." + version[1]);
+            }
 		}
 
 		/*
@@ -355,6 +362,17 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			EGLConfig bestConfig = null;
 			int bestDepth = 128;
 			for (EGLConfig config : configs) {
+                boolean hasSwap = false;
+                if (mEglVersion[0] > 1 || mEglVersion[1] >= 4) {
+                    /* final int surfaceType = findConfigAttrib(egl, display, config, EGL14.EGL_SURFACE_TYPE, 0);
+                    if ((surfaceType & EGL14.EGL_SWAP_BEHAVIOR_PRESERVED_BIT) != 0) {
+                        hasSwap = true;
+                    }
+                    if (DEBUG) {
+                        Log.d(TAG, "surfaceType " + surfaceType + " has preserved bit " + hasSwap);
+                    } */
+                }
+
 				// Get depth and stencil sizes
 				int d = findConfigAttrib(egl, display, config, EGL10.EGL_DEPTH_SIZE, 0);
 				int s = findConfigAttrib(egl, display, config, EGL10.EGL_STENCIL_SIZE, 0);
@@ -375,7 +393,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 				if (r <= mRedSize && g <= mGreenSize && b <= mBlueSize && a >= mAlphaSize) {
 					// But we'll try to figure out which configuration matches best
-					int distance = (a - mAlphaSize) + mStencilSize - s + mDepthSize - d + (mRedSize - r) + (mGreenSize - g) + (mBlueSize - b);
+					int distance = (a - mAlphaSize) + mStencilSize - s + mDepthSize - d + (mRedSize - r) + (mGreenSize - g) + (mBlueSize - b) + (hasSwap ? 4 : 0);
 					if (DEBUG) {
 						Log.d(TAG, "Good enough: " + r + ", " + g + ", " + b + ", depth " + d + ", stencil " + s
 								+ ", alpha " + a + ", distance " + distance);
@@ -554,6 +572,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 		private boolean mPaused;
         private boolean mNeedsAttention;
+        private int[] mEglVersion;
 
 
         RenderThread(SurfaceTexture surface, int width, int height) {
@@ -697,6 +716,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				
 				// We don't swap buffers here. Because we don't want to clear buffers on buffer swap, we need to do it in native code.
                 // This is important because JS Canvas also doesn't clear except via fillRect
+                /* if (didDraw) {
+                    mEgl.eglSwapBuffers(mEglDisplay, mEglSurface);
+                    checkEglError("eglSwapBuffers");
+                } */
 
 				synchronized (this) {
 					// If no rendering or other changes are pending, sleep till the next request
@@ -820,8 +843,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			if (!mEgl.eglInitialize(mEglDisplay, version)) {
 				throw new RuntimeException("eglInitialize failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
 			}
+            mEglVersion = version;
+            this.mEglVersion = version;
 
-			ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8);
+			ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8, version);
 			mEglConfig = chooser.chooseConfig(mEgl, mEglDisplay);
 			if (mEglConfig == null) {
 				throw new RuntimeException("eglConfig not initialized");

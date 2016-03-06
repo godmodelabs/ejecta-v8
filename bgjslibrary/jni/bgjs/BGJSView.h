@@ -12,7 +12,7 @@
 
 class BGJSView : public BGJSInfo, public BGJSClass {
 public:
-	BGJSView(BGJSContext* ctx, float pixelRatio);
+	BGJSView(BGJSContext* ctx, float pixelRatio, bool doNoClearOnFlip);
 	virtual ~BGJSView();
 	v8::Handle<v8::Value> startJS(const char* fnName, const char* configJson, v8::Handle<v8::Value> uiObj, long configId, bool hasIntradayQuotes);
 	static v8::Handle<v8::Value> js_view_on(const v8::Arguments& args);

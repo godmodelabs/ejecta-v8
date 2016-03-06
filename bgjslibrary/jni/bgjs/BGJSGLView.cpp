@@ -34,12 +34,15 @@ static void checkGlError(const char* op) {
 #endif
 }
 
-BGJSGLView::BGJSGLView(BGJSContext *ctx, float pixelRatio) :
-		BGJSView(ctx, pixelRatio) {
+BGJSGLView::BGJSGLView(BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip) :
+		BGJSView(ctx, pixelRatio, doNoClearOnFlip) {
 
 	_firstFrameRequest = 0;
 	_nextFrameRequest = 0;
 	noFlushOnRedraw = false;
+
+	const char* eglVersion = eglQueryString(eglGetCurrentDisplay(), EGL_VERSION);
+	LOGD("egl version %s", eglVersion);
 	bzero (_frameRequests, sizeof(_frameRequests));
 
 	context2d = new BGJSCanvasContext(500, 500);
@@ -102,6 +105,8 @@ void BGJSGLView::swapBuffers() {
 	EGLSurface surface = eglGetCurrentSurface(EGL_DRAW);
 	eglSurfaceAttrib(display, surface, EGL_SWAP_BEHAVIOR, noClearOnFlip ? EGL_BUFFER_PRESERVED : EGL_BUFFER_DESTROYED);
 	EGLBoolean res = eglSwapBuffers (display, surface);
+	LOGD("eglSwap %d", (int)res);
+	// checkGlError("eglSwapBuffers");
 }
 
 void BGJSGLView::resize(int widthp, int heightp, bool resizeOnly) {

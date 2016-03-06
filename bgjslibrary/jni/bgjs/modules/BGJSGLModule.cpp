@@ -1097,8 +1097,7 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * en
 	BGJSContext* ct = (BGJSContext*) ctxPtr;
 	Context::Scope context_scope(ct->_context);
 
-	BGJSGLView *view = new BGJSGLView(BGJSGLModule::_bgjscontext, pixelRatio);
-	view->noClearOnFlip = noClearOnFlip;
+	BGJSGLView *view = new BGJSGLView(BGJSGLModule::_bgjscontext, pixelRatio, noClearOnFlip);
 	view->setJavaGl(env, env->NewGlobalRef(javaGlView));
 
 	// Register GLView with context so that cancelAnimationRequest works.

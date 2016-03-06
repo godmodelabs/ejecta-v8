@@ -104,11 +104,11 @@ Handle<Value> BGJSView::js_view_on(const Arguments& args) {
 	return v8::Undefined();
 }
 
-BGJSView::BGJSView(BGJSContext *ctx, float pixelRatio) {
+BGJSView::BGJSView(BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip) {
 	opened = false;
 	_contentObj = 0;
 
-	noClearOnFlip = false;
+	this->noClearOnFlip = doNoClearOnFlip;
 
 	this->pixelRatio = pixelRatio;
 
