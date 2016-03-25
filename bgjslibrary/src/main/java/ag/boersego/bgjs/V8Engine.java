@@ -259,7 +259,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 	}
 
 	
-	public void addStatusHandler (V8EngineHandler h) {
+	public synchronized void addStatusHandler (V8EngineHandler h) {
 		if (mReady) {
 			h.onReady();
 			return;
@@ -269,6 +269,13 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 		mHandlers.add(h);
 	}
+
+    public synchronized void removeStatusHandler(final V8EngineHandler handler) {
+        if (mHandlers == null) {
+            return;
+        }
+        mHandlers.remove(handler);
+    }
 
     public boolean handleMessage (Message msg) {
         switch (msg.what) {
@@ -293,6 +300,7 @@ public class V8Engine extends Thread implements Handler.Callback {
                     for (V8EngineHandler h : mHandlers) {
                         h.onReady();
                     }
+					mHandlers.clear();
                 }
                 return true;
         }
