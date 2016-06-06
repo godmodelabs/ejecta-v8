@@ -218,8 +218,13 @@ public class AjaxRequest implements Runnable {
 
 			url = mUrl.toURL();
             Request.Builder requestBuilder = new Request.Builder()
-                    .url(url)
-                    .addHeader("User-Agent", mUserAgent);
+                    .url(url);
+
+            try {
+                requestBuilder.addHeader("User-Agent", mUserAgent);
+            } catch (final Exception ignored) { }
+
+
 
             if (mReferer != null) {
                 try {
@@ -284,7 +289,7 @@ public class AjaxRequest implements Runnable {
                 }
                 mErrorCode = response.code();
             }
-            Log.e (TAG, "Cannot load data from api: " + mErrorData, e);
+            Log.i (TAG, "Cannot load data from api " + mUrl + ": " + mErrorData, e);
             mErrorThrowable = e;
 
 		} finally {
