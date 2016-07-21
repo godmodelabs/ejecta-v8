@@ -193,19 +193,6 @@ public class V8Engine extends Thread implements Handler.Callback {
 		
 		System.loadLibrary("bgjs");
 
-		if (BuildConfig.DEBUG) {
-			try {
-                // TODO: Wait for debugger instead of sleeping a fixed amount
-				sleep(30);
-				if (DEBUG) {
-					Log.d(TAG, "Debugger can connect now");
-				}
-			} catch (InterruptedException e) {
-				Log.e (TAG, "Cannot sleep while waiting for debugger to settle", e);
-			}
-		}
-
-
 		Looper.prepare();
 		mHandler = new Handler (this);
         initializeV8(assetManager);
