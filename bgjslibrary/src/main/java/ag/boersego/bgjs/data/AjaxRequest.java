@@ -31,9 +31,9 @@ public class AjaxRequest implements Runnable {
     }
 
     public interface AjaxListener {
-		public void success(String data, int code, AjaxRequest request);
+		void success(String data, int code, AjaxRequest request);
 
-		public void error(String data, int code, Throwable tr, AjaxRequest request);
+		void error(String data, int code, Throwable tr, AjaxRequest request);
 	}
 
     /**
