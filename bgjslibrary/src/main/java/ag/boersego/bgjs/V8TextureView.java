@@ -737,7 +737,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 					final long renderDone = System.currentTimeMillis();
 
-					// To achieve a max of 16 fps we will sleep a tad more if we didn't sleep just now
+					// To achieve a max of 60 fps we will sleep a tad more if we didn't sleep just now
 					if (renderDone - startRender < 16) {
 						if (DEBUG) {
 							Log.d(TAG, "Last frame was less than 16ms ago, sleeping for "
