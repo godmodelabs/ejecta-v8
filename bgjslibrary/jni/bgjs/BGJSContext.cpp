@@ -567,6 +567,9 @@ Handle<Value> BGJSContext::require(const Arguments& args) {
 	} else {
 		LOGE("Cannot find file %s", *basename);
 		log(LOG_ERROR, args);
+		context->DetachGlobal();
+		context->Exit();
+		context.Dispose();
 		return v8::Undefined();
 	}
 
@@ -777,7 +780,9 @@ Handle<Value> BGJSContext::js_global_requestAnimationFrame(
 			LOGI("requestAnimationFrame: Not a function");
 		}
 	} else {
-		LOGI("requestAnimationFrame: Wrong number or type of parameters");
+		return v8::ThrowException(
+				v8::Exception::ReferenceError(
+					v8::String::New("requestAnimationFrame: Wrong number or type of parameters")));
 		return scope.Close(Integer::New(-1));
 		// return v8::ThrowException(v8::Exception::ReferenceError(v8::String::New("Wrong number of parameters")));
 	}
