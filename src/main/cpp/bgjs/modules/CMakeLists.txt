@@ -1,0 +1,1 @@
+add_library(modules AjaxModule.cpp BGJSGLModule.cpp)

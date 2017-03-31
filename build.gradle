@@ -1,0 +1,71 @@
+apply plugin: 'com.android.library'
+
+android {
+    publishNonDefault true
+    compileSdkVersion 25
+    buildToolsVersion '25.0.2'
+    defaultPublishConfig "debug"
+    productFlavors {
+        library {
+        }
+    }
+
+    defaultConfig {
+        minSdkVersion 16
+        targetSdkVersion 25
+        versionCode 1
+        versionName "1.0"
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_static"
+                abiFilters 'armeabi-v7a', 'x86'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "CMakeLists.txt"
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    flatDir{
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: '*.jar')
+    compile 'com.squareup.okhttp3:okhttp:3.4.1'
+}
+
+task distributeDebug() {
+    doLast {
+        delete "dist/debug"
+        copy {
+            from zipTree(new File('build/outputs/aar/bgjslibrary-library-debug.aar'))
+            into "dist/debug"
+            include 'jni/**'
+        }
+    }
+}
+
+task distributeRelease {
+    doLast {
+        delete "dist/release"
+        copy {
+            from zipTree(new File('build/outputs/aar/bgjslibrary-library-release.aar'))
+            into "dist/release"
+            include 'jni/**'
+        }
+    }
+}
+
+afterEvaluate {
+    assembleDebug.finalizedBy distributeDebug
+    assembleRelease.finalizedBy distributeRelease
+}

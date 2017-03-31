@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	package="ag.boersego.bgjs"
+	android:versionCode="1"
+	android:versionName="1.0">
+
+
+    <uses-sdk
+        android:minSdkVersion="16"
+        android:targetSdkVersion="21"/>
+	<application>
+	</application>
+
+        <meta-data
+            android:name="com.crashlytics.ApiKey"
+            android:value="202c9da46e0a2415490533e2f637f66b7813dca2" />
+
+</manifest> 
