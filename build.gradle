@@ -47,7 +47,7 @@ task distributeDebug() {
     doLast {
         delete "dist/debug"
         copy {
-            from zipTree(new File('build/outputs/aar/bgjslibrary-library-debug.aar'))
+            from zipTree(new File('build/outputs/aar/ejecta-v8-library-debug.aar'))
             into "dist/debug"
             include 'jni/**'
         }
@@ -58,7 +58,7 @@ task distributeRelease {
     doLast {
         delete "dist/release"
         copy {
-            from zipTree(new File('build/outputs/aar/bgjslibrary-library-release.aar'))
+            from zipTree(new File('build/outputs/aar/ejecta-v8-library-release.aar'))
             into "dist/release"
             include 'jni/**'
         }

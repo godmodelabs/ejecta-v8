@@ -65,7 +65,7 @@ endif()
 # mips - for mips ABI
 # mips64 - for mips64 ABI
 
-set(v8-lib ${CMAKE_SOURCE_DIR}/libs/${v8-abi}/libv8.a)
+set(v8-lib ${CMAKE_SOURCE_DIR}/libs/v8/${v8-abi}/libv8.a)
 
 #--------------------------------------------------
 # other dependencies
