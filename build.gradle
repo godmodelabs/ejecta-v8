@@ -66,6 +66,6 @@ task distributeRelease {
 }
 
 afterEvaluate {
-    assembleDebug.finalizedBy distributeDebug
-    assembleRelease.finalizedBy distributeRelease
+    bundleLibraryDebug.finalizedBy distributeDebug
+    bundleLibraryRelease.finalizedBy distributeRelease
 }
