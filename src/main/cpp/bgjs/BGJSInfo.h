@@ -2,6 +2,7 @@
 #define __BGJSINFO_H	1
 
 #include <v8.h>
+#include <string>
 // #include "BGJSContext.h"
 
 class BGJSContext;
@@ -11,8 +12,16 @@ class BGJSContext;
 class BGJSInfo {
 public:
 	static v8::Persistent<v8::Context>* _context;
-	static v8::Eternal<v8::ObjectTemplate> _global;
 	static BGJSContext* _jscontext;
+};
+
+
+class BGJSInfo2 {
+public:
+	v8::Persistent<v8::Context>* _context;
+	BGJSContext* _jscontext;
+	std::string _module;
+    std::string _dir;
 };
 
 #endif

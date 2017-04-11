@@ -55,6 +55,10 @@ struct WrapPersistentObj {
 
 typedef  void (*requireHook) (v8::Isolate* isolate, v8::Handle<v8::Object> target);
 
+typedef enum EBGJSContextEmbedderData {
+    kContext = 1
+} EBGJSContextEmbedderData;
+
 class BGJSContext : public BGJSInfo {
 public:
     // static BGJSContext& getInstance();
@@ -70,7 +74,7 @@ public:
 	v8::Persistent<v8::Script, v8::CopyablePersistentTraits<v8::Script> > load(const char* path);
 	static void ReportException(v8::TryCatch* try_catch);
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
-	int run();
+    int run(const char *path);
 	void setClient(ClientAbstract* client);
 	ClientAbstract* getClient() const;
     v8::Isolate* getIsolate() const;
@@ -106,7 +110,6 @@ public:
 
 	void createContext();
 	ClientAbstract *_client;
-	v8::Persistent<v8::Script> _script;  // Reference to script object that was loaded
 	static bool debug;
 	char *_locale;	// de_DE
 	char *_lang;	// de
@@ -118,14 +121,15 @@ private:
 	void operator=(BGJSContext const&); // Don't implement
 
 	const char* loadFile (const char* path);
-	void CloneObject(v8::Handle<v8::Object> recv, v8::Handle<v8::Value> source,
-			v8::Handle<v8::Value> target);
 	std::string normalize_path(std::string& path);
 	std::string getPathName(std::string& path);
 	// Attributes
-	v8::Persistent<v8::Function> cloneObjectMethod;	// clone
 	std::map<std::string, requireHook> _modules;
     v8::Isolate* _isolate;
+
+    v8::Persistent<v8::Function> _requireFn;
+    v8::Local<v8::Function> makeRequireFunction(std::string pathName);
+    v8::Local<v8::Value> internalRequire(std::string baseNameStr);
 
 #ifdef INTERNAL_REQUIRE_CACHE
 	std::map<std::string, v8::Value*> _requireCache;

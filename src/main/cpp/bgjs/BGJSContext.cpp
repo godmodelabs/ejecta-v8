@@ -28,7 +28,7 @@
 using namespace v8;
 
 v8::Persistent<v8::Context>* BGJSInfo::_context;
-v8::Eternal<v8::ObjectTemplate> BGJSInfo::_global;
+v8::Eternal<v8::ObjectTemplate> g_globalObjectTemplate;
 BGJSContext* BGJSInfo::_jscontext;
 
 #ifdef ENABLE_DEBUGGER_SUPPORT
@@ -147,37 +147,6 @@ inline Local<T> ToLocal(Persistent<T>* p_) {
 
 //////////////////////////
 // Require
-
-void BGJSContext::CloneObject(Handle<Object> recv, Handle<Value> source,
-		Handle<Value> target) {
-	HandleScope scope(Isolate::GetCurrent());
-
-	Handle<Value> args[] = { source, target };
-    const char* cloneScript = "(function(source, target) {\n\
-                                         Object.getOwnPropertyNames(source).forEach(function(key) {\n\
-                                         try {\n\
-                                           var desc = Object.getOwnPropertyDescriptor(source, key);\n\
-                                           if (desc.value === source) desc.value = target;\n\
-                                           Object.defineProperty(target, key, desc);\n\
-                                         } catch (e) {\n\
-                                          // Catch sealed properties errors\n\
-                                         }\n\
-                                       });\n\
-                                      })";
-
-	// Init
-	if (this->cloneObjectMethod.IsEmpty()) {
-		Local<Function> cloneObjectMethod_ =
-				Local<Function>::Cast(
-						Script::Compile(
-								String::NewFromOneByte(Isolate::GetCurrent(),
-								    (const uint8_t*)cloneScript),
-								String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:script"))->Run());
-		this->cloneObjectMethod.Reset(Isolate::GetCurrent(), cloneObjectMethod_);
-	}
-
-	Local<Function>::New(Isolate::GetCurrent(), this->cloneObjectMethod)->Call(recv, 2, args);
-}
 
 Handle<Value> BGJSContext::JsonParse(Handle<Object> recv,
 		Handle<String> source) {
@@ -343,20 +312,6 @@ void BGJSContext::normalizePath(const v8::FunctionCallbackInfo<v8::Value>& args)
 	TryCatch try_catch;
 	std::string baseNameStr = std::string(*basename);
 
-	// Get absolute current working directory from current V8 context
-	Local<Value> dirVal = isolate->GetEnteredContext()->GetEmbedderData(1);
-	Local<String> dirName;
-	if (dirVal->IsUndefined()) {
-		// We don't have a cwd so assume /js
-		dirName = String::NewFromUtf8(isolate, "js");
-	} else {
-		dirName = dirVal->ToString();
-	}
-	String::Utf8Value dirNameC(dirName);
-#ifdef DEBUG
-	LOGD("Dirname %s", *dirNameC);
-#endif
-
 	// Check if this is an internal module
 	requireHook module = _modules[baseNameStr];
 
@@ -371,7 +326,8 @@ void BGJSContext::normalizePath(const v8::FunctionCallbackInfo<v8::Value>& args)
 	}
 	// Append cwd and input path
 	std::string pathName;
-	std::string pathTemp = std::string(*dirNameC).append("/").append(baseNameStr);
+    // @TODO: make "js" path configurable on BGJSContext instance!!
+	std::string pathTemp = std::string("js").append("/").append(baseNameStr);
 	// Remote /./ which is /
 	find_and_replace(pathTemp, std::string("/./"), std::string("/"));
 #ifdef DEBUG
@@ -383,6 +339,232 @@ void BGJSContext::normalizePath(const v8::FunctionCallbackInfo<v8::Value>& args)
 
 	args.GetReturnValue().Set(scope.Escape(normalizedPath));
 
+}
+
+static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+
+    BGJSContext *ctx = BGJSInfo::_jscontext;
+
+    ctx->require(args);
+}
+
+
+v8::Local<v8::Function> BGJSContext::makeRequireFunction(std::string pathName) {
+    Local<Context> context = _isolate->GetCurrentContext();
+    EscapableHandleScope handle_scope(_isolate);
+
+    const char *szJSRequireCode =
+            "(function(require, prefix) {"
+            "   return function(path) {"
+            "       return require(path.indexOf('./')===0?'./'+prefix+'/'+path.substr(2):path);"
+            "   };"
+            "})";
+
+    Local<Function> requireFn =
+            Local<Function>::Cast(
+                    Script::Compile(
+                            String::NewFromOneByte(_isolate, (const uint8_t*)szJSRequireCode),
+                            String::NewFromOneByte(_isolate, (const uint8_t*)"binding:script")
+                    )->Run()
+            );
+    if(_requireFn.IsEmpty()) {
+        _requireFn.Reset(_isolate, v8::FunctionTemplate::New(_isolate, RequireCallback)->GetFunction());
+    }
+
+    Local<Function> baseRequireFn = Local<Function>::New(_isolate, _requireFn);
+
+    Handle<Value> args[] = { baseRequireFn, String::NewFromUtf8(_isolate, pathName.c_str()) };
+    Local<Value> result = requireFn->Call(context->Global(), 2, args);
+    return handle_scope.Escape(Local<Function>::Cast(result));
+}
+
+Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
+    Local<Context> context = _isolate->GetCurrentContext();
+    EscapableHandleScope handle_scope(_isolate);
+
+    Local<Value> result;
+    // Catch errors
+    TryCatch try_catch;
+
+    if(baseNameStr.find("./") == 0) {
+        baseNameStr = baseNameStr.substr(2);
+        find_and_replace(baseNameStr, std::string("/./"), std::string("/"));
+        baseNameStr = normalize_path(baseNameStr);
+    }
+    bool isJson = false;
+
+    // Source of JS file if external code
+    Handle<String> source;
+    const char* buf = 0;
+
+    // Check if this is an internal module
+    requireHook module = _modules[baseNameStr];
+
+#ifdef DEBUG
+    LOGI("require %s %p %i", *basename, module, _modules.size());
+#endif
+
+    if (module) {
+        Local<Object> exportsObj = Object::New(_isolate);
+        Local<Object> moduleObj = Object::New(_isolate);
+        moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+
+        module(_isolate, moduleObj);
+        return handle_scope.Escape(moduleObj->Get(String::NewFromUtf8(_isolate, "exports")));
+    }
+    std::string fileName, pathName;
+
+    fileName = baseNameStr;
+    buf = this->_client->loadFile(fileName.c_str());
+    if (!buf) {
+        // Check if this is a directory containing index.js or package.json
+        fileName = baseNameStr + "/package.json";
+        buf = this->_client->loadFile(fileName.c_str());
+#ifdef DEBUG
+        LOGD("Opening file %s", pathName.c_str());
+#endif
+        if (!buf) {
+            // It might be a directory with an index.js
+            fileName = baseNameStr + "/index.js";
+            buf = this->_client->loadFile(fileName.c_str());
+
+#ifdef DEBUG
+            LOGD("Opening file %s", indexPath.c_str());
+#endif
+
+            if (!buf) {
+                // So it might just be a js file
+                fileName = baseNameStr + ".js";
+                buf = this->_client->loadFile(fileName.c_str());
+#ifdef DEBUG
+                LOGD("Opening file %s", jsPath.c_str());
+#endif
+
+                if (!buf) {
+                    // No JS file, but maybe JSON?
+                    fileName = baseNameStr + ".json";
+#ifdef DEBUG
+                    LOGD("Opening file %s", jsonPath.c_str());
+#endif
+                    buf = this->_client->loadFile(fileName.c_str());
+                    if (buf) {
+                        isJson = true;
+                    }
+                }
+            }
+        } else {
+            // Parse the package.json
+            // Create a string containing the JSON source
+            source = String::NewFromUtf8(_isolate, buf);
+            Handle<Object> res = BGJSContext::JsonParse(
+                    _isolate->GetEnteredContext()->Global(), source)->ToObject();
+            Handle<String> mainStr = String::NewFromUtf8(_isolate, (const char *) "main");
+            if (res->Has(mainStr)) {
+                Handle<String> jsFileName = res->Get(mainStr)->ToString();
+                String::Utf8Value jsFileNameC(jsFileName);
+#ifdef DEBUG
+                LOGD("Main JS file %s", *jsFileNameC);
+#endif
+                fileName = baseNameStr + "/" + *jsFileNameC;
+                if (buf) {
+                    free((void *) buf);
+                    buf = NULL;
+                }
+
+                // It might be a directory with an index.js
+                buf = this->_client->loadFile(fileName.c_str());
+            } else {
+                LOGE("%s doesn't have a main object: %s", baseNameStr.c_str(), buf);
+                if (buf) {
+                    free((void *) buf);
+                    buf = NULL;
+                }
+            }
+        }
+    } else if(baseNameStr.find(".json") == baseNameStr.length() - 5) {
+        isJson = true;
+    }
+
+    if (!buf) {
+        LOGE("Cannot find file %s", baseNameStr.c_str());
+        //log(LOG_ERROR, args);
+        return Undefined(_isolate);
+    }
+
+    if (isJson) {
+        // Create a string containing the JSON source
+        source = String::NewFromUtf8(_isolate, buf);
+        Local<Value> res = BGJSContext::JsonParse(
+                _isolate->GetEnteredContext()->Global(), source);
+        free((void*) buf);
+        return handle_scope.Escape(res);
+    }
+
+    pathName = getPathName(fileName);
+
+    // wrap source in anonymous function to set up an isolated scope
+    const char *szSourcePrefix = "(function (exports, require, module, __filename, __dirname) {";
+    const char *szSourcePostfix = "})";
+    source = String::Concat(
+            String::Concat(
+                    String::NewFromUtf8(_isolate, szSourcePrefix),
+                    String::NewFromUtf8(_isolate, buf)
+            ),
+            String::NewFromUtf8(_isolate, szSourcePostfix)
+    );
+    free((void*) buf);
+
+    // compile script
+    Handle<Script> scriptR = Script::Compile(source, String::NewFromUtf8(_isolate, baseNameStr.c_str()));
+
+    // check if compilation failed
+    if (scriptR.IsEmpty()) {
+
+        // FIXME UGLY HACK TO DISPLAY SYNTAX ERRORS.
+        BGJSContext::ReportException(&try_catch);
+
+        free((void*) buf);
+        buf = NULL;
+
+        // Hack because I can't get a proper stacktrace on SyntaxError
+        return handle_scope.Escape(try_catch.Exception());
+    }
+
+    // run script; this will effectively return a function if everything worked
+    // if not, something went wrong
+    result = scriptR->Run();
+    if (result.IsEmpty() || !result->IsFunction()) {
+        /* ReThrow doesn't re-throw TerminationExceptions; a null exception value
+         * is re-thrown instead (see Isolate::PropagatePendingExceptionToExternalTryCatch())
+         * so we re-propagate a TerminationException explicitly here if necesary. */
+        if (try_catch.CanContinue())
+            return Undefined(_isolate);
+        v8::V8::TerminateExecution(_isolate);
+
+        free((void*) buf);
+        buf = NULL;
+
+        return Undefined(_isolate);
+    }
+
+    Local<Function> requireFn = makeRequireFunction(pathName);
+
+    Local<Object> exportsObj = Object::New(_isolate);
+    Local<Object> moduleObj = Object::New(_isolate);
+    moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+
+    Handle<Value> fnModuleInitializerArgs[] = {
+            exportsObj,                                     // exports
+            requireFn,                                      // require
+            moduleObj,                                      // module
+            String::NewFromUtf8(_isolate, fileName.c_str()), // __filename
+            String::NewFromUtf8(_isolate, pathName.c_str())  // __dirname
+    };
+    Local<Function> fnModuleInitializer = Local<Function>::Cast(result);
+    fnModuleInitializer->Call(context->Global(), 5, fnModuleInitializerArgs);
+
+    result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
+    return handle_scope.Escape(result);
 }
 
 void BGJSContext::require(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -399,261 +581,16 @@ void BGJSContext::require(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	v8::Locker l(isolate);
 	EscapableHandleScope scope(isolate);
 
-	// Source of JS file if external code
-	Handle<String> source;
-	const char* buf = 0;
+
 	// Result of internal or external invocation
 	Local<Value> result;
 	Local<String> filename = args[0]->ToString();
 
-	String::Utf8Value basename(filename);
+    String::Utf8Value basename(filename);
 
-	// Catch errors
-	TryCatch try_catch;
-	std::string baseNameStr = std::string(*basename);
-	bool isJson = false;
-	Local<Object> sandbox = args[1]->ToObject();
-	Handle<String> dirNameStr = String::NewFromOneByte(isolate, (const uint8_t*)"__dirname");
+    result = internalRequire(std::string(*basename));
 
-	Local<Value> dirVal = isolate->GetEnteredContext()->GetEmbedderData(1);
-	Local<String> dirName;
-	if (dirVal->IsUndefined()) {
-		dirName = String::NewFromUtf8(isolate, "js");
-	} else {
-		dirName = dirVal->ToString();
-	}
-	String::Utf8Value dirNameC(dirName);
-#ifdef DEBUG
-	LOGD("Dirname %s", *dirNameC);
-#endif
-
-	// Check if this is an internal module
-	requireHook module = _modules[baseNameStr];
-
-#ifdef DEBUG
-	LOGI("require %s %p %i", *basename, module, _modules.size());
-#endif
-
-	if (module) {
-		Local<Object> exports = Object::New(isolate);
-		module(isolate, exports);
-		CloneObject(args.This(), exports, sandbox);
-		args.GetReturnValue().Set(scope.Escape(exports));
-		return;
-	}
-	std::string basePath = std::string(baseNameStr);
-	std::string pathName = std::string(basePath);
-	
-
-	// Check if this is a directory containing index.js or package.json
-	pathName.append("/package.json");
-	buf = this->_client->loadFile(pathName.c_str());
-#ifdef DEBUG
-	LOGD("Opening file %s", pathName.c_str());
-#endif
-	if (!buf) {
-		// It might be a directory with an index.js
-		std::string indexPath (basePath);
-		indexPath.append("/index.js");
-		
-		buf = this->_client->loadFile(indexPath.c_str());
-
-#ifdef DEBUG
-		LOGD("Opening file %s", indexPath.c_str());
-#endif
-
-		if (!buf) {
-			// So it might just be a js file
-			std::string jsPath (basePath);
-			jsPath.append(".js");
-			buf = this->_client->loadFile(jsPath.c_str());
-#ifdef DEBUG
-			LOGD("Opening file %s", jsPath.c_str());
-#endif
-
-			if (!buf) {
-				// No JS file, but maybe JSON?
-				std::string jsonPath (basePath);
-				basePath = std::string(baseNameStr);
-				jsonPath.append(".json");
-#ifdef DEBUG
-				LOGD("Opening file %s", jsonPath.c_str());
-#endif
-				buf = this->_client->loadFile(jsonPath.c_str());
-				if (buf) {
-					isJson = true;
-					basePath = getPathName(jsPath);
-				}
-			} else {
-				basePath = getPathName(jsPath);
-			}
-		}
-	} else {
-		// Parse the package.json
-		// Create a string containing the JSON source
-		source = String::NewFromUtf8(isolate, buf);
-		Handle<Object> res = BGJSContext::JsonParse(
-				isolate->GetEnteredContext()->Global(), source)->ToObject();
-		Handle<String> mainStr = String::NewFromUtf8(isolate, (const char*)"main");
-		if (res->Has(mainStr)) {
-			Handle<String> jsFileName = res->Get(mainStr)->ToString();
-			String::Utf8Value jsFileNameC(jsFileName);
-#ifdef DEBUG
-			LOGD("Main JS file %s", *jsFileNameC);
-#endif
-			std::string indexPath (basePath);
-			indexPath.append("/").append(*jsFileNameC);
-			if (buf) {
-				free((void*) buf);
-				buf = NULL;
-			}
-
-			// It might be a directory with an index.js
-			buf = this->_client->loadFile(indexPath.c_str());
-		} else {
-			LOGE("%s doesn't have a main object: %s", pathName.c_str(), buf);
-			if (buf) {
-				free((void*) buf);
-				buf = NULL;
-			}
-		}
-	}
-	
-	if (!buf) {
-		std::string pathTemp = std::string(baseNameStr);
-		basePath = getPathName(pathTemp);
-#ifdef DEBUG
-		LOGD("Pathtemp %s", pathTemp.c_str());
-#endif
-		// pathName = normalize_path(baseNameStr);
-		buf = this->_client->loadFile(pathTemp.c_str());
-
-		// Check if we are opening a JSON file
-		const int length = baseNameStr.length();
-		if (length > 5 && baseNameStr[length - 1] == 'n'
-				&& baseNameStr[length - 2] == 'o' && baseNameStr[length - 3] == 's'
-				&& baseNameStr[length - 4] == 'j'
-				&& baseNameStr[length - 5] == '.') {
-			// The file is a json file, just open it and parse it
-			isJson = true;
-		}
-	}
-
-	if (isJson) {
-		if (!buf) {
-			LOGE("Cannot find file %s", *basename);
-			log(LOG_ERROR, args);
-			args.GetReturnValue().SetUndefined();
-			return;
-		}
-		// Create a string containing the JSON source
-		source = String::NewFromUtf8(isolate, buf);
-		Local<Value> res = BGJSContext::JsonParse(
-				isolate->GetEnteredContext()->Global(), source);
-		// CloneObject(args.This(), res, BGJSContext::_context->Global());
-		if (buf) {
-			free((void*) buf);
-			buf = NULL;
-		}
-		args.GetReturnValue().Set(scope.Escape(res));
-		return;
-	}
-
-    Local<Context> context = Context::New(isolate, NULL, Local<ObjectTemplate>::New(isolate, BGJSInfo::_global.Get(isolate)));
-    Persistent<Context, CopyablePersistentTraits<Value> > contextPersistent(isolate, context);
-    BGJS_NEW_PERSISTENT(contextPersistent);
-    context->SetEmbedderData(1, String::NewFromUtf8(isolate, basePath.c_str()));
-
-	Local<Array> keys;
-	// Enter the context
-	{
-		Context::Scope embeddedContext(context);
-
-		sandbox->Set(dirNameStr, String::NewFromUtf8(isolate, basePath.c_str()));
-	#ifdef DEBUG
-		LOGD("New __dirname %s", basePath.c_str());
-	#endif
-
-		// Copy everything from the passed in sandbox (either the persistent
-		// context for runInContext(), or the sandbox arg to runInNewContext()).
-		CloneObject(args.This(), sandbox, context->Global()->GetPrototype());
-
-		context->Global()->GetPrototype()->ToObject()->Set(dirNameStr, String::NewFromUtf8(isolate, basePath.c_str()));
-
-		if (buf) {
-			// Create a string containing the JavaScript source code.
-			source = String::NewFromUtf8(isolate, buf);
-
-			// well, here WrappedScript::New would suffice in all cases, but maybe
-			// Compile has a little better performance where possible
-			Handle<Script> scriptR = Script::Compile(source, filename);
-			if (scriptR.IsEmpty()) {
-
-				context->DetachGlobal();
-
-				// FIXME UGLY HACK TO DISPLAY SYNTAX ERRORS.
-				BGJSContext::ReportException(&try_catch);
-
-				free((void*) buf);
-				buf = NULL;
-
-				// Hack because I can't get a proper stacktrace on SyntaxError
-				args.GetReturnValue().Set(scope.Escape(try_catch.Exception()));
-				return;
-			}
-
-			result = scriptR->Run();
-			if (result.IsEmpty()) {
-				context->DetachGlobal();
-				BGJS_CLEAR_PERSISTENT(contextPersistent);
-				/* ReThrow doesn't re-throw TerminationExceptions; a null exception value
-				 * is re-thrown instead (see Isolate::PropagatePendingExceptionToExternalTryCatch())
-				 * so we re-propagate a TerminationException explicitly here if necesary. */
-				if (try_catch.CanContinue())
-					return;
-				v8::V8::TerminateExecution(isolate);
-
-				free((void*) buf);
-				buf = NULL;
-
-	            args.GetReturnValue().SetUndefined();
-				return;
-			}
-		} else {
-			LOGE("Cannot find file %s", *basename);
-			log(LOG_ERROR, args);
-			context->DetachGlobal();
-			BGJS_CLEAR_PERSISTENT(contextPersistent);
-			args.GetReturnValue().SetUndefined();
-			return;
-		}
-
-		// success! copy changes back onto the sandbox object.
-		CloneObject(args.This(), context->Global()->GetPrototype(), sandbox);
-		sandbox->Set(dirNameStr, String::NewFromUtf8(isolate, basePath.c_str()));
-		// Clean up, clean up, everybody everywhere!
-	}
-	context->DetachGlobal();
-	BGJS_CLEAR_PERSISTENT(contextPersistent);
-	if (buf) {
-		free((void*) buf);
-		buf = NULL;
-	}
-
-#ifdef INTERNAL_REQUIRE_CACHE
-	Persistent<Value>* cacheObj = new Persistent<Value>::Persistent(isolate, result);
-	BGJS_NEW_PERSISTENT_PTR(cacheObj);
-	_requireCache[baseNameStr] = *acheObj;
-#endif
     args.GetReturnValue().Set(scope.Escape(result));
-	return;
-}
-
-static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
-
-	BGJSContext *ctx = BGJSInfo::_jscontext;
-
-	ctx->require(args);
 }
 
 static void NormalizePathCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -1015,47 +952,53 @@ BGJSContext::BGJSContext(v8::Isolate* isolate) {
 	HandleScope scope(isolate);
 
 	// Create a template for the global object where we set the
-	// built-in global functions.
-	v8::Local<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
+    // @TODO: not global, but as a member variable, because it can not be shared across isolates!!
+	if(g_globalObjectTemplate.IsEmpty()) {
+		// built-in global functions.
+		v8::Local<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
 
-	// Add methods to console function
-	v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(isolate);
-	console->Set(String::NewFromUtf8(isolate, "log"), v8::FunctionTemplate::New(isolate, LogCallback));
-	console->Set(String::NewFromUtf8(isolate, "debug"), v8::FunctionTemplate::New(isolate, DebugCallback));
-	console->Set(String::NewFromUtf8(isolate, "info"), v8::FunctionTemplate::New(isolate, InfoCallback));
-	console->Set(String::NewFromUtf8(isolate, "error"), v8::FunctionTemplate::New(isolate, ErrorCallback));
-	console->Set(String::NewFromUtf8(isolate, "warn"), v8::FunctionTemplate::New(isolate, ErrorCallback));
-	// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
-	// Set the created FunctionTemplate as console in global object
-	global->Set(v8::String::NewFromUtf8(isolate, "console"), console);
-	// Set the int_require function in the global object
-	global->Set(String::NewFromUtf8(isolate, "int_require"), v8::FunctionTemplate::New(isolate, RequireCallback));
-	global->Set(String::NewFromUtf8(isolate, "int_normalizePath"), v8::FunctionTemplate::New(isolate, NormalizePathCallback));
+		// Add methods to console function
+		v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(isolate);
+		console->Set(String::NewFromUtf8(isolate, "log"),
+					 v8::FunctionTemplate::New(isolate, LogCallback));
+		console->Set(String::NewFromUtf8(isolate, "debug"),
+					 v8::FunctionTemplate::New(isolate, DebugCallback));
+		console->Set(String::NewFromUtf8(isolate, "info"),
+					 v8::FunctionTemplate::New(isolate, InfoCallback));
+		console->Set(String::NewFromUtf8(isolate, "error"),
+					 v8::FunctionTemplate::New(isolate, ErrorCallback));
+		console->Set(String::NewFromUtf8(isolate, "warn"),
+					 v8::FunctionTemplate::New(isolate, ErrorCallback));
+		// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
+		// Set the created FunctionTemplate as console in global object
+		global->Set(v8::String::NewFromUtf8(isolate, "console"), console);
+    // @TODO: add environment variable
+		global->SetAccessor(String::NewFromUtf8(isolate, "_locale"),
+							BGJSContext::js_global_getLocale,
+							BGJSContext::js_global_setLocale);
+		global->SetAccessor(String::NewFromUtf8(isolate, "_lang"), BGJSContext::js_global_getLang,
+							BGJSContext::js_global_setLang);
+		global->SetAccessor(String::NewFromUtf8(isolate, "_tz"), BGJSContext::js_global_getTz,
+							BGJSContext::js_global_setTz);
 
-	global->SetAccessor(String::NewFromUtf8(isolate, "_locale"), BGJSContext::js_global_getLocale,
-			BGJSContext::js_global_setLocale);
-	global->SetAccessor(String::NewFromUtf8(isolate, "_lang"), BGJSContext::js_global_getLang,
-			BGJSContext::js_global_setLang);
-	global->SetAccessor(String::NewFromUtf8(isolate, "_tz"), BGJSContext::js_global_getTz,
-			BGJSContext::js_global_setTz);
+		global->Set(String::NewFromUtf8(isolate, "requestAnimationFrame"),
+					v8::FunctionTemplate::New(isolate,
+											  BGJSContext::js_global_requestAnimationFrame));
+		global->Set(String::NewFromUtf8(isolate, "cancelAnimationFrame"),
+					v8::FunctionTemplate::New(isolate,
+											  BGJSContext::js_global_cancelAnimationFrame));
+		global->Set(String::NewFromUtf8(isolate, "setTimeout"),
+					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_setTimeout));
+		global->Set(String::NewFromUtf8(isolate, "setInterval"),
+					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_setInterval));
+		global->Set(String::NewFromUtf8(isolate, "clearTimeout"),
+					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_clearTimeout));
+		global->Set(String::NewFromUtf8(isolate, "clearInterval"),
+					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_clearInterval));
 
-	global->Set(String::NewFromUtf8(isolate, "requestAnimationFrame"),
-			v8::FunctionTemplate::New(isolate,
-					BGJSContext::js_global_requestAnimationFrame));
-	global->Set(String::NewFromUtf8(isolate, "cancelAnimationFrame"),
-			v8::FunctionTemplate::New(isolate,
-					BGJSContext::js_global_cancelAnimationFrame));
-	global->Set(String::NewFromUtf8(isolate, "setTimeout"),
-			v8::FunctionTemplate::New(isolate, BGJSContext::js_global_setTimeout));
-	global->Set(String::NewFromUtf8(isolate, "setInterval"),
-			v8::FunctionTemplate::New(isolate, BGJSContext::js_global_setInterval));
-	global->Set(String::NewFromUtf8(isolate, "clearTimeout"),
-			v8::FunctionTemplate::New(isolate, BGJSContext::js_global_clearTimeout));
-	global->Set(String::NewFromUtf8(isolate, "clearInterval"),
-			v8::FunctionTemplate::New(isolate, BGJSContext::js_global_clearInterval));
-
-	// Also, persist the global object template so we can add stuff here later when calling require
-	BGJSInfo::_global.Set(isolate, global);
+		// Also, persist the global object template so we can add stuff here later when calling require
+		g_globalObjectTemplate.Set(isolate, global);
+	}
 
 	LOGD("v8 version %s", V8::GetVersion());
 }
@@ -1073,8 +1016,15 @@ void BGJSContext::createContext() {
     HandleScope scope(_isolate);
 	// Create a new context.
     Local<Context> context = v8::Context::New(_isolate, NULL,
-                                        Local<ObjectTemplate>::New(_isolate, BGJSInfo::_global.Get(_isolate)));
+                                        Local<ObjectTemplate>::New(_isolate, g_globalObjectTemplate.Get(_isolate)));
+	//_module = "root";
+	_context = new Persistent<Context>(_isolate, context);
+	_jscontext = this;
+	//_dir = "";
+
+	context->SetAlignedPointerInEmbedderData(EBGJSContextEmbedderData::kContext, this);
     LOGI("createContext v8context is %p, BGJSContext is %p", context, this);
+
 	BGJSInfo::_context = new Persistent<Context>(_isolate, context);
 	BGJSInfo::_jscontext = this;
 
@@ -1179,36 +1129,19 @@ void BGJSContext::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>&
 	LOG(debugLevel, "%s", str.str().c_str());
 }
 
-int BGJSContext::run() {
+int BGJSContext::run(const char *path) {
+    Locker locker(_isolate);
     Isolate::Scope isolate_scope(_isolate);
-	v8::Locker locker(this->_isolate);
-	if (_script.IsEmpty()) {
-		LOGE("run called when no valid script loaded");
-	}
+
 	// Create a stack-allocated handle scope.
-	HandleScope scope(this->_isolate);
+	HandleScope scope(_isolate);
 	v8::TryCatch try_catch;
-    Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(BGJSContext::_context));
-    // context->Enter();
+    Local<Context> context = *reinterpret_cast<Local<Context>*>(BGJSContext::_context);
+    Context::Scope context_scope(context);
 
-	// Run the android.js file
-	v8::Persistent<v8::Script, v8::CopyablePersistentTraits<v8::Script> > res = load("js/android.js");
-	BGJS_NEW_PERSISTENT(res);
-	if (res.IsEmpty()) {
-		LOGE("Cannot find android.js");
-		return 0;
-	}
+    context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
 
-	Handle<Value> result = Local<Script>::New(this->_isolate, res)->Run();
-	BGJS_CLEAR_PERSISTENT(res);
-
-	if (result.IsEmpty()) {
-		// Print errors that happened during execution.
-		ReportException(&try_catch);
-		return false;
-	}
-	// Run the script to get the result.
-	result = Local<Script>::New(this->_isolate, _script)->Run();
+	Local<Value> result = internalRequire(path);
 
 	if (result.IsEmpty()) {
 		// Print errors that happened during execution.
@@ -1216,9 +1149,7 @@ int BGJSContext::run() {
 		return false;
 	}
 
-	_nextTimerId = 1;
-
-	// BGJSInfo::_context->Exit();
+    _nextTimerId = 1;
 
 	return 1;
 }
@@ -1232,8 +1163,9 @@ void BGJSContext::setLocale(const char* locale, const char* lang,
 
 BGJSContext::~BGJSContext() {
 	LOGI("Cleaning up");
-	BGJS_CLEAR_PERSISTENT(_script);
-	BGJS_CLEAR_PERSISTENT(cloneObjectMethod);
+
+	// clear persistent context reference
+	_context->Reset();
 
 	if (_locale) {
 		free(_locale);

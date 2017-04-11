@@ -306,37 +306,18 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	return (jlong) ct;
 }
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_load(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jstring path) {
-	BGJSContext* ct = (BGJSContext*) ctxPtr;
-	v8::Locker l (ct->getIsolate());
-	Isolate::Scope(ct->getIsolate());
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(ct->_context));
-	const char* pathStr = env->GetStringUTFChars(path, 0);
-	HandleScope scope (ct->getIsolate());
-	LOGD("clientAndroid load %s, context %p", pathStr, ct->getIsolate()->GetCurrentContext());
-	Persistent<Script, CopyablePersistentTraits<Script> > res = ct->load(pathStr);
-	BGJS_NEW_PERSISTENT(res);
-	if (!res.IsEmpty()) {
-		BGJS_RESET_PERSISTENT(ct->getIsolate(), ct->_script, res);
-		LOGD("clientAndroid load %s successful, context %p", pathStr, ct->getIsolate()->GetCurrentContext());
-	} else {
-		LOGD("clientAndroid load %s unsuccessful", pathStr);
-	}
-	env->ReleaseStringUTFChars(path, pathStr);
-}
-
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_run(JNIEnv * env,
-		jobject obj, jlong ctxPtr) {
+		jobject obj, jlong ctxPtr, jstring path) {
 	if (DEBUG) {
 		LOGD("clientAndroid run");
 	}
+    const char* pathStr = env->GetStringUTFChars(path, 0);
 	BGJSContext* ct = (BGJSContext*) ctxPtr;
 	v8::Locker l (ct->getIsolate());
 	Isolate::Scope(ct->getIsolate());
 	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(ct->_context));
 	_client->envCache = env;
-	ct->run();
+	ct->run(pathStr);
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
