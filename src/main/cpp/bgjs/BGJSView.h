@@ -19,7 +19,7 @@
 
 class BGJSView : public BGJSClass {
 public:
-	BGJSView(v8::Isolate* isolate, const BGJSV8Engine* ctx, float pixelRatio, bool doNoClearOnFlip);
+	BGJSView(BGJSV8Engine* engine, float pixelRatio, bool doNoClearOnFlip);
 	virtual ~BGJSView();
 	v8::Handle<v8::Value> startJS(const char* fnName, const char* configJson, v8::Handle<v8::Value> uiObj, long configId, bool hasIntradayQuotes);
 	static void js_view_on(const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -39,8 +39,8 @@ public:
 	jmethodID _javaRedrawMid;
 #endif
 
+    BGJSV8Engine *_engine;
     v8::Persistent<v8::ObjectTemplate> jsViewOT;
-	const BGJSV8Engine* _jsContext;
 	int width, height;
 	bool opened;
 	float pixelRatio;

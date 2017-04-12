@@ -43,8 +43,8 @@ static void checkGlError(const char* op) {
 #endif
 }
 
-BGJSGLView::BGJSGLView(v8::Isolate* isolate, const BGJSV8Engine *ctx, float pixelRatio, bool doNoClearOnFlip, int width, int height) :
-		BGJSView(isolate, ctx, pixelRatio, doNoClearOnFlip) {
+BGJSGLView::BGJSGLView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip, int width, int height) :
+		BGJSView(engine, pixelRatio, doNoClearOnFlip) {
 
 	_firstFrameRequest = 0;
 	_nextFrameRequest = 0;

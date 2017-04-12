@@ -48,6 +48,9 @@ AjaxModule::~AjaxModule() {
 
 void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = args.GetIsolate();
+	Local<Context> context = isolate->GetCurrentContext();
+	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE();
+
 	v8::Locker l(isolate);
 	Isolate::Scope isolateScope(isolate);
 	if (args.Length() < 1) {
@@ -94,7 +97,7 @@ void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 #ifdef ANDROID
 	jstring dataStr, urlStr, methodStr;
-	ClientAndroid* client = (ClientAndroid*)(_BGJSV8Engine->_client);
+	ClientAndroid* client = (ClientAndroid*)(engine->_client);
 	JNIEnv* env = JNU_GetEnv();
 	if (env == NULL) {
 		LOGE("Cannot execute AJAX request with no envCache");

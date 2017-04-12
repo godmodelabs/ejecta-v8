@@ -956,7 +956,6 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	}
 	Local<Object> obj = args[0]->ToObject();
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
-	canvas->_context = BGJSGLModule::_BGJSV8Engine;
 	Local<Value> external = obj->GetInternalField(0);
 	canvas->_view = externalToClassPtr<BGJSGLView>(external);
 
@@ -1175,7 +1174,7 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * en
     HandleScope scope(isolate);
     Context::Scope context_scope(ct->getContext());
 
-	BGJSGLView *view = new BGJSGLView(isolate, BGJSGLModule::_BGJSV8Engine, pixelRatio, noClearOnFlip, width, height);
+	BGJSGLView *view = new BGJSGLView(ct, pixelRatio, noClearOnFlip, width, height);
 	view->setJavaGl(env, env->NewGlobalRef(javaGlView));
 
 	// Register GLView with context so that cancelAnimationRequest works.
@@ -1247,7 +1246,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_step(JNIEnv * env,
 		jobject obj, jlong ctxPtr, jlong jsPtr) {
 	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
 	BGJSGLView *view = (BGJSGLView*) jsPtr;
-	return BGJSGLModule::_BGJSV8Engine->runAnimationRequests(view);
+	return ct->runAnimationRequests(view);
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,

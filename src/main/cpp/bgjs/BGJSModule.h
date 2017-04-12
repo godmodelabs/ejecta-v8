@@ -21,9 +21,6 @@ class BGJSModule : public BGJSClass {
 protected:
 	// methods
 public:
-	// attributes
-	static const BGJSV8Engine* _BGJSV8Engine;
-
 	// members
 	BGJSModule(const char* name);
 	std::string getName() const;

@@ -6,8 +6,6 @@
 
 using namespace v8;
 
-const BGJSV8Engine* BGJSModule::_BGJSV8Engine = NULL;
-
 /**
  * BGJSModule
  * Base class for an ejecta-v8 extension.
