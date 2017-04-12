@@ -3,7 +3,7 @@
 
 #include <v8.h>
 
-#include "os-detection.h"
+#include "os-android.h"
 
 #ifdef ANDROID
 #include <jni.h>

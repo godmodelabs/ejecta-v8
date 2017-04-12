@@ -1,7 +1,7 @@
 #ifndef __BGJSCLASS_H
 #define __BGJSCLASS_H  1
 
-#include "os-detection.h"
+#include "os-android.h"
 #include <v8.h>
 
 // class BGJSV8Engine;

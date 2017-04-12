@@ -16,7 +16,7 @@
 
 #include <v8.h>
 
-#include "os-detection.h"
+#include "os-android.h"
 
 #undef DEBUG
 // #define DEBUG 1

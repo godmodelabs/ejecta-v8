@@ -4,7 +4,7 @@
 #include "BGJSCanvasContext.h"
 #include "BGJSView.h"
 #include "BGJSV8Engine.h"
-#include "os-detection.h"
+#include "os-android.h"
 
 /**
  * BGJSGLView

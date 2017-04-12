@@ -61,63 +61,8 @@ ClientAndroid::~ClientAndroid() {
 	// TODO: Delete global reference to assetManager
 }
 
-jint ClientAndroid::throwNoSuchFieldError( JNIEnv *env, char *message ) {
-	jclass		 exClass;
-	const char		*className = "java/lang/NoSuchFieldError" ;
-
-	if (!env) {
-		env = JNU_GetEnv();
-	}
-
-	exClass = env->FindClass (className);
-	if ( exClass == NULL ) {
-		LOGE ("Cannot throw exception, class not found!");
-	}
-
-	return env->ThrowNew (exClass, message);
-}
-
-const char* ClientAndroid::loadFile(const char* path) {
-	if (DEBUG) {
-		LOGD("loadFile: %s", path);
-	}
-	AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(),
-			this->assetManager);
-	AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
-
-	if (!asset) {
-		if (DEBUG) {
-			LOGE("Cannot find file %s", path);
-		}
-		return NULL;
-	} /* else {
-		LOGD("Opened path %s", path);
-	} */
-
-	const int count = AAsset_getLength(asset);
-	char *buf = (char*) malloc(count + 1), *ptr = buf;
-	bzero(buf, count + 1);
-	int bytes_read = 0, bytes_to_read = count;
-	std::stringstream str;
-
-	while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
-		bytes_to_read -= bytes_read;
-		ptr += bytes_read;
-		/* str << "Read " << bytes_read << " bytes from total of " << count << ", "
-				<< bytes_to_read << " left\n";
-		LOGI(str.str().c_str()); */
-
-	}
-	AAsset_close(asset);
-	return buf;
-}
-
 const char* ClientAndroid::loadFile(const char* path, unsigned int* length) {
-	#if DEBUG
-		LOGD("loadFile: %s, this %p, am %p", path, this, this->assetManager);
-	#endif
-	AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(),
-			this->assetManager);
+	AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(), this->assetManager);
 	AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
 
 	if (!asset) {
@@ -125,42 +70,28 @@ const char* ClientAndroid::loadFile(const char* path, unsigned int* length) {
 			LOGE("Cannot find file %s", path);
 		}
 		return NULL;
-	} /* else {
-		LOGD("Opened path %s", path);
-	} */
+	}
 
-	const int count = AAsset_getLength(asset);
-	*length = count;
+	const size_t count = (unsigned int)AAsset_getLength(asset);
+    if(length) {
+        *length = count;
+    }
 	char *buf = (char*) malloc(count + 1), *ptr = buf;
 	bzero(buf, count + 1);
-	int bytes_read = 0, bytes_to_read = count;
-	std::stringstream str;
+	int bytes_read = 0;
+    size_t bytes_to_read = count;
 
-	while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
+    while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
 		bytes_to_read -= bytes_read;
 		ptr += bytes_read;
-		/* str << "Read " << bytes_read << " bytes from total of " << count << ", "
-				<< bytes_to_read << " left\n";
-		LOGI(str.str().c_str()); */
-
 	}
+
 	AAsset_close(asset);
+
 	return buf;
 }
 
 ClientAndroid* _client = new ClientAndroid();
-
-static void* g_func_ptr;
-
-typedef long unsigned int *_Unwind_Ptr;
-
-/* Stubbed out in libdl and defined in the dynamic linker.
- * Same semantics as __gnu_Unwind_Find_exidx().
- */
-/* extern "C" _Unwind_Ptr dl_unwind_find_exidx(_Unwind_Ptr pc, int *pcount);
-extern "C" _Unwind_Ptr __gnu_Unwind_Find_exidx(_Unwind_Ptr pc, int *pcount) {
-	return dl_unwind_find_exidx(pc, pcount);
-} */
 
 void ClientAndroid::on (const char* event, void* cbPtr, void *thisObjPtr) {
 	JNIEnv* env = JNU_GetEnv();
@@ -222,22 +153,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     return JNI_VERSION_1_6;
 }
 
-/*
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
-
-	// when i throw exception, linker maybe can't find __gnu_Unwind_Find_exidx(lazy binding issue??)
-	// so I force to bind this symbol at shared object load time
-	// g_func_ptr = (void*) __gnu_Unwind_Find_exidx;
-
-	JNIEnv *env;
-	_client->cachedJVM = jvm;
-	if (jvm->GetEnv((void**) &env, JNI_VERSION_1_6)) {
-		LOGE("Could not get JNIEnv*");
-		return JNI_ERR;
-	}
-	return JNI_VERSION_1_6;
-} */
-
 JNIEnv* JNU_GetEnv() {
 	JNIEnv* env;
 	_client->cachedJVM->GetEnv((void**) &env, JNI_VERSION_1_6);
@@ -256,15 +171,6 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 
 	_client->v8Engine = v8Engine;
 
-	/* #ifdef __LP64__
-      const char kNativesFileName[] = "natives_blob_64.bin";
-      const char kSnapshotFileName[] = "snapshot_blob_64.bin";
-    #else
-      const char kNativesFileName[] = "natives_blob_32.bin";
-      const char kSnapshotFileName[] = "snapshot_blob_32.bin";
-    #endif // __LP64__ */
-
-	// v8::V8::InitializeExternalStartupData(argv[0]);
 	LOGI("Creating default platform");
     v8::Platform* platform = v8::platform::CreateDefaultPlatform();
     LOGD("Created default platform %p", platform);
@@ -280,8 +186,6 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
     v8::Locker l (isolate);
 	v8::Isolate::Scope isolateScope(isolate);
     LOGD("Initialized Isolate %p", isolate);
-    // v8::Isolate::Scope isolate_scope(isolate);
-    // LOGD("Initialized isolateScope");
 
 	BGJSV8Engine* ct = new BGJSV8Engine(isolate);
 

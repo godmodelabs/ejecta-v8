@@ -5,7 +5,7 @@
 
 class ClientAbstract {
 public:
-	virtual const char* loadFile (const char* path) = 0;
+	virtual const char* loadFile (const char* path, unsigned int *length = NULL) = 0;
 	virtual void on (const char* event, void* cbPtr, void *thisObjPtr) = 0;
 	virtual ~ClientAbstract() = 0;
 };
