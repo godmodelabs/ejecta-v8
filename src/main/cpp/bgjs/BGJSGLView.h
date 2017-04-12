@@ -3,8 +3,7 @@
 
 #include "BGJSCanvasContext.h"
 #include "BGJSView.h"
-#include "BGJSInfo.h"
-#include "BGJSContext.h"
+#include "BGJSV8Engine.h"
 #include "os-detection.h"
 
 /**
@@ -25,7 +24,7 @@ typedef struct __tagAnimationFrameRequest {
 
 class BGJSGLView : public BGJSView {
 public:
-	BGJSGLView(v8::Isolate* isolate, const BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip, int width, int height);
+	BGJSGLView(v8::Isolate* isolate, const BGJSV8Engine *ctx, float pixelRatio, bool doNoClearOnFlip, int width, int height);
 	virtual ~BGJSGLView();
 	virtual void prepareRedraw();
 	virtual void endRedraw();

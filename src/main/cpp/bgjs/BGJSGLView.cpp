@@ -43,7 +43,7 @@ static void checkGlError(const char* op) {
 #endif
 }
 
-BGJSGLView::BGJSGLView(v8::Isolate* isolate, const BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip, int width, int height) :
+BGJSGLView::BGJSGLView(v8::Isolate* isolate, const BGJSV8Engine *ctx, float pixelRatio, bool doNoClearOnFlip, int width, int height) :
 		BGJSView(isolate, ctx, pixelRatio, doNoClearOnFlip) {
 
 	_firstFrameRequest = 0;
@@ -143,7 +143,7 @@ void BGJSGLView::resize(Isolate* isolate, int widthp, int heightp, bool resizeOn
 			Handle<Value> result = callback->CallAsFunction(callback, 0, args);
 
 			if (result.IsEmpty()) {
-				BGJSContext::ReportException(&trycatch);
+				BGJSV8Engine::ReportException(&trycatch);
 			}
 		}
 	}

@@ -1,67 +1,98 @@
 /**
- * BGJSContext
+ * BGJSV8Engine
  * Manages a v8 context and exposes script load and execute functions
  *
  * Copyright 2014 Kevin Read <me@kevin-read.com> and BörseGo AG (https://github.com/godmodelabs/ejecta-v8/)
  * Licensed under the MIT license.
  */
 
-#include "BGJSContext.h"
+#include "BGJSV8Engine.h"
 
 #include "mallocdebug.h"
 #include <assert.h>
 #include <sstream>
 
-#undef DEBUG
-// #define DEBUG 1
-
-// #define ENABLE_DEBUGGER_SUPPORT = 1
-
-#ifdef ENABLE_DEBUGGER_SUPPORT
-#include <v8-debug.h>
-#endif
-
 #include "BGJSGLView.h"
 
-#define LOG_TAG	"BGJSContext-jni"
+#define LOG_TAG	"BGJSV8Engine-jni"
 
 using namespace v8;
 
-v8::Persistent<v8::Context>* BGJSInfo::_context;
-v8::Eternal<v8::ObjectTemplate> g_globalObjectTemplate;
-BGJSContext* BGJSInfo::_jscontext;
+//-----------------------------------------------------------
+// Utility functions
+//-----------------------------------------------------------
 
-#ifdef ENABLE_DEBUGGER_SUPPORT
-v8::Persistent<v8::Context> debug_message_context;
-
-void DispatchDebugMessages() {
-	// We are in some random thread. We should already have v8::Locker acquired
-	// (we requested this when registered this callback). We was called
-	// because new debug messages arrived; they may have already been processed,
-	// but we shouldn't worry about this.
-	//
-	// All we have to do is to set context and call ProcessDebugMessages.
-	//
-	// We should decide which V8 context to use here. This is important for
-	// "evaluate" command, because it must be executed some context.
-	// In our sample we have only one context, so there is nothing really to
-	// think about.
-	v8::Context::Scope scope(debug_message_context);
-
-	v8::Debug::ProcessDebugMessages();
+std::vector<std::string> &split(const std::string &s, char delim,
+								std::vector<std::string> &elems) {
+	std::stringstream ss(s);
+	std::string item;
+	while (std::getline(ss, item, delim)) {
+		elems.push_back(item);
+	}
+	return elems;
 }
-#endif  // ENABLE_DEBUGGER_SUPPORT
-// Extracts a C string from a V8 Utf8Value.
-const char* ToCString(const v8::String::Utf8Value& value) {
-	return *value ? *value : "<string conversion failed>";
+
+std::string normalize_path(std::string& path) {
+	std::vector < std::string > pathParts;
+	std::stringstream ss(path);
+	std::string item;
+	while (std::getline(ss, item, '/')) {
+		pathParts.push_back(item);
+	}
+	std::string outPath;
+
+	int length = pathParts.size();
+	int i = 0;
+	if (length > 0 && pathParts.at(0).compare("..") == 0) {
+		i = 1;
+	}
+	for (; i < length - 1; i++) {
+		std::string pathPart = pathParts.at(i + 1);
+		if (pathPart.compare("..") != 0) {
+			std::string nextSegment = pathParts.at(i);
+			if (nextSegment.compare(".") == 0) {
+				continue;
+			}
+			if (outPath.length() > 0) {
+				outPath.append("/");
+			}
+			outPath.append(pathParts.at(i));
+		} else {
+			i++;
+		}
+	}
+	outPath.append("/").append(pathParts.at(length - 1));
+	return outPath;
 }
+
+std::string getPathName(std::string& path) {
+	size_t found = path.find_last_of("/");
+
+	if (found == string::npos) {
+		return path;
+	}
+	return path.substr(0, found);
+}
+
+void find_and_replace(std::string& source, std::string const& find, std::string const& replace)
+{
+	for(std::string::size_type i = 0; (i = source.find(find, i)) != std::string::npos;)
+	{
+		source.replace(i, find.length(), replace);
+		i += replace.length();
+	}
+}
+
+//-----------------------------------------------------------
+// V8 function callbacks
+//-----------------------------------------------------------
 
 static void LogCallback(const v8::FunctionCallbackInfo<Value>& args) {
 	if (args.Length() < 1) {
 		return;
 	}
 
-	BGJSContext *ctx = BGJSInfo::_jscontext;
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 
 	ctx->log(LOG_INFO, args);
 }
@@ -72,7 +103,7 @@ static void DebugCallback(const v8::FunctionCallbackInfo<Value>& args) {
 		return;
 	}
 
-	BGJSContext *ctx = BGJSInfo::_jscontext;
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 	ctx->log(LOG_DEBUG, args);
 }
 
@@ -82,7 +113,7 @@ static void InfoCallback(const v8::FunctionCallbackInfo<Value>& args) {
 		return;
 	}
 
-	BGJSContext *ctx = BGJSInfo::_jscontext;
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 
 	ctx->log(LOG_INFO, args);
 }
@@ -93,39 +124,50 @@ static void ErrorCallback(const v8::FunctionCallbackInfo<Value>& args) {
 		return;
 	}
 
-	BGJSContext *ctx = BGJSInfo::_jscontext;
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 
 	ctx->log(LOG_ERROR, args);
 }
 
-void LogStackTrace(Local<StackTrace>& str, Isolate* isolate) {
-	HandleScope scope (isolate);
-	int count = str->GetFrameCount();
-	for (int i = 0; i < count; i++) {
-		Local<StackFrame> frame = str->GetFrame(i);
-		String::Utf8Value fnName(frame->GetFunctionName());
-		String::Utf8Value scriptName(frame->GetScriptName());
-		LOGI("%s:%u (%s)", *fnName, frame->GetLineNumber(), *scriptName);
+static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+	Isolate *isolate = Isolate::GetCurrent();
+
+	// argument must be exactly one string
+	if (args.Length() < 1 || !args[0]->IsString()) {
+		args.GetReturnValue().SetUndefined();
+		return;
 	}
+
+	EscapableHandleScope scope(isolate);
+
+	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE();
+
+	Local<Value> result = engine->require(BGJS_STRING_FROM_V8VALUE(args[0]));
+
+	args.GetReturnValue().Set(scope.Escape(result));
 }
+
+//-----------------------------------------------------------
+// V8Engine
+//-----------------------------------------------------------
 
 /* static Handle<Value> AssertCallback(const Arguments& args) {
  if (args.Length() < 1)
  return v8::Undefined();
 
- BGJSContext::log(LOG_ERROR, args);
+ BGJSV8Engine::log(LOG_ERROR, args);
  return v8::Undefined();
  } */
 
-/* BGJSContext& BGJSContext::getInstance()
+/* BGJSV8Engine& BGJSV8Engine::getInstance()
  {
- static BGJSContext    instance; // Guaranteed to be destroyed.
+ static BGJSV8Engine    instance; // Guaranteed to be destroyed.
  // Instantiated on first use.
  return instance;
  } */
 
 // Register
-bool BGJSContext::registerModule(const char* name,
+bool BGJSV8Engine::registerModule(const char* name,
 		void (*requireFn)(v8::Isolate* isolate, v8::Handle<v8::Object> target)) {
 	// v8::Locker l(Isolate::GetCurrent());
 	// HandleScope scope(Isolate::GetCurrent());
@@ -133,22 +175,13 @@ bool BGJSContext::registerModule(const char* name,
 	_modules[name] = requireFn;
 	// _modules.insert(std::pair<char const*, BGJSModule*>(module->getName(), module));
 
-#ifdef DEBUG
-	LOGI(
-			"register %s %p %p %p %i", name, requireFn, _modules[name], _modules["ajax"], _modules.size());
-#endif
 	return true;
-}
-
-template<class T>
-inline Local<T> ToLocal(Persistent<T>* p_) {
-    return *reinterpret_cast<Local<T>*>(p_);
 }
 
 //////////////////////////
 // Require
 
-Handle<Value> BGJSContext::JsonParse(Handle<Object> recv,
+Handle<Value> BGJSV8Engine::JsonParse(Handle<Object> recv,
 		Handle<String> source) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
 	TryCatch trycatch;
@@ -176,29 +209,14 @@ Handle<Value> BGJSContext::JsonParse(Handle<Object> recv,
 
 	if (result.IsEmpty()) {
 		LOGE("JsonParse exception");
-		BGJSContext::ReportException(&trycatch);
+		BGJSV8Engine::ReportException(&trycatch);
 		//abort();
 	}
 
 	return scope.Escape(result);
 }
 
-Handle<Value> BGJSContext::executeJS(const uint8_t* src) {
-	v8::Locker l(Isolate::GetCurrent());
-	EscapableHandleScope scope(Isolate::GetCurrent());
-	TryCatch trycatch;
-
-	Local<Value> result = Script::Compile(String::NewFromOneByte(Isolate::GetCurrent(), src),
-			String::NewFromOneByte(Isolate::GetCurrent(), (uint8_t*)"binding:script"))->Run();
-	if (result.IsEmpty()) {
-		LOGE("executeJS exception");
-		BGJSContext::ReportException(&trycatch);
-		//abort();
-	}
-	return scope.Escape(result);
-}
-
-Handle<Value> BGJSContext::callFunction(Isolate* isolate, Handle<Object> recv, const char* name,
+Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, const char* name,
 		int argc, Handle<Value> argv[]) const {
 	v8::Locker l(isolate);
 	EscapableHandleScope scope(isolate);
@@ -210,146 +228,13 @@ Handle<Value> BGJSContext::callFunction(Isolate* isolate, Handle<Object> recv, c
 	Local<Value> result = fn->Call(recv, argc, argv);
 	if (result.IsEmpty()) {
 		LOGE("callFunction exception");
-		BGJSContext::ReportException(&trycatch);
+		BGJSV8Engine::ReportException(&trycatch);
 		return v8::Undefined(isolate);
 	}
 	return scope.Escape(result);
 }
 
-std::vector<std::string> &split(const std::string &s, char delim,
-		std::vector<std::string> &elems) {
-	std::stringstream ss(s);
-	std::string item;
-	while (std::getline(ss, item, delim)) {
-		elems.push_back(item);
-	}
-	return elems;
-}
-
-std::string BGJSContext::getPathName(std::string& path) {
-	size_t found = path.find_last_of("/");
-
-	if (found == string::npos) {
-		return path;
-	}
-	return path.substr(0, found);
-}
-
-std::string BGJSContext::normalize_path(std::string& path) {
-	std::vector < std::string > pathParts;
-	std::stringstream ss(path);
-	std::string item;
-	while (std::getline(ss, item, '/')) {
-		pathParts.push_back(item);
-	}
-	std::string outPath;
-
-	int length = pathParts.size();
-	int i = 0;
-	if (length > 0 && pathParts.at(0).compare("..") == 0) {
-		i = 1;
-	}
-	for (; i < length - 1; i++) {
-		std::string pathPart = pathParts.at(i + 1);
-        #ifdef DEBUG
-            LOGD("normalize_path step %i %s", i+1, pathPart.c_str());
-        #endif
-		// LOGD("normalize_path. Part %i = %s, %i", i + 1, pathPart.c_str(), pathPart.compare("."));
-		if (pathPart.compare("..") != 0) {
-			std::string nextSegment = pathParts.at(i);
-			if (nextSegment.compare(".") == 0) {
-                #ifdef DEBUG
-                    LOGD("normalize_path skipping %i because is ..", i);
-                #endif
-				continue;
-			}
-			if (outPath.length() > 0) {
-				outPath.append("/");
-			}
-			outPath.append(pathParts.at(i));
-            #ifdef DEBUG
-                LOGD("normalize_path outPath now %s", outPath.c_str());
-            #endif
-		} else {
-			i++;
-		}
-	}
-	outPath.append("/").append(pathParts.at(length - 1));
-	return outPath;
-}
-
-void find_and_replace(std::string& source, std::string const& find, std::string const& replace)
-{
-    for(std::string::size_type i = 0; (i = source.find(find, i)) != std::string::npos;)
-    {
-        source.replace(i, find.length(), replace);
-        i += replace.length();
-    }
-}
-
-void BGJSContext::normalizePath(const v8::FunctionCallbackInfo<v8::Value>& args) {
-	// Path in args is relative and may contain /./STH.js and ../FOLDER/STH.js
-	// ie current folder and parent folder
-
-	// This method will take the current working directory (from embedderdata or
-	// in older V8 from Context->GetData() which were set by the last call to require())
-	// and this relative path and return an absolute path
-	if (args.Length() < 1) {
-	    args.GetReturnValue().SetUndefined();
-		return;
-	}
-
-	Isolate* isolate = Isolate::GetCurrent();
-
-	v8::Locker l(isolate);
-	EscapableHandleScope scope(isolate);
-
-	// Get the relative path from the first argument
-	Local<String> filename = args[0]->ToString();
-
-	String::Utf8Value basename(filename);
-
-	TryCatch try_catch;
-	std::string baseNameStr = std::string(*basename);
-
-	// Check if this is an internal module
-	requireHook module = _modules[baseNameStr];
-
-#ifdef DEBUG
-	LOGI("normalizePath %s %p %i", *basename, module, _modules.size());
-#endif
-
-	if (module) {
-		// For modules just return the name again
-		args.GetReturnValue().Set(scope.Escape(filename));
-		return;
-	}
-	// Append cwd and input path
-	std::string pathName;
-    // @TODO: make "js" path configurable on BGJSContext instance!!
-	std::string pathTemp = std::string("js").append("/").append(baseNameStr);
-	// Remote /./ which is /
-	find_and_replace(pathTemp, std::string("/./"), std::string("/"));
-#ifdef DEBUG
-	LOGD("Pathtemp %s", pathTemp.c_str());
-#endif
-	// Now flatten /../ into one absolute path
-	pathName = normalize_path(pathTemp);
-	Local<String> normalizedPath = String::NewFromUtf8(isolate, pathName.c_str());
-
-	args.GetReturnValue().Set(scope.Escape(normalizedPath));
-
-}
-
-static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
-
-    BGJSContext *ctx = BGJSInfo::_jscontext;
-
-    ctx->require(args);
-}
-
-
-v8::Local<v8::Function> BGJSContext::makeRequireFunction(std::string pathName) {
+v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) {
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
 
@@ -378,7 +263,7 @@ v8::Local<v8::Function> BGJSContext::makeRequireFunction(std::string pathName) {
     return handle_scope.Escape(Local<Function>::Cast(result));
 }
 
-Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
+Local<Value> BGJSV8Engine::require(std::string baseNameStr){
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
 
@@ -399,11 +284,7 @@ Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
 
     // Check if this is an internal module
     requireHook module = _modules[baseNameStr];
-
-#ifdef DEBUG
-    LOGI("require %s %p %i", *basename, module, _modules.size());
-#endif
-
+	
     if (module) {
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
@@ -420,33 +301,22 @@ Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
         // Check if this is a directory containing index.js or package.json
         fileName = baseNameStr + "/package.json";
         buf = this->_client->loadFile(fileName.c_str());
-#ifdef DEBUG
-        LOGD("Opening file %s", pathName.c_str());
-#endif
+
         if (!buf) {
             // It might be a directory with an index.js
             fileName = baseNameStr + "/index.js";
             buf = this->_client->loadFile(fileName.c_str());
 
-#ifdef DEBUG
-            LOGD("Opening file %s", indexPath.c_str());
-#endif
-
             if (!buf) {
                 // So it might just be a js file
                 fileName = baseNameStr + ".js";
                 buf = this->_client->loadFile(fileName.c_str());
-#ifdef DEBUG
-                LOGD("Opening file %s", jsPath.c_str());
-#endif
 
                 if (!buf) {
                     // No JS file, but maybe JSON?
                     fileName = baseNameStr + ".json";
-#ifdef DEBUG
-                    LOGD("Opening file %s", jsonPath.c_str());
-#endif
                     buf = this->_client->loadFile(fileName.c_str());
+					
                     if (buf) {
                         isJson = true;
                     }
@@ -456,15 +326,13 @@ Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
             // Parse the package.json
             // Create a string containing the JSON source
             source = String::NewFromUtf8(_isolate, buf);
-            Handle<Object> res = BGJSContext::JsonParse(
+            Handle<Object> res = BGJSV8Engine::JsonParse(
                     _isolate->GetEnteredContext()->Global(), source)->ToObject();
             Handle<String> mainStr = String::NewFromUtf8(_isolate, (const char *) "main");
             if (res->Has(mainStr)) {
                 Handle<String> jsFileName = res->Get(mainStr)->ToString();
                 String::Utf8Value jsFileNameC(jsFileName);
-#ifdef DEBUG
-                LOGD("Main JS file %s", *jsFileNameC);
-#endif
+
                 fileName = baseNameStr + "/" + *jsFileNameC;
                 if (buf) {
                     free((void *) buf);
@@ -494,7 +362,7 @@ Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
     if (isJson) {
         // Create a string containing the JSON source
         source = String::NewFromUtf8(_isolate, buf);
-        Local<Value> res = BGJSContext::JsonParse(
+        Local<Value> res = BGJSV8Engine::JsonParse(
                 _isolate->GetEnteredContext()->Global(), source);
         free((void*) buf);
         return handle_scope.Escape(res);
@@ -521,7 +389,7 @@ Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
     if (scriptR.IsEmpty()) {
 
         // FIXME UGLY HACK TO DISPLAY SYNTAX ERRORS.
-        BGJSContext::ReportException(&try_catch);
+        BGJSV8Engine::ReportException(&try_catch);
 
         free((void*) buf);
         buf = NULL;
@@ -567,55 +435,24 @@ Local<Value> BGJSContext::internalRequire(std::string baseNameStr){
     return handle_scope.Escape(result);
 }
 
-void BGJSContext::require(const v8::FunctionCallbackInfo<v8::Value>& args) {
-
-	if (args.Length() < 1) {
-	    args.GetReturnValue().SetUndefined();
-		return;
-	}
-
-	Isolate* isolate = Isolate::GetCurrent();
-
-	// LOGD("require. Current context %p", isolate->GetCurrentContext());
-
-	v8::Locker l(isolate);
-	EscapableHandleScope scope(isolate);
-
-
-	// Result of internal or external invocation
-	Local<Value> result;
-	Local<String> filename = args[0]->ToString();
-
-    String::Utf8Value basename(filename);
-
-    result = internalRequire(std::string(*basename));
-
-    args.GetReturnValue().Set(scope.Escape(result));
-}
-
-static void NormalizePathCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
-
-	BGJSContext *ctx = BGJSInfo::_jscontext;
-
-	ctx->normalizePath(args);
-}
-
-void BGJSContext::setClient(ClientAbstract* client) {
+void BGJSV8Engine::setClient(ClientAbstract* client) {
 	this->_client = client;
 }
 
-ClientAbstract* BGJSContext::getClient() const {
+ClientAbstract* BGJSV8Engine::getClient() const {
     return this->_client;
 }
 
-v8::Isolate* BGJSContext::getIsolate() const {
+v8::Isolate* BGJSV8Engine::getIsolate() const {
     return this->_isolate;
 }
 
-void BGJSContext::cancelAnimationFrame(int id) {
-#ifdef DEBUG
-	LOGD("Canceling animation frame %i", id);
-#endif
+v8::Local<v8::Context> BGJSV8Engine::getContext() const {
+	EscapableHandleScope scope(_isolate);
+	return scope.Escape(Local<Context>::New(_isolate, _context));
+}
+
+void BGJSV8Engine::cancelAnimationFrame(int id) {
 	for (std::set<BGJSGLView*>::iterator it = _glViews.begin();
 			it != _glViews.end(); ++it) {
 		int i = 0;
@@ -626,9 +463,6 @@ void BGJSContext::cancelAnimationFrame(int id) {
 				request->valid = false;
 				BGJS_CLEAR_PERSISTENT(request->callback);
 				BGJS_CLEAR_PERSISTENT(request->thisObj);
-#ifdef DEBUG
-				LOGD("cancelAnimationFrame cancelled id %d", request->requestId);
-#endif
 				break;
 			}
 			i++;
@@ -636,20 +470,18 @@ void BGJSContext::cancelAnimationFrame(int id) {
 	}
 }
 
-void BGJSContext::registerGLView(BGJSGLView* view) {
+void BGJSV8Engine::registerGLView(BGJSGLView* view) {
 	_glViews.insert(view);
 }
 
-void BGJSContext::unregisterGLView(BGJSGLView* view) {
+void BGJSV8Engine::unregisterGLView(BGJSGLView* view) {
 	_glViews.erase(view);
 }
 
-bool BGJSContext::runAnimationRequests(BGJSGLView* view) const  {
+bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view) const  {
 	v8::Locker l(_isolate);
     Isolate::Scope isolateScope(_isolate);
 	HandleScope scope(_isolate);
-
-	// Context::Scope context_scope(BGJSContext::_context.Get(_isolate));
 
 	TryCatch trycatch;
 	bool didDraw = false;
@@ -657,9 +489,6 @@ bool BGJSContext::runAnimationRequests(BGJSGLView* view) const  {
 	AnimationFrameRequest *request;
 	int index = view->_firstFrameRequest, nextIndex = view->_nextFrameRequest,
 			startFrame = view->_firstFrameRequest;
-#ifdef DEBUG
-	LOGD("runAnimation %d to %d", view->_firstFrameRequest, view->_nextFrameRequest);
-#endif
 	while (index != nextIndex) {
 		request = &(view->_frameRequests[index]);
 
@@ -667,19 +496,16 @@ bool BGJSContext::runAnimationRequests(BGJSGLView* view) const  {
 			didDraw = true;
 			request->view->prepareRedraw();
 			Handle<Value> args[0];
-			// LOGD("BGJSC runAnimation call");
+
 			Handle<Value> result = Local<Object>::New(_isolate, request->callback)->CallAsFunction(
 					Local<Object>::New(_isolate, request->thisObj), 0, args);
 
 			if (result.IsEmpty()) {
 				LOGE("Exception occured while running runAnimationRequest cb");
-				BGJSContext::ReportException(&trycatch);
+				BGJSV8Engine::ReportException(&trycatch);
 			}
 
 			String::Utf8Value fnName(Local<Object>::New(_isolate, request->callback)->ToString());
-#ifdef DEBUG
-			LOGD("runAnimation number %d %s", index, *fnName);
-#endif
 			BGJS_CLEAR_PERSISTENT(request->callback);
 			BGJS_CLEAR_PERSISTENT(request->thisObj);
 
@@ -702,60 +528,60 @@ bool BGJSContext::runAnimationRequests(BGJSGLView* view) const  {
 	return didDraw;
 }
 
-void BGJSContext::js_global_getLocale(Local<String> property,
+void BGJSV8Engine::js_global_getLocale(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSContext *ctx = BGJSInfo::_jscontext;
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 
-	if (ctx->_jscontext->_locale) {
-		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_jscontext->_locale)));
+	if (ctx->_locale) {
+		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_locale)));
 	} else {
 	    info.GetReturnValue().SetNull();
 	}
 }
 
-void BGJSContext::js_global_setLocale(Local<String> property,
+void BGJSV8Engine::js_global_setLocale(Local<String> property,
 		Local<Value> value, const v8::PropertyCallbackInfo<void>& info) {
 
 }
 
-void BGJSContext::js_global_getLang(Local<String> property,
+void BGJSV8Engine::js_global_getLang(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSContext *ctx = BGJSInfo::_jscontext;
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 
-	if (ctx->_jscontext->_lang) {
-		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_jscontext->_lang)));
+	if (ctx->_lang) {
+		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_lang)));
 	} else {
 		info.GetReturnValue().SetNull();
 	}
 }
 
-void BGJSContext::js_global_setLang(Local<String> property, Local<Value> value,
+void BGJSV8Engine::js_global_setLang(Local<String> property, Local<Value> value,
 		const v8::PropertyCallbackInfo<void>& info) {
 
 }
 
-void BGJSContext::js_global_getTz(Local<String> property,
+void BGJSV8Engine::js_global_getTz(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSContext *ctx = BGJSInfo::_jscontext;
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 
-	if (ctx->_jscontext->_tz) {
-		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_jscontext->_tz)));
+	if (ctx->_tz) {
+		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_tz)));
 	} else {
 		info.GetReturnValue().SetNull();
 	}
 }
 
-void BGJSContext::js_global_setTz(Local<String> property, Local<Value> value,
+void BGJSV8Engine::js_global_setTz(Local<String> property, Local<Value> value,
 		const v8::PropertyCallbackInfo<void>& info) {
 
 }
 
-void BGJSContext::js_global_requestAnimationFrame(
+void BGJSV8Engine::js_global_requestAnimationFrame(
 		const v8::FunctionCallbackInfo<v8::Value>& args) {
-    BGJSContext *ctx = BGJSInfo::_jscontext;
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 	v8::Locker l(args.GetIsolate());
 	HandleScope scope(args.GetIsolate());
 
@@ -765,9 +591,6 @@ void BGJSContext::js_global_requestAnimationFrame(
 		Handle<Object> objRef = args[1]->ToObject();
 		BGJSGLView* view = static_cast<BGJSGLView *>(v8::External::Cast(*(objRef->GetInternalField(0)))->Value());
 		if (localFunc->IsFunction()) {
-			#ifdef DEBUG
-				LOGD("requestAnimationFrame: on BGJSGLView %p", view);
-			#endif
 			int id = view->requestAnimationFrameForView(ctx->getIsolate(), localFunc, args.This(),
 					(ctx->_nextTimerId)++);
 			args.GetReturnValue().Set(id);
@@ -784,14 +607,13 @@ void BGJSContext::js_global_requestAnimationFrame(
 				v8::Exception::ReferenceError(
 					v8::String::NewFromUtf8(ctx->getIsolate(), "requestAnimationFrame: Wrong number or type of parameters")));
 		return;
-		// return v8::ThrowException(v8::Exception::ReferenceError(v8::String::New("Wrong number of parameters")));
 	}
 	args.GetReturnValue().Set(-1);
 }
 
-void BGJSContext::js_global_cancelAnimationFrame(
+void BGJSV8Engine::js_global_cancelAnimationFrame(
 		const v8::FunctionCallbackInfo<v8::Value>& args) {
-    BGJSContext *ctx = BGJSInfo::_jscontext;
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 	v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
 	if (args.Length() >= 1 && args[0]->IsNumber()) {
@@ -803,17 +625,17 @@ void BGJSContext::js_global_cancelAnimationFrame(
 	args.GetReturnValue().SetUndefined();
 }
 
-void BGJSContext::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	setTimeoutInt(args, false);
 }
 
-void BGJSContext::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	setTimeoutInt(args, true);
 }
 
-void BGJSContext::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args,
+void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args,
 		bool recurring) {
-    BGJSContext *ctx = BGJSInfo::_jscontext;
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 	v8::Locker l(args.GetIsolate());
 	HandleScope scope(args.GetIsolate());
 
@@ -828,7 +650,7 @@ void BGJSContext::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args,
 
 		jlong timeout = (jlong)(Local<Number>::Cast(args[1])->Value());
 
-		ClientAndroid* client = (ClientAndroid*) (BGJSInfo::_jscontext->_client);
+		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE()->_client);
 		JNIEnv* env = JNU_GetEnv();
 		if (env == NULL) {
 			LOGE("Cannot execute setTimeout with no envCache");
@@ -843,9 +665,6 @@ void BGJSContext::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args,
 		assert(clazz);
 		int subId = env->CallStaticIntMethod(clazz, pushMethod, (jlong) ws,
 				(jlong) wo, timeout, (jboolean) recurring);
-#ifdef DEBUG
-		LOGI("SetTimeout gave id %i", subId);
-#endif
         args.GetReturnValue().Set(subId);
 	} else {
         ctx->getIsolate()->ThrowException(
@@ -855,16 +674,16 @@ void BGJSContext::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args,
 	return;
 }
 
-void BGJSContext::js_global_clearInterval(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void BGJSV8Engine::js_global_clearInterval(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	clearTimeoutInt(args);
 }
 
-void BGJSContext::js_global_clearTimeout(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void BGJSV8Engine::js_global_clearTimeout(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	clearTimeoutInt(args);
 }
 
-void BGJSContext::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    BGJSContext *ctx = BGJSInfo::_jscontext;
+void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
 	v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
 
@@ -878,11 +697,7 @@ void BGJSContext::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& arg
 			return;
 		}
 
-#ifdef DEBUG
-		LOGI("clearTimeout for timeout %u", id);
-#endif
-
-		ClientAndroid* client = (ClientAndroid*) (BGJSInfo::_jscontext->_client);
+		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE()->_client);
 		JNIEnv* env = JNU_GetEnv();
 		if (env == NULL) {
 			LOGE("Cannot execute setTimeout with no envCache");
@@ -903,169 +718,80 @@ void BGJSContext::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& arg
 	}
 }
 
-Persistent<Script, CopyablePersistentTraits<Script> > BGJSContext::load(const char* path) {
-    Isolate *isolate = this->_isolate;
-    LOGI("Load: got Isolate %p", isolate);
-	v8::Locker l(isolate);
-	Isolate::Scope isolateScope(isolate);
-    HandleScope scope(isolate);
-	v8::TryCatch try_catch;
-
-	const char* buf = this->_client->loadFile(path);
-
-	// Create a string containing the JavaScript source code.
-	Handle<String> source = String::NewFromUtf8(isolate, buf);
-
-	// Compile the source code.
-	Handle<Script> scr = Script::Compile(source);
-	Persistent<Script, CopyablePersistentTraits<Script> > pers(isolate, scr);
-
-	if (scr.IsEmpty()) {
-		LOGE("Error compiling script %s\n", buf);
-		free((void*) buf);
-		// Print errors that happened during compilation.
-		BGJSContext::ReportException(&try_catch);
-	}
-
-#ifdef DEBUG
-	LOGI("Compiled\n");
-#endif
-	free((void*) buf);
-	return pers;
-}
-
-BGJSContext::BGJSContext(v8::Isolate* isolate) {
+BGJSV8Engine::BGJSV8Engine(v8::Isolate* isolate) {
 	_client = NULL;
 	_nextTimerId = 1;
 	_locale = NULL;
 
-    // Create default isolate just to be sure.
     this->_isolate = isolate;
-    /* if (!isolate) {
-        Isolate::CreateParams create_params;
-        isolate = Isolate::New(create_params);
-        isolate->Enter();
-    } */
-
-	v8::Locker l(isolate);
-	// Create a stack-allocated handle scope.
-	HandleScope scope(isolate);
-
-	// Create a template for the global object where we set the
-    // @TODO: not global, but as a member variable, because it can not be shared across isolates!!
-	if(g_globalObjectTemplate.IsEmpty()) {
-		// built-in global functions.
-		v8::Local<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
-
-		// Add methods to console function
-		v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(isolate);
-		console->Set(String::NewFromUtf8(isolate, "log"),
-					 v8::FunctionTemplate::New(isolate, LogCallback));
-		console->Set(String::NewFromUtf8(isolate, "debug"),
-					 v8::FunctionTemplate::New(isolate, DebugCallback));
-		console->Set(String::NewFromUtf8(isolate, "info"),
-					 v8::FunctionTemplate::New(isolate, InfoCallback));
-		console->Set(String::NewFromUtf8(isolate, "error"),
-					 v8::FunctionTemplate::New(isolate, ErrorCallback));
-		console->Set(String::NewFromUtf8(isolate, "warn"),
-					 v8::FunctionTemplate::New(isolate, ErrorCallback));
-		// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
-		// Set the created FunctionTemplate as console in global object
-		global->Set(v8::String::NewFromUtf8(isolate, "console"), console);
-    // @TODO: add environment variable
-		global->SetAccessor(String::NewFromUtf8(isolate, "_locale"),
-							BGJSContext::js_global_getLocale,
-							BGJSContext::js_global_setLocale);
-		global->SetAccessor(String::NewFromUtf8(isolate, "_lang"), BGJSContext::js_global_getLang,
-							BGJSContext::js_global_setLang);
-		global->SetAccessor(String::NewFromUtf8(isolate, "_tz"), BGJSContext::js_global_getTz,
-							BGJSContext::js_global_setTz);
-
-		global->Set(String::NewFromUtf8(isolate, "requestAnimationFrame"),
-					v8::FunctionTemplate::New(isolate,
-											  BGJSContext::js_global_requestAnimationFrame));
-		global->Set(String::NewFromUtf8(isolate, "cancelAnimationFrame"),
-					v8::FunctionTemplate::New(isolate,
-											  BGJSContext::js_global_cancelAnimationFrame));
-		global->Set(String::NewFromUtf8(isolate, "setTimeout"),
-					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_setTimeout));
-		global->Set(String::NewFromUtf8(isolate, "setInterval"),
-					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_setInterval));
-		global->Set(String::NewFromUtf8(isolate, "clearTimeout"),
-					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_clearTimeout));
-		global->Set(String::NewFromUtf8(isolate, "clearInterval"),
-					v8::FunctionTemplate::New(isolate, BGJSContext::js_global_clearInterval));
-
-		// Also, persist the global object template so we can add stuff here later when calling require
-		g_globalObjectTemplate.Set(isolate, global);
-	}
-
-	LOGD("v8 version %s", V8::GetVersion());
 }
 
-void BGJSContext::createContext() {
+void BGJSV8Engine::createContext() {
 
-#ifdef ENABLE_DEBUGGER_SUPPORT
-	int port_number = 1337;
-	bool wait_for_connection = true;
-	bool support_callback = true;
-#endif  // ENABLE_DEBUGGER_SUPPORT
-    Isolate::Scope isolate_scope(_isolate);
 	v8::Locker l(_isolate);
-    // Create a stack-allocated handle scope.
-    HandleScope scope(_isolate);
+	Isolate::Scope isolate_scope(_isolate);
+	HandleScope scope(_isolate);
+
+	// Create global object template
+	v8::Local<v8::ObjectTemplate> globalObjTpl = v8::ObjectTemplate::New();
+
+	// Add methods to console function
+	v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(_isolate);
+	console->Set(String::NewFromUtf8(_isolate, "log"),
+				 v8::FunctionTemplate::New(_isolate, LogCallback));
+	console->Set(String::NewFromUtf8(_isolate, "debug"),
+				 v8::FunctionTemplate::New(_isolate, DebugCallback));
+	console->Set(String::NewFromUtf8(_isolate, "info"),
+				 v8::FunctionTemplate::New(_isolate, InfoCallback));
+	console->Set(String::NewFromUtf8(_isolate, "error"),
+				 v8::FunctionTemplate::New(_isolate, ErrorCallback));
+	console->Set(String::NewFromUtf8(_isolate, "warn"),
+				 v8::FunctionTemplate::New(_isolate, ErrorCallback));
+	// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
+
+	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
+
+	// environment variables
+	globalObjTpl->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
+
+	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
+						BGJSV8Engine::js_global_getLocale,
+						BGJSV8Engine::js_global_setLocale);
+	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"), BGJSV8Engine::js_global_getLang,
+						BGJSV8Engine::js_global_setLang);
+	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_tz"), BGJSV8Engine::js_global_getTz,
+						BGJSV8Engine::js_global_setTz);
+
+	// global functions
+	globalObjTpl->Set(String::NewFromUtf8(_isolate, "requestAnimationFrame"),
+				v8::FunctionTemplate::New(_isolate,
+										  BGJSV8Engine::js_global_requestAnimationFrame));
+	globalObjTpl->Set(String::NewFromUtf8(_isolate, "cancelAnimationFrame"),
+				v8::FunctionTemplate::New(_isolate,
+										  BGJSV8Engine::js_global_cancelAnimationFrame));
+	globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout"),
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout));
+	globalObjTpl->Set(String::NewFromUtf8(_isolate, "setInterval"),
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval));
+	globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout"),
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeout));
+	globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval"),
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearInterval));
+
 	// Create a new context.
-    Local<Context> context = v8::Context::New(_isolate, NULL,
-                                        Local<ObjectTemplate>::New(_isolate, g_globalObjectTemplate.Get(_isolate)));
-	//_module = "root";
-	_context = new Persistent<Context>(_isolate, context);
-	_jscontext = this;
-	//_dir = "";
+    Local<Context> context = v8::Context::New(_isolate, NULL, globalObjTpl);
+	context->SetAlignedPointerInEmbedderData(EBGJSV8EngineEmbedderData::kContext, this);
 
-	context->SetAlignedPointerInEmbedderData(EBGJSContextEmbedderData::kContext, this);
-    LOGI("createContext v8context is %p, BGJSContext is %p", context, this);
-
-	BGJSInfo::_context = new Persistent<Context>(_isolate, context);
-	BGJSInfo::_jscontext = this;
-
-#ifdef ENABLE_DEBUGGER_SUPPORT
-	debug_message_context = v8::Persistent<v8::Context>::Persistent(isolate, BGJSInfo::_context);
-
-	v8::Locker locker;
-
-	if (support_callback) {
-		v8::Debug::SetDebugMessageDispatchHandler(DispatchDebugMessages, true);
-	}
-
-	if (port_number != -1) {
-		v8::Debug::EnableAgent("v8Engine", port_number, wait_for_connection);
-	}
-#endif  // ENABLE_DEBUGGER_SUPPORT
+	_context.Reset(_isolate, context);
 }
 
-void BGJSContext::ReportException(v8::TryCatch* try_catch) {
-	HandleScope scope(Isolate::GetCurrent());
-	v8::String::Utf8Value exception(try_catch->Exception());
-	const char* exception_string = ToCString(exception);
+void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
+	Isolate* isolate = Isolate::GetCurrent();
+	HandleScope scope(isolate);
+	Local<Context> context = isolate->GetCurrentContext();
+
+	const char* exception_string = BGJS_CHAR_FROM_V8VALUE(try_catch->Exception());
 	v8::Handle<v8::Message> message = try_catch->Message();
-
-/* #ifdef ANDROID
-	jstring dataStr, excStr, methodStr;
-	ClientAndroid* client = (ClientAndroid*)(_bgjscontext->_client);
-	JNIEnv* env = JNU_GetEnv();
-	if (env != NULL) {
-		LOGE("Cannot log to Java with no envCache");
-	} else {
-
-		jclass clazz = env->FindClass("ag/boersego/bgjs/V8Engine");
-		jmethodID ajaxMethod = env->GetStaticMethodID(clazz,
-				"logException", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
-		assert(ajaxMethod);
-		assert(clazz);
-	}
-	env->CallStaticVoidMethod(clazz, ajaxMethod, urlStr, dataStr, methodStr, (jboolean)processData);
-
-#endif */
 
 	if (message.IsEmpty()) {
 		// V8 didn't provide any extra information about this error; just
@@ -1073,13 +799,11 @@ void BGJSContext::ReportException(v8::TryCatch* try_catch) {
 		LOGI("Exception: %s", exception_string);
 	} else {
 		// Print (filename):(line number): (message).
-		v8::String::Utf8Value filename(message->GetScriptResourceName());
-		const char* filename_string = ToCString(filename);
+		const char* filename_string = BGJS_CHAR_FROM_V8VALUE(message->GetScriptResourceName());
 		int linenum = message->GetLineNumber();
 		LOGI("Exception: %s:%i: %s\n", filename_string, linenum, exception_string);
 		// Print line of source code.
-		v8::String::Utf8Value sourceline(message->GetSourceLine());
-		const char* sourceline_string = ToCString(sourceline);
+		const char* sourceline_string = BGJS_CHAR_FROM_V8VALUE(message->GetSourceLine());
 		LOGI("%s\n", sourceline_string);
 		std::stringstream str;
 		// Print wavy underline (GetUnderline is deprecated).
@@ -1092,10 +816,10 @@ void BGJSContext::ReportException(v8::TryCatch* try_catch) {
 			str << "^";
 		}
 		LOGI("%s", str.str().c_str());
-		v8::String::Utf8Value stack_trace(try_catch->StackTrace());
-		if (stack_trace.length() > 0) {
-			const char* stack_trace_string = ToCString(stack_trace);
-			LOGI("%s", stack_trace_string);
+
+		MaybeLocal<Value> stack_trace = try_catch->StackTrace(context);
+		if (!stack_trace.IsEmpty()) {
+			LOGI("%s", BGJS_CHAR_FROM_V8VALUE(try_catch->StackTrace()));
 		}
 
 		/* excStr = env->NewStringUTF(exception_string);
@@ -1115,33 +839,32 @@ void BGJSContext::ReportException(v8::TryCatch* try_catch) {
 	}
 }
 
-void BGJSContext::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>& args) {
+void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>& args) {
 	v8::Locker locker(args.GetIsolate());
 	HandleScope scope(args.GetIsolate());
 
 	std::stringstream str;
 	int l = args.Length();
 	for (int i = 0; i < l; i++) {
-		String::Utf8Value value(args[i]);
-		str << " " << ToCString(value);
+		str << " " << BGJS_CHAR_FROM_V8VALUE(args[i]);
 	}
 
 	LOG(debugLevel, "%s", str.str().c_str());
 }
 
-int BGJSContext::run(const char *path) {
+int BGJSV8Engine::run(const char *path) {
     Locker locker(_isolate);
     Isolate::Scope isolate_scope(_isolate);
 
 	// Create a stack-allocated handle scope.
 	HandleScope scope(_isolate);
 	v8::TryCatch try_catch;
-    Local<Context> context = *reinterpret_cast<Local<Context>*>(BGJSContext::_context);
+    Local<Context> context = Local<Context>::New(_isolate, _context);
     Context::Scope context_scope(context);
 
     context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
 
-	Local<Value> result = internalRequire(path);
+	Local<Value> result = require(path);
 
 	if (result.IsEmpty()) {
 		// Print errors that happened during execution.
@@ -1154,18 +877,18 @@ int BGJSContext::run(const char *path) {
 	return 1;
 }
 
-void BGJSContext::setLocale(const char* locale, const char* lang,
+void BGJSV8Engine::setLocale(const char* locale, const char* lang,
 		const char* tz) {
 	_locale = strdup(locale);
 	_lang = strdup(lang);
 	_tz = strdup(tz);
 }
 
-BGJSContext::~BGJSContext() {
+BGJSV8Engine::~BGJSV8Engine() {
 	LOGI("Cleaning up");
 
 	// clear persistent context reference
-	_context->Reset();
+	_context.Reset();
 
 	if (_locale) {
 		free(_locale);

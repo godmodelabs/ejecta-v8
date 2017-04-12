@@ -121,7 +121,7 @@ void BGJSView::js_view_on(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	args.GetReturnValue().SetUndefined();
 }
 
-BGJSView::BGJSView(Isolate* isolate, const BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip) {
+BGJSView::BGJSView(Isolate* isolate, const BGJSV8Engine *ctx, float pixelRatio, bool doNoClearOnFlip) {
 	HandleScope scope(isolate);
 	opened = false;
 	_contentObj = 0;
@@ -152,9 +152,10 @@ BGJSView::BGJSView(Isolate* isolate, const BGJSContext *ctx, float pixelRatio, b
     BGJS_RESET_PERSISTENT(isolate, this->jsViewOT, bgjsgl);
 }
 
-Handle<Value> BGJSView::startJS(Isolate* isolate, const char* fnName,
+Handle<Value> BGJSView::startJS(const char* fnName,
         const char* configJson, Handle<Value> uiObj, long configId, bool hasIntradayQuotes) {
-    v8::Locker l(isolate);
+	Isolate* isolate = Isolate::GetCurrent();
+	Local<Context> context = isolate->GetCurrentContext();
     EscapableHandleScope scope(isolate);
 
 	Handle<Value> config;
@@ -173,10 +174,8 @@ Handle<Value> BGJSView::startJS(Isolate* isolate, const char* fnName,
 	Handle<Value> argv[5] = { uiObj, objInstance, config, Number::New(isolate, configId),
 	    Number::New(isolate, hasIntradayQuotes) };
 
-	Local<Value> res = this->_jsContext->callFunction(isolate,
-			(*reinterpret_cast<Local<Context>*>(BGJSInfo::_context))->Global(),
-	        fnName, 5,
-			argv);
+	Local<Value> res = this->_jsContext->callFunction(isolate, context->Global(),
+	        fnName, 5, argv);
 	if (res->IsNumber()) {
 		_contentObj = res->ToNumber()->Value();
 #ifdef DEBUG
@@ -213,7 +212,7 @@ void BGJSView::sendEvent(Isolate* isolate, Handle<Object> eventObjRef) {
 	    Local<Object> callback = (*reinterpret_cast<Local<Object>*>(cb));
 		Handle<Value> result = callback->CallAsFunction(callback, 1, args);
 		if (result.IsEmpty()) {
-			BGJSContext::ReportException(&trycatch);
+			BGJSV8Engine::ReportException(&trycatch);
 		}
 	}
 }
@@ -232,7 +231,7 @@ void BGJSView::call(Isolate* isolate, std::vector<Persistent<Object, v8::Copyabl
 
 		Local<Value> result = callback->CallAsFunction(callback, 0, args);
 		if (result.IsEmpty()) {
-			BGJSContext::ReportException(&trycatch);
+			BGJSV8Engine::ReportException(&trycatch);
 		}
 	}
 }

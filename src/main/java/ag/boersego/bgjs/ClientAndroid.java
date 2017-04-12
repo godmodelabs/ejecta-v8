@@ -11,7 +11,7 @@ import android.content.res.AssetManager;
  **/
 
 public class ClientAndroid {
-	// BGJSContext
+	// BGJSV8Engine
 	public static native void timeoutCB(long ctxPtr, long jsCb, long thisObj, boolean cleanup, boolean runCallback);
 	public static native long initialize(AssetManager am, V8Engine engine, String locale, String lang, String timezone, float density);
     public static native void run (long ctxPtr, String filename);

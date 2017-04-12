@@ -22,7 +22,7 @@ add_library( # Sets the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
-             src/main/cpp/bgjs/BGJSContext.cpp
+             src/main/cpp/bgjs/BGJSV8Engine.cpp
              src/main/cpp/bgjs/ClientAndroid.cpp
              src/main/cpp/bgjs/BGJSModule.cpp
              src/main/cpp/bgjs/BGJSClass.cpp

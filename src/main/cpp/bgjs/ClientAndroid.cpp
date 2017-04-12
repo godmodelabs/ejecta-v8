@@ -21,7 +21,7 @@
 #include <v8.h>
 #include <libplatform/libplatform.h>
 
-#include "BGJSContext.h"
+#include "BGJSV8Engine.h"
 #include "ClientAbstract.h"
 #include "ClientAndroid.h"
 #include "modules/AjaxModule.h"
@@ -283,7 +283,7 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
     // v8::Isolate::Scope isolate_scope(isolate);
     // LOGD("Initialized isolateScope");
 
-	BGJSContext* ct = new BGJSContext(isolate);
+	BGJSV8Engine* ct = new BGJSV8Engine(isolate);
 
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
 	const char* langStr = env->GetStringUTFChars(lang, NULL);
@@ -312,17 +312,18 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_run(JNIEnv * env,
 		LOGD("clientAndroid run");
 	}
     const char* pathStr = env->GetStringUTFChars(path, 0);
-	BGJSContext* ct = (BGJSContext*) ctxPtr;
+	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
 	v8::Locker l (ct->getIsolate());
 	Isolate::Scope(ct->getIsolate());
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(ct->_context));
+	HandleScope scope (ct->getIsolate());
+	Context::Scope context_scope(ct->getContext());
 	_client->envCache = env;
 	ct->run(pathStr);
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 		JNIEnv * env, jobject obj, jlong ctxPtr, jlong jsCbPtr, jlong thisPtr, jboolean cleanup, jboolean runCb) {
-	BGJSContext* context = (BGJSContext*)ctxPtr;
+	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
     v8::Isolate* isolate = context->getIsolate();
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
@@ -330,7 +331,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 		LOGD("clientAndroid timeoutCB");
 	}
 
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(context->_context));
+	Context::Scope context_scope(context->getContext());
 
 	HandleScope scope (isolate);
 	TryCatch trycatch;
@@ -348,7 +349,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 
 		Handle<Value> result = callbackP->Call(thisObj, argcount, argarray);
 		if (result.IsEmpty()) {
-			BGJSContext::ReportException(&trycatch);
+			BGJSV8Engine::ReportException(&trycatch);
 		}
 		if (DEBUG) {
 			LOGI("timeoutCb finished");
@@ -367,12 +368,12 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv * env, jobject obj, jlong ctxPtr, jlong cbPtr, jlong thisPtr, jboolean b) {
-	BGJSContext* context = (BGJSContext*)ctxPtr;
+	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
     v8::Isolate* isolate = context->getIsolate();
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
 
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(context->_context));
+	Context::Scope context_scope(context->getContext());
 
 	HandleScope scope(isolate);
 	TryCatch trycatch;
@@ -388,7 +389,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
 
 	Handle<Value> result = fn->Call(thisObj, argcount, argarray);
 	if (result.IsEmpty()) {
-		BGJSContext::ReportException(&trycatch);
+		BGJSV8Engine::ReportException(&trycatch);
 	}
 	// TODO: Don't we need to clean up these persistents?
 }

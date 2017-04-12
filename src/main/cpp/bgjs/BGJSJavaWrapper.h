@@ -4,6 +4,7 @@
 #include <v8.h>
 #include <jni.h>
 #include <string>
+#include "BGJSV8Engine.h"
 
 /**
  * BGJSJavaWrapper
@@ -20,7 +21,7 @@ class BGJSJavaWrapper {
 public:
 	v8::Persistent<v8::Object> _jsObject;
 	BGJSJavaWrapper ();
-	BGJSJavaWrapper (const BGJSContext* context, JNIEnv* env, jobject javaObject);
+	BGJSJavaWrapper (const BGJSV8Engine* context, JNIEnv* env, jobject javaObject);
 
 	bool coerceArgToString (JNIEnv* env, jobject &object, jclass& clazz, const char *keyName, const char *valAsString);
 
@@ -37,7 +38,7 @@ public:
 	int getArgCount (const char* argsSpec, const int argsStrLen);
 	~BGJSJavaWrapper();
 	void cleanUp(JNIEnv* env);
-	const BGJSContext* _context;
+	const BGJSV8Engine* _context;
 	jobject _javaObject;
 };
 

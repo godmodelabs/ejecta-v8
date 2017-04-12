@@ -1,4 +1,4 @@
-#include "BGJSContext.h"
+#include "BGJSV8Engine.h"
 #include "BGJSJavaWrapper.h"
 #include "mallocdebug.h"
 
@@ -80,7 +80,7 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_js_ClientAndroid_callJSPtr(
 
 } */
 
-BGJSJavaWrapper::BGJSJavaWrapper (const BGJSContext* context, JNIEnv* env, jobject javaObject) {
+BGJSJavaWrapper::BGJSJavaWrapper (const BGJSV8Engine* context, JNIEnv* env, jobject javaObject) {
 	_context = context;
 	_javaObject = env->NewGlobalRef(javaObject);
 	_jStringClass = env->FindClass("java/lang/String");

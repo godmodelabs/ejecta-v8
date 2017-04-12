@@ -1,9 +1,7 @@
 #ifndef __BGJSMODULE_H
 #define __BGJSMODULE_H  1
 
-#include "BGJSInfo.h"
 #include "BGJSClass.h"
-#include "BGJSJavaWrapper.h"
 #include <string>
 
 /**
@@ -14,9 +12,9 @@
  * Licensed under the MIT license.
  */
 
-class BGJSContext;
+class BGJSV8Engine;
 
-class BGJSModule : public BGJSInfo, public BGJSClass {
+class BGJSModule : public BGJSClass {
 	// attributes
 	std::string name;
 
@@ -24,16 +22,16 @@ protected:
 	// methods
 public:
 	// attributes
-	static const BGJSContext* _bgjscontext;
+	static const BGJSV8Engine* _BGJSV8Engine;
 
 	// members
 	BGJSModule(const char* name);
 	std::string getName() const;
-	static void doRegister(v8::Isolate* isolate, const BGJSContext *context);
+	static void doRegister(v8::Isolate* isolate, const BGJSV8Engine *context);
 	virtual ~BGJSModule() = 0;
 
 	virtual bool initialize() = 0;
-	virtual v8::Local<v8::Value> initWithContext(v8::Isolate* isolate, const BGJSContext* context) = 0;
+	virtual v8::Local<v8::Value> initWithContext(v8::Isolate* isolate, const BGJSV8Engine* context) = 0;
 
 	static void javaToJsField (v8::Isolate* isolate, const char* fieldName, const char fieldType,
 	        JNIEnv *env, jobject &jobj, v8::Handle<v8::Object> &jsObj);

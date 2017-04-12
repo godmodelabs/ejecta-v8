@@ -4,7 +4,7 @@
 #include "../BGJSCanvasContext.h"
 #include "../BGJSModule.h"
 
-class BGJSContext2dGL;
+class BGJSV8Engine2dGL;
 
 /**
  * BGJSGLModule
@@ -21,12 +21,12 @@ class BGJSGLModule : public BGJSModule {
 
 public:
 	BGJSGLModule();
-	v8::Local<v8::Value> initWithContext(v8::Isolate* isolate, const BGJSContext* context);
+	v8::Local<v8::Value> initWithContext(v8::Isolate* isolate, const BGJSV8Engine* context);
 	static void doRequire (v8::Isolate* isolate, v8::Handle<v8::Object> target);
 	static void create(const v8::FunctionCallbackInfo<v8::Value>& args);
 	static void js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args);
 	static void js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value>& args);
-	static void js_context_destruct (const v8::WeakCallbackInfo<BGJSContext2dGL>& info);
+	static void js_context_destruct (const v8::WeakCallbackInfo<BGJSV8Engine2dGL>& info);
 	// static v8::Handle<v8::Value> js_context_beginPath(const v8::Arguments& args);
 	// static Handle<Value> BGJSCanvasGL:js_context_beginPath(const Arguments& args)
 

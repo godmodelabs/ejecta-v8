@@ -1,6 +1,6 @@
 #include <assert.h>
 
-#include "../BGJSContext.h"
+#include "../BGJSV8Engine.h"
 #include "AjaxModule.h"
 
 #include "../ClientAbstract.h"
@@ -36,7 +36,7 @@ void AjaxModule::doRequire (v8::Isolate* isolate, v8::Handle<v8::Object> target)
 	target->Set(String::NewFromUtf8(isolate, "exports"), ft->GetFunction());
 }
 
-v8::Local<v8::Value> AjaxModule::initWithContext(v8::Isolate* isolate, const BGJSContext* context)
+v8::Local<v8::Value> AjaxModule::initWithContext(v8::Isolate* isolate, const BGJSV8Engine* context)
 {
 	doRegister(isolate, context);
 	return v8::Undefined(isolate);
@@ -94,7 +94,7 @@ void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 #ifdef ANDROID
 	jstring dataStr, urlStr, methodStr;
-	ClientAndroid* client = (ClientAndroid*)(_bgjscontext->_client);
+	ClientAndroid* client = (ClientAndroid*)(_BGJSV8Engine->_client);
 	JNIEnv* env = JNU_GetEnv();
 	if (env == NULL) {
 		LOGE("Cannot execute AJAX request with no envCache");
@@ -140,7 +140,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		JNIEnv * env, jobject obj, jlong ctxPtr, jstring dataStr, jint responseCode,
 		jlong jsCbPtr, jlong thisPtr, jlong errorCb, jlong v8CtxPtr, jboolean success, jboolean processData) {
-	BGJSContext* context = (BGJSContext*)ctxPtr;
+	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
 
 	Isolate* isolate = context->getIsolate();
 	v8::Locker l(isolate);
@@ -197,7 +197,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		}
 	}
 	if (result.IsEmpty()) {
-		BGJSContext::ReportException(&trycatch);
+		BGJSV8Engine::ReportException(&trycatch);
 	}
 	if (nativeString) {
 		env->ReleaseStringUTFChars(dataStr, nativeString);
