@@ -31,11 +31,10 @@ public:
 	void endRedrawNoSwap();
 	void setTouchPosition(int x, int y);
 	void swapBuffers();
-	void resize (v8::Isolate* isolate, int width, int height, bool resizeOnly);
+	void resize (int width, int height, bool resizeOnly);
 	void close ();
 	void requestRefresh();
-	int requestAnimationFrameForView(v8::Isolate* isolate, v8::Handle<v8::Object> cb,
-	    v8::Handle<v8::Object> thisObj, int id);
+	int requestAnimationFrameForView(v8::Handle<v8::Object> cb, v8::Handle<v8::Object> thisObj, int id);
 #ifdef ANDROID
 	void setJavaGl(JNIEnv* env, jobject javaGlView);
 #endif

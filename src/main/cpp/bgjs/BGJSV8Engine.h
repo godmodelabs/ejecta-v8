@@ -73,7 +73,7 @@ public:
 
 	static void ReportException(v8::TryCatch* try_catch);
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
-    int run(const char *path);
+    int run(const char *path = NULL);
 	void setClient(ClientAbstract* client);
 
 	void setLocale(const char* locale, const char* lang, const char* tz);

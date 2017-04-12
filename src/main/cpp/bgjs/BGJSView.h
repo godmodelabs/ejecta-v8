@@ -23,8 +23,8 @@ public:
 	virtual ~BGJSView();
 	v8::Handle<v8::Value> startJS(const char* fnName, const char* configJson, v8::Handle<v8::Value> uiObj, long configId, bool hasIntradayQuotes);
 	static void js_view_on(const v8::FunctionCallbackInfo<v8::Value>& args);
-	void sendEvent(v8::Isolate* isolate, v8::Handle<v8::Object> eventObjRef);
-	void call(v8::Isolate* isolate, std::vector<v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object> >*> &list);
+	void sendEvent(v8::Handle<v8::Object> eventObjRef);
+	void call(std::vector<v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object> >*> &list);
 
 	v8::Persistent<v8::Object> _jsObj;
 	v8::Persistent<v8::Object> _bridgeObj;	// TODO: This is returned by startJS

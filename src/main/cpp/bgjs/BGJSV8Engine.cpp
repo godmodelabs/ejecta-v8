@@ -523,7 +523,7 @@ bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view) const  {
 
 	// If we couldn't draw anything, request that we can the next time
 	if (!didDraw) {
-		view->call(_isolate, view->_cbRedraw);
+		view->call(view->_cbRedraw);
 	}
 	return didDraw;
 }
@@ -591,7 +591,7 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 		Handle<Object> objRef = args[1]->ToObject();
 		BGJSGLView* view = static_cast<BGJSGLView *>(v8::External::Cast(*(objRef->GetInternalField(0)))->Value());
 		if (localFunc->IsFunction()) {
-			int id = view->requestAnimationFrameForView(ctx->getIsolate(), localFunc, args.This(),
+			int id = view->requestAnimationFrameForView(localFunc, args.This(),
 					(ctx->_nextTimerId)++);
 			args.GetReturnValue().Set(id);
 			return;
@@ -856,23 +856,27 @@ int BGJSV8Engine::run(const char *path) {
     Locker locker(_isolate);
     Isolate::Scope isolate_scope(_isolate);
 
-	// Create a stack-allocated handle scope.
 	HandleScope scope(_isolate);
-	v8::TryCatch try_catch;
+
+    v8::TryCatch try_catch;
+
+    // create context
     Local<Context> context = Local<Context>::New(_isolate, _context);
+
     Context::Scope context_scope(context);
 
+    // register global object for all required modules
     context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
 
-	Local<Value> result = require(path);
+    // if an initial module was specified load it immediately
+    if(path) {
+	    Local<Value> result = require(path);
 
-	if (result.IsEmpty()) {
-		// Print errors that happened during execution.
-		ReportException(&try_catch);
-		return false;
-	}
-
-    _nextTimerId = 1;
+        if (result.IsEmpty()) {
+            ReportException(&try_catch);
+            return false;
+        }
+    }
 
 	return 1;
 }

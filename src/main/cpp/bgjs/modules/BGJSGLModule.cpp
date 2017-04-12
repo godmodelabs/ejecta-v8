@@ -1202,7 +1202,7 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 #ifdef DEBUG
 		LOGD("Resizing from %dx%d to %dx%d, resizeOnly %i", view->width, view->height, width, height, (int)(view->opened));
 #endif
-		view->resize(isolate, width, height, view->opened);
+		view->resize(width, height, view->opened);
 	}
 	Handle<Value> uiObj;
 
@@ -1253,7 +1253,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,
 		jobject obj, jlong ctxPtr, jlong jsPtr) {
 	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
 	BGJSGLView *view = (BGJSGLView*) jsPtr;
-	return view->call(ct->getIsolate(), view->_cbRedraw);
+	return view->call(view->_cbRedraw);
 }
 
 
@@ -1304,7 +1304,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
 
 	eventObjRef->Set(String::NewFromUtf8(isolate, "touches"), touchesArray);
 
-	view->sendEvent(isolate, eventObjRef);
+	view->sendEvent(eventObjRef);
 
 	// Cleanup JNI stuff
 	env->ReleaseFloatArrayElements(xArr, x, 0);
