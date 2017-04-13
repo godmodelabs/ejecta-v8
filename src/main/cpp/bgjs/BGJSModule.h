@@ -24,11 +24,7 @@ public:
 	// members
 	BGJSModule(const char* name);
 	std::string getName() const;
-	static void doRegister(v8::Isolate* isolate, const BGJSV8Engine *context);
 	virtual ~BGJSModule() = 0;
-
-	virtual bool initialize() = 0;
-	virtual v8::Local<v8::Value> initWithContext(v8::Isolate* isolate, const BGJSV8Engine* context) = 0;
 
 	static void javaToJsField (v8::Isolate* isolate, const char* fieldName, const char fieldType,
 	        JNIEnv *env, jobject &jobj, v8::Handle<v8::Object> &jsObj);

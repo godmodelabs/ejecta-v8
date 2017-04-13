@@ -109,11 +109,6 @@ public:
 v8::Persistent<v8::Function> BGJSGLModule::g_classRefCanvasGL;
 v8::Persistent<v8::Function> BGJSGLModule::g_classRefContext2dGL;
 
-bool BGJSGLModule::initialize() {
-
-	return true;
-}
-
 void js_context_get_fillStyle(Local<String> property,
 		const v8::PropertyCallbackInfo<Value>& info) {
 	CONTEXT_FETCH_VAR_ESCAPABLE;
@@ -1006,7 +1001,8 @@ void BGJSGLModule::js_context_destruct(const v8::WeakCallbackInfo<BGJSV8Engine2d
 	// TODO: Also destroy canvas instance?
 }
 
-void BGJSGLModule::doRequire(v8::Isolate* isolate, v8::Handle<v8::Object> target) {
+void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target) {
+    v8::Isolate* isolate = engine->getIsolate();
 	v8::Locker l(isolate);
 	HandleScope scope(isolate);
 
@@ -1137,15 +1133,6 @@ void BGJSGLModule::doRequire(v8::Isolate* isolate, v8::Handle<v8::Object> target
 	// g_classRefContext2dGL
 
 	target->Set(String::NewFromUtf8(isolate, "exports"), exports);
-}
-
-v8::Local<v8::Value> BGJSGLModule::initWithContext(Isolate* isolate, const BGJSV8Engine* context) {
-	v8::Locker l(isolate);
-	EscapableHandleScope scope(isolate);
-
-	doRegister(isolate, context);
-
-	return v8::Undefined(isolate);
 }
 
 BGJSGLModule::BGJSGLModule() :

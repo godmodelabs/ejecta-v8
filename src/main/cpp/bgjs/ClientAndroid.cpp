@@ -199,9 +199,6 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	ct->setClient(_client);
 	ct->createContext();
 	LOGD("BGJS context created");
-	AjaxModule::doRegister(isolate, ct);
-	BGJSGLModule::doRegister(isolate, ct);
-	LOGD("ClientAndroid init: doRegister done");
 
 	ct->registerModule("ajax", AjaxModule::doRequire);
 	ct->registerModule("canvas", BGJSGLModule::doRequire);

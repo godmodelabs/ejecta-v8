@@ -22,24 +22,14 @@ using namespace v8;
 AjaxModule::AjaxModule() : BGJSModule ("ajax") {
 }
 
-bool AjaxModule::initialize() {
-
-	return true;
-}
-
-void AjaxModule::doRequire (v8::Isolate* isolate, v8::Handle<v8::Object> target) {
+void AjaxModule::doRequire (BGJSV8Engine *engine, v8::Handle<v8::Object> target) {
+    v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
     HandleScope scope(isolate);
 
 	Handle<FunctionTemplate> ft = FunctionTemplate::New(isolate, ajax);
 
 	target->Set(String::NewFromUtf8(isolate, "exports"), ft->GetFunction());
-}
-
-v8::Local<v8::Value> AjaxModule::initWithContext(v8::Isolate* isolate, const BGJSV8Engine* context)
-{
-	doRegister(isolate, context);
-	return v8::Undefined(isolate);
 }
 
 AjaxModule::~AjaxModule() {

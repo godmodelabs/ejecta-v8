@@ -167,8 +167,7 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
  } */
 
 // Register
-bool BGJSV8Engine::registerModule(const char* name,
-		void (*requireFn)(v8::Isolate* isolate, v8::Handle<v8::Object> target)) {
+bool BGJSV8Engine::registerModule(const char* name, requireHook requireFn) {
 	// v8::Locker l(Isolate::GetCurrent());
 	// HandleScope scope(Isolate::GetCurrent());
 	// module->initWithContext(this);
@@ -176,6 +175,10 @@ bool BGJSV8Engine::registerModule(const char* name,
 	// _modules.insert(std::pair<char const*, BGJSModule*>(module->getName(), module));
 
 	return true;
+}
+
+uint8_t BGJSV8Engine::requestEmbedderDataIndex() {
+    return _nextEmbedderDataIndex++;
 }
 
 //////////////////////////
@@ -290,7 +293,7 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
         Local<Object> moduleObj = Object::New(_isolate);
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
 
-        module(_isolate, moduleObj);
+        module(this, moduleObj);
         return handle_scope.Escape(moduleObj->Get(String::NewFromUtf8(_isolate, "exports")));
     }
     std::string fileName, pathName;
@@ -722,6 +725,7 @@ BGJSV8Engine::BGJSV8Engine(v8::Isolate* isolate) {
 	_client = NULL;
 	_nextTimerId = 1;
 	_locale = NULL;
+    _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
 
     this->_isolate = isolate;
 }

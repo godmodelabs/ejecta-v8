@@ -29,9 +29,6 @@ std::string BGJSModule::getName() const {
 	return name;
 }
 
-void BGJSModule::doRegister (v8::Isolate* isolate, const BGJSV8Engine* context) {
-}
-
 BGJSModule::~BGJSModule() {
 }
 

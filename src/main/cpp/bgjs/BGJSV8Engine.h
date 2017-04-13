@@ -31,6 +31,9 @@
 #define BGJS_CURRENT_V8ENGINE() \
 	reinterpret_cast<BGJSV8Engine*>(Isolate::GetCurrent()->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
 
+#define BGJS_V8ENGINE(context) \
+	reinterpret_cast<BGJSV8Engine*>(context->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
+
 #define BGJS_STRING_FROM_V8VALUE(value) \
 	(value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(value->ToString())))
 
@@ -49,10 +52,11 @@ struct WrapPersistentObj {
 	v8::Persistent<v8::Object> obj;
 };
 
-typedef  void (*requireHook) (v8::Isolate* isolate, v8::Handle<v8::Object> target);
+typedef  void (*requireHook) (class BGJSV8Engine* engine, v8::Handle<v8::Object> target);
 
 typedef enum EBGJSV8EngineEmbedderData {
-    kContext = 1
+    kContext = 1,
+    FIRST_UNUSED = 2
 } EBGJSV8EngineEmbedderData;
 
 class BGJSV8Engine {
@@ -62,6 +66,8 @@ public:
 	virtual ~BGJSV8Engine();
 
     v8::Local<v8::Value> require(std::string baseNameStr);
+    uint8_t requestEmbedderDataIndex();
+    bool registerModule(const char *name, requireHook f);
 
 	ClientAbstract* getClient() const;
 	v8::Isolate* getIsolate() const;
@@ -69,7 +75,7 @@ public:
 
 	v8::Handle<v8::Value> callFunction(v8::Isolate* isolate, v8::Handle<v8::Object> recv, const char* name,
     		int argc, v8::Handle<v8::Value> argv[]) const;
-	bool registerModule(const char *name, requireHook f);
+
 
 	static void ReportException(v8::TryCatch* try_catch);
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -116,6 +122,8 @@ private:
 	// Private constructors for singleton
 	BGJSV8Engine(BGJSV8Engine const&) {}; // Don't Implement
 	void operator=(BGJSV8Engine const&); // Don't implement
+
+    uint8_t _nextEmbedderDataIndex;
 
 	v8::Persistent<v8::Context> _context;
 
