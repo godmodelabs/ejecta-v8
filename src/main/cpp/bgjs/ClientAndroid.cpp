@@ -28,6 +28,8 @@
 #include "modules/BGJSGLModule.h"
 
 #include "jniext.h"
+#include "../jni/JNIWrapper.h"
+#include "../V8TestClass.h"
 
 using namespace v8;
 
@@ -113,6 +115,9 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return -1;
     }
+
+	JNIWrapper::init(vm);
+    JNIWrapper::registerObject<V8TestClass>();
 
     // Get jclass with env->FindClass.
     // Register methods with env->RegisterNatives.
