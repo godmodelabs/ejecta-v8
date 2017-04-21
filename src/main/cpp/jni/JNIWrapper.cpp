@@ -19,6 +19,9 @@ void JNIWrapper::reloadBindings() {
     }
     JNIEnv* env = JNIWrapper::getEnvironment();
     JNIClassInfo *info;
+
+    _jniCanonicalNameMethodID = nullptr;
+    
     for(auto &it : _objmap) {
         info = it.second;
 
