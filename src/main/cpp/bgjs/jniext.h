@@ -12,7 +12,7 @@
 extern "C" {
 	// ClientAndroid
 	JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
-			JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang, jstring timezone, float density);
+			JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang, jstring timezone, float density, jstring deviceClass);
 	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_load(JNIEnv * env,
 			jobject obj, jlong ctxPtr, jstring path);
 	JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxSuccess(

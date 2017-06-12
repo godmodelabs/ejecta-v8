@@ -192,7 +192,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 	} else {
 		_client->bgjsPushHelper = (jclass)env->NewGlobalRef(clazz);
 		jmethodID pushMethod = env->GetStaticMethodID(clazz,
-			"registerPush", "(Ljava/lang/String;JJ)I");
+			"registerPush", "(Ljava/lang/String;JJZ)I");
 		if (pushMethod) {
 			_client->bgjsPushSubscribeMethod = pushMethod;
 		} else {
@@ -208,6 +208,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 		}
 	}
 
+
+
 	clazz = env->FindClass("ag/boersego/chartingjs/ChartingV8Engine");
 
 	if (clazz == NULL) {
@@ -217,7 +219,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 		_client->chartingV8Engine = (jclass)env->NewGlobalRef(clazz);
 		_client->v8EnginegetIAPState = env->GetStaticMethodID(clazz, "getIAPState", "(Ljava/lang/String;)Z");
 	}
-	
+
 
     return JNI_VERSION_1_6;
 }
@@ -245,7 +247,8 @@ JNIEnv* JNU_GetEnv() {
 }
 
 JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
-		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang, jstring timezone, jfloat density) {
+		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang,
+        jstring timezone, jfloat density, jstring deviceClass) {
 
 	#if DEBUG
 		LOGD("bgjs initialize, AM %p this %p", assetManager, _client);
@@ -288,10 +291,12 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
 	const char* langStr = env->GetStringUTFChars(lang, NULL);
 	const char* tzStr = env->GetStringUTFChars(timezone, NULL);
-	ct->setLocale(localeStr, langStr, tzStr);
+	const char* deviceClassStr = env->GetStringUTFChars(deviceClass, NULL);
+	ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
 	env->ReleaseStringUTFChars(locale, localeStr);
 	env->ReleaseStringUTFChars(lang, langStr);
 	env->ReleaseStringUTFChars(timezone, tzStr);
+    env->ReleaseStringUTFChars(deviceClass, deviceClassStr);
 	ct->setClient(_client);
 	ct->createContext();
 	LOGD("BGJS context created");

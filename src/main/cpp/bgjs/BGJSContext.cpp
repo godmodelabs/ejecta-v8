@@ -813,7 +813,22 @@ void BGJSContext::js_global_getTz(Local<String> property,
 
 void BGJSContext::js_global_setTz(Local<String> property, Local<Value> value,
 		const v8::PropertyCallbackInfo<void>& info) {
+}
 
+void BGJSContext::js_global_getDeviceClass(Local<String> property,
+                                  const v8::PropertyCallbackInfo<v8::Value>& info) {
+    EscapableHandleScope scope(Isolate::GetCurrent());
+    BGJSContext *ctx = BGJSInfo::_jscontext;
+
+    if (ctx->_jscontext->_tz) {
+        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_jscontext->_deviceClass)));
+    } else {
+        info.GetReturnValue().SetNull();
+    }
+}
+
+void BGJSContext::js_global_setDeviceClass(Local<String> property, Local<Value> value,
+                                  const v8::PropertyCallbackInfo<void>& info) {
 }
 
 void BGJSContext::js_global_requestAnimationFrame(
@@ -1038,6 +1053,8 @@ BGJSContext::BGJSContext(v8::Isolate* isolate) {
 			BGJSContext::js_global_setLang);
 	global->SetAccessor(String::NewFromUtf8(isolate, "_tz"), BGJSContext::js_global_getTz,
 			BGJSContext::js_global_setTz);
+	global->SetAccessor(String::NewFromUtf8(isolate, "_deviceClass"), BGJSContext::js_global_getDeviceClass,
+						BGJSContext::js_global_setDeviceClass);
 
 	global->Set(String::NewFromUtf8(isolate, "requestAnimationFrame"),
 			v8::FunctionTemplate::New(isolate,
@@ -1224,10 +1241,11 @@ int BGJSContext::run() {
 }
 
 void BGJSContext::setLocale(const char* locale, const char* lang,
-		const char* tz) {
+		const char* tz, const char* deviceClass) {
 	_locale = strdup(locale);
 	_lang = strdup(lang);
 	_tz = strdup(tz);
+    _deviceClass = strdup(deviceClass);
 }
 
 BGJSContext::~BGJSContext() {

@@ -32,6 +32,7 @@ import okhttp3.OkHttpClient;
 public class V8Engine extends Thread implements Handler.Callback {
 
 	protected static V8Engine mInstance;
+	protected final boolean mIsTablet;
 	protected Handler mHandler;
 	private String scriptPath;
 	private AssetManager assetManager;
@@ -141,7 +142,12 @@ public class V8Engine extends Thread implements Handler.Callback {
             final Resources r = application.getResources();
             if (r != null) {
                 mDensity = r.getDisplayMetrics().density;
+				mIsTablet = r.getBoolean(R.bool.isTablet);
+            } else {
+                throw new RuntimeException("No resources available");
             }
+        } else {
+            throw new RuntimeException("Application is null");
         }
         Locale locale = Locale.getDefault();
 		String country = locale.getCountry();
@@ -197,7 +203,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity);
+		mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
     }
 
 	@Override

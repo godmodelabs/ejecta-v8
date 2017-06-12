@@ -74,7 +74,7 @@ public:
 	void setClient(ClientAbstract* client);
 	ClientAbstract* getClient() const;
     v8::Isolate* getIsolate() const;
-	void setLocale(const char* locale, const char* lang, const char* tz);
+	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
 	void require(const v8::FunctionCallbackInfo<v8::Value>& args);
 	void normalizePath(const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
@@ -95,6 +95,10 @@ public:
 			const v8::PropertyCallbackInfo<v8::Value>& info);
 	static void js_global_setTz(v8::Local<v8::String> property, v8::Local<v8::Value> value,
 			const v8::PropertyCallbackInfo<void>& info);
+    static void js_global_getDeviceClass(v8::Local<v8::String> property,
+                                const v8::PropertyCallbackInfo<v8::Value>& info);
+    static void js_global_setDeviceClass(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+                                const v8::PropertyCallbackInfo<void>& info);
 	static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
 	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
 	void cancelAnimationFrame(int id);
@@ -111,6 +115,7 @@ public:
 	char *_locale;	// de_DE
 	char *_lang;	// de
 	char *_tz;		// Europe/Berlin
+	char *_deviceClass;		// "phone"/"tablet"
 
 private:
 	// Private constructors for singleton
