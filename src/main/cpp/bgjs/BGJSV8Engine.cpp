@@ -240,29 +240,33 @@ Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, 
 v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) {
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
+    Local<Function> makeRequireFn, baseRequireFn;
 
-    const char *szJSRequireCode =
-            "(function(require, prefix) {"
-            "   return function(path) {"
-            "       return require(path.indexOf('./')===0?'./'+prefix+'/'+path.substr(2):path);"
-            "   };"
-            "})";
+    if(_makeRequireFn.IsEmpty()) {
+        const char *szJSRequireCode =
+                "(function(require, prefix) {"
+                        "   return function(path) {"
+                        "       return require(path.indexOf('./')===0?'./'+prefix+'/'+path.substr(2):path);"
+                        "   };"
+                        "})";
 
-    Local<Function> requireFn =
-            Local<Function>::Cast(
-                    Script::Compile(
-                            String::NewFromOneByte(_isolate, (const uint8_t*)szJSRequireCode),
-                            String::NewFromOneByte(_isolate, (const uint8_t*)"binding:script")
-                    )->Run()
-            );
-    if(_requireFn.IsEmpty()) {
-        _requireFn.Reset(_isolate, v8::FunctionTemplate::New(_isolate, RequireCallback)->GetFunction());
+        makeRequireFn =
+                Local<Function>::Cast(
+                        Script::Compile(
+                                String::NewFromOneByte(_isolate, (const uint8_t *) szJSRequireCode),
+                                String::NewFromOneByte(_isolate, (const uint8_t *) "binding:script")
+                        )->Run()
+                );
+        baseRequireFn = v8::FunctionTemplate::New(_isolate, RequireCallback)->GetFunction();
+        _makeRequireFn.Reset(_isolate, makeRequireFn);
+        _requireFn.Reset(_isolate, baseRequireFn);
+    } else {
+        makeRequireFn = Local<Function>::New(_isolate, _makeRequireFn);
+        baseRequireFn = Local<Function>::New(_isolate, _requireFn);
     }
 
-    Local<Function> baseRequireFn = Local<Function>::New(_isolate, _requireFn);
-
     Handle<Value> args[] = { baseRequireFn, String::NewFromUtf8(_isolate, pathName.c_str()) };
-    Local<Value> result = requireFn->Call(context->Global(), 2, args);
+    Local<Value> result = makeRequireFn->Call(context->Global(), 2, args);
     return handle_scope.Escape(Local<Function>::Cast(result));
 }
 

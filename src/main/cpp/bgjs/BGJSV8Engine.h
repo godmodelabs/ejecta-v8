@@ -131,7 +131,7 @@ private:
 	std::map<std::string, requireHook> _modules;
     v8::Isolate* _isolate;
 
-    v8::Persistent<v8::Function> _requireFn;
+    v8::Persistent<v8::Function> _requireFn, _makeRequireFn;
     v8::Local<v8::Function> makeRequireFunction(std::string pathName);
 
 	std::set<BGJSGLView*> _glViews;
