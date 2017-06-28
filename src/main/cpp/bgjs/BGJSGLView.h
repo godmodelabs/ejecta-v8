@@ -3,9 +3,8 @@
 
 #include "BGJSCanvasContext.h"
 #include "BGJSView.h"
-#include "BGJSInfo.h"
-#include "BGJSContext.h"
-#include "os-detection.h"
+#include "BGJSV8Engine.h"
+#include "os-android.h"
 
 /**
  * BGJSGLView
@@ -25,18 +24,17 @@ typedef struct __tagAnimationFrameRequest {
 
 class BGJSGLView : public BGJSView {
 public:
-	BGJSGLView(v8::Isolate* isolate, const BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip, int width, int height);
+	BGJSGLView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip, int width, int height);
 	virtual ~BGJSGLView();
 	virtual void prepareRedraw();
 	virtual void endRedraw();
 	void endRedrawNoSwap();
 	void setTouchPosition(int x, int y);
 	void swapBuffers();
-	void resize (v8::Isolate* isolate, int width, int height, bool resizeOnly);
+	void resize (int width, int height, bool resizeOnly);
 	void close ();
 	void requestRefresh();
-	int requestAnimationFrameForView(v8::Isolate* isolate, v8::Handle<v8::Object> cb,
-	    v8::Handle<v8::Object> thisObj, int id);
+	int requestAnimationFrameForView(v8::Handle<v8::Object> cb, v8::Handle<v8::Object> thisObj, int id);
 #ifdef ANDROID
 	void setJavaGl(JNIEnv* env, jobject javaGlView);
 #endif

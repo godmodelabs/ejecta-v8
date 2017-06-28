@@ -217,8 +217,7 @@ public class V8Engine extends Thread implements Handler.Callback {
         initializeV8(assetManager);
 
 		assetManager = null;
-		ClientAndroid.load(mNativePtr, scriptPath);
-		ClientAndroid.run(mNativePtr);
+		ClientAndroid.run(mNativePtr, scriptPath);
 
 		mHandler.sendMessageAtFrontOfQueue(mHandler.obtainMessage(MSG_READY));
 		mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);

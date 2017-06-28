@@ -16,7 +16,7 @@
 
 #include <v8.h>
 
-#include "os-detection.h"
+#include "os-android.h"
 
 #undef DEBUG
 // #define DEBUG 1
@@ -43,8 +43,8 @@ static void checkGlError(const char* op) {
 #endif
 }
 
-BGJSGLView::BGJSGLView(v8::Isolate* isolate, const BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip, int width, int height) :
-		BGJSView(isolate, ctx, pixelRatio, doNoClearOnFlip) {
+BGJSGLView::BGJSGLView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip, int width, int height) :
+		BGJSView(engine, pixelRatio, doNoClearOnFlip) {
 
 	_firstFrameRequest = 0;
 	_nextFrameRequest = 0;
@@ -118,7 +118,7 @@ void BGJSGLView::swapBuffers() {
 	// checkGlError("eglSwapBuffers");
 }
 
-void BGJSGLView::resize(Isolate* isolate, int widthp, int heightp, bool resizeOnly) {
+void BGJSGLView::resize(int widthp, int heightp, bool resizeOnly) {
 #ifdef DEBUG
 	LOGI("Resize to %dx%d", widthp, heightp);
 #endif	
@@ -131,19 +131,24 @@ void BGJSGLView::resize(Isolate* isolate, int widthp, int heightp, bool resizeOn
 	LOGI("Sending resize event to %i subscribers", count);
 #endif
 	if (count > 0) {
-		Isolate::Scope isolateScope(isolate);
+		Isolate* isolate = _engine->getIsolate();
+		v8::Locker locker(isolate);
+		EscapableHandleScope scope(isolate);
+		Local<Context> context = _engine->getContext();
+		Context::Scope context_scope(context);
+
 		TryCatch trycatch;
-		HandleScope scope (isolate);
+
 		Handle<Value> args[0];
 		for (std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*>::size_type i = 0; i < count; i++) {
         	Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = _cbResize[i];
-        	Local<Object> callback = (*reinterpret_cast<Local<Object>*>(cb));
+        	Local<Object> callback = Local<Object>::New(isolate, *cb);
         	LOGD("resize callback call");
 
 			Handle<Value> result = callback->CallAsFunction(callback, 0, args);
 
 			if (result.IsEmpty()) {
-				BGJSContext::ReportException(&trycatch);
+				BGJSV8Engine::ReportException(&trycatch);
 			}
 		}
 	}
@@ -162,7 +167,7 @@ void BGJSGLView::close() {
 
 	LOGD("BGJSGLView close");
 
-	call(Isolate::GetCurrent(), _cbClose);
+	call(_cbClose);
 }
 
 void BGJSGLView::requestRefresh() {
@@ -180,8 +185,9 @@ void BGJSGLView::requestRefresh() {
 #endif
 }
 
-int BGJSGLView::requestAnimationFrameForView(Isolate* isolate, Handle<Object> cb, Handle<Object> thisObj, int id) {
-	HandleScope scope(isolate);
+int BGJSGLView::requestAnimationFrameForView(Handle<Object> cb, Handle<Object> thisObj, int id) {
+    Isolate* isolate = _engine->getIsolate();
+    HandleScope scope(isolate);
 	// make sure there is still room in the buffer
 #ifdef DEBUG
 	LOGD("requestAnimation %d %d", _firstFrameRequest, _nextFrameRequest);

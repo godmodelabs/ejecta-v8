@@ -121,18 +121,18 @@ void BGJSView::js_view_on(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	args.GetReturnValue().SetUndefined();
 }
 
-BGJSView::BGJSView(Isolate* isolate, const BGJSContext *ctx, float pixelRatio, bool doNoClearOnFlip) {
-	HandleScope scope(isolate);
+BGJSView::BGJSView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip) {
+    Isolate* isolate = engine->getIsolate();
+    HandleScope scope(isolate);
 	opened = false;
 	_contentObj = 0;
+    _engine = engine;
+
 
 	this->noClearOnFlip = doNoClearOnFlip;
 
 	this->pixelRatio = pixelRatio;
 
-	//  new JS BGJSView object
-	this->_jsContext = ctx;
-	
 	v8::Local<v8::ObjectTemplate> bgjsgl = v8::ObjectTemplate::New(isolate);
 	// bgjsglft->SetClassName(String::NewFromUtf8(isolate, "BGJSView"));
 	// v8::Local<v8::ObjectTemplate> bgjsgl = bgjsglft->InstanceTemplate();
@@ -152,10 +152,13 @@ BGJSView::BGJSView(Isolate* isolate, const BGJSContext *ctx, float pixelRatio, b
     BGJS_RESET_PERSISTENT(isolate, this->jsViewOT, bgjsgl);
 }
 
-Handle<Value> BGJSView::startJS(Isolate* isolate, const char* fnName,
+Handle<Value> BGJSView::startJS(const char* fnName,
         const char* configJson, Handle<Value> uiObj, long configId, bool hasIntradayQuotes) {
-    v8::Locker l(isolate);
-    EscapableHandleScope scope(isolate);
+    Isolate* isolate = _engine->getIsolate();
+    v8::Locker locker(isolate);
+	EscapableHandleScope scope(isolate);
+	Local<Context> context = _engine->getContext();
+    Context::Scope context_scope(context);
 
 	Handle<Value> config;
 
@@ -173,10 +176,9 @@ Handle<Value> BGJSView::startJS(Isolate* isolate, const char* fnName,
 	Handle<Value> argv[5] = { uiObj, objInstance, config, Number::New(isolate, configId),
 	    Number::New(isolate, hasIntradayQuotes) };
 
-	Local<Value> res = this->_jsContext->callFunction(isolate,
-			(*reinterpret_cast<Local<Context>*>(BGJSInfo::_context))->Global(),
-	        fnName, 5,
-			argv);
+	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE();
+	Local<Value> res = engine->callFunction(isolate, context->Global(),
+	        fnName, 5, argv);
 	if (res->IsNumber()) {
 		_contentObj = res->ToNumber()->Value();
 #ifdef DEBUG
@@ -188,11 +190,12 @@ Handle<Value> BGJSView::startJS(Isolate* isolate, const char* fnName,
 	return scope.Escape(res);
 }
 
-void BGJSView::sendEvent(Isolate* isolate, Handle<Object> eventObjRef) {
+void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 	if (!opened) {
 		return;
 	}
 
+    Isolate* isolate = _engine->getIsolate();
 	TryCatch trycatch;
 	HandleScope scope (isolate);
 
@@ -210,16 +213,17 @@ void BGJSView::sendEvent(Isolate* isolate, Handle<Object> eventObjRef) {
 
 		Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = _cbEvent[i];
 
-	    Local<Object> callback = (*reinterpret_cast<Local<Object>*>(cb));
+	    Local<Object> callback = Local<Object>::New (isolate, *cb);
 		Handle<Value> result = callback->CallAsFunction(callback, 1, args);
 		if (result.IsEmpty()) {
-			BGJSContext::ReportException(&trycatch);
+			BGJSV8Engine::ReportException(&trycatch);
 		}
 	}
 }
 
-void BGJSView::call(Isolate* isolate, std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*> &list) {
-	TryCatch trycatch;
+void BGJSView::call(std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*> &list) {
+    Isolate* isolate = _engine->getIsolate();
+    TryCatch trycatch;
 	HandleScope scope(isolate);
 
 	Handle<Value> args[] = { };
@@ -228,11 +232,11 @@ void BGJSView::call(Isolate* isolate, std::vector<Persistent<Object, v8::Copyabl
 
 	for (std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*>::size_type i = 0; i < count; i++) {
 	    Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = list[i];
-	    Local<Object> callback = (*reinterpret_cast<Local<Object>*>(cb));
+        Local<Object> callback = Local<Object>::New (isolate, *cb);
 
 		Local<Value> result = callback->CallAsFunction(callback, 0, args);
 		if (result.IsEmpty()) {
-			BGJSContext::ReportException(&trycatch);
+			BGJSV8Engine::ReportException(&trycatch);
 		}
 	}
 }

@@ -1,10 +1,10 @@
 #ifndef __BGJSCLASS_H
 #define __BGJSCLASS_H  1
 
-#include "os-detection.h"
+#include "os-android.h"
 #include <v8.h>
 
-// class BGJSContext;
+// class BGJSV8Engine;
 
 #define NODE_SET_METHOD(obj, name, callback)                              \
   obj->Set(v8::String::NewFromUtf8(isolate, name),                                   \

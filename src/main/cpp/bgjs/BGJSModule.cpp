@@ -1,12 +1,10 @@
 #include "BGJSModule.h"
-#include "BGJSContext.h"
+#include "BGJSV8Engine.h"
 #include "BGJSJavaWrapper.h"
 
 #include <assert.h>
 
 using namespace v8;
-
-const BGJSContext* BGJSModule::_bgjscontext = NULL;
 
 /**
  * BGJSModule
@@ -29,12 +27,6 @@ BGJSModule::BGJSModule(const char* modName) {
 
 std::string BGJSModule::getName() const {
 	return name;
-}
-
-void BGJSModule::doRegister (v8::Isolate* isolate, const BGJSContext* context) {
-	BGJSModule::_bgjscontext = context;
-	BGJSModule::_context = context->_context;
-	// BGJSModule::_global.Set(isolate, context->_global.Get(isolate));
 }
 
 BGJSModule::~BGJSModule() {
@@ -84,7 +76,7 @@ extern "C" {
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_cleanupNativeFnPtr (JNIEnv * env, jobject obj, jlong ctxPtr, jlong nativePtr) {
 	if (nativePtr) {
-		BGJSContext* context = (BGJSContext*)ctxPtr;
+		BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
 	    v8::Isolate* isolate = context->getIsolate();
 	    v8::Locker l (isolate);
 		Isolate::Scope isolateScope(isolate);

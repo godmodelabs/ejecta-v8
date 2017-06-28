@@ -22,7 +22,11 @@ add_library( # Sets the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
-             src/main/cpp/bgjs/BGJSContext.cpp
+             src/main/cpp/jni/JNIClassInfo.cpp
+             src/main/cpp/jni/JNIClass.cpp
+             src/main/cpp/jni/JNIObject.cpp
+             src/main/cpp/jni/JNIWrapper.cpp
+             src/main/cpp/bgjs/BGJSV8Engine.cpp
              src/main/cpp/bgjs/ClientAndroid.cpp
              src/main/cpp/bgjs/BGJSModule.cpp
              src/main/cpp/bgjs/BGJSClass.cpp
@@ -43,6 +47,7 @@ add_library( # Sets the name of the library.
              src/main/cpp/ejecta/EJCanvas/CGCompat.cpp
              src/main/cpp/ejecta/EJCanvas/EJCanvasContextScreen.cpp
              src/main/cpp/lodepng/lodepng.cpp
+             src/main/cpp/V8TestClass.cpp
              )
 
 #--------------------------------------------------

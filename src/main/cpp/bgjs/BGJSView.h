@@ -3,8 +3,7 @@
 
 #include "EJCanvasContext.h"
 #include "EJTexture.h"
-#include "BGJSContext.h"
-#include "BGJSInfo.h"
+#include "BGJSV8Engine.h"
 #include "BGJSClass.h"
 #include <v8.h>
 #include <jni.h>
@@ -18,14 +17,14 @@
  *
  */
 
-class BGJSView : public BGJSInfo, public BGJSClass {
+class BGJSView : public BGJSClass {
 public:
-	BGJSView(v8::Isolate* isolate, const BGJSContext* ctx, float pixelRatio, bool doNoClearOnFlip);
+	BGJSView(BGJSV8Engine* engine, float pixelRatio, bool doNoClearOnFlip);
 	virtual ~BGJSView();
-	v8::Handle<v8::Value> startJS(v8::Isolate* isolate, const char* fnName, const char* configJson, v8::Handle<v8::Value> uiObj, long configId, bool hasIntradayQuotes);
+	v8::Handle<v8::Value> startJS(const char* fnName, const char* configJson, v8::Handle<v8::Value> uiObj, long configId, bool hasIntradayQuotes);
 	static void js_view_on(const v8::FunctionCallbackInfo<v8::Value>& args);
-	void sendEvent(v8::Isolate* isolate, v8::Handle<v8::Object> eventObjRef);
-	void call(v8::Isolate* isolate, std::vector<v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object> >*> &list);
+	void sendEvent(v8::Handle<v8::Object> eventObjRef);
+	void call(std::vector<v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object> >*> &list);
 
 	v8::Persistent<v8::Object> _jsObj;
 	v8::Persistent<v8::Object> _bridgeObj;	// TODO: This is returned by startJS
@@ -40,8 +39,8 @@ public:
 	jmethodID _javaRedrawMid;
 #endif
 
+    BGJSV8Engine *_engine;
     v8::Persistent<v8::ObjectTemplate> jsViewOT;
-	const BGJSContext* _jsContext;
 	int width, height;
 	bool opened;
 	float pixelRatio;

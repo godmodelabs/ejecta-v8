@@ -21,13 +21,15 @@
 #include <v8.h>
 #include <libplatform/libplatform.h>
 
-#include "BGJSContext.h"
+#include "BGJSV8Engine.h"
 #include "ClientAbstract.h"
 #include "ClientAndroid.h"
 #include "modules/AjaxModule.h"
 #include "modules/BGJSGLModule.h"
 
 #include "jniext.h"
+#include "../jni/JNIWrapper.h"
+#include "../V8TestClass.h"
 
 using namespace v8;
 
@@ -61,63 +63,8 @@ ClientAndroid::~ClientAndroid() {
 	// TODO: Delete global reference to assetManager
 }
 
-jint ClientAndroid::throwNoSuchFieldError( JNIEnv *env, char *message ) {
-	jclass		 exClass;
-	const char		*className = "java/lang/NoSuchFieldError" ;
-
-	if (!env) {
-		env = JNU_GetEnv();
-	}
-
-	exClass = env->FindClass (className);
-	if ( exClass == NULL ) {
-		LOGE ("Cannot throw exception, class not found!");
-	}
-
-	return env->ThrowNew (exClass, message);
-}
-
-const char* ClientAndroid::loadFile(const char* path) {
-	if (DEBUG) {
-		LOGD("loadFile: %s", path);
-	}
-	AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(),
-			this->assetManager);
-	AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
-
-	if (!asset) {
-		if (DEBUG) {
-			LOGE("Cannot find file %s", path);
-		}
-		return NULL;
-	} /* else {
-		LOGD("Opened path %s", path);
-	} */
-
-	const int count = AAsset_getLength(asset);
-	char *buf = (char*) malloc(count + 1), *ptr = buf;
-	bzero(buf, count + 1);
-	int bytes_read = 0, bytes_to_read = count;
-	std::stringstream str;
-
-	while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
-		bytes_to_read -= bytes_read;
-		ptr += bytes_read;
-		/* str << "Read " << bytes_read << " bytes from total of " << count << ", "
-				<< bytes_to_read << " left\n";
-		LOGI(str.str().c_str()); */
-
-	}
-	AAsset_close(asset);
-	return buf;
-}
-
 const char* ClientAndroid::loadFile(const char* path, unsigned int* length) {
-	#if DEBUG
-		LOGD("loadFile: %s, this %p, am %p", path, this, this->assetManager);
-	#endif
-	AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(),
-			this->assetManager);
+	AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(), this->assetManager);
 	AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
 
 	if (!asset) {
@@ -125,42 +72,28 @@ const char* ClientAndroid::loadFile(const char* path, unsigned int* length) {
 			LOGE("Cannot find file %s", path);
 		}
 		return NULL;
-	} /* else {
-		LOGD("Opened path %s", path);
-	} */
+	}
 
-	const int count = AAsset_getLength(asset);
-	*length = count;
+	const size_t count = (unsigned int)AAsset_getLength(asset);
+    if(length) {
+        *length = count;
+    }
 	char *buf = (char*) malloc(count + 1), *ptr = buf;
 	bzero(buf, count + 1);
-	int bytes_read = 0, bytes_to_read = count;
-	std::stringstream str;
+	int bytes_read = 0;
+    size_t bytes_to_read = count;
 
-	while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
+    while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
 		bytes_to_read -= bytes_read;
 		ptr += bytes_read;
-		/* str << "Read " << bytes_read << " bytes from total of " << count << ", "
-				<< bytes_to_read << " left\n";
-		LOGI(str.str().c_str()); */
-
 	}
+
 	AAsset_close(asset);
+
 	return buf;
 }
 
 ClientAndroid* _client = new ClientAndroid();
-
-static void* g_func_ptr;
-
-typedef long unsigned int *_Unwind_Ptr;
-
-/* Stubbed out in libdl and defined in the dynamic linker.
- * Same semantics as __gnu_Unwind_Find_exidx().
- */
-/* extern "C" _Unwind_Ptr dl_unwind_find_exidx(_Unwind_Ptr pc, int *pcount);
-extern "C" _Unwind_Ptr __gnu_Unwind_Find_exidx(_Unwind_Ptr pc, int *pcount) {
-	return dl_unwind_find_exidx(pc, pcount);
-} */
 
 void ClientAndroid::on (const char* event, void* cbPtr, void *thisObjPtr) {
 	JNIEnv* env = JNU_GetEnv();
@@ -182,6 +115,9 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return -1;
     }
+
+	JNIWrapper::init(vm);
+    JNIWrapper::registerObject<V8TestClass>();
 
     // Get jclass with env->FindClass.
     // Register methods with env->RegisterNatives.
@@ -224,22 +160,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     return JNI_VERSION_1_6;
 }
 
-/*
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
-
-	// when i throw exception, linker maybe can't find __gnu_Unwind_Find_exidx(lazy binding issue??)
-	// so I force to bind this symbol at shared object load time
-	// g_func_ptr = (void*) __gnu_Unwind_Find_exidx;
-
-	JNIEnv *env;
-	_client->cachedJVM = jvm;
-	if (jvm->GetEnv((void**) &env, JNI_VERSION_1_6)) {
-		LOGE("Could not get JNIEnv*");
-		return JNI_ERR;
-	}
-	return JNI_VERSION_1_6;
-} */
-
 JNIEnv* JNU_GetEnv() {
 	JNIEnv* env;
 	_client->cachedJVM->GetEnv((void**) &env, JNI_VERSION_1_6);
@@ -259,15 +179,6 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 
 	_client->v8Engine = v8Engine;
 
-	/* #ifdef __LP64__
-      const char kNativesFileName[] = "natives_blob_64.bin";
-      const char kSnapshotFileName[] = "snapshot_blob_64.bin";
-    #else
-      const char kNativesFileName[] = "natives_blob_32.bin";
-      const char kSnapshotFileName[] = "snapshot_blob_32.bin";
-    #endif // __LP64__ */
-
-	// v8::V8::InitializeExternalStartupData(argv[0]);
 	LOGI("Creating default platform");
     v8::Platform* platform = v8::platform::CreateDefaultPlatform();
     LOGD("Created default platform %p", platform);
@@ -283,10 +194,8 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
     v8::Locker l (isolate);
 	v8::Isolate::Scope isolateScope(isolate);
     LOGD("Initialized Isolate %p", isolate);
-    // v8::Isolate::Scope isolate_scope(isolate);
-    // LOGD("Initialized isolateScope");
 
-	BGJSContext* ct = new BGJSContext(isolate);
+	BGJSV8Engine* ct = new BGJSV8Engine(isolate);
 
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
 	const char* langStr = env->GetStringUTFChars(lang, NULL);
@@ -300,9 +209,6 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	ct->setClient(_client);
 	ct->createContext();
 	LOGD("BGJS context created");
-	AjaxModule::doRegister(isolate, ct);
-	BGJSGLModule::doRegister(isolate, ct);
-	LOGD("ClientAndroid init: doRegister done");
 
 	ct->registerModule("ajax", AjaxModule::doRequire);
 	ct->registerModule("canvas", BGJSGLModule::doRequire);
@@ -311,42 +217,24 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	return (jlong) ct;
 }
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_load(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jstring path) {
-	BGJSContext* ct = (BGJSContext*) ctxPtr;
-	v8::Locker l (ct->getIsolate());
-	Isolate::Scope(ct->getIsolate());
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(ct->_context));
-	const char* pathStr = env->GetStringUTFChars(path, 0);
-	HandleScope scope (ct->getIsolate());
-	LOGD("clientAndroid load %s, context %p", pathStr, ct->getIsolate()->GetCurrentContext());
-	Persistent<Script, CopyablePersistentTraits<Script> > res = ct->load(pathStr);
-	BGJS_NEW_PERSISTENT(res);
-	if (!res.IsEmpty()) {
-		BGJS_RESET_PERSISTENT(ct->getIsolate(), ct->_script, res);
-		LOGD("clientAndroid load %s successful, context %p", pathStr, ct->getIsolate()->GetCurrentContext());
-	} else {
-		LOGD("clientAndroid load %s unsuccessful", pathStr);
-	}
-	env->ReleaseStringUTFChars(path, pathStr);
-}
-
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_run(JNIEnv * env,
-		jobject obj, jlong ctxPtr) {
+		jobject obj, jlong ctxPtr, jstring path) {
 	if (DEBUG) {
 		LOGD("clientAndroid run");
 	}
-	BGJSContext* ct = (BGJSContext*) ctxPtr;
+    const char* pathStr = env->GetStringUTFChars(path, 0);
+	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
 	v8::Locker l (ct->getIsolate());
 	Isolate::Scope(ct->getIsolate());
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(ct->_context));
+	HandleScope scope (ct->getIsolate());
+	Context::Scope context_scope(ct->getContext());
 	_client->envCache = env;
-	ct->run();
+	ct->run(pathStr);
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 		JNIEnv * env, jobject obj, jlong ctxPtr, jlong jsCbPtr, jlong thisPtr, jboolean cleanup, jboolean runCb) {
-	BGJSContext* context = (BGJSContext*)ctxPtr;
+	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
     v8::Isolate* isolate = context->getIsolate();
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
@@ -354,7 +242,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 		LOGD("clientAndroid timeoutCB");
 	}
 
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(context->_context));
+	Context::Scope context_scope(context->getContext());
 
 	HandleScope scope (isolate);
 	TryCatch trycatch;
@@ -372,7 +260,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 
 		Handle<Value> result = callbackP->Call(thisObj, argcount, argarray);
 		if (result.IsEmpty()) {
-			BGJSContext::ReportException(&trycatch);
+			BGJSV8Engine::ReportException(&trycatch);
 		}
 		if (DEBUG) {
 			LOGI("timeoutCb finished");
@@ -391,12 +279,12 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv * env, jobject obj, jlong ctxPtr, jlong cbPtr, jlong thisPtr, jboolean b) {
-	BGJSContext* context = (BGJSContext*)ctxPtr;
+	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
     v8::Isolate* isolate = context->getIsolate();
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
 
-	Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(context->_context));
+	Context::Scope context_scope(context->getContext());
 
 	HandleScope scope(isolate);
 	TryCatch trycatch;
@@ -412,7 +300,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
 
 	Handle<Value> result = fn->Call(thisObj, argcount, argarray);
 	if (result.IsEmpty()) {
-		BGJSContext::ReportException(&trycatch);
+		BGJSV8Engine::ReportException(&trycatch);
 	}
 	// TODO: Don't we need to clean up these persistents?
 }
