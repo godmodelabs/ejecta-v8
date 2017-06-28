@@ -241,10 +241,9 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 	if (DEBUG) {
 		LOGD("clientAndroid timeoutCB");
 	}
-
+	HandleScope scope (isolate);
 	Context::Scope context_scope(context->getContext());
 
-	HandleScope scope (isolate);
 	TryCatch trycatch;
 
 	// Persistent<Function>* callbackPers = (Persistent<Function>*) jsCbPtr;
@@ -284,9 +283,9 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
 
+	HandleScope scope(isolate);
 	Context::Scope context_scope(context->getContext());
 
-	HandleScope scope(isolate);
 	TryCatch trycatch;
 	Persistent<Function>* fnPersist = static_cast<Persistent<Function>*>((void*)cbPtr);
 	Persistent<Object>* thisObjPersist = static_cast<Persistent<Object>*>((void*)thisPtr);
@@ -303,6 +302,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
 		BGJSV8Engine::ReportException(&trycatch);
 	}
 	// TODO: Don't we need to clean up these persistents?
+    // => No, because they are pointers to a persistent that is stored elsewhere?!
 }
 
 

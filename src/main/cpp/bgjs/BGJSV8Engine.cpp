@@ -274,6 +274,8 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
 
+	// @TODO check locker here?
+
     Local<Value> result;
     // Catch errors
     TryCatch try_catch;
@@ -284,6 +286,13 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
         baseNameStr = normalize_path(baseNameStr);
     }
     bool isJson = false;
+
+    // check cache first
+    std::map<std::string, v8::Persistent<v8::Value>>::iterator it;
+    it = _moduleCache.find(baseNameStr);
+    if(it != _moduleCache.end()) {
+        return Local<Value>::New(_isolate, it->second);
+    }
 
     // Source of JS file if external code
     Handle<String> source;
@@ -298,7 +307,9 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
 
         module(this, moduleObj);
-        return handle_scope.Escape(moduleObj->Get(String::NewFromUtf8(_isolate, "exports")));
+        result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
+        _moduleCache[baseNameStr].Reset(_isolate, result);
+        return handle_scope.Escape(result);
     }
     std::string fileName, pathName;
 
@@ -392,54 +403,53 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
     // compile script
     Handle<Script> scriptR = Script::Compile(source, String::NewFromUtf8(_isolate, baseNameStr.c_str()));
 
-    // check if compilation failed
-    if (scriptR.IsEmpty()) {
-
-        // FIXME UGLY HACK TO DISPLAY SYNTAX ERRORS.
-        BGJSV8Engine::ReportException(&try_catch);
-
-        free((void*) buf);
-        buf = NULL;
-
-        // Hack because I can't get a proper stacktrace on SyntaxError
-        return handle_scope.Escape(try_catch.Exception());
-    }
 
     // run script; this will effectively return a function if everything worked
     // if not, something went wrong
-    result = scriptR->Run();
-    if (result.IsEmpty() || !result->IsFunction()) {
-        /* ReThrow doesn't re-throw TerminationExceptions; a null exception value
-         * is re-thrown instead (see Isolate::PropagatePendingExceptionToExternalTryCatch())
-         * so we re-propagate a TerminationException explicitly here if necesary. */
-        if (try_catch.CanContinue())
-            return Undefined(_isolate);
-        v8::V8::TerminateExecution(_isolate);
-
-        free((void*) buf);
-        buf = NULL;
-
-        return Undefined(_isolate);
+    if(!scriptR.IsEmpty()) {
+        result = scriptR->Run();
     }
 
-    Local<Function> requireFn = makeRequireFunction(pathName);
+    // if we received a function, run it!
+    if (!result.IsEmpty() && result->IsFunction()) {
+        Local<Function> requireFn = makeRequireFunction(pathName);
 
-    Local<Object> exportsObj = Object::New(_isolate);
-    Local<Object> moduleObj = Object::New(_isolate);
-    moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+        Local<Object> exportsObj = Object::New(_isolate);
+        Local<Object> moduleObj = Object::New(_isolate);
+        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
 
-    Handle<Value> fnModuleInitializerArgs[] = {
-            exportsObj,                                     // exports
-            requireFn,                                      // require
-            moduleObj,                                      // module
-            String::NewFromUtf8(_isolate, fileName.c_str()), // __filename
-            String::NewFromUtf8(_isolate, pathName.c_str())  // __dirname
-    };
-    Local<Function> fnModuleInitializer = Local<Function>::Cast(result);
-    fnModuleInitializer->Call(context->Global(), 5, fnModuleInitializerArgs);
+        Handle<Value> fnModuleInitializerArgs[] = {
+                exportsObj,                                      // exports
+                requireFn,                                       // require
+                moduleObj,                                       // module
+                String::NewFromUtf8(_isolate, fileName.c_str()), // __filename
+                String::NewFromUtf8(_isolate, pathName.c_str())  // __dirname
+        };
+        Local<Function> fnModuleInitializer = Local<Function>::Cast(result);
+        fnModuleInitializer->Call(context->Global(), 5, fnModuleInitializerArgs);
 
-    result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
-    return handle_scope.Escape(result);
+        if(!try_catch.HasCaught()) {
+            result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
+			_moduleCache[baseNameStr].Reset(_isolate, result);
+            return handle_scope.Escape(result);
+        }
+    }
+
+    // somewhere along the way an exception was raised.. process it here
+    if(try_catch.HasCaught()) {
+        BGJSV8Engine::ReportException(&try_catch);
+
+        /* ReThrow doesn't re-throw TerminationExceptions; a null exception value
+         * is re-thrown instead (see Isolate::PropagatePendingExceptionToExternalTryCatch())
+         * so we re-propagate a TerminationException explicitly here if necessary. */
+        if (!try_catch.CanContinue()) {
+            v8::V8::TerminateExecution(_isolate);
+        }
+    }
+
+    // this only happens when something went wrong (e.g. exception)
+    return Undefined(_isolate);
 }
 
 void BGJSV8Engine::setClient(ClientAbstract* client) {
@@ -757,7 +767,6 @@ void BGJSV8Engine::createContext() {
 	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
 
 	// environment variables
-	globalObjTpl->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"), PropertyAttribute::ReadOnly);
 	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
                               BGJSV8Engine::js_global_getLocale, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
 	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"),
@@ -791,6 +800,7 @@ void BGJSV8Engine::createContext() {
 }
 
 void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
+    if(!try_catch->HasCaught()) return;
 	Isolate* isolate = Isolate::GetCurrent();
 	HandleScope scope(isolate);
 	Local<Context> context = isolate->GetCurrentContext();
@@ -801,15 +811,16 @@ void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
 	if (message.IsEmpty()) {
 		// V8 didn't provide any extra information about this error; just
 		// print the exception.
-		LOGI("Exception: %s", exception_string);
+		LOGE("Exception: %s", exception_string);
 	} else {
 		// Print (filename):(line number): (message).
 		const char* filename_string = BGJS_CHAR_FROM_V8VALUE(message->GetScriptResourceName());
 		int linenum = message->GetLineNumber();
-		LOGI("Exception: %s:%i: %s\n", filename_string, linenum, exception_string);
+        int colnum = message->GetStartColumn();
+		LOGE("Exception: %s:%i:%i %s\n", filename_string, linenum, colnum, exception_string);
 		// Print line of source code.
 		const char* sourceline_string = BGJS_CHAR_FROM_V8VALUE(message->GetSourceLine());
-		LOGI("%s\n", sourceline_string);
+		LOGE("%s\n", sourceline_string);
 		std::stringstream str;
 		// Print wavy underline (GetUnderline is deprecated).
 		int start = message->GetStartColumn();
@@ -820,11 +831,11 @@ void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
 		for (int i = start; i < end; i++) {
 			str << "^";
 		}
-		LOGI("%s", str.str().c_str());
+		LOGE("%s", str.str().c_str());
 
 		MaybeLocal<Value> stack_trace = try_catch->StackTrace(context);
 		if (!stack_trace.IsEmpty()) {
-			LOGI("%s", BGJS_CHAR_FROM_V8VALUE(try_catch->StackTrace()));
+			LOGE("%s", BGJS_CHAR_FROM_V8VALUE(try_catch->StackTrace()));
 		}
 
 		/* excStr = env->NewStringUTF(exception_string);

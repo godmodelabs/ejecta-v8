@@ -126,6 +126,7 @@ private:
 
 	// Attributes
 	std::map<std::string, requireHook> _modules;
+    std::map<std::string, v8::Persistent<v8::Value>> _moduleCache;
     v8::Isolate* _isolate;
 
     v8::Persistent<v8::Function> _requireFn, _makeRequireFn;

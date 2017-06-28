@@ -173,7 +173,7 @@ void BGJSGLView::close() {
 void BGJSGLView::requestRefresh() {
 	JNIEnv* env = JNU_GetEnv();
 	if (env == NULL) {
-		LOGE("Cannot execute AJAX request with no envCache");
+		LOGE("Cannot refresh BGJSGLView with no envCache");
 		return;
 	}
 	jclass clazz = env->GetObjectClass(_javaGlView);

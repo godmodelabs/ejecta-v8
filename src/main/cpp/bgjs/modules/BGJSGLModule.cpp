@@ -1251,8 +1251,8 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
 	Isolate* isolate = ct->getIsolate();
 	v8::Locker l(isolate);
 	Isolate::Scope isolateScope(isolate);
+	HandleScope scope(isolate);
 	Context::Scope context_scope(ct->getContext());
-    HandleScope scope(isolate);
 
 	float* x = env->GetFloatArrayElements(xArr, NULL);
 	float* y = env->GetFloatArrayElements(yArr, NULL);
