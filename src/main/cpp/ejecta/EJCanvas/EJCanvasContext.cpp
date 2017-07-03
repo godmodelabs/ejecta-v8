@@ -7,6 +7,7 @@
 #define LOG_TAG	"EJCanvasContext"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 EJVertex CanvasVertexBuffer[EJ_CANVAS_VERTEX_BUFFER_SIZE];
 

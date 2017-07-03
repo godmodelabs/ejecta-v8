@@ -10,6 +10,7 @@
 
 #include <GLES/gl.h>
 #include <GLES/glext.h>
+#include <stdlib.h>
 
 static GLint textureFilter = GL_LINEAR;
 

@@ -5,6 +5,7 @@
 #include "GLcompat.h"
 #include "mallocdebug.h"
 
+#include <stdlib.h>
 #include <vector>
 
 EJPath::EJPath() {
