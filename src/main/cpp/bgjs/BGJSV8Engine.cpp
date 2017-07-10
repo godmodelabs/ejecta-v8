@@ -92,7 +92,7 @@ static void LogCallback(const v8::FunctionCallbackInfo<Value>& args) {
 		return;
 	}
 
-	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 
 	ctx->log(LOG_INFO, args);
 }
@@ -103,7 +103,7 @@ static void DebugCallback(const v8::FunctionCallbackInfo<Value>& args) {
 		return;
 	}
 
-	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 	ctx->log(LOG_DEBUG, args);
 }
 
@@ -113,7 +113,7 @@ static void InfoCallback(const v8::FunctionCallbackInfo<Value>& args) {
 		return;
 	}
 
-	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 
 	ctx->log(LOG_INFO, args);
 }
@@ -124,7 +124,7 @@ static void ErrorCallback(const v8::FunctionCallbackInfo<Value>& args) {
 		return;
 	}
 
-	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 
 	ctx->log(LOG_ERROR, args);
 }
@@ -140,7 +140,7 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 	EscapableHandleScope scope(isolate);
 
-	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 
 	Local<Value> result = engine->require(BGJS_STRING_FROM_V8VALUE(args[0]));
 
@@ -548,7 +548,7 @@ bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view) const  {
 void BGJSV8Engine::js_global_getLocale(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(info.GetIsolate());
 
 	if (ctx->_locale) {
 		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_locale)));
@@ -560,7 +560,7 @@ void BGJSV8Engine::js_global_getLocale(Local<String> property,
 void BGJSV8Engine::js_global_getLang(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(info.GetIsolate());
 
 	if (ctx->_lang) {
 		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_lang)));
@@ -572,7 +572,7 @@ void BGJSV8Engine::js_global_getLang(Local<String> property,
 void BGJSV8Engine::js_global_getTz(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(info.GetIsolate());
 
 	if (ctx->_tz) {
 		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_tz)));
@@ -584,7 +584,7 @@ void BGJSV8Engine::js_global_getTz(Local<String> property,
 void BGJSV8Engine::js_global_getDeviceClass(Local<String> property,
                                            const v8::PropertyCallbackInfo<v8::Value>& info) {
     EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(info.GetIsolate());
 
     if (ctx->_deviceClass) {
         info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_deviceClass)));
@@ -595,7 +595,7 @@ void BGJSV8Engine::js_global_getDeviceClass(Local<String> property,
 
 void BGJSV8Engine::js_global_requestAnimationFrame(
 		const v8::FunctionCallbackInfo<v8::Value>& args) {
-    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 	v8::Locker l(args.GetIsolate());
 	HandleScope scope(args.GetIsolate());
 
@@ -627,7 +627,7 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 
 void BGJSV8Engine::js_global_cancelAnimationFrame(
 		const v8::FunctionCallbackInfo<v8::Value>& args) {
-    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 	v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
 	if (args.Length() >= 1 && args[0]->IsNumber()) {
@@ -649,7 +649,7 @@ void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Valu
 
 void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args,
 		bool recurring) {
-    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 	v8::Locker l(args.GetIsolate());
 	HandleScope scope(args.GetIsolate());
 
@@ -664,7 +664,7 @@ void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args
 
 		jlong timeout = (jlong)(Local<Number>::Cast(args[1])->Value());
 
-		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE()->_client);
+		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE(args.GetIsolate())->_client);
 		JNIEnv* env = JNU_GetEnv();
 		if (env == NULL) {
 			LOGE("Cannot execute setTimeout with no envCache");
@@ -697,7 +697,7 @@ void BGJSV8Engine::js_global_clearTimeout(const v8::FunctionCallbackInfo<v8::Val
 }
 
 void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE();
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
 	v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
 
@@ -711,7 +711,7 @@ void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& ar
 			return;
 		}
 
-		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE()->_client);
+		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE(args.GetIsolate())->_client);
 		JNIEnv* env = JNU_GetEnv();
 		if (env == NULL) {
 			LOGE("Cannot execute setTimeout with no envCache");

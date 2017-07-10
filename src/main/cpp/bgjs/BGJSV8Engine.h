@@ -28,8 +28,8 @@
  * Licensed under the MIT license.
  */
 
-#define BGJS_CURRENT_V8ENGINE() \
-	reinterpret_cast<BGJSV8Engine*>(Isolate::GetCurrent()->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
+#define BGJS_CURRENT_V8ENGINE(isolate) \
+	reinterpret_cast<BGJSV8Engine*>(isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
 
 #define BGJS_V8ENGINE(context) \
 	reinterpret_cast<BGJSV8Engine*>(context->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))

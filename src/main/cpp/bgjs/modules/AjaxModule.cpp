@@ -39,14 +39,12 @@ AjaxModule::~AjaxModule() {
 void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = args.GetIsolate();
     Isolate::Scope isolateScope(isolate);
+    BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(isolate);
 	HandleScope scope(isolate);
-    Local<Context> secondContext = isolate->GetCurrentContext();
 
-    void* embeddedShit = secondContext->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext);
 
-	BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(embeddedShit);
 
-	if (args.Length() < 1) {
+    if (args.Length() < 1) {
 		LOGE("Not enough parameters for ajax");
 		isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Not enough parameters for ajax")));
 		args.GetReturnValue().SetUndefined();
