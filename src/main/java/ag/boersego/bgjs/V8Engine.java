@@ -54,11 +54,26 @@ public class V8Engine extends Thread implements Handler.Callback {
     private V8UrlCache mCache;
 	private ThreadPoolExecutor mTPExecutor;
     private OkHttpClient mHttpClient;
+	private boolean mPaused;
 
-    public static void doDebug (boolean debug) {
+	public static void doDebug (boolean debug) {
         DEBUG = debug;
     }
-	
+
+	public void unpause() {
+		mPaused = false;
+        if (mHandler != null) {
+            mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
+        }
+	}
+
+	public void pause() {
+        mPaused = true;
+        if (mHandler != null) {
+            mHandler.removeMessages(MSG_CLEANUP);
+        }
+    }
+
 	public interface V8EngineHandler {
 		abstract public void onReady();
 	}
@@ -75,7 +90,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 	}
 	
-	public class V8Timeout implements Runnable {
+	private class V8Timeout implements Runnable {
 		final long jsCbPtr;
 		final long thisObjPtr;
 		final long timeout;
@@ -83,7 +98,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		private final int id;
 		private boolean dead;
 		
-		public V8Timeout (long jsCbPtr, long thisObjPtr, long timeout, boolean recurring, int id) {
+		V8Timeout(long jsCbPtr, long thisObjPtr, long timeout, boolean recurring, int id) {
 			this.jsCbPtr = jsCbPtr;
 			this.thisObjPtr = thisObjPtr;
 			this.timeout = timeout;
@@ -91,7 +106,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 			this.id = id;
 		}
 		
-		public void setAsDead() {
+		void setAsDead() {
 			this.dead = true;
 		}
 
