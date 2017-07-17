@@ -44,9 +44,11 @@ v8::Local<v8::Object> BGJSJavaWrapper::getLocalObject() {
 }
 
 void BGJSJavaWrapper::cleanUp(JNIEnv* env) {
-    Isolate::Scope scope(_context->getIsolate());
-    HandleScope handleScope(_context->getIsolate());
-    v8::Locker locker(_context->getIsolate());
+	if (_context != 0) {
+		Isolate::Scope scope(_context->getIsolate());
+		HandleScope handleScope(_context->getIsolate());
+		v8::Locker locker(_context->getIsolate());
+	}
 	if (_javaObject != NULL) {
 #ifdef DEBUG
 		LOGD("cleanUp. Cleaning up javaObj global ref %p", _javaObject);
