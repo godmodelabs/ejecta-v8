@@ -110,6 +110,8 @@ BGJSJavaWrapper::BGJSJavaWrapper (const BGJSV8Engine* context, JNIEnv* env, jobj
     _context = context;
     if (javaObject != 0) {
         _javaObject = env->NewGlobalRef(javaObject);
+    } else {
+        _javaObject = 0;
     }
 	_jStringClass = env->FindClass("java/lang/String");
 }
