@@ -291,7 +291,7 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
     std::map<std::string, v8::Persistent<v8::Value>>::iterator it;
     it = _moduleCache.find(baseNameStr);
     if(it != _moduleCache.end()) {
-        return Local<Value>::New(_isolate, it->second);
+        return handle_scope.Escape(Local<Value>::New(_isolate, it->second));
     }
 
     // Source of JS file if external code
