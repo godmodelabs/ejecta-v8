@@ -21,7 +21,7 @@ using namespace v8;
 #endif
 #define LOG_TAG "BGJSJavaWrapper"
 
-#define DEBUG	0
+// #define DEBUG	0
 
 
 BGJSJavaWrapper::~BGJSJavaWrapper () {
