@@ -24,6 +24,7 @@ public class ClientAndroid {
                                           long errorCb, long v8CtxPtr, boolean success, boolean processData);
 	
 	// BGJSGLModule
+    public static native int cssColorToInt(String color);
     public static native long createGL(long ctxPtr, V8TextureView gl2jniView, float pixelRatio, boolean noClearOnFlip, int width, int height);
     public static native int init(long ctxPtr, long objPtr, int width, int height, String callbackName);
     public static native boolean step(long ctxPtr, long jsPtr);

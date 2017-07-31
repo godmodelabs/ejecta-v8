@@ -5,6 +5,7 @@
 
 #include "v8.h"
 #include "../ejecta/EJConvert.h"
+#include "../ejecta/EJConvertColorRGBA.h"
 
 #include <GLES/gl.h>
 
@@ -12,6 +13,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <android/bitmap.h>
+#include <EJCanvasTypes.h>
 
 #include "../jniext.h"
 
@@ -1148,6 +1150,19 @@ static void checkGlError(const char* op) {
 	for (GLint error = glGetError(); error; error = glGetError()) {
 		LOGI("after %s() glError (0x%x)\n", op, error);
 	}
+}
+
+JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_cssColorToInt(JNIEnv * env, jobject obj, jstring color) {
+    const char* nativeString = env->GetStringUTFChars(color, 0);
+    EJColorRGBA colorRGBA = bufferToColorRBGA(nativeString, env->GetStringLength(color));
+
+    if (nativeString) {
+        env->ReleaseStringUTFChars(color, nativeString);
+    }
+
+    unsigned int colorsShifted = (colorRGBA.hex & 0xFF000000) + ((colorRGBA.hex & 0x00FF0000) >> 16) + (colorRGBA.hex & 0x0000FF00)
+                                 + ((colorRGBA.hex & 0x000000FF) << 16);
+    return colorsShifted;
 }
 
 JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env,

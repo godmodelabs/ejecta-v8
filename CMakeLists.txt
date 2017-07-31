@@ -39,6 +39,7 @@ add_library( # Sets the name of the library.
              src/main/cpp/bgjs/BGJSGLView.cpp
              src/main/cpp/ejecta/EJCanvas/EJCanvasContext.cpp
              src/main/cpp/ejecta/EJConvert.cpp
+             src/main/cpp/ejecta/EJConvertColorRGBA.cpp
              src/main/cpp/ejecta/EJCanvas/EJPath.cpp
              src/main/cpp/ejecta/EJCanvas/EJTexture.cpp
              src/main/cpp/ejecta/EJCanvas/NdkMisc.cpp
