@@ -106,6 +106,7 @@ public:
 	void unregisterGLView(BGJSGLView* view);
 
 	v8::Handle<v8::Value> JsonParse(v8::Handle<v8::Object> recv, v8::Handle<v8::String> source);
+	v8::Handle<v8::Value> JsonStringify(v8::Handle<v8::Object> recv, v8::Handle<v8::Object> source) const;
 
 	void createContext();
 	ClientAbstract *_client;

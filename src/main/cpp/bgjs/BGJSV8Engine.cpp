@@ -219,6 +219,41 @@ Handle<Value> BGJSV8Engine::JsonParse(Handle<Object> recv,
 	return scope.Escape(result);
 }
 
+Handle<Value> BGJSV8Engine::JsonStringify(Handle<Object> recv,
+									  Handle<Object> source) const {
+	EscapableHandleScope scope(Isolate::GetCurrent());
+	TryCatch trycatch;
+
+	Handle<Value> args[] = { source };
+
+	// Init
+	// if (jsonParseMethod.IsEmpty()) {
+	Local<Function> jsonParseMethod_ =
+			Local<Function>::Cast(
+					Script::Compile(
+							String::NewFromOneByte(Isolate::GetCurrent(),
+												   (const uint8_t*)"(function(source) {\n \
+           try {\n\
+             var a = JSON.stringify(source); return a;\
+           } catch (e) {\n\
+            console.log('json stringify error', e);\n\
+           }\n\
+         });"),
+							String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:script"))->Run());
+	// jsonParseMethod = Persistent<Function>::New(jsonParseMethod_);
+	//}
+
+	Local<Value> result = jsonParseMethod_->Call(recv, 1, args);
+
+	if (result.IsEmpty()) {
+		LOGE("JsonStringify exception");
+		BGJSV8Engine::ReportException(&trycatch);
+		//abort();
+	}
+
+	return scope.Escape(result);
+}
+
 Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, const char* name,
 		int argc, Handle<Value> argv[]) const {
 	v8::Locker l(isolate);
