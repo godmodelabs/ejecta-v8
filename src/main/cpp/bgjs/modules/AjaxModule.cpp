@@ -112,12 +112,11 @@ void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 	jclass clazz = env->FindClass("ag/boersego/bgjs/V8Engine");
 	jmethodID ajaxMethod = env->GetStaticMethodID(clazz,
-			"doAjaxRequest", "(Ljava/lang/String;JJJJLjava/lang/String;Ljava/lang/String;Z)V");
+			"doAjaxRequest", "(Ljava/lang/String;JJJLjava/lang/String;Ljava/lang/String;Z)V");
 	assert(ajaxMethod);
 	assert(clazz);
 	env->CallStaticVoidMethod(clazz, ajaxMethod, urlStr,
-			(jlong) callbackPers, (jlong) thisObj, (jlong) errorPers, 
-			(jlong)(new Persistent<Context>(isolate, isolate->GetCurrentContext())), dataStr, methodStr, (jboolean)processData);
+			(jlong) callbackPers, (jlong) thisObj, (jlong) errorPers, dataStr, methodStr, (jboolean)processData);
 
 #endif
 
@@ -128,12 +127,12 @@ void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
 extern "C" {
 JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		JNIEnv * env, jobject obj, jlong ctxPtr, jstring data, jint responseCode, jlong cbPtr,
-		jlong thisPtr, jlong errorCb, jlong v8CtxPtr, jboolean success, jboolean processData);
+		jlong thisPtr, jlong errorCb, jboolean success, jboolean processData);
 };
 
 JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		JNIEnv * env, jobject obj, jlong ctxPtr, jstring dataStr, jint responseCode,
-		jlong jsCbPtr, jlong thisPtr, jlong errorCb, jlong v8CtxPtr, jboolean success, jboolean processData) {
+		jlong jsCbPtr, jlong thisPtr, jlong errorCb, jboolean success, jboolean processData) {
 	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
 
 	Isolate* isolate = context->getIsolate();
@@ -141,9 +140,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 	Isolate::Scope isolateScope(isolate);
 
     HandleScope scope(isolate);
-    Persistent<Context>* v8ContextPers = static_cast<Persistent<Context>*>((void*)v8CtxPtr);
-    Local<Context> v8Context = Local<Context>::New(isolate, *v8ContextPers);
-
+    Local<Context> v8Context = context->getContext();
 
 	Context::Scope context_scope(v8Context);
 
@@ -196,7 +193,6 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 	if (nativeString) {
 		env->ReleaseStringUTFChars(dataStr, nativeString);
 	}
-	BGJS_CLEAR_PERSISTENT_PTR(v8ContextPers);
 	BGJS_CLEAR_PERSISTENT_PTR(callbackP);
 	BGJS_CLEAR_PERSISTENT_PTR(thisObj);
 	BGJS_CLEAR_PERSISTENT_PTR(errorP);

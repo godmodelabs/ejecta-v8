@@ -251,10 +251,6 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_run(JNIEnv * env,
 	}
     const char* pathStr = env->GetStringUTFChars(path, 0);
 	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
-	v8::Locker l (ct->getIsolate());
-	Isolate::Scope(ct->getIsolate());
-	HandleScope scope (ct->getIsolate());
-	Context::Scope context_scope(ct->getContext());
 	_client->envCache = env;
 	ct->run(pathStr);
 }

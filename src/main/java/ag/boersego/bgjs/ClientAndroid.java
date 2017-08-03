@@ -21,7 +21,7 @@ public class ClientAndroid {
 	
     // AjaxModule
 	public static native boolean ajaxDone(long ctxPtr, String data, int responseCode, long jsCbPtr, long thisObj,
-                                          long errorCb, long v8CtxPtr, boolean success, boolean processData);
+                                          long errorCb, boolean success, boolean processData);
 	
 	// BGJSGLModule
     public static native int cssColorToInt(String color);
