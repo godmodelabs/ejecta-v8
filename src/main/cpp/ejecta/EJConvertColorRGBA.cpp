@@ -2,6 +2,7 @@
 #include "EJConvert.h"
 
 #include <ctype.h>
+#include "stdlib.h"
 
 #define MAX(a,b) \
    ({ __typeof__ (a) _a = (a); \
