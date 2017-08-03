@@ -130,7 +130,7 @@ static void ErrorCallback(const v8::FunctionCallbackInfo<Value>& args) {
 }
 
 static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
-	Isolate *isolate = Isolate::GetCurrent();
+	Isolate *isolate = args.GetIsolate();
 
 	// argument must be exactly one string
 	if (args.Length() < 1 || !args[0]->IsString()) {
@@ -140,7 +140,7 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 	EscapableHandleScope scope(isolate);
 
-	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
+	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(isolate);
 
 	Local<Value> result = engine->require(BGJS_STRING_FROM_V8VALUE(args[0]));
 
