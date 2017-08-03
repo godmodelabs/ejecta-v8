@@ -116,8 +116,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
         return -1;
     }
 
-	JNIWrapper::init(vm);
-    JNIWrapper::registerObject<V8TestClass>();
+	// JNIWrapper::init(vm);
+    // JNIWrapper::registerObject<V8TestClass>();
 
     // Get jclass with env->FindClass.
     // Register methods with env->RegisterNatives.
