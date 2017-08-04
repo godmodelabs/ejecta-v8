@@ -88,7 +88,6 @@ void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 #ifdef ANDROID
 	jstring dataStr, urlStr, methodStr;
-	ClientAndroid* client = (ClientAndroid*)(engine->_client);
 	JNIEnv* env = JNU_GetEnv();
 	if (env == NULL) {
 		LOGE("Cannot execute AJAX request with no envCache");

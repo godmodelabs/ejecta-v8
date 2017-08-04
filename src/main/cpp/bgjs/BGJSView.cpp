@@ -222,9 +222,13 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 }
 
 void BGJSView::call(std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*> &list) {
-    Isolate* isolate = _engine->getIsolate();
-    TryCatch trycatch;
+	Isolate* isolate = _engine->getIsolate();
+	v8::Locker l(isolate);
+	Isolate::Scope isolateScope(isolate);
 	HandleScope scope(isolate);
+	Context::Scope context_scope(_engine->getContext());
+
+	TryCatch trycatch;
 
 	Handle<Value> args[] = { };
 
