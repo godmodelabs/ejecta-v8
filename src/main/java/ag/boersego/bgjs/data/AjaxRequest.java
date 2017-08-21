@@ -200,7 +200,7 @@ public class AjaxRequest implements Runnable {
 
         mSuccessData = connection.body().string();
 
-        storeCacheObject(connection, mSuccessData);
+        storeCacheObject(connection, mSuccessData, mSuccessData.length());
 
         if (mDebug) {
             Log.d (TAG, "Response: " + mSuccessCode + "/" + mSuccessData);
@@ -304,13 +304,13 @@ public class AjaxRequest implements Runnable {
 	}
 
 
-    protected void storeCacheObject(final Response connection, final Object cachedObject) {
+    protected void storeCacheObject(final Response connection, final Object cachedObject, final long size) {
         if (connection == null) {
             return;
         }
         try {
             if (!connection.cacheControl().noStore() && connection.request().method().equals("GET")) {
-                mCache.storeInCache(connection.request().url().toString(), cachedObject, connection.cacheControl().maxAgeSeconds());
+                mCache.storeInCache(connection.request().url().toString(), cachedObject, connection.cacheControl().maxAgeSeconds(), size);
             }
         } catch (Exception ex) {
             Log.i (TAG, "Cannot set cache info", ex);
