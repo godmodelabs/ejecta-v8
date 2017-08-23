@@ -218,6 +218,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		Log.d(TAG, "Initializing V8Engine");
 		mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
     }
 

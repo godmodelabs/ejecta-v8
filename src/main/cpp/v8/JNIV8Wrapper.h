@@ -39,6 +39,12 @@ public:
         _registerObject(JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, createJavaClass<ObjectType>);
     };
 
+    template<class ObjectType> static
+    void registerDerivedObject(const std::string &canonicalName) {
+        JNIWrapper::registerDerivedObject<ObjectType>(canonicalName, true);
+        _registerObject(canonicalName, initialize<ObjectType>, createJavaClass<ObjectType>);
+    };
+
     /**
      * creates a V8 enabled Java+Native Object tuple based on the specified object type
      * object needs to have been registered before with BGJS_REGISTER_OBJECT

@@ -88,7 +88,9 @@ void JNIWrapper::_registerObject(bool persistent, const std::string &canonicalNa
 
     // register methods
     if(info->methods.size()) {
+        // @TODO: do not register methods multiple times on derived classes!
         env->RegisterNatives(clazz, &info->methods[0], info->methods.size());
+
         // free pointers that were allocated in registerNativeMethod
         for(auto &entry : info->methods) {
             free((void*)entry.name);

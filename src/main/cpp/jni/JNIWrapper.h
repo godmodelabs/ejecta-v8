@@ -43,6 +43,11 @@ public:
         _registerObject(persistent, JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, instantiate<ObjectType>);
     };
 
+    template<class ObjectType> static
+    void registerDerivedObject(const std::string &canonicalName, bool persistent = true) {
+        _registerObject(persistent, canonicalName, initialize<ObjectType>, instantiate<ObjectType>);
+    };
+
     /**
      * creates a Java+Native Object tuple based on the specified object type
      * object needs to have been registered before with BGJS_REGISTER_OBJECT

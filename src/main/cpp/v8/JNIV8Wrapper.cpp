@@ -52,7 +52,10 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     // initialize class info: template with constructor and general setup created here
     // individual methods and accessors handled by static method on subclass
     v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    Isolate::Scope isolateScope(isolate);
     HandleScope scope(isolate);
+    // @TODO: context scope?
 
     Local<External> data = External::New(isolate, (void*)v8ClassInfo);
     Handle<FunctionTemplate> ft = FunctionTemplate::New(isolate, v8ConstructorCallback, data);
@@ -85,6 +88,11 @@ void JNIV8Wrapper::initializeNativeV8Object(jobject obj, jlong enginePtr, jlong 
     v8::Local<Object> jsObj;
 
     v8::Isolate* isolate = v8Object->_bgjsEngine->getIsolate();
+    v8::Locker l(isolate);
+    Isolate::Scope isolateScope(isolate);
+    HandleScope scope(isolate);
+
+    // @TODO: context scope?
 
     // if an object was already supplied we just need to store it
     if(jsObjPtr) {
