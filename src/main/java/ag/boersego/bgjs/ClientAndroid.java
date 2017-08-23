@@ -13,15 +13,18 @@ import android.content.res.AssetManager;
 public class ClientAndroid {
 	// BGJSV8Engine
 	public static native void timeoutCB(long ctxPtr, long jsCb, long thisObj, boolean cleanup, boolean runCallback);
-	public static native long initialize(AssetManager am, V8Engine engine, String locale, String lang, String timezone, float density);
+
+	public static native long initialize(AssetManager am, V8Engine engine, String locale, String lang, String timezone, float density, final String deviceClass);
     public static native void run (long ctxPtr, String filename);
+
     public static native void runCBBoolean (long ctxPtr, long cbPtr, long thisPtr, boolean b);
 	
     // AjaxModule
 	public static native boolean ajaxDone(long ctxPtr, String data, int responseCode, long jsCbPtr, long thisObj,
-                                          long errorCb, long v8CtxPtr, boolean success, boolean processData);
+                                          long errorCb, boolean success, boolean processData);
 	
 	// BGJSGLModule
+    public static native int cssColorToInt(String color);
     public static native long createGL(long ctxPtr, V8TextureView gl2jniView, float pixelRatio, boolean noClearOnFlip, int width, int height);
     public static native int init(long ctxPtr, long objPtr, int width, int height, String callbackName);
     public static native boolean step(long ctxPtr, long jsPtr);

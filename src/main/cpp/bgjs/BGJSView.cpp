@@ -176,7 +176,7 @@ Handle<Value> BGJSView::startJS(const char* fnName,
 	Handle<Value> argv[5] = { uiObj, objInstance, config, Number::New(isolate, configId),
 	    Number::New(isolate, hasIntradayQuotes) };
 
-	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE();
+	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(isolate);
 	Local<Value> res = engine->callFunction(isolate, context->Global(),
 	        fnName, 5, argv);
 	if (res->IsNumber()) {
@@ -222,9 +222,13 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 }
 
 void BGJSView::call(std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*> &list) {
-    Isolate* isolate = _engine->getIsolate();
-    TryCatch trycatch;
+	Isolate* isolate = _engine->getIsolate();
+	v8::Locker l(isolate);
+	Isolate::Scope isolateScope(isolate);
 	HandleScope scope(isolate);
+	Context::Scope context_scope(_engine->getContext());
+
+	TryCatch trycatch;
 
 	Handle<Value> args[] = { };
 

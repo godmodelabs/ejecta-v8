@@ -5,6 +5,7 @@
 #include "stdlib.h"
 #include <assert.h>
 #include <jni.h>
+#include <cstdlib>
 
 #include "JNIWrapper.h"
 
@@ -57,15 +58,18 @@ void JNIWrapper::_registerObject(bool persistent, const std::string &canonicalNa
         return;
     }
 
+    JNIEnv* env = JNIWrapper::getEnvironment();
+
+    // check if class exists
+    jclass clazz = env->FindClass(canonicalName.c_str());
+
+    // class has to exist...
+    assert(clazz != NULL);
+
     JNIClassInfo *info = new JNIClassInfo(persistent, canonicalName, i, c);
     _objmap[canonicalName] = info;
 
-    if(!_jniVM) return;
-
-    JNIEnv* env = JNIWrapper::getEnvironment();
-
     // cache class
-    jclass clazz = env->FindClass(canonicalName.c_str());
     info->jniClassRef = (jclass)env->NewGlobalRef(clazz);
 
     // if it is a persistent class, register the field for storing the native class

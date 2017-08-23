@@ -118,7 +118,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     }
 
 	JNIWrapper::init(vm);
-    LOGE("Canonical name %s", JNIWrapper::getCanonicalName<V8TestClass>().c_str());
 	JNIV8Wrapper::registerObject<V8TestClass>();
 
     // Get jclass with env->FindClass.
@@ -130,7 +129,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 	} else {
 		_client->bgjsPushHelper = (jclass)env->NewGlobalRef(clazz);
 		jmethodID pushMethod = env->GetStaticMethodID(clazz,
-			"registerPush", "(Ljava/lang/String;JJ)I");
+			"registerPush", "(Ljava/lang/String;JJZ)I");
 		if (pushMethod) {
 			_client->bgjsPushSubscribeMethod = pushMethod;
 		} else {
@@ -146,6 +145,35 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 		}
 	}
 
+	clazz = env->FindClass("ag/boersego/android/conn/BGJSWebPushHelper");
+	if (clazz == NULL) {
+		LOGE("Cannot find class BGJSWebPushHelper!");
+		env->ExceptionClear();
+	} else {
+		_client->bgjsWebPushHelper = (jclass)env->NewGlobalRef(clazz);
+		jmethodID pushMethod = env->GetStaticMethodID(clazz,
+													  "registerPush", "(Ljava/lang/String;JJJJ)Lag/boersego/android/conn/BGJSWebPushHelper$JSWebPushSubscription;");
+		if (pushMethod) {
+			_client->bgjsWebPushSubscribeMethod = pushMethod;
+		} else {
+			LOGE("Cannot find static method BGJSWebPushHelper.registerPush!");
+		}
+	}
+
+    clazz = env->FindClass("ag/boersego/android/conn/BGJSWebPushHelper$JSWebPushSubscription");
+    if (clazz == NULL) {
+        LOGE("Cannot find class BGJSWebPushHelper$JSWebPushSubscription!");
+        env->ExceptionClear();
+    } else {
+        jmethodID unsubscribeMethod = env->GetMethodID(clazz,
+                                                      "unbind", "()Z");
+        if (unsubscribeMethod) {
+            _client->bgjsWebPushSubUnsubscribeMethod = unsubscribeMethod;
+        } else {
+            LOGE("Cannot find static method BGJSWebPushHelper$JSWebPushSubscription.unbind!");
+        }
+    }
+
 	clazz = env->FindClass("ag/boersego/chartingjs/ChartingV8Engine");
 
 	if (clazz == NULL) {
@@ -155,7 +183,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 		_client->chartingV8Engine = (jclass)env->NewGlobalRef(clazz);
 		_client->v8EnginegetIAPState = env->GetStaticMethodID(clazz, "getIAPState", "(Ljava/lang/String;)Z");
 	}
-	
+
 
     return JNI_VERSION_1_6;
 }
@@ -167,7 +195,8 @@ JNIEnv* JNU_GetEnv() {
 }
 
 JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
-		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang, jstring timezone, jfloat density) {
+		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang,
+        jstring timezone, jfloat density, jstring deviceClass) {
 
 	#if DEBUG
 		LOGD("bgjs initialize, AM %p this %p", assetManager, _client);
@@ -199,10 +228,12 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
 	const char* langStr = env->GetStringUTFChars(lang, NULL);
 	const char* tzStr = env->GetStringUTFChars(timezone, NULL);
-	ct->setLocale(localeStr, langStr, tzStr);
+	const char* deviceClassStr = env->GetStringUTFChars(deviceClass, NULL);
+	ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
 	env->ReleaseStringUTFChars(locale, localeStr);
 	env->ReleaseStringUTFChars(lang, langStr);
 	env->ReleaseStringUTFChars(timezone, tzStr);
+    env->ReleaseStringUTFChars(deviceClass, deviceClassStr);
 	ct->setClient(_client);
 	ct->createContext();
 	LOGD("BGJS context created");
@@ -221,10 +252,6 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_run(JNIEnv * env,
 	}
     const char* pathStr = env->GetStringUTFChars(path, 0);
 	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
-	v8::Locker l (ct->getIsolate());
-	Isolate::Scope(ct->getIsolate());
-	HandleScope scope (ct->getIsolate());
-	Context::Scope context_scope(ct->getContext());
 	_client->envCache = env;
 	ct->run(pathStr);
 }
@@ -238,10 +265,9 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 	if (DEBUG) {
 		LOGD("clientAndroid timeoutCB");
 	}
-
+	HandleScope scope (isolate);
 	Context::Scope context_scope(context->getContext());
 
-	HandleScope scope (isolate);
 	TryCatch trycatch;
 
 	// Persistent<Function>* callbackPers = (Persistent<Function>*) jsCbPtr;
@@ -281,9 +307,9 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
 
+	HandleScope scope(isolate);
 	Context::Scope context_scope(context->getContext());
 
-	HandleScope scope(isolate);
 	TryCatch trycatch;
 	Persistent<Function>* fnPersist = static_cast<Persistent<Function>*>((void*)cbPtr);
 	Persistent<Object>* thisObjPersist = static_cast<Persistent<Object>*>((void*)thisPtr);
@@ -300,6 +326,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
 		BGJSV8Engine::ReportException(&trycatch);
 	}
 	// TODO: Don't we need to clean up these persistents?
+    // => No, because they are pointers to a persistent that is stored elsewhere?!
 }
 
 

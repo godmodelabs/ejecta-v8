@@ -44,9 +44,9 @@
     #define BGJS_NEW_PERSISTENT_PTR(persistent) 
     #define BGJS_NEW_PERSISTENT(persistent) 
 
-    #define BGJS_CLEAR_PERSISTENT(pers) if (!pers.IsEmpty()) {  pers.Reset(); }
+    #define BGJS_CLEAR_PERSISTENT(pers) pers.Reset();
 
-    #define BGJS_CLEAR_PERSISTENT_PTR(pers) if (!pers->IsEmpty()) { pers->Reset(); }
+    #define BGJS_CLEAR_PERSISTENT_PTR(pers) if (pers && !pers->IsEmpty()) { pers->Reset(); }
 #endif
 
 

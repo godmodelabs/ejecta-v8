@@ -53,6 +53,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 	private static final int TOUCH_SLOP = 5;
 	private static final String TAG = "V8TextureView";
     private int[] mEglVersion;
+    private float mClearRed, mClearGreen, mClearBlue, mClearAlpha;
+    private boolean mClearColorSet;
 
     /**
 	 * Create a new V8TextureView instance
@@ -289,6 +291,24 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		ClientAndroid.sendTouchEvent(V8Engine.getInstance().getNativePtr(), mRenderThread.mJSId, type, x, y,
 				(float) scale);
 	}
+
+	public void setClearColor(final int color) {
+        try {
+            // Convert to long to make unsigned
+            long c = color & 0x00000000ffffffffL;
+            mClearAlpha = (float) ((c & 0xff000000L) >> 24) / 256f;
+            mClearRed = (float) ((c & 0x00ff0000L) >> 16) / 256f;
+            mClearGreen = (float) ((c & 0x0000ff00L) >> 8) / 256f;
+            mClearBlue = (float) ((c & 0x000000ffL)) / 256f;
+            mClearColorSet = true;
+        } catch (final Exception e) {
+            Log.i(TAG, "Cannot set clear color from background color", e);
+        }
+    }
+
+    public void removeClearColor() {
+        mClearColorSet = false;
+    }
 
 	/**
 	 * Reset all touch information
@@ -597,7 +617,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		/**
 		 * Set paused state and wake up thread
 		 */
-		public synchronized void pause() {
+		synchronized void pause() {
 			synchronized (this) {
 				mPaused = true;
 				this.notifyAll();
@@ -607,7 +627,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 		}
 
-        public void requestRender() {
+        void requestRender() {
 			synchronized (this) {
 				mRenderPending = true;
 				this.notifyAll();
@@ -617,7 +637,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 		}
 
-        public void reinitGl() {
+        void reinitGl() {
 			synchronized (this) {
 				mReinitPending = true;
 				this.notifyAll();
@@ -663,6 +683,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			mJSId = createGL();
             V8TextureView.this.onGLCreated(mJSId);
 
+            if (mClearColorSet) {
+                GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
+            }
+
 			if (mCallback != null) {
 				// Tell clients that rendering has started
 				mCallback.renderStarted(mChartId);
@@ -677,7 +701,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 								Log.d(TAG, "Paused");
 							}
 							try {
-
 								wait();
 							} catch (InterruptedException e) {
 								// Ignore
@@ -705,6 +728,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				if (DEBUG) {
 					Log.d(TAG, "Will now draw frame");
 				}
+
+
+				if (mClearColorSet) {
+                    GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
+                }
 
 				final boolean didDraw = ClientAndroid.step(V8Engine.getInstance().getNativePtr(), mJSId);
 

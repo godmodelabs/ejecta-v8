@@ -32,6 +32,7 @@ import okhttp3.OkHttpClient;
 public class V8Engine extends Thread implements Handler.Callback {
 
 	protected static V8Engine mInstance;
+	protected final boolean mIsTablet;
 	protected Handler mHandler;
 	private String scriptPath;
 	private AssetManager assetManager;
@@ -53,11 +54,26 @@ public class V8Engine extends Thread implements Handler.Callback {
     private V8UrlCache mCache;
 	private ThreadPoolExecutor mTPExecutor;
     private OkHttpClient mHttpClient;
+	private boolean mPaused;
 
-    public static void doDebug (boolean debug) {
+	public static void doDebug (boolean debug) {
         DEBUG = debug;
     }
-	
+
+	public void unpause() {
+		mPaused = false;
+        if (mHandler != null) {
+            mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
+        }
+	}
+
+	public void pause() {
+        mPaused = true;
+        if (mHandler != null) {
+            mHandler.removeMessages(MSG_CLEANUP);
+        }
+    }
+
 	public interface V8EngineHandler {
 		abstract public void onReady();
 	}
@@ -74,7 +90,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 	}
 	
-	public class V8Timeout implements Runnable {
+	private class V8Timeout implements Runnable {
 		final long jsCbPtr;
 		final long thisObjPtr;
 		final long timeout;
@@ -82,7 +98,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		private final int id;
 		private boolean dead;
 		
-		public V8Timeout (long jsCbPtr, long thisObjPtr, long timeout, boolean recurring, int id) {
+		V8Timeout(long jsCbPtr, long thisObjPtr, long timeout, boolean recurring, int id) {
 			this.jsCbPtr = jsCbPtr;
 			this.thisObjPtr = thisObjPtr;
 			this.timeout = timeout;
@@ -90,7 +106,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 			this.id = id;
 		}
 		
-		public void setAsDead() {
+		void setAsDead() {
 			this.dead = true;
 		}
 
@@ -141,7 +157,12 @@ public class V8Engine extends Thread implements Handler.Callback {
             final Resources r = application.getResources();
             if (r != null) {
                 mDensity = r.getDisplayMetrics().density;
+				mIsTablet = r.getBoolean(R.bool.isTablet);
+            } else {
+                throw new RuntimeException("No resources available");
             }
+        } else {
+            throw new RuntimeException("Application is null");
         }
         Locale locale = Locale.getDefault();
 		String country = locale.getCountry();
@@ -197,7 +218,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity);
+		mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
     }
 
 	@Override
@@ -383,7 +404,6 @@ public class V8Engine extends Thread implements Handler.Callback {
 	}
 
 	public class V8AjaxRequest implements AjaxRequest.AjaxListener {
-        private final long mV8CtxPtr;
         private AjaxRequest mReq;
 		private long mCbPtr;
 		private long mThisObj;
@@ -393,19 +413,18 @@ public class V8Engine extends Thread implements Handler.Callback {
 		private long mErrorCb;
 		private boolean mProcessData;
 
-		public V8AjaxRequest(String url, long jsCallbackPtr, long thisObj, long errorCb, long v8ContextPtr,
+		public V8AjaxRequest(String url, long jsCallbackPtr, long thisObj, long errorCb,
 				String data, String method, boolean processData) {
 			mCbPtr = jsCallbackPtr;
 			mThisObj = thisObj;
 			mErrorCb = errorCb;
-			mV8CtxPtr = v8ContextPtr;
 			mSuccess = false;
 			mProcessData = processData;
 			try {
 				mReq = new AjaxRequest(url, data, this, method);
 			} catch (URISyntaxException e) {
 				Log.e(TAG, "Cannot create URL", e);
-				ClientAndroid.ajaxDone(mNativePtr, null, 500, mCbPtr, mThisObj, mErrorCb, mV8CtxPtr, false, mProcessData);
+				ClientAndroid.ajaxDone(mNativePtr, null, 500, mCbPtr, mThisObj, mErrorCb, false, mProcessData);
                 return;
 			}
 			mReq.setCacheInstance(mCache);
@@ -440,7 +459,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 						+ mThisObj + " for code " + mCode + ", thread "
 						+ Thread.currentThread().getId());
 			}
-			ClientAndroid.ajaxDone(mNativePtr, mData, mCode, mCbPtr, mThisObj, mErrorCb, mV8CtxPtr, mSuccess, mProcessData);
+			ClientAndroid.ajaxDone(mNativePtr, mData, mCode, mCbPtr, mThisObj, mErrorCb, mSuccess, mProcessData);
 		}
 
 		public void success(String data, int code, AjaxRequest r) {
@@ -456,10 +475,9 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 	}
 
-	public static void doAjaxRequest(String url, long jsCb, long thisObj, long errorCb, long v8ContextPtr,
+	public static void doAjaxRequest(String url, long jsCb, long thisObj, long errorCb,
 			String data, String method, boolean processData) {
-		V8AjaxRequest req = mInstance.new V8AjaxRequest(url, jsCb, thisObj, errorCb, v8ContextPtr,
-				data, method, processData);
+		V8AjaxRequest req = mInstance.new V8AjaxRequest(url, jsCb, thisObj, errorCb, data, method, processData);
 		if (DEBUG) {
 			Log.d(TAG, "Preparing to do ajax request on thread "
 					+ Thread.currentThread().getId());

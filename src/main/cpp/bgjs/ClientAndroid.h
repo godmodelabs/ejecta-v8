@@ -18,8 +18,11 @@ public:
 	JavaVM *cachedJVM;
 	jobject assetManager;
 	jclass bgjsPushHelper;
+	jclass bgjsWebPushHelper;
 	jclass chartingV8Engine;
 	jmethodID bgjsPushUnsubscribeMethod, bgjsPushSubscribeMethod;
+    jmethodID bgjsWebPushSubscribeMethod;
+    jmethodID bgjsWebPushSubUnsubscribeMethod;
 	jmethodID v8EnginegetIAPState;
 	jobject v8Engine;
 	const char* loadFile (const char* path, unsigned int* length = NULL);
@@ -34,6 +37,9 @@ public:
 	unsigned int _magnifierTexWidth;
 	unsigned int _magnifierTexHeight;
 	unsigned char *_maskImage;
+
+
+
 };
 
 // http://stackoverflow.com/questions/5991615/unable-to-get-jnienv-value-in-arbitrary-context

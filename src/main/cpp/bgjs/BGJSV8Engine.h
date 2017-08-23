@@ -29,8 +29,8 @@
  * Licensed under the MIT license.
  */
 
-#define BGJS_CURRENT_V8ENGINE() \
-	reinterpret_cast<BGJSV8Engine*>(Isolate::GetCurrent()->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
+#define BGJS_CURRENT_V8ENGINE(isolate) \
+	reinterpret_cast<BGJSV8Engine*>(isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
 
 #define BGJS_V8ENGINE(context) \
 	reinterpret_cast<BGJSV8Engine*>(context->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
@@ -85,7 +85,7 @@ public:
 
 	jobject getJObject() const;
 
-	void setLocale(const char* locale, const char* lang, const char* tz);
+	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
 
 	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -95,17 +95,13 @@ public:
 	static void js_global_clearInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_getLocale(v8::Local<v8::String> property,
 			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_setLocale(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-			const v8::PropertyCallbackInfo<void>& info);
 	static void js_global_getLang(v8::Local<v8::String> property,
 			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_setLang(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-			const v8::PropertyCallbackInfo<void>& info);
 	static void js_global_getTz(v8::Local<v8::String> property,
 			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_setTz(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-			const v8::PropertyCallbackInfo<void>& info);
-	static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
+	static void js_global_getDeviceClass(v8::Local<v8::String> property,
+                                const v8::PropertyCallbackInfo<v8::Value>& info);
+    static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
 	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
 	void cancelAnimationFrame(int id);
 	bool runAnimationRequests(BGJSGLView* view) const;
@@ -113,6 +109,7 @@ public:
 	void unregisterGLView(BGJSGLView* view);
 
 	v8::Handle<v8::Value> JsonParse(v8::Handle<v8::Object> recv, v8::Handle<v8::String> source);
+	v8::Handle<v8::Value> JsonStringify(v8::Handle<v8::Object> recv, v8::Handle<v8::Object> source) const;
 
 	void createContext();
 	ClientAbstract *_client;
@@ -120,6 +117,7 @@ public:
 	char *_locale;	// de_DE
 	char *_lang;	// de
 	char *_tz;		// Europe/Berlin
+	char *_deviceClass;		// "phone"/"tablet"
 
 private:
 	uint8_t _nextEmbedderDataIndex;
@@ -129,6 +127,7 @@ private:
 
 	// Attributes
 	std::map<std::string, requireHook> _modules;
+    std::map<std::string, v8::Persistent<v8::Value>> _moduleCache;
     v8::Isolate* _isolate;
 
     v8::Persistent<v8::Function> _requireFn, _makeRequireFn;

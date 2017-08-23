@@ -5,6 +5,7 @@
 #include "stdlib.h"
 #include <math.h>
 #include <assert.h>
+#include <stdlib.h>
 
 using namespace v8;
 
@@ -21,17 +22,34 @@ using namespace v8;
 #endif
 #define LOG_TAG "BGJSJavaWrapper"
 
-#define DEBUG	1
+// #define DEBUG	0
 
-BGJSJavaWrapper::BGJSJavaWrapper() {
-
-}
 
 BGJSJavaWrapper::~BGJSJavaWrapper () {
 	cleanUp(JNU_GetEnv());
 }
 
+
+void BGJSJavaWrapper::persist(Isolate* isolate, v8::Local<v8::Object> jsObj) {
+    _jsObject.Reset(isolate, jsObj);
+    needsClear = true;
+}
+
+void BGJSJavaWrapper::SetWeak(typename WeakCallbackInfo<BGJSJavaWrapper>::Callback callback,
+        WeakCallbackType type) {
+    _jsObject.SetWeak<BGJSJavaWrapper>(this, callback, type);
+}
+
+v8::Local<v8::Object> BGJSJavaWrapper::getLocalObject() {
+    return (*reinterpret_cast<Local<Object>*>(&_jsObject));
+}
+
 void BGJSJavaWrapper::cleanUp(JNIEnv* env) {
+	if (_context != 0) {
+		Isolate::Scope scope(_context->getIsolate());
+		HandleScope handleScope(_context->getIsolate());
+		v8::Locker locker(_context->getIsolate());
+	}
 	if (_javaObject != NULL) {
 #ifdef DEBUG
 		LOGD("cleanUp. Cleaning up javaObj global ref %p", _javaObject);
@@ -43,9 +61,17 @@ void BGJSJavaWrapper::cleanUp(JNIEnv* env) {
 		_javaObject = NULL;
 	}
 #ifdef DEBUG
-	LOGD("cleanUp. Cleaning up jsObject pers");
+	LOGD("cleanUp. Cleaning up jsObject pers. Near death %i, weak %i", (int)_jsObject.IsNearDeath(), (int)_jsObject.IsWeak());
 #endif
-	BGJS_CLEAR_PERSISTENT(_jsObject);
+	// BGJS_CLEAR_PERSISTENT(_jsObject)
+    if (needsClear) {
+            if (_jsObject.IsWeak()) {
+                _jsObject.ClearWeak();
+            }
+            if (!_jsObject.IsNearDeath()) {
+                _jsObject.Reset();
+            }
+    }
 #ifdef DEBUG
 	LOGD("cleanUp. Cleaned up jsObject pers");
 #endif
@@ -63,8 +89,10 @@ void BGJSJavaWrapper::cleanUp(JNIEnv* env) {
 #ifdef DEBUG
         LOGD("BGJSJavaWrapper cleanUp obj callback %p", *it);
 #endif
-        Persistent<Object>* resetMe = *it;
-		BGJS_CLEAR_PERSISTENT((*resetMe));
+        if (*it) {
+			Persistent<Object> *resetMe = *it;
+			BGJS_CLEAR_PERSISTENT((*resetMe));
+		}
 #ifdef DEBUG
 		LOGD("BGJSJavaWrapper cleaned obj callback %p", *it);
 #endif
@@ -82,8 +110,12 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_js_ClientAndroid_callJSPtr(
 } */
 
 BGJSJavaWrapper::BGJSJavaWrapper (const BGJSV8Engine* context, JNIEnv* env, jobject javaObject) {
-	_context = context;
-	_javaObject = env->NewGlobalRef(javaObject);
+    _context = context;
+    if (javaObject != 0) {
+        _javaObject = env->NewGlobalRef(javaObject);
+    } else {
+        _javaObject = 0;
+    }
 	_jStringClass = env->FindClass("java/lang/String");
 }
 

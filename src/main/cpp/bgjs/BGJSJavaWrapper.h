@@ -18,8 +18,10 @@ class BGJSJavaWrapper {
 	jclass _jStringClass;
 	std::vector<v8::Persistent<v8::Object>*> _v8ObsPersisted;
 	std::vector<v8::Persistent<v8::Function>*> _v8FuncsPersisted;
-public:
 	v8::Persistent<v8::Object> _jsObject;
+    bool needsClear;
+public:
+
 	BGJSJavaWrapper ();
 	BGJSJavaWrapper (const BGJSV8Engine* context, JNIEnv* env, jobject javaObject);
 
@@ -36,6 +38,10 @@ public:
 	void jsToJava (const char* argsSpec, const char* javaMethodName,
 			const char* returnType, const bool isStatic, const v8::FunctionCallbackInfo<v8::Value>& args, bool (*f)(const char*, const char*, int, char**));
 	int getArgCount (const char* argsSpec, const int argsStrLen);
+    void persist(v8::Isolate* isolate, v8::Local<v8::Object> object);
+    void SetWeak(typename v8::WeakCallbackInfo<BGJSJavaWrapper>::Callback callback,
+                                  v8::WeakCallbackType type);
+    v8::Local<v8::Object> getLocalObject();
 	~BGJSJavaWrapper();
 	void cleanUp(JNIEnv* env);
 	const BGJSV8Engine* _context;

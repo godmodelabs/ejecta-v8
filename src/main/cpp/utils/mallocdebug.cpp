@@ -3,6 +3,7 @@
 #include "stdlib.h"
 #include <cstring>
 #include <strings.h>
+#include <stdlib.h>
 
 #include <android/log.h>
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG  , "~~~~~~", __VA_ARGS__)
