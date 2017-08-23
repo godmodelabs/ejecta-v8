@@ -2,6 +2,7 @@
 #define __BGJSV8Engine_H 1
 
 #include <v8.h>
+#include <jni.h>
 
 #include "os-android.h"
 
@@ -62,7 +63,7 @@ typedef enum EBGJSV8EngineEmbedderData {
 class BGJSV8Engine {
 public:
     // static BGJSV8Engine& getInstance();
-    BGJSV8Engine(v8::Isolate* isolate);
+    BGJSV8Engine(v8::Isolate* isolate, jobject javaObject);
 	virtual ~BGJSV8Engine();
 
     v8::Local<v8::Value> require(std::string baseNameStr);
@@ -81,6 +82,8 @@ public:
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
     int run(const char *path = NULL);
 	void setClient(ClientAbstract* client);
+
+	jobject getJObject() const;
 
 	void setLocale(const char* locale, const char* lang, const char* tz);
 
@@ -119,11 +122,8 @@ public:
 	char *_tz;		// Europe/Berlin
 
 private:
-	// Private constructors for singleton
-	BGJSV8Engine(BGJSV8Engine const&) {}; // Don't Implement
-	void operator=(BGJSV8Engine const&); // Don't implement
-
-    uint8_t _nextEmbedderDataIndex;
+	uint8_t _nextEmbedderDataIndex;
+	jobject _javaObject;
 
 	v8::Persistent<v8::Context> _context;
 

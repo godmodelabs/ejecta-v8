@@ -7,20 +7,20 @@
 #include "JNIObject.h"
 #include "JNIWrapper.h"
 
-JNIObject::JNIObject(jobject obj,JNIClassInfo *info) : JNIClass(info) {
+JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
 
     JNIEnv* env = JNIWrapper::getEnvironment();
     _jniObject = env->NewGlobalRef(obj);
 
     // store pointer to native instance in "nativeHandle" field
     if(info->persistent) {
-        setLongField("nativeHandle", reinterpret_cast<jlong>(this));
+        setJavaLongField("nativeHandle", reinterpret_cast<jlong>(this));
     }
 }
 
 JNIObject::~JNIObject() {
     if(_jniClassInfo->persistent) {
-        setLongField("nativeHandle", reinterpret_cast<jlong>(nullptr));
+        setJavaLongField("nativeHandle", reinterpret_cast<jlong>(nullptr));
     }
     JNIWrapper::getEnvironment()->DeleteGlobalRef(_jniObject);
     _jniObject = nullptr;
@@ -34,7 +34,7 @@ const jobject JNIObject::getJObject() const {
 // Fields Getter
 //--------------------------------------------------------------------------------------------------
 #define GETTER(TypeName, JNITypeName) \
-JNITypeName JNIObject::get##TypeName##Field(const std::string& fieldName) {\
+JNITypeName JNIObject::getJava##TypeName##Field(const std::string& fieldName) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
     return env->Get##TypeName##Field(_jniObject, fieldId); \
@@ -54,7 +54,7 @@ GETTER(Object, jobject)
 // Fields Setter
 //--------------------------------------------------------------------------------------------------
 #define SETTER(TypeName, JNITypeName) \
-void JNIObject::set##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
+void JNIObject::setJava##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
     return env->Set##TypeName##Field(_jniObject, fieldId, value); \
@@ -74,7 +74,7 @@ SETTER(Object, jobject)
 // Methods
 //--------------------------------------------------------------------------------------------------
 #define METHOD(TypeName, JNITypeName) \
-JNITypeName JNIObject::call##TypeName##Method(const char* name, ...) {\
+JNITypeName JNIObject::callJava##TypeName##Method(const char* name, ...) {\
     JNIEnv* env = JNIWrapper::getEnvironment();\
     const auto methodId = _jniClassInfo->methodMap.at(name);\
     va_list args;\
@@ -85,7 +85,7 @@ JNITypeName JNIObject::call##TypeName##Method(const char* name, ...) {\
     return res;\
 }
 
-void JNIObject::callVoidMethod(const char* name, ...) {
+void JNIObject::callJavaVoidMethod(const char* name, ...) {
     JNIEnv* env = JNIWrapper::getEnvironment();
     const auto methodId = _jniClassInfo->methodMap.at(name);
     va_list args;

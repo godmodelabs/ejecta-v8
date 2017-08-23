@@ -1,6 +1,7 @@
 #include "EJCanvasContextScreen.h"
 
 #define LOG_TAG "EJCanvasContextScreen"
+#include "stdlib.h"
 #include "NdkMisc.h"
 
 #include "GLcompat.h"

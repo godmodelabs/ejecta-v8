@@ -24,7 +24,7 @@ public:
      */
     template <typename T> static
     const std::string getCanonicalName() {
-        return "";
+        throw "JNIWrapper::getCanonicalName called for unregistered class";
     }
 
     /**
@@ -37,8 +37,6 @@ public:
 
     /**
      * internal struct used for registering a class with the factory
-     * should not be used manually
-     * See BGJS_REGISTER_OBJECT instead
      */
     template<class ObjectType> static
     void registerObject(bool persistent = true) {
@@ -55,6 +53,12 @@ public:
         va_start(args, constructorAlias);
         jobject obj = _createObject(JNIWrapper::getCanonicalName<ObjectType>(), constructorAlias, args);
         va_end(args);
+        return JNIWrapper::wrapObject<ObjectType>(obj);
+    }
+
+    template <typename ObjectType> static
+    std::shared_ptr<ObjectType> createObject(const char *constructorAlias, va_list args) {
+        jobject obj = _createObject(JNIWrapper::getCanonicalName<ObjectType>(), constructorAlias, args);
         return JNIWrapper::wrapObject<ObjectType>(obj);
     }
 
@@ -100,7 +104,6 @@ public:
      * internal utility method; should not be called manually!
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new Java+Native object tuple
-     * - createObject(string) if you want to create a new java object
      */
     static JNIObject* initializeNativeObject(jobject object);
 
@@ -143,6 +146,6 @@ private:
  * specify the native class, and the full canonical name of the associated java class
  */
 #define BGJS_JNIOBJECT_LINK(type, canonicalName) template<> const std::string JNIWrapper::getCanonicalName<type>() { return canonicalName; };
-
+#define BGJS_JNIOBJECT_DEF(type) template<> const std::string JNIWrapper::getCanonicalName<type>();
 
 #endif //__JNIWRAPPER_H

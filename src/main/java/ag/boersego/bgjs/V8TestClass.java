@@ -6,9 +6,15 @@ import android.util.Log;
  * Created by martin on 13.04.17.
  */
 
-public class V8TestClass extends JNIObject {
-    public V8TestClass(long value) {
-        Log.d("V8TestClass", "Constructor:"+Long.toString(value));
+public class V8TestClass extends V8Object {
+    public V8TestClass(V8Engine engine) {
+        super(engine);
+        Log.d("V8TestClass", "Constructor");
+    }
+
+    public V8TestClass(V8Engine engine, long jsObjPtr) {
+        super(engine, jsObjPtr);
+        Log.d("V8TestClass", "Constructor:");
     }
 
     public native void test(long testL, float testF, double testD, String str);

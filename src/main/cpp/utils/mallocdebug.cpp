@@ -1,4 +1,6 @@
 // #include "mallocdebug.h"
+
+#include "stdlib.h"
 #include <cstring>
 #include <strings.h>
 

@@ -7,6 +7,7 @@
  */
 
 #include "BGJSV8Engine.h"
+#include "../jni/JNIWrapper.h"
 
 #include "mallocdebug.h"
 #include <assert.h>
@@ -725,13 +726,20 @@ void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& ar
 	}
 }
 
-BGJSV8Engine::BGJSV8Engine(v8::Isolate* isolate) {
+BGJSV8Engine::BGJSV8Engine(v8::Isolate* isolate, jobject javaObject) {
 	_client = NULL;
 	_nextTimerId = 1;
 	_locale = NULL;
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
 
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    _javaObject = env->NewWeakGlobalRef(javaObject);
+
     this->_isolate = isolate;
+}
+
+jobject BGJSV8Engine::getJObject() const {
+	return _javaObject;
 }
 
 void BGJSV8Engine::createContext() {
@@ -898,6 +906,9 @@ void BGJSV8Engine::setLocale(const char* locale, const char* lang,
 
 BGJSV8Engine::~BGJSV8Engine() {
 	LOGI("Cleaning up");
+
+    JNIEnv* env = JNIWrapper::getEnvironment();
+    env->DeleteWeakGlobalRef(_javaObject);
 
 	// clear persistent context reference
 	_context.Reset();

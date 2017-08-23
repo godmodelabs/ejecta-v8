@@ -1,6 +1,7 @@
 #include "EJCanvasContext.h"
 #include "EJFont.h"
 
+#include "stdlib.h"
 #include "mallocdebug.h"
 
 #include "NdkMisc.h"

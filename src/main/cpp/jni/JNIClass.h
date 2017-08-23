@@ -32,42 +32,42 @@ public:
     /**
      * calls the specified static java object method
      */
-    void callStaticVoidMethod(const char* name, ...);
-    jlong callStaticLongMethod(const char* name, ...);
-    jboolean callStaticBooleanMethod(const char* name, ...);
-    jbyte callStaticByteMethod(const char* name, ...);
-    jchar callStaticCharMethod(const char* name, ...);
-    jdouble callStaticDoubleMethod(const char* name, ...);
-    jfloat callStaticFloatMethod(const char* name, ...);
-    jint callStaticIntMethod(const char* name, ...);
-    jshort callStaticShortMethod(const char* name, ...);
-    jobject callStaticObjectMethod(const char* name, ...);
+    void callJavaStaticVoidMethod(const char* name, ...);
+    jlong callJavaStaticLongMethod(const char* name, ...);
+    jboolean callJavaStaticBooleanMethod(const char* name, ...);
+    jbyte callJavaStaticByteMethod(const char* name, ...);
+    jchar callJavaStaticCharMethod(const char* name, ...);
+    jdouble callJavaStaticDoubleMethod(const char* name, ...);
+    jfloat callJavaStaticFloatMethod(const char* name, ...);
+    jint callJavaStaticIntMethod(const char* name, ...);
+    jshort callJavaStaticShortMethod(const char* name, ...);
+    jobject callJavaStaticObjectMethod(const char* name, ...);
 
     /**
      * retrieves the value of the specified static java object field
      */
-    jlong getStaticLongField(const std::string& fieldName);
-    jboolean getStaticBooleanField(const std::string& fieldName);
-    jbyte getStaticByteField(const std::string& fieldName);
-    jchar getStaticCharField(const std::string& fieldName);
-    jdouble getStaticDoubleField(const std::string& fieldName);
-    jfloat getStaticFloatField(const std::string& fieldName);
-    jint getStaticIntField(const std::string& fieldName);
-    jshort getStaticShortField(const std::string& fieldName);
-    jobject getStaticObjectField(const std::string& fieldName);
+    jlong getJavaStaticLongField(const std::string& fieldName);
+    jboolean getJavaStaticBooleanField(const std::string& fieldName);
+    jbyte getJavaStaticByteField(const std::string& fieldName);
+    jchar getJavaStaticCharField(const std::string& fieldName);
+    jdouble getJavaStaticDoubleField(const std::string& fieldName);
+    jfloat getJavaStaticFloatField(const std::string& fieldName);
+    jint getJavaStaticIntField(const std::string& fieldName);
+    jshort getJavaStaticShortField(const std::string& fieldName);
+    jobject getJavaStaticObjectField(const std::string& fieldName);
 
     /**
      * sets the value of the specified static java object field
      */
-    void setStaticLongField(const std::string& fieldName, jlong value);
-    void setStaticBooleanField(const std::string& fieldName, jboolean value);
-    void setStaticByteField(const std::string& fieldName, jbyte value);
-    void setStaticCharField(const std::string& fieldName, jchar value);
-    void setStaticDoubleField(const std::string& fieldName, jdouble value);
-    void setStaticFloatField(const std::string& fieldName, jfloat value);
-    void setStaticIntField(const std::string& fieldName, jint value);
-    void setStaticShortField(const std::string& fieldName, jshort value);
-    void setStaticObjectField(const std::string& fieldName, jobject value);
+    void setJavaStaticLongField(const std::string& fieldName, jlong value);
+    void setJavaStaticBooleanField(const std::string& fieldName, jboolean value);
+    void setJavaStaticByteField(const std::string& fieldName, jbyte value);
+    void setJavaStaticCharField(const std::string& fieldName, jchar value);
+    void setJavaStaticDoubleField(const std::string& fieldName, jdouble value);
+    void setJavaStaticFloatField(const std::string& fieldName, jfloat value);
+    void setJavaStaticIntField(const std::string& fieldName, jint value);
+    void setJavaStaticShortField(const std::string& fieldName, jshort value);
+    void setJavaStaticObjectField(const std::string& fieldName, jobject value);
 
 protected:
     JNIClassInfo *_jniClassInfo;

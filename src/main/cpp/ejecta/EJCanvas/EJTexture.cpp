@@ -1,5 +1,6 @@
 #include "EJTexture.h"
 #include "lodepng.h"
+#include "stdlib.h"
 
 #include "mallocdebug.h"
 

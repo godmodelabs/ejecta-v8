@@ -34,7 +34,7 @@ const std::string JNIClass::getSignature() const {
 // Static Fields Getter
 //--------------------------------------------------------------------------------------------------
 #define GETTER_STATIC(TypeName, JNITypeName) \
-JNITypeName JNIClass::getStatic##TypeName##Field(const std::string& fieldName) {\
+JNITypeName JNIClass::getJavaStatic##TypeName##Field(const std::string& fieldName) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
     return env->GetStatic##TypeName##Field(_jniClassInfo->jniClassRef, fieldId); \
@@ -54,7 +54,7 @@ GETTER_STATIC(Object, jobject)
 // Static Fields Setter
 //--------------------------------------------------------------------------------------------------
 #define SETTER_STATIC(TypeName, JNITypeName) \
-void JNIClass::setStatic##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
+void JNIClass::setJavaStatic##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
     return env->SetStatic##TypeName##Field(_jniClassInfo->jniClassRef, fieldId, value); \
@@ -74,7 +74,7 @@ SETTER_STATIC(Object, jobject)
 // Static Methods
 //--------------------------------------------------------------------------------------------------
 #define METHOD_STATIC(TypeName, JNITypeName) \
-JNITypeName JNIClass::callStatic##TypeName##Method(const char* name, ...) {\
+JNITypeName JNIClass::callJavaStatic##TypeName##Method(const char* name, ...) {\
     JNIEnv* env = JNIWrapper::getEnvironment();\
     const auto methodId = _jniClassInfo->methodMap.at(name);\
     va_list args;\
@@ -85,7 +85,7 @@ JNITypeName JNIClass::callStatic##TypeName##Method(const char* name, ...) {\
     return res;\
 }
 
-void JNIClass::callStaticVoidMethod(const char* name, ...) {
+void JNIClass::callJavaStaticVoidMethod(const char* name, ...) {
     JNIEnv* env = JNIWrapper::getEnvironment();
     const auto methodId = _jniClassInfo->methodMap.at(name);
     va_list args;

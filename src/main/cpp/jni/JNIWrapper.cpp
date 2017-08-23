@@ -2,6 +2,7 @@
 // Created by Martin Kleinhans on 20.04.17.
 //
 
+#include "stdlib.h"
 #include <assert.h>
 #include <jni.h>
 
@@ -21,7 +22,7 @@ void JNIWrapper::reloadBindings() {
     JNIClassInfo *info;
 
     _jniCanonicalNameMethodID = nullptr;
-    
+
     for(auto &it : _objmap) {
         info = it.second;
 
@@ -131,12 +132,12 @@ JNIObject* JNIWrapper::initializeNativeObject(jobject object) {
 
     // now retrieve registered native class
     auto it = _objmap.find(canonicalName);
-    if (it == _objmap.end()){
-        return nullptr;
-    } else {
-        JNIClassInfo *info = it->second;
-        return info->constructor(object, info);
-    }
+
+    // if nothing was found, the class was not registered
+    assert(it != _objmap.end());
+
+    JNIClassInfo *info = it->second;
+    return info->constructor(object, info);
 }
 
 jobject JNIWrapper::_createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs) {

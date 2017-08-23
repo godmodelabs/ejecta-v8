@@ -1,6 +1,8 @@
+#include "stdlib.h"
 #include "EJPath.h"
 #include "EJCanvasContext.h"
 #include "CGCompat.h"
+#include "stdlib.h"
 #include "NdkMisc.h"
 #include "GLcompat.h"
 #include "mallocdebug.h"

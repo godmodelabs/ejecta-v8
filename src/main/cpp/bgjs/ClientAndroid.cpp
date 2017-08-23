@@ -29,6 +29,7 @@
 
 #include "jniext.h"
 #include "../jni/JNIWrapper.h"
+#include "../v8/JNIV8Wrapper.h"
 #include "../V8TestClass.h"
 
 using namespace v8;
@@ -117,7 +118,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     }
 
 	JNIWrapper::init(vm);
-    JNIWrapper::registerObject<V8TestClass>();
+    LOGE("Canonical name %s", JNIWrapper::getCanonicalName<V8TestClass>().c_str());
+	JNIV8Wrapper::registerObject<V8TestClass>();
 
     // Get jclass with env->FindClass.
     // Register methods with env->RegisterNatives.
@@ -192,7 +194,7 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	v8::Isolate::Scope isolateScope(isolate);
     LOGD("Initialized Isolate %p", isolate);
 
-	BGJSV8Engine* ct = new BGJSV8Engine(isolate);
+	BGJSV8Engine* ct = new BGJSV8Engine(isolate, v8Engine);
 
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
 	const char* langStr = env->GetStringUTFChars(lang, NULL);
