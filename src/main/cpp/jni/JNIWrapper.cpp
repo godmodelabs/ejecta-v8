@@ -13,6 +13,10 @@ void JNIWrapper::init(JavaVM *vm) {
     _jniVM = vm;
 }
 
+bool JNIWrapper::isInitialized() {
+    return _jniVM != nullptr;
+}
+
 void JNIWrapper::reloadBindings() {
     static bool _firstCall = true;
     if(_firstCall) {
@@ -52,11 +56,16 @@ void JNIWrapper::reloadBindings() {
     }
 }
 
-void JNIWrapper::_registerObject(bool persistent, const std::string &canonicalName, ObjectInitializer i,
-                                 ObjectConstructor c) {
+void JNIWrapper::_registerObject(bool persistent,
+                                 const std::string &canonicalName, const std::string &baseCanonicalName,
+                                 ObjectInitializer i, ObjectConstructor c) {
+    // canonicalName may be already registered
+    // (e.g. when called from JNI_OnLoad; when using multiple linked libraries it is called once for each library)
     if(_objmap.find(canonicalName) != _objmap.end()) {
         return;
     }
+    // baseCanonicalName must either be empty (not a derived object), or already registered
+    assert(baseCanonicalName.empty() || _objmap.find(baseCanonicalName) != _objmap.end());
 
     JNIEnv* env = JNIWrapper::getEnvironment();
 
@@ -88,8 +97,11 @@ void JNIWrapper::_registerObject(bool persistent, const std::string &canonicalNa
 
     // register methods
     if(info->methods.size()) {
-        // @TODO: do not register methods multiple times on derived classes!
-        env->RegisterNatives(clazz, &info->methods[0], info->methods.size());
+        // only register natives if this is not a derived object
+        // because then the methods have already been registered before!
+        if(baseCanonicalName.empty()) {
+            env->RegisterNatives(clazz, &info->methods[0], info->methods.size());
+        }
 
         // free pointers that were allocated in registerNativeMethod
         for(auto &entry : info->methods) {

@@ -12,7 +12,6 @@ using namespace v8;
 
 BGJS_JNIV8OBJECT_LINK(V8TestClass, "ag/boersego/bgjs/V8TestClass");
 
-
 void _V8TestClass_test(JNIEnv *env, jobject object, jlong l, jfloat f, jdouble d, jstring s) {
     auto pInstance = JNIWrapper::wrapObject<V8TestClass>(object);
     pInstance->test();
@@ -24,10 +23,25 @@ jstring _V8TestClass_getName(JNIEnv *env, jobject object, jlong l, jfloat f, jdo
 }
 
 void V8TestClass::initializeV8Bindings(V8ClassInfo *info) {
-    info->registerMethod("methodName", (V8ObjectMethodCallback)&V8TestClass::testMember);
+    info->registerConstructor((JNIV8ObjectConstructorCallback)&V8TestClass::initFromJS);
+    info->registerMethod("methodName", (JNIV8ObjectMethodCallback)&V8TestClass::testMember);
+    info->registerAccessor("propertyName", (JNIV8ObjectAccessorGetterCallback)&V8TestClass::getter,
+                           (JNIV8ObjectAccessorSetterCallback)&V8TestClass::setter);
 }
 
-void V8TestClass::testMember(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void V8TestClass::testMember(const std::string &methodName, const v8::FunctionCallbackInfo<v8::Value>& args) {
+    HandleScope scope(args.GetIsolate());
+    Local<Object> obj = (Local<Object>::Cast(args[0]));
+    auto cls = JNIV8Wrapper::wrapObject<V8TestClass>(obj);
+    cls->test();
+}
+
+void V8TestClass::getter(const std::string &propertyName, const v8::PropertyCallbackInfo<v8::Value> &info) {
+
+}
+
+void V8TestClass::setter(const std::string &propertyName, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info) {
+
 }
 
 void V8TestClass::initFromJS(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -37,7 +51,7 @@ void V8TestClass::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("test", "(JFDLjava/lang/String;)V", (void*)_V8TestClass_test);
     info->registerNativeMethod("getName","()Ljava/lang/String;", (void*)_V8TestClass_getName);
 
-    info->registerConstructor("(Lag/boersego/bgjs/V8Engine;J)V","<V8ObjectInit>");
+    info->registerConstructor("(Lag/boersego/bgjs/V8Engine;J)V","<JNIV8ObjectInit>");
     info->registerMethod("test3", "(JF)V");
     info->registerStaticMethod("test4", "(Lag/boersego/bgjs/V8TestClass;)V");
     info->registerField("testLong","J");

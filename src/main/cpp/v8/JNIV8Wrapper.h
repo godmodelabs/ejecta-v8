@@ -10,7 +10,7 @@
 
 #include "../jni/JNIWrapper.h"
 
-#include "V8Object.h"
+#include "JNIV8Object.h"
 
 class JNIV8Wrapper {
 public:
@@ -42,7 +42,7 @@ public:
     template<class ObjectType> static
     void registerDerivedObject(const std::string &canonicalName) {
         JNIWrapper::registerDerivedObject<ObjectType>(canonicalName, true);
-        _registerObject(canonicalName, initialize<ObjectType>, createJavaClass<ObjectType>);
+        _registerObject(canonicalName, initialize<ObjectType>, createDerivedJavaClass<ObjectType>);
     };
 
     /**
@@ -58,12 +58,35 @@ public:
         return ptr;
     }
 
+    template <typename ObjectType> static
+    std::shared_ptr<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
+        va_list args;
+        va_start(args, constructorAlias);
+        std::shared_ptr<ObjectType> ptr = JNIWrapper::createDerivedObject<ObjectType>(canonicalName, constructorAlias, args);
+        va_end(args);
+        return ptr;
+    }
+
     /**
      * wraps a V8 enabled java object
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> wrapObject(jobject object) {
         return JNIWrapper::wrapObject<ObjectType>(object);
+    };
+
+    /**
+     * wraps a js object backed by a V8 enabled java object
+     */
+    template <typename ObjectType> static
+    std::shared_ptr<ObjectType> wrapObject(v8::Local<v8::Object> object) {
+        // because this method takes a local, we can be sure that the correct v8 scopes are active
+        v8::Isolate* isolate = v8::Isolate::GetCurrent();
+        v8::HandleScope scope(isolate);
+        v8::Local<v8::External> ext = object->GetInternalField(0).As<v8::External>();
+        return std::shared_ptr<ObjectType>(reinterpret_cast<ObjectType*>(ext->Value()),[=](ObjectType* cls) {
+            // nop
+        });
     };
 
     /**
@@ -79,7 +102,7 @@ public:
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new V8 enabled Java+Native object tuple
      */
-    static void initializeNativeV8Object(jobject obj, jlong enginePtr, jlong jsObjPtr);
+    static void initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlong jsObjPtr);
 
     /**
      * internal utility method; should not be called manually
@@ -93,7 +116,7 @@ public:
     static void v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 
 private:
-    static void _registerObject(const std::string& canonicalName, V8ObjectInitializer i, V8ObjectCreator c);
+    static void _registerObject(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c);
     static V8ClassInfo* _getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine);
 
     static std::map<std::string, V8ClassInfoContainer*> _objmap;
@@ -106,8 +129,14 @@ private:
     }
 
     template<class ObjectType>
-    static std::shared_ptr<V8Object> createJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj) {
-        std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createObject<ObjectType>("<V8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj);
+    static std::shared_ptr<JNIV8Object> createJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj) {
+        std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createObject<ObjectType>("<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj);
+        return ptr;
+    }
+
+    template<class ObjectType>
+    static std::shared_ptr<JNIV8Object> createDerivedJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj) {
+        std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj);
         return ptr;
     }
 };
@@ -115,7 +144,7 @@ private:
 /**
  * macro to generate constructors for objects derived from JNIObject
  */
-#define BGJS_JNIV8OBJECT_CONSTRUCTOR(type) type(jobject obj, JNIClassInfo *info) : V8Object(obj, info) {};
+#define BGJS_JNIV8OBJECT_CONSTRUCTOR(type) type(jobject obj, JNIClassInfo *info) : JNIV8Object(obj, info) {};
 
 /**
  * macro to register native class with JNI

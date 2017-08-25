@@ -6,7 +6,7 @@ import android.util.Log;
  * Created by martin on 13.04.17.
  */
 
-public class V8TestClass extends V8Object {
+public class V8TestClass extends JNIV8Object {
     public V8TestClass(V8Engine engine) {
         super(engine);
         Log.d("V8TestClass", "Constructor");

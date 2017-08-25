@@ -18,6 +18,7 @@ class JNIWrapper {
 public:
     static void init(JavaVM *vm);
     static JNIEnv* getEnvironment();
+    static bool isInitialized();
 
     /**
      * returns the canonical name of the java class associated with the specified native object
@@ -40,17 +41,18 @@ public:
      */
     template<class ObjectType> static
     void registerObject(bool persistent = true) {
-        _registerObject(persistent, JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, instantiate<ObjectType>);
+        _registerObject(persistent, JNIWrapper::getCanonicalName<ObjectType>(), "", initialize<ObjectType>, instantiate<ObjectType>);
     };
 
     template<class ObjectType> static
     void registerDerivedObject(const std::string &canonicalName, bool persistent = true) {
-        _registerObject(persistent, canonicalName, initialize<ObjectType>, instantiate<ObjectType>);
+        _registerObject(persistent, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, instantiate<ObjectType>);
     };
 
     /**
      * creates a Java+Native Object tuple based on the specified object type
-     * object needs to have been registered before with BGJS_REGISTER_OBJECT
+     * prerequisites:
+     * - object needs to have been registered before with JNIWrapper::registerObject<ObjectType>() and BGJS_JNIJNIV8Object_LINK
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
@@ -64,6 +66,30 @@ public:
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> createObject(const char *constructorAlias, va_list args) {
         jobject obj = _createObject(JNIWrapper::getCanonicalName<ObjectType>(), constructorAlias, args);
+        return JNIWrapper::wrapObject<ObjectType>(obj);
+    }
+
+    /**
+     * creates a Java+Native Object tuple based on the specified object type and canonicalName
+     *
+     * the canonicalName must identify a java class that extends a baseclass linked to the specified objectType
+     *
+     * prerequisites:
+     * - base class must have been registered before with JNIWrapper::registerObject<ObjectType>() and BGJS_JNIJNIV8Object_LINK
+     * - derived class must have been registed with JNIWrapper::registerDerivedObject<ObjectType>(canonicalName)
+     */
+    template <typename ObjectType> static
+    std::shared_ptr<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
+        va_list args;
+        va_start(args, constructorAlias);
+        jobject obj = _createObject(canonicalName, constructorAlias, args);
+        va_end(args);
+        return JNIWrapper::wrapObject<ObjectType>(obj);
+    }
+
+    template <typename ObjectType> static
+    std::shared_ptr<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias, va_list args) {
+        jobject obj = _createObject(canonicalName, constructorAlias, args);
         return JNIWrapper::wrapObject<ObjectType>(obj);
     }
 
@@ -122,7 +148,7 @@ private:
     static jobject _createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs);
     static std::shared_ptr<JNIClass> _wrapClass(const std::string& canonicalName);
 
-    static void _registerObject(bool persistent, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c);
+    static void _registerObject(bool persistent, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
 
     static JavaVM *_jniVM;
     static JNIEnv *_jniEnv;

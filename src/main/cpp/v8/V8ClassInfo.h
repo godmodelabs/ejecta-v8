@@ -9,32 +9,27 @@
 
 class V8ClassInfo;
 class V8ClassInfoContainer;
-class V8Object;
+class JNIV8Object;
 
-typedef void(*V8ObjectInitializer)(V8ClassInfo *info);
-typedef std::shared_ptr<V8Object>(*V8ObjectCreator)(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj);
-
-// this declaration uses V8Object, but the type is valid for methods on all subclasses, see:
+// these declarations use JNIV8Object, but the type is valid for methods on all subclasses, see:
 // http://www.open-std.org/jtc1/sc22/WG21/docs/wp/html/nov97-2/expr.html#expr.static.cast
 // there is no implicit conversion however, so methods of derived classes have to be casted manually
-typedef void(V8Object::*V8ObjectMethodCallback)(const v8::FunctionCallbackInfo<v8::Value>& args);
-
-struct V8ObjectCallbackHolder {
-    V8ObjectCallbackHolder(V8ObjectMethodCallback cb) {
-        callback = cb;
-    }
-    V8ObjectMethodCallback callback;
-};
+typedef void(JNIV8Object::*JNIV8ObjectConstructorCallback)(const v8::FunctionCallbackInfo<v8::Value>& args);
+typedef void(JNIV8Object::*JNIV8ObjectMethodCallback)(const std::string &methodName, const v8::FunctionCallbackInfo<v8::Value>& args);
+typedef void(JNIV8Object::*JNIV8ObjectAccessorGetterCallback)(const std::string &propertyName, const v8::PropertyCallbackInfo<v8::Value> &info);
+typedef void(JNIV8Object::*JNIV8ObjectAccessorSetterCallback)(const std::string &propertyName, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
 
 struct V8ClassInfo {
-    friend class V8Object;
+    friend class JNIV8Object;
     friend class JNIV8Wrapper;
 public:
     BGJSV8Engine* getEngine() const {
         return engine;
     };
 
-    void registerMethod(const std::string& methodName, V8ObjectMethodCallback callback);
+    void registerConstructor(JNIV8ObjectConstructorCallback callback);
+    void registerMethod(const std::string& methodName, JNIV8ObjectMethodCallback callback);
+    void registerAccessor(const std::string& propertyName, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0, v8::PropertyAttribute settings = v8::None);
     v8::Local<v8::FunctionTemplate> getFunctionTemplate() const;
 private:
     V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine);
@@ -42,17 +37,53 @@ private:
     BGJSV8Engine *engine;
     V8ClassInfoContainer *container;
     v8::Persistent<v8::FunctionTemplate> functionTemplate;
+    JNIV8ObjectConstructorCallback constructorCallback;
 };
 
+// internal helper methods for creating and initializing objects
+typedef void(*JNIV8ObjectInitializer)(V8ClassInfo *info);
+typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj);
+
+/**
+ * internal container object for managing all class info instances (one for each v8 engine) of an object
+ */
 struct V8ClassInfoContainer {
     friend class JNIV8Wrapper;
 private:
-    V8ClassInfoContainer(const std::string& canonicalName, V8ObjectInitializer i, V8ObjectCreator c);
+    V8ClassInfoContainer(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c);
 
     std::string canonicalName;
-    V8ObjectInitializer initializer;
-    V8ObjectCreator creator;
+    JNIV8ObjectInitializer initializer;
+    JNIV8ObjectCreator creator;
     std::vector<V8ClassInfo*> classInfos;
 };
+
+/**
+ * internal struct for storing member function pointers for property accessors
+ */
+struct JNIV8ObjectAccessorHolder {
+    JNIV8ObjectAccessorHolder(const std::string &name, JNIV8ObjectAccessorGetterCallback getterCb, JNIV8ObjectAccessorSetterCallback setterCb) {
+        propertyName = name;
+        getterCallback = getterCb;
+        setterCallback = setterCb;
+    }
+    JNIV8ObjectAccessorGetterCallback getterCallback;
+    JNIV8ObjectAccessorSetterCallback setterCallback;
+    std::string propertyName;
+};
+
+/**
+ * internal struct for storing member function pointers for methods
+ */
+struct JNIV8ObjectCallbackHolder {
+    JNIV8ObjectCallbackHolder(const std::string &name, JNIV8ObjectMethodCallback cb) {
+        callback = cb;
+        methodName = name;
+    }
+    JNIV8ObjectMethodCallback callback;
+    std::string methodName;
+};
+
+
 
 #endif //TRADINGLIB_SAMPLE_V8CLASSINFO_H

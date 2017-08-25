@@ -24,6 +24,10 @@ public class JNIObject {
         nativeHandle = 0;
     }
 
+    public boolean isDisposed() {
+        return nativeHandle == 0;
+    }
+
     @Override
     protected void finalize() throws Throwable {
         dispose();

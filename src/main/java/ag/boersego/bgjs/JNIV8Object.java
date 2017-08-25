@@ -5,7 +5,7 @@ package ag.boersego.bgjs;
  */
 
 
-public class V8Object extends JNIObject {
+public class JNIV8Object extends JNIObject {
     public static class Arguments {
 
     };
@@ -24,19 +24,19 @@ public class V8Object extends JNIObject {
     }
     */
 
-    private native void initNativeV8Object(long enginePtr, long jsObjPtr);
+    private native void initNativeJNIV8Object(long enginePtr, long jsObjPtr);
 
     private static native void initBinding();
     static {
         initBinding();
     }
 
-    public V8Object(V8Engine engine, long jsObjPtr) {
-        initNativeV8Object(engine.getNativePtr(), jsObjPtr);
+    public JNIV8Object(V8Engine engine, long jsObjPtr) {
+        initNativeJNIV8Object(engine.getNativePtr(), jsObjPtr);
     }
 
-    public V8Object(V8Engine engine) {
-        initNativeV8Object(engine.getNativePtr(), 0);
+    public JNIV8Object(V8Engine engine) {
+        initNativeJNIV8Object(engine.getNativePtr(), 0);
     }
 
     public long getJSObjectPtr() {
