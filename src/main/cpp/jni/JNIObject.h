@@ -20,6 +20,7 @@ public:
     virtual ~JNIObject();
 
     const jobject getJObject() const;
+    std::shared_ptr<JNIObject> getSharedPtr();
 
     /**
      * calls the specified static java object method
@@ -61,7 +62,13 @@ public:
     void setJavaShortField(const std::string& fieldName, jshort value);
     void setJavaObjectField(const std::string& fieldName, jobject value);
 protected:
+    void retainJObject();
+    void releaseJObject();
+private:
     jobject _jniObject;
+    jweak _jniObjectWeak;
+    uint8_t _jniObjectRefCount;
+    std::weak_ptr<JNIObject> _weakPtr;
 };
 
 

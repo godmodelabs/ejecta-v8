@@ -83,10 +83,10 @@ public:
         // because this method takes a local, we can be sure that the correct v8 scopes are active
         v8::Isolate* isolate = v8::Isolate::GetCurrent();
         v8::HandleScope scope(isolate);
+        assert(object->InternalFieldCount() >= 1);
         v8::Local<v8::External> ext = object->GetInternalField(0).As<v8::External>();
-        return std::shared_ptr<ObjectType>(reinterpret_cast<ObjectType*>(ext->Value()),[=](ObjectType* cls) {
-            // nop
-        });
+        ObjectType* ptr = reinterpret_cast<ObjectType*>(ext->Value());
+        return std::static_pointer_cast<ObjectType>(ptr->getSharedPtr());
     };
 
     /**

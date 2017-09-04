@@ -3,7 +3,6 @@
 //
 
 #include "stdlib.h"
-#include <assert.h>
 #include <jni.h>
 #include <cstdlib>
 

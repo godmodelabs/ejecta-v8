@@ -30,8 +30,6 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     if(info->constructorCallback) {
         (ptr.get()->*(info->constructorCallback))(args);
     }
-
-    // @TODO forward arguments?
 }
 
 V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine) {
@@ -83,32 +81,30 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlo
     jlong handle = env->GetLongField(obj, _nativeHandleFieldId);
 
     JNIV8Object *v8Object = reinterpret_cast<JNIV8Object*>(handle);
-    v8Object->_bgjsEngine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
-    v8Object->_v8ClassInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), v8Object->_bgjsEngine);
+    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
+    V8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine);
 
     v8::Persistent<Object>* persistentPtr;
     v8::Local<Object> jsObj;
 
-    v8::Isolate* isolate = v8Object->_bgjsEngine->getIsolate();
+    v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
     Isolate::Scope isolateScope(isolate);
     HandleScope scope(isolate);
 
-    // @TODO: context scope?
+    Context::Scope ctxScope(engine->getContext());
 
-    // if an object was already supplied we just need to store it
+    // if an object was already supplied we just need to extract it and store it
     if(jsObjPtr) {
         persistentPtr = reinterpret_cast<v8::Persistent<Object>*>(jsObjPtr);
         jsObj = v8::Local<Object>::New(isolate, *persistentPtr);
-        // @TODO store
-    // otherwise we need to create one
-    } else {
-        // @TODO create object
-        return;
+        // clear and delete persistent
+        persistentPtr->Reset();
+        delete persistentPtr;
     }
 
-    // store reference to native object in JS object
-    jsObj->SetInternalField(0, External::New(isolate, (void*)v8Object));
+    // associate js object with native c++ object
+    v8Object->setJSObject(engine, classInfo, jsObj);
 }
 
 void JNIV8Wrapper::_registerObject(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c) {

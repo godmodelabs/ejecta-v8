@@ -13,6 +13,7 @@
 #include "JNIClassInfo.h"
 #include "JNIClass.h"
 #include "JNIObject.h"
+#include <assert.h>
 
 class JNIWrapper {
 public:
@@ -116,9 +117,9 @@ public:
             } else {
                 jniObject = new ObjectType(object, info);
             }
-            return std::shared_ptr<ObjectType>(jniObject,[=](ObjectType* cls) {
-                if(!cls->isPersistent()) delete cls;
-            });
+            // obtained casted shared pointer will share the reference count and deallocator method
+            // with the original!
+            return std::static_pointer_cast<ObjectType>(jniObject->getSharedPtr());
         }
     };
 

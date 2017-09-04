@@ -10,7 +10,19 @@
 JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
 
     JNIEnv* env = JNIWrapper::getEnvironment();
-    _jniObject = env->NewGlobalRef(obj);
+    if(info->persistent) {
+        // persistent objects are owned by the java side: they are destroyed once the java side is garbage collected
+        // => as long as there are no references to the c object, the java reference is weak.
+        _jniObjectWeak = env->NewWeakGlobalRef(obj);
+        _jniObject = nullptr;
+    } else {
+        // non-persistent objects are owned by the c side. they do not exist in this form on the java side
+        // => as long as the object exists, the java reference should always be strong
+        // theoretically we could use the same logic here, and make it non-weak on demand, but it simply is not necessary
+        _jniObject = env->NewGlobalRef(obj);
+        _jniObjectWeak = nullptr;
+    }
+    _jniObjectRefCount = 0;
 
     // store pointer to native instance in "nativeHandle" field
     if(info->persistent) {
@@ -19,15 +31,76 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
 }
 
 JNIObject::~JNIObject() {
+    // not really necessary, since this should only happen if the java object is deleted, but maybe to avoid errors?
     if(_jniClassInfo->persistent) {
         setJavaLongField("nativeHandle", reinterpret_cast<jlong>(nullptr));
     }
-    JNIWrapper::getEnvironment()->DeleteGlobalRef(_jniObject);
-    _jniObject = nullptr;
+    if(_jniObject) {
+        // this should/can never happen for persistent objects
+        // if there is a strong ref to the JObject, then the native object must not be deleted!
+        // it can however happen for non-persistent objects!
+        JNIWrapper::getEnvironment()->DeleteGlobalRef(_jniObject);
+    } else if(_jniObjectWeak) {
+        JNIWrapper::getEnvironment()->DeleteWeakGlobalRef(_jniObjectWeak);
+    }
+    _jniObjectWeak = _jniObject = nullptr;
 }
 
 const jobject JNIObject::getJObject() const {
-    return _jniObject;
+    if(_jniObject) {
+        return _jniObject;
+    }
+    return JNIWrapper::getEnvironment()->NewLocalRef(_jniObjectWeak);
+}
+
+std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {
+    // a private internal weak ptr is used as a basis for "synchronizing" creation of shared_ptr
+    // all shared_ptr created from the weak_ptr use the same counter and deallocator!
+    // theoretically we could use multiple separate instance with the retain/release logic, but this way we stay more flexible
+    if(_weakPtr.use_count()) {
+        return std::shared_ptr<JNIObject>(_weakPtr);
+    }
+    if(isPersistent()) {
+        // we are handing out a reference to the native object here
+        // as long as that reference is alive, the java object must not be gargabe collected
+        retainJObject();
+    }
+    auto ptr = std::shared_ptr<JNIObject>(this,[=](JNIObject* cls) {
+        if(!cls->isPersistent()) {
+            // non persistent objects need to be deleted once they are not referenced anymore
+            // wrapping an object again will return a new native instance!
+            delete cls;
+        } else {
+            // ownership of persistent objects is held by the java side
+            // object is only deleted if the java object is garbage collected
+            // when there are no more references from C we make the reference to the java object weak again!
+            cls->releaseJObject();
+        }
+    });
+    _weakPtr = ptr;
+    return ptr;
+}
+
+void JNIObject::retainJObject() {
+    assert(isPersistent());
+    if(_jniObjectRefCount==0) {
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        _jniObject = env->NewGlobalRef(_jniObjectWeak);
+        env->DeleteWeakGlobalRef(_jniObjectWeak);
+        _jniObjectWeak = nullptr;
+    }
+    _jniObjectRefCount++;
+}
+
+void JNIObject::releaseJObject() {
+    assert(isPersistent());
+    if(_jniObjectRefCount==1) {
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        _jniObjectWeak = env->NewWeakGlobalRef(_jniObject);
+        env->DeleteGlobalRef(_jniObject);
+        _jniObject = nullptr;
+    }
+    _jniObjectRefCount--;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -57,7 +130,7 @@ GETTER(Object, jobject)
 void JNIObject::setJava##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
-    return env->Set##TypeName##Field(_jniObject, fieldId, value); \
+    return env->Set##TypeName##Field(getJObject(), fieldId, value); \
 }
 
 SETTER(Long, jlong)
@@ -80,7 +153,7 @@ JNITypeName JNIObject::callJava##TypeName##Method(const char* name, ...) {\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
-    res = env->Call##TypeName##MethodV(_jniObject, methodId, args);\
+    res = env->Call##TypeName##MethodV(getJObject(), methodId, args);\
     va_end(args);\
     return res;\
 }
@@ -90,7 +163,7 @@ void JNIObject::callJavaVoidMethod(const char* name, ...) {
     const auto methodId = _jniClassInfo->methodMap.at(name);
     va_list args;
     va_start(args, name);\
-    env->CallVoidMethodV(_jniObject, methodId, args);
+    env->CallVoidMethodV(getJObject(), methodId, args);
     va_end(args);
 }
 
