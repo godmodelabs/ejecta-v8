@@ -6,23 +6,6 @@ package ag.boersego.bgjs;
 
 
 public class JNIV8Object extends JNIObject {
-    public static class Arguments {
-
-    };
-    /*
-    public static class Context {
-        private V8Engine engine;
-        private long jsObjPtr;
-        public Context(V8Engine engine) {
-            this.engine = engine;
-            this.jsObjPtr = 0;
-        }
-        private Context(V8Engine engine, long jsObjPtr) {
-            this.engine = engine;
-            this.jsObjPtr = jsObjPtr;
-        }
-    }
-    */
 
     private native void initNativeJNIV8Object(long enginePtr, long jsObjPtr);
 
@@ -39,7 +22,5 @@ public class JNIV8Object extends JNIObject {
         initNativeJNIV8Object(engine.getNativePtr(), 0);
     }
 
-    public long getJSObjectPtr() {
-        return 0;
-    }
+    protected native void adjustJSExternalMemory(long change);
 }

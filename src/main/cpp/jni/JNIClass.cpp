@@ -15,7 +15,7 @@ JNIClass::~JNIClass() {
 }
 
 bool JNIClass::isPersistent() const {
-    return _jniClassInfo->persistent;
+    return _jniClassInfo->type == JNIObjectType::kPersistent;
 }
 
 const std::string& JNIClass::getCanonicalName() const {

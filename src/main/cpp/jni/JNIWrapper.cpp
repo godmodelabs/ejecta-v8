@@ -10,6 +10,9 @@
 
 void JNIWrapper::init(JavaVM *vm) {
     _jniVM = vm;
+
+    _registerObject(JNIObjectType::kAbstract,
+                    JNIWrapper::getCanonicalName<JNIObject>(), "", initialize<JNIObject>, nullptr);
 }
 
 bool JNIWrapper::isInitialized() {
@@ -40,7 +43,7 @@ void JNIWrapper::reloadBindings() {
         info->jniClassRef = (jclass)env->NewGlobalRef(clazz);
 
         // if it is a persistent class, update the  field for storing the native handle
-        if(info->persistent) {
+        if(info->type == JNIObjectType::kPersistent) {
             info->registerField("nativeHandle", "J");
         }
 
@@ -55,7 +58,7 @@ void JNIWrapper::reloadBindings() {
     }
 }
 
-void JNIWrapper::_registerObject(bool persistent,
+void JNIWrapper::_registerObject(JNIObjectType type,
                                  const std::string &canonicalName, const std::string &baseCanonicalName,
                                  ObjectInitializer i, ObjectConstructor c) {
     // canonicalName may be already registered
@@ -63,8 +66,18 @@ void JNIWrapper::_registerObject(bool persistent,
     if(_objmap.find(canonicalName) != _objmap.end()) {
         return;
     }
+
     // baseCanonicalName must either be empty (not a derived object), or already registered
-    assert(baseCanonicalName.empty() || _objmap.find(baseCanonicalName) != _objmap.end());
+    std::map<std::string, JNIClassInfo*>::iterator it;
+
+    JNIClassInfo *baseInfo = nullptr;
+    if(!baseCanonicalName.empty()) {
+        it = _objmap.find(baseCanonicalName);
+        if (it == _objmap.end()) {
+            return;
+        }
+        baseInfo = it->second;
+    }
 
     JNIEnv* env = JNIWrapper::getEnvironment();
 
@@ -74,14 +87,15 @@ void JNIWrapper::_registerObject(bool persistent,
     // class has to exist...
     assert(clazz != NULL);
 
-    JNIClassInfo *info = new JNIClassInfo(persistent, canonicalName, i, c);
+    JNIClassInfo *info = new JNIClassInfo(type, canonicalName, i, c, baseInfo);
     _objmap[canonicalName] = info;
 
     // cache class
     info->jniClassRef = (jclass)env->NewGlobalRef(clazz);
 
-    // if it is a persistent class, register the field for storing the native class
-    if(persistent) {
+    // if it is a persistent class, and has no base class, register the field for storing the native class
+    // => this is only for JNIObject! ALL other objects have a baseclass
+    if(!baseInfo) {
         info->registerField("nativeHandle", "J");
     }
 
@@ -91,23 +105,20 @@ void JNIWrapper::_registerObject(bool persistent,
         info->methodMap["<init>"] = constructor;
     }
 
-    // call static initializer
-    info->initializer(info, false);
-
-    // register methods
-    if(info->methods.size()) {
-        // only register natives if this is not a derived object
-        // because then the methods have already been registered before!
-        if(baseCanonicalName.empty()) {
+    // call static initializer (for java derived classes it is empty)
+    if(info->initializer) {
+        info->initializer(info, false);
+        // register methods
+        if (info->methods.size()) {
             env->RegisterNatives(clazz, &info->methods[0], info->methods.size());
-        }
 
-        // free pointers that were allocated in registerNativeMethod
-        for(auto &entry : info->methods) {
-            free((void*)entry.name);
-            free((void*)entry.signature);
+            // free pointers that were allocated in registerNativeMethod
+            for (auto &entry : info->methods) {
+                free((void *) entry.name);
+                free((void *) entry.signature);
+            }
+            info->methods.clear();
         }
-        info->methods.clear();
     }
 }
 
@@ -123,7 +134,7 @@ JNIEnv* JNIWrapper::getEnvironment() {
     return _jniEnv;
 }
 
-JNIObject* JNIWrapper::initializeNativeObject(jobject object) {
+void JNIWrapper::initializeNativeObject(jobject object) {
     JNIEnv* env = JNIWrapper::getEnvironment();
     std::string canonicalName;
 
@@ -154,7 +165,12 @@ JNIObject* JNIWrapper::initializeNativeObject(jobject object) {
     assert(it != _objmap.end());
 
     JNIClassInfo *info = it->second;
-    return info->constructor(object, info);
+    // derived java classes have no own native class => use constructor of baseclass
+    if(!info->constructor) {
+        info->baseClassInfo->constructor(object, info);
+    } else {
+        info->constructor(object, info);
+    }
 }
 
 jobject JNIWrapper::_createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs) {
@@ -163,6 +179,8 @@ jobject JNIWrapper::_createObject(const std::string& canonicalName, const char* 
         return nullptr;
     } else {
         JNIClassInfo *info = it->second;
+
+        if(info->type == JNIObjectType::kAbstract) return nullptr;
 
         JNIEnv *env = JNIWrapper::getEnvironment();
 

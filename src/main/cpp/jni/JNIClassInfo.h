@@ -12,6 +12,12 @@
 class JNIClassInfo;
 class JNIObject;
 
+enum class JNIObjectType {
+    kPersistent,
+    kAbstract,
+    kTemporary
+};
+
 typedef JNIObject*(*ObjectConstructor)(jobject obj, JNIClassInfo *info);
 typedef void(*ObjectInitializer)(JNIClassInfo *info, bool isReload);
 struct JNIClassInfo {
@@ -36,9 +42,10 @@ public:
                         const std::string& signature,
                         bool isStatic);
 private:
-    JNIClassInfo(bool persistent, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c);
+    JNIClassInfo(JNIObjectType type, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c, JNIClassInfo *baseClassInfo);
 
-    bool persistent;
+    JNIClassInfo *baseClassInfo;
+    JNIObjectType type;
     ObjectInitializer initializer;
     ObjectConstructor constructor;
     std::vector<JNINativeMethod> methods;

@@ -52,7 +52,7 @@ void v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 V8ClassInfoContainer::V8ClassInfoContainer(const std::string& canonicalName, JNIV8ObjectInitializer i,
-                                           JNIV8ObjectCreator c) : canonicalName(canonicalName), initializer(i), creator(c) {
+                                           JNIV8ObjectCreator c, size_t size) : canonicalName(canonicalName), initializer(i), creator(c), size(size) {
 }
 
 V8ClassInfo::V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine) :
@@ -102,5 +102,12 @@ v8::Local<v8::FunctionTemplate> V8ClassInfo::getFunctionTemplate() const {
     Isolate* isolate = engine->getIsolate();
     EscapableHandleScope scope(isolate);
     return scope.Escape(Local<FunctionTemplate>::New(isolate, functionTemplate));
+}
+
+v8::Local<v8::Function> V8ClassInfo::getConstructor() const {
+    Isolate* isolate = engine->getIsolate();
+    EscapableHandleScope scope(isolate);
+    auto ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
+    return scope.Escape(ft->GetFunction());
 }
 

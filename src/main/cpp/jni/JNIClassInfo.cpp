@@ -8,9 +8,15 @@
 #include "JNIWrapper.h"
 #include "JNIClassInfo.h"
 
-JNIClassInfo::JNIClassInfo(bool persistent, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c) :
-        persistent(persistent), canonicalName(canonicalName), initializer(i), constructor(c) {
+JNIClassInfo::JNIClassInfo(JNIObjectType  type, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c, JNIClassInfo *baseClassInfo) :
+        type(type), canonicalName(canonicalName), initializer(i), constructor(c), baseClassInfo(baseClassInfo) {
     jniClassRef = nullptr;
+    // copy up field & methodMap from baseclass for faster lookup
+    // can be overwritten by subclass
+    if(baseClassInfo) {
+        methodMap = baseClassInfo->methodMap;
+        fieldMap = baseClassInfo->fieldMap;
+    }
 }
 
 void JNIClassInfo::registerNativeMethod(const std::string &name, const std::string &signature, void* fnPtr) {
@@ -24,10 +30,15 @@ void JNIClassInfo::registerConstructor(const std::string& signature, const std::
 void JNIClassInfo::registerMethod(const std::string& methodName,
                                   const std::string& signature,
                                   const std::string& alias) {
+    // subclasses can overwrite methods of baseclasses, but only once
     const std::string& finalAlias = alias.length() ? alias : methodName;
     auto it = methodMap.find(finalAlias);
     if(it != methodMap.end()) {
-        return;
+        if(!baseClassInfo) return;
+        else {
+            auto it2 = baseClassInfo->methodMap.find(finalAlias);
+            if(it2 == baseClassInfo->methodMap.end() || it->second != it2->second) return;
+        }
     }
     methodMap[finalAlias] = getMethodID(methodName, signature, false);
 }
@@ -36,7 +47,11 @@ void JNIClassInfo::registerField(const std::string& fieldName,
                                  const std::string& signature) {
     auto it = fieldMap.find(fieldName);
     if(it != fieldMap.end()) {
-        return;
+        if(!baseClassInfo) return;
+        else {
+            auto it2 = baseClassInfo->fieldMap.find(fieldName);
+            if(it2 == baseClassInfo->fieldMap.end() || it->second != it2->second) return;
+        }
     }
     fieldMap[fieldName] = getFieldID(fieldName, signature, false);
 }
@@ -47,7 +62,11 @@ void JNIClassInfo::registerStaticMethod(const std::string& methodName,
     const std::string& finalAlias = alias.length() ? alias : methodName;
     auto it = methodMap.find(finalAlias);
     if(it != methodMap.end()) {
-        return;
+        if(!baseClassInfo) return;
+        else {
+            auto it2 = baseClassInfo->methodMap.find(finalAlias);
+            if(it2 == baseClassInfo->methodMap.end() || it->second != it2->second) return;
+        }
     }
     methodMap[finalAlias] = getMethodID(methodName, signature, true);
 }
@@ -56,7 +75,11 @@ void JNIClassInfo::registerStaticField(const std::string& fieldName,
                                        const std::string& signature) {
     auto it = fieldMap.find(fieldName);
     if(it != fieldMap.end()) {
-        return;
+        if(!baseClassInfo) return;
+        else {
+            auto it2 = baseClassInfo->fieldMap.find(fieldName);
+            if(it2 == baseClassInfo->fieldMap.end() || it->second != it2->second) return;
+        }
     }
     fieldMap[fieldName] = getFieldID(fieldName, signature, true);
 }

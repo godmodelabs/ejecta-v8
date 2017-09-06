@@ -12,15 +12,24 @@
 /**
  * Base class for all native classes associated with a java object
  * constructor should never be called manually; if you want to create a new instance
- * use JNIWrapper::createObject<Type>(env) inestead
+ * use JNIWrapper::createObject<Type>(env) instead
  */
 class JNIObject : public JNIClass {
+    friend class JNIWrapper;
 public:
     JNIObject(jobject obj, JNIClassInfo *info);
     virtual ~JNIObject();
 
-    const jobject getJObject() const;
+    /**
+     * returns the shared_ptr for this instance
+     * usage of direct pointers to this object should be avoided at all cost
+     */
     std::shared_ptr<JNIObject> getSharedPtr();
+
+    /**
+     * returns the referenced java object
+     */
+    const jobject getJObject() const;
 
     /**
      * calls the specified static java object method
@@ -61,10 +70,14 @@ public:
     void setJavaIntField(const std::string& fieldName, jint value);
     void setJavaShortField(const std::string& fieldName, jshort value);
     void setJavaObjectField(const std::string& fieldName, jobject value);
+
 protected:
     void retainJObject();
     void releaseJObject();
+
 private:
+    static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
+
     jobject _jniObject;
     jweak _jniObjectWeak;
     uint8_t _jniObjectRefCount;

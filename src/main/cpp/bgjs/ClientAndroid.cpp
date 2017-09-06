@@ -119,6 +119,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 
     if(!JNIWrapper::isInitialized()) {
         JNIWrapper::init(vm);
+		JNIV8Wrapper::init();
     }
     JNIV8Wrapper::registerObject<V8TestClass>();
     JNIV8Wrapper::registerDerivedObject<V8TestClass>("ag/boersego/bgjs/V8TestClassDerived");

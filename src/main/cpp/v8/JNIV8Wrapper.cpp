@@ -7,14 +7,16 @@ using namespace v8;
 
 #include "JNIV8Wrapper.h"
 
-jfieldID JNIV8Wrapper::_nativeHandleFieldId = 0;
 std::map<std::string, V8ClassInfoContainer*> JNIV8Wrapper::_objmap;
+
+void JNIV8Wrapper::init() {
+    JNIWrapper::registerObject<JNIV8Object>(JNIObjectType::kAbstract);
+}
 
 void JNIV8Wrapper::reloadBindings() {
     // see comments in `initializeNativeJNIV8Object` for why this is needed
     JNIEnv *env = JNIWrapper::getEnvironment();
     jclass cls = env->FindClass("ag/boersego/bgjs/JNIObject");
-    _nativeHandleFieldId = env->GetFieldID(cls, "nativeHandle", "J");
 }
 
 void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -69,18 +71,15 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
 
     it->second->initializer(v8ClassInfo);
 
+    // @TODO: now copy over methods + accessors from the base class?
+    // @TODO: what if a constructor was registered on baseclass? => probably ok to ignore
+    // @TODO: do we need the notion of "abstract" objects here as well? => probably YES
+
     return v8ClassInfo;
 }
 
 void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlong jsObjPtr) {
-    // this is a little dirty because it bypasses all the nice work done by JNIWrapper
-    // but due to the fact that we do not know the type of this object we can not use wrapObject here
-    // we can not map to JNIV8Object, as it is not exposed by JNIWrapper because it is abstract..
-
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    jlong handle = env->GetLongField(obj, _nativeHandleFieldId);
-
-    JNIV8Object *v8Object = reinterpret_cast<JNIV8Object*>(handle);
+    auto v8Object = JNIWrapper::wrapObject<JNIV8Object>(obj);
     BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
     V8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine);
 
@@ -103,30 +102,25 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlo
         delete persistentPtr;
     }
 
+    // adjust external memory size: size of native object + 64bit pointer to native object stored on java
+    v8Object->adjustJSExternalMemory(classInfo->container->size + 8);
+
     // associate js object with native c++ object
     v8Object->setJSObject(engine, classInfo, jsObj);
 }
 
-void JNIV8Wrapper::_registerObject(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c) {
+void JNIV8Wrapper::_registerObject(const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size) {
+    // base class has to be registered if it is not JNIV8Object (which is only registered with JNIWrapper, because it provides no JS functionality on its own)
+    if(baseCanonicalName != JNIWrapper::getCanonicalName<JNIV8Object>() &&
+            _objmap.find(baseCanonicalName) == _objmap.end()) {
+        return;
+    }
+
+    // class itself must not be registered yet
     if(_objmap.find(canonicalName) != _objmap.end()) {
         return;
     }
 
-    V8ClassInfoContainer *info = new V8ClassInfoContainer(canonicalName, i, c);
+    V8ClassInfoContainer *info = new V8ClassInfoContainer(canonicalName, i, c, size);
     _objmap[canonicalName] = info;
-}
-
-//--------------------------------------------------------------------------------------------------
-// Exports
-//--------------------------------------------------------------------------------------------------
-extern "C" {
-
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_JNIV8Object_initBinding(JNIEnv *env) {
-    JNIV8Wrapper::reloadBindings();
-}
-
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_JNIV8Object_initNativeJNIV8Object(JNIEnv *env, jobject obj, jlong enginePtr, jlong jsObjPtr) {
-    JNIV8Wrapper::initializeNativeJNIV8Object(obj, enginePtr, jsObjPtr);
-}
-
 }

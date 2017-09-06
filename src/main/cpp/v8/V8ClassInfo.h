@@ -31,6 +31,7 @@ public:
     void registerMethod(const std::string& methodName, JNIV8ObjectMethodCallback callback);
     void registerAccessor(const std::string& propertyName, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0, v8::PropertyAttribute settings = v8::None);
     v8::Local<v8::FunctionTemplate> getFunctionTemplate() const;
+    v8::Local<v8::Function> getConstructor() const;
 private:
     V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine);
 
@@ -50,8 +51,9 @@ typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(V8ClassInfo *info, v8:
 struct V8ClassInfoContainer {
     friend class JNIV8Wrapper;
 private:
-    V8ClassInfoContainer(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c);
+    V8ClassInfoContainer(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size);
 
+    size_t size;
     std::string canonicalName;
     JNIV8ObjectInitializer initializer;
     JNIV8ObjectCreator creator;

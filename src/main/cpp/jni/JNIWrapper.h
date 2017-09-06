@@ -41,13 +41,20 @@ public:
      * internal struct used for registering a class with the factory
      */
     template<class ObjectType> static
-    void registerObject(bool persistent = true) {
-        _registerObject(persistent, JNIWrapper::getCanonicalName<ObjectType>(), "", initialize<ObjectType>, instantiate<ObjectType>);
+    void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
+        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIObject>(),
+                        initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
+    };
+
+    template<class ObjectType, class BaseObjectType> static
+    void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
+        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
+                        initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
     };
 
     template<class ObjectType> static
-    void registerDerivedObject(const std::string &canonicalName, bool persistent = true) {
-        _registerObject(persistent, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, instantiate<ObjectType>);
+    void registerDerivedObject(const std::string &canonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
+        _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr);
     };
 
     /**
@@ -104,16 +111,29 @@ public:
             return nullptr;
         } else {
             JNIClassInfo *info = it->second;
-            ObjectType *jniObject;
+            JNIObject *jniObject;
             JNIEnv* env = JNIWrapper::getEnvironment();
-            if(info->persistent) {
+            if(info->type == JNIObjectType::kPersistent || info->type == JNIObjectType::kAbstract) {
                 auto handleFieldId = info->fieldMap.at("nativeHandle");
                 if(!handleFieldId) {
                     env->ExceptionClear();
                     return nullptr;
                 }
                 jlong handle = env->GetLongField(object, handleFieldId);
-                jniObject = reinterpret_cast<ObjectType*>(handle);
+                // If object type did not match, the field access might fail => check for java exceptions
+                if (env->ExceptionCheck()) {
+                    env->ExceptionClear();
+                    return nullptr;
+                }
+                jniObject = reinterpret_cast<JNIObject*>(handle);
+                // now check if this object is an instance of `ObjectType`
+                JNIClassInfo *info2 = jniObject->_jniClassInfo;
+                while(info2 != info) {
+                    info2 = info2->baseClassInfo;
+                    if(!info2) {
+                        return nullptr;
+                    }
+                }
             } else {
                 jniObject = new ObjectType(object, info);
             }
@@ -137,7 +157,7 @@ public:
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new Java+Native object tuple
      */
-    static JNIObject* initializeNativeObject(jobject object);
+    static void initializeNativeObject(jobject object);
 
     /**
      * internal utility method; should not be called manually
@@ -149,7 +169,7 @@ private:
     static jobject _createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs);
     static std::shared_ptr<JNIClass> _wrapClass(const std::string& canonicalName);
 
-    static void _registerObject(bool persistent, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
+    static void _registerObject(JNIObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
 
     static JavaVM *_jniVM;
     static JNIEnv *_jniEnv;

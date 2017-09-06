@@ -14,6 +14,8 @@
 
 class JNIV8Wrapper {
 public:
+    static void init();
+
     /**
      * returns the canonical name of the v8 enabled java class associated with the specified native object
      */
@@ -35,14 +37,21 @@ public:
      */
     template<class ObjectType> static
     void registerObject() {
-        JNIWrapper::registerObject<ObjectType>(true);
-        _registerObject(JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, createJavaClass<ObjectType>);
+        JNIWrapper::registerObject<ObjectType, JNIV8Object>(JNIObjectType::kPersistent);
+        _registerObject(JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIV8Object>(), initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
+    };
+
+    template<class ObjectType, class BaseObjectType> static
+    void registerObject() {
+        JNIWrapper::registerObject<ObjectType, BaseObjectType>(JNIObjectType::kPersistent);
+        _registerObject(JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(), initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
     };
 
     template<class ObjectType> static
     void registerDerivedObject(const std::string &canonicalName) {
-        JNIWrapper::registerDerivedObject<ObjectType>(canonicalName, true);
-        _registerObject(canonicalName, initialize<ObjectType>, createDerivedJavaClass<ObjectType>);
+        JNIWrapper::registerDerivedObject<ObjectType>(canonicalName, JNIObjectType::kPersistent);
+        // @TODO: functions can be null here, because they can be provided by the base class!
+        _registerObject(canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, createDerivedJavaClass<ObjectType>, sizeof(ObjectType));
     };
 
     /**
@@ -93,8 +102,8 @@ public:
      * retrieves the V8ClassInfo for a native class in the specified engine
      */
     template <typename ObjectType> static
-    V8ClassInfo* getV8ClassInfo(BGJSV8Engine *engine) {
-        return _getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), engine);
+    v8::Local<v8::Function> getJSConstructor(BGJSV8Engine *engine) {
+        return _getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), engine)->getConstructor();
     }
 
     /**
@@ -116,12 +125,10 @@ public:
     static void v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 
 private:
-    static void _registerObject(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c);
+    static void _registerObject(const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size);
     static V8ClassInfo* _getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine);
 
     static std::map<std::string, V8ClassInfoContainer*> _objmap;
-
-    static jfieldID _nativeHandleFieldId;
 
     template<class ObjectType>
     static void initialize(V8ClassInfo *info) {

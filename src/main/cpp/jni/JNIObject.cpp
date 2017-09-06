@@ -7,10 +7,12 @@
 #include "JNIObject.h"
 #include "JNIWrapper.h"
 
+BGJS_JNIOBJECT_LINK(JNIObject, "ag/boersego/bgjs/JNIObject");
+
 JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
 
     JNIEnv* env = JNIWrapper::getEnvironment();
-    if(info->persistent) {
+    if(info->type == JNIObjectType::kPersistent) {
         // persistent objects are owned by the java side: they are destroyed once the java side is garbage collected
         // => as long as there are no references to the c object, the java reference is weak.
         _jniObjectWeak = env->NewWeakGlobalRef(obj);
@@ -25,14 +27,14 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
     _jniObjectRefCount = 0;
 
     // store pointer to native instance in "nativeHandle" field
-    if(info->persistent) {
+    if(info->type == JNIObjectType::kPersistent) {
         setJavaLongField("nativeHandle", reinterpret_cast<jlong>(this));
     }
 }
 
 JNIObject::~JNIObject() {
     // not really necessary, since this should only happen if the java object is deleted, but maybe to avoid errors?
-    if(_jniClassInfo->persistent) {
+    if(_jniClassInfo->type == JNIObjectType::kPersistent) {
         setJavaLongField("nativeHandle", reinterpret_cast<jlong>(nullptr));
     }
     if(_jniObject) {
@@ -46,11 +48,15 @@ JNIObject::~JNIObject() {
     _jniObjectWeak = _jniObject = nullptr;
 }
 
+void JNIObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
+
+}
+
 const jobject JNIObject::getJObject() const {
     if(_jniObject) {
         return _jniObject;
     }
-    return JNIWrapper::getEnvironment()->NewLocalRef(_jniObjectWeak);
+    return _jniObjectWeak;
 }
 
 std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {
@@ -109,8 +115,9 @@ void JNIObject::releaseJObject() {
 #define GETTER(TypeName, JNITypeName) \
 JNITypeName JNIObject::getJava##TypeName##Field(const std::string& fieldName) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
-    const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
-    return env->Get##TypeName##Field(_jniObject, fieldId); \
+    auto it = _jniClassInfo->fieldMap.find(fieldName);\
+    assert(it != _jniClassInfo->fieldMap.end());\
+    return env->Get##TypeName##Field(_jniObject, it->second); \
 }
 
 GETTER(Long, jlong)
@@ -129,8 +136,9 @@ GETTER(Object, jobject)
 #define SETTER(TypeName, JNITypeName) \
 void JNIObject::setJava##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
-    const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
-    return env->Set##TypeName##Field(getJObject(), fieldId, value); \
+    auto it = _jniClassInfo->fieldMap.find(fieldName);\
+    assert(it != _jniClassInfo->fieldMap.end());\
+    return env->Set##TypeName##Field(getJObject(), it->second, value); \
 }
 
 SETTER(Long, jlong)
@@ -149,21 +157,23 @@ SETTER(Object, jobject)
 #define METHOD(TypeName, JNITypeName) \
 JNITypeName JNIObject::callJava##TypeName##Method(const char* name, ...) {\
     JNIEnv* env = JNIWrapper::getEnvironment();\
-    const auto methodId = _jniClassInfo->methodMap.at(name);\
+    auto it = _jniClassInfo->methodMap.find(name);\
+    assert(it != _jniClassInfo->methodMap.end());\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
-    res = env->Call##TypeName##MethodV(getJObject(), methodId, args);\
+    res = env->Call##TypeName##MethodV(getJObject(), it->second, args);\
     va_end(args);\
     return res;\
 }
 
 void JNIObject::callJavaVoidMethod(const char* name, ...) {
     JNIEnv* env = JNIWrapper::getEnvironment();
-    const auto methodId = _jniClassInfo->methodMap.at(name);
+    auto it = _jniClassInfo->methodMap.find(name);
+    assert(it != _jniClassInfo->methodMap.end());
     va_list args;
     va_start(args, name);\
-    env->CallVoidMethodV(getJObject(), methodId, args);
+    env->CallVoidMethodV(getJObject(), it->second, args);
     va_end(args);
 }
 

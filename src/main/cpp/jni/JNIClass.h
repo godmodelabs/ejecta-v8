@@ -9,6 +9,7 @@
 #include <jni.h>
 
 class JNIClassInfo;
+class JNIWrapper;
 
 /**
  * Base class for all native classes associated with a java object
@@ -19,6 +20,7 @@ class JNIClassInfo;
  * JNIWrapper::createObject<Type>() - to create a new instance of a Java+Native object
  */
 class JNIClass {
+    friend class JNIWrapper;
 public:
     JNIClass(JNIClassInfo *info);
     virtual ~JNIClass();
