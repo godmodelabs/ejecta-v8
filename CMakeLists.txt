@@ -53,6 +53,7 @@ add_library( # Sets the name of the library.
              src/main/cpp/v8/JNIV8Object.cpp
              src/main/cpp/v8/JNIV8BridgedObject.cpp
              src/main/cpp/V8TestClass.cpp
+             src/main/cpp/V8TestClass2.cpp
              )
 
 #--------------------------------------------------

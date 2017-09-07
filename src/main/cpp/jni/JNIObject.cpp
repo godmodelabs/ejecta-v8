@@ -27,7 +27,9 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
     _jniObjectRefCount = 0;
 
     // store pointer to native instance in "nativeHandle" field
-    if(info->type == JNIObjectType::kPersistent) {
+    // actually type will never be kAbstract here, because JNIClassInfo will be provided for the subclass!
+    // however, this gets rid of the "never used" warning for the constant, and works just fine as well.
+    if(info->type != JNIObjectType::kTemporary) {
         setJavaLongField("nativeHandle", reinterpret_cast<jlong>(this));
     }
 }

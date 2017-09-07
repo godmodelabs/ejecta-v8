@@ -10,7 +10,7 @@
 
 class JNIV8BridgedObject : public JNIV8Object {
 public:
-    BGJS_JNIV8OBJECT_CONSTRUCTOR(JNIV8BridgedObject);
+    JNIV8BridgedObject(jobject obj, JNIClassInfo *info) : JNIV8Object(obj, info) {};
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void initializeV8Bindings(V8ClassInfo *info);
 

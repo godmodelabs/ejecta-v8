@@ -51,8 +51,14 @@ void v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     (v8Object->*(cb->callback))(cb->methodName, args);
 }
 
-V8ClassInfoContainer::V8ClassInfoContainer(const std::string& canonicalName, JNIV8ObjectInitializer i,
-                                           JNIV8ObjectCreator c, size_t size) : canonicalName(canonicalName), initializer(i), creator(c), size(size) {
+V8ClassInfoContainer::V8ClassInfoContainer(JNIV8ObjectType type, const std::string& canonicalName, JNIV8ObjectInitializer i,
+                                           JNIV8ObjectCreator c, size_t size, V8ClassInfoContainer *baseClassInfo) :
+        type(type), canonicalName(canonicalName), initializer(i), creator(c), size(size), baseClassInfo(baseClassInfo) {
+    if(baseClassInfo) {
+        if (!creator) {
+            creator = baseClassInfo->creator;
+        }
+    }
 }
 
 V8ClassInfo::V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine) :
@@ -60,6 +66,7 @@ V8ClassInfo::V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine) 
 }
 
 void V8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback) {
+    assert(container->type == JNIV8ObjectType::kPersistent);
     constructorCallback = callback;
 }
 
@@ -68,7 +75,13 @@ void V8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMetho
     HandleScope scope(isolate);
 
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
-    Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
+    // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
+    // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
+    // but other properties and accessors are copied without problems.
+    // Thought: it is not allowed to store actual Functions on these templates - only FunctionTemplates
+    // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
+    // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
+    Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
 
     JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder(methodName, callback);
     Local<External> data = External::New(isolate, (void*)holder);
@@ -99,12 +112,14 @@ void V8ClassInfo::registerAccessor(const std::string& propertyName,
 }
 
 v8::Local<v8::FunctionTemplate> V8ClassInfo::getFunctionTemplate() const {
+    assert(container->type == JNIV8ObjectType::kPersistent);
     Isolate* isolate = engine->getIsolate();
     EscapableHandleScope scope(isolate);
     return scope.Escape(Local<FunctionTemplate>::New(isolate, functionTemplate));
 }
 
 v8::Local<v8::Function> V8ClassInfo::getConstructor() const {
+    assert(container->type == JNIV8ObjectType::kPersistent);
     Isolate* isolate = engine->getIsolate();
     EscapableHandleScope scope(isolate);
     auto ft = Local<FunctionTemplate>::New(isolate, functionTemplate);

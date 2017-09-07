@@ -19,6 +19,25 @@ typedef void(JNIV8Object::*JNIV8ObjectMethodCallback)(const std::string &methodN
 typedef void(JNIV8Object::*JNIV8ObjectAccessorGetterCallback)(const std::string &propertyName, const v8::PropertyCallbackInfo<v8::Value> &info);
 typedef void(JNIV8Object::*JNIV8ObjectAccessorSetterCallback)(const std::string &propertyName, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
 
+enum class JNIV8ObjectType {
+    /**
+     * Java + native + v8 class are permanently linked together
+     * native class and v8 class can store persistent state, all three have the same lifetime
+     * wrapping the same java object or v8 object will always yield the exact same native instance!
+     */
+    kPersistent,
+    /**
+     * like kPersistent, but these objects can not be constructed
+     */
+    kAbstract,
+    /**
+     * Tuple of Java+native class acts as a wrapper for an existing v8 object
+     * this can be used to write utility methods for working with existing JavaScript classes, e.g. you could wrap Object, or Array
+     * wrapping the same javascript object will always yield a new instance of a Java + native tuple!
+     */
+    kWrapper
+};
+
 struct V8ClassInfo {
     friend class JNIV8Object;
     friend class JNIV8Wrapper;
@@ -27,9 +46,16 @@ public:
         return engine;
     };
 
+    /**
+     * if multiple classes in the objects hierarchy registered a constructor, it is only called for the final class
+     * implementors have to manually call methods baseclasses if needed
+     */
     void registerConstructor(JNIV8ObjectConstructorCallback callback);
+
     void registerMethod(const std::string& methodName, JNIV8ObjectMethodCallback callback);
+
     void registerAccessor(const std::string& propertyName, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0, v8::PropertyAttribute settings = v8::None);
+
     v8::Local<v8::FunctionTemplate> getFunctionTemplate() const;
     v8::Local<v8::Function> getConstructor() const;
 private:
@@ -50,9 +76,12 @@ typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(V8ClassInfo *info, v8:
  */
 struct V8ClassInfoContainer {
     friend class JNIV8Wrapper;
+    friend class V8ClassInfo;
 private:
-    V8ClassInfoContainer(const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size);
+    V8ClassInfoContainer(JNIV8ObjectType type, const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size, V8ClassInfoContainer *baseClassInfo);
 
+    JNIV8ObjectType type;
+    V8ClassInfoContainer *baseClassInfo;
     size_t size;
     std::string canonicalName;
     JNIV8ObjectInitializer initializer;

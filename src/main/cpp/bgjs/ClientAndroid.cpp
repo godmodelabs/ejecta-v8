@@ -30,7 +30,9 @@
 #include "jniext.h"
 #include "../jni/JNIWrapper.h"
 #include "../v8/JNIV8Wrapper.h"
+
 #include "../V8TestClass.h"
+#include "../V8TestClass2.h"
 
 using namespace v8;
 
@@ -122,7 +124,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 		JNIV8Wrapper::init();
     }
     JNIV8Wrapper::registerObject<V8TestClass>();
-    JNIV8Wrapper::registerDerivedObject<V8TestClass>("ag/boersego/bgjs/V8TestClassDerived");
+    JNIV8Wrapper::registerObject<V8TestClass2, V8TestClass>();
+    JNIV8Wrapper::registerJavaObject<V8TestClass>("ag/boersego/bgjs/V8TestClassDerived");
 
     // Get jclass with env->FindClass.
     // Register methods with env->RegisterNatives.

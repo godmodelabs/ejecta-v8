@@ -9,11 +9,6 @@ public class JNIV8Object extends JNIObject {
 
     private native void initNativeJNIV8Object(long enginePtr, long jsObjPtr);
 
-    private static native void initBinding();
-    static {
-        initBinding();
-    }
-
     public JNIV8Object(V8Engine engine, long jsObjPtr) {
         initNativeJNIV8Object(engine.getNativePtr(), jsObjPtr);
     }

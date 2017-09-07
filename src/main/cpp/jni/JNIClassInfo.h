@@ -13,8 +13,22 @@ class JNIClassInfo;
 class JNIObject;
 
 enum class JNIObjectType {
+    /**
+     * Java + native class are permanently linked together
+     * native class can store persistent state, and exists as long as the java class
+     * wrapping the same java object will always yield the exact same native instance
+     */
     kPersistent,
+    /**
+     * like kPersistent, but these objects can not be constructed
+     */
     kAbstract,
+    /**
+     * native class acts as a temporary wrapper for a Java object
+     * this can be used to write utility methods for working with existing Java classes, e.g. you could wrap String
+     * temporary native class must NOT store persistent state, and will be deallocated once it is not directly referenced from native code anymore
+     * wrapping the same java object will always yield a new native instance
+     */
     kTemporary
 };
 

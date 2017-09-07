@@ -16,6 +16,11 @@ JNIClassInfo::JNIClassInfo(JNIObjectType  type, const std::string& canonicalName
     if(baseClassInfo) {
         methodMap = baseClassInfo->methodMap;
         fieldMap = baseClassInfo->fieldMap;
+
+        // copy up constructor from base class
+        if(!constructor) {
+            constructor = baseClassInfo->constructor;
+        }
     }
 }
 

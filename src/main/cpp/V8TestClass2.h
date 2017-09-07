@@ -1,20 +1,19 @@
 //
-// Created by Martin Kleinhans on 13.04.17.
+// Created by Martin Kleinhans on 07.09.17.
 //
 
-#ifndef TRADINGLIB_SAMPLE_V8TESTCLASS_H
-#define TRADINGLIB_SAMPLE_V8TESTCLASS_H
+#ifndef TRADINGLIB_SAMPLE_V8TESTCLASS2_H
+#define TRADINGLIB_SAMPLE_V8TESTCLASS2_H
 
-#include <jni.h>
-#include "../v8/JNIV8Wrapper.h"
 
-class V8TestClass : public JNIV8Object {
+#include "V8TestClass.h"
+
+class V8TestClass2 : public V8TestClass {
 public:
-    V8TestClass(jobject obj, JNIClassInfo *info) : JNIV8Object(obj, info) {};
+    V8TestClass2(jobject obj, JNIClassInfo *info) : V8TestClass(obj, info) {};
 
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void initializeV8Bindings(V8ClassInfo *info);
-    void test();
 
     void testMember(const std::string &methodName, const v8::FunctionCallbackInfo<v8::Value>& args);
 
@@ -25,6 +24,6 @@ public:
     std::string _name;
 };
 
-BGJS_JNIV8OBJECT_DEF(V8TestClass)
+BGJS_JNIV8OBJECT_DEF(V8TestClass2)
 
-#endif //TRADINGLIB_SAMPLE_V8TESTCLASS_H
+#endif //TRADINGLIB_SAMPLE_V8TESTCLASS2_H

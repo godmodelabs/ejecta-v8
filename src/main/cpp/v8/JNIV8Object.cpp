@@ -124,10 +124,6 @@ void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong chan
 //--------------------------------------------------------------------------------------------------
 extern "C" {
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_JNIV8Object_initBinding(JNIEnv *env) {
-    JNIV8Wrapper::reloadBindings();
-}
-
 JNIEXPORT void JNICALL
 Java_ag_boersego_bgjs_JNIV8Object_initNativeJNIV8Object(JNIEnv *env, jobject obj, jlong enginePtr,
                                                         jlong jsObjPtr) {

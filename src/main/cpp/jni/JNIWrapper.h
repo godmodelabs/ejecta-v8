@@ -26,7 +26,16 @@ public:
      */
     template <typename T> static
     const std::string getCanonicalName() {
+        // @TODO: wrong syntax. throw a real exception object here? or maybe something like an assert that turns up in the log
         throw "JNIWrapper::getCanonicalName called for unregistered class";
+    }
+
+    /**
+     * checks if the objects referenced java clas is an instance of the provided classname
+     */
+    static bool isObjectInstanceOf(JNIObject *obj, const std::string &canonicalName);
+    template<class ObjectType> static bool isObjectInstanceOf(JNIObject *obj) {
+        return isObjectInstanceOf(obj, getCanonicalName<ObjectType>());
     }
 
     /**
@@ -38,7 +47,9 @@ public:
     };
 
     /**
-     * internal struct used for registering a class with the factory
+     * register a Java+Native object tuple
+     * E.g. if there is a Java class "MyObject" with native class "MyObjectNative" you would call
+     * registerObject<MyObjectNative>()
      */
     template<class ObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
@@ -46,21 +57,56 @@ public:
                         initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
     };
 
+    /**
+     * register a Java+Native object tuple extending another Java+Native object tuple
+     * E.g. if there is a Java class "MySubclass" with native class "MySubclassNative" that extends
+     * "MyObject" with native class "MyObjectNative" you would call
+     * registerObject<MySubclassNative, MyObjectNative>()
+     */
     template<class ObjectType, class BaseObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
         _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
                         initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
     };
 
+    /**
+     * register a Java+Native object tuple extending a pure Java class that in turn extends a Java+Native tuple
+     * E.g. if there is a Java class "MySubclass" with native class "MySubclassNative" that extends
+     * the java class "MyJavaSubclass" which in turn extends the java class "MyObject" with native class "MyObjectNative" you would call
+     * registerObject<MySubclassNative>("com/example/MyJavaSubclass")
+     * Note: The native object MUST extend the next native object up the inheritance chain! In the example above this would be "MyObjectNative"
+     */
     template<class ObjectType> static
-    void registerDerivedObject(const std::string &canonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
+    void registerObject(const std::string &baseCanonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
+        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), baseCanonicalName,
+                        initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
+    };
+
+    /**
+     * register a pure Java class extending a Java+Native tuple
+     * E.g. if there is a pure Java class "MyJavaSubclass" that extends the java class "MyObject" with native class "MyObjectNative" you would call
+     * registerJavaObject<MyObjectNative>("com/example/MyJavaSubclass")
+     */
+    template<class ObjectType> static
+    void registerJavaObject(const std::string &canonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
         _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr);
+    };
+
+    /**
+     * register a pure Java class extending another pure Java class that (not necessarily directly) extends a Java+native tuple
+     * E.g. if there is a pure Java class "MyOtherJavaSubclass" that extends the pure java class "MyJavaSubclass" you would call
+     * registerJavaObject("com/example/MyOtherJavaSubclass","com/example/MyJavaSubclass")
+     * Note: somwhere up the inheritance chain "MyJavaSubclass" needs to extend a native class in this example!
+     */
+    static
+    void registerJavaObject(const std::string &canonicalName, const std::string &baseCanonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
+        _registerObject(type, canonicalName, baseCanonicalName, nullptr, nullptr);
     };
 
     /**
      * creates a Java+Native Object tuple based on the specified object type
      * prerequisites:
-     * - object needs to have been registered before with JNIWrapper::registerObject<ObjectType>() and BGJS_JNIJNIV8Object_LINK
+     * - object needs to have been registered before with JNIWrapper::registerObject<ObjectType>() (or another overload) and BGJS_JNIJNIV8Object_LINK
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
@@ -83,8 +129,8 @@ public:
      * the canonicalName must identify a java class that extends a baseclass linked to the specified objectType
      *
      * prerequisites:
-     * - base class must have been registered before with JNIWrapper::registerObject<ObjectType>() and BGJS_JNIJNIV8Object_LINK
-     * - derived class must have been registed with JNIWrapper::registerDerivedObject<ObjectType>(canonicalName)
+     * - base class must have been registered before with JNIWrapper::registerObject<ObjectType>() (or another overload) and BGJS_JNIJNIV8Object_LINK
+     * - derived class must have been registed with JNIWrapper::registerJavaObject<ObjectType>(canonicalName) (or another overload)
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
@@ -187,11 +233,6 @@ private:
         ObjectType::initializeJNIBindings(info, isReload);
     }
 };
-
-/**
- * macro to generate constructors for objects derived from JNIObject
- */
-#define BGJS_JNIOBJECT_CONSTRUCTOR(type) type(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {};
 
 /**
  * macro to register a native class with JNI

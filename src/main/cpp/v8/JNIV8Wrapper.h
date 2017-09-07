@@ -12,6 +12,11 @@
 
 #include "JNIV8Object.h"
 
+// @TODO: asserts mit message
+// @TODO: asserts in create & register & wrap etc functions anstatt return nullptr
+// @TODO: automatically register JNIV8Object constructor?!
+// @TODO: JNIV8BridgedObject functionality might be better off in JNIV8Object directly? (wrapper objects..)
+
 class JNIV8Wrapper {
 public:
     static void init();
@@ -33,25 +38,59 @@ public:
     };
 
     /**
-     * internal struct used for registering a class with the factory
+     * register a Java+Native+js object tuple
+     * E.g. if there is a Java class "MyObject" with native class "MyObjectNative" you would call
+     * registerObject<MyObjectNative>()
      */
     template<class ObjectType> static
-    void registerObject() {
-        JNIWrapper::registerObject<ObjectType, JNIV8Object>(JNIObjectType::kPersistent);
-        _registerObject(JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIV8Object>(), initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
+    void registerObject(JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
+        JNIWrapper::registerObject<ObjectType, JNIV8Object>(type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
+        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIV8Object>(),
+                        type == JNIV8ObjectType::kWrapper ? nullptr : initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
     };
 
+    /**
+     * register a Java+Native+js object tuple extending another Java+Native object tuple
+     * E.g. if there is a Java class "MySubclass" with native class "MySubclassNative" that extends
+     * "MyObject" with native class "MyObjectNative" you would call
+     * registerObject<MySubclassNative, MyObjectNative>()
+     */
     template<class ObjectType, class BaseObjectType> static
-    void registerObject() {
-        JNIWrapper::registerObject<ObjectType, BaseObjectType>(JNIObjectType::kPersistent);
-        _registerObject(JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(), initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
+    void registerObject(JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
+        JNIWrapper::registerObject<ObjectType, BaseObjectType>(type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
+        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
+                        type == JNIV8ObjectType::kWrapper ? nullptr : initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
     };
 
+    /**
+     * register a Java+Native+js object tuple extending a pure Java class that in turn extends a Java+Native tuple
+     * E.g. if there is a Java class "MySubclass" with native class "MySubclassNative" that extends
+     * the java class "MyJavaSubclass" which in turn extends the java class "MyObject" with native class "MyObjectNative" you would call
+     * registerObject<MySubclassNative>("com/example/MyJavaSubclass")
+     * Note: The native object MUST extend the next native object up the inheritance chain! In the example above this would be "MyObjectNative"
+     */
     template<class ObjectType> static
-    void registerDerivedObject(const std::string &canonicalName) {
-        JNIWrapper::registerDerivedObject<ObjectType>(canonicalName, JNIObjectType::kPersistent);
-        // @TODO: functions can be null here, because they can be provided by the base class!
-        _registerObject(canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), initialize<ObjectType>, createDerivedJavaClass<ObjectType>, sizeof(ObjectType));
+    void registerObject(const std::string &baseCanonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
+        JNIWrapper::registerObject<ObjectType>(baseCanonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
+        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), baseCanonicalName,
+                        type == JNIV8ObjectType::kWrapper ? nullptr : initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
+    };
+
+    /**
+     * register a pure Java class extending a Java+Native+js tuple
+     * E.g. if there is a pure Java class "MyJavaSubclass" that extends the java class "MyObject" with native class "MyObjectNative" you would call
+     * registerJavaObject<MyObjectNative>("com/example/MyJavaSubclass")
+     */
+    template<class ObjectType> static
+    void registerJavaObject(const std::string &canonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
+        JNIWrapper::registerJavaObject<ObjectType>(canonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
+        _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, createDerivedJavaClass<ObjectType>, sizeof(ObjectType));
+    };
+
+    static
+    void registerJavaObject(const std::string &canonicalName, const std::string &baseCanonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
+        JNIWrapper::registerJavaObject(canonicalName, baseCanonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
+        _registerObject(type, canonicalName, baseCanonicalName, nullptr, nullptr, 0);
     };
 
     /**
@@ -89,12 +128,50 @@ public:
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> wrapObject(v8::Local<v8::Object> object) {
-        // because this method takes a local, we can be sure that the correct v8 scopes are active
+        auto it = _objmap.find(JNIWrapper::getCanonicalName<ObjectType>());
+        if (it == _objmap.end()){
+            return nullptr;
+        }
+
+        JNIV8Object* ptr;
+        v8::Local<v8::External> ext;
+
         v8::Isolate* isolate = v8::Isolate::GetCurrent();
+        // because this method takes a local, we can be sure that the correct v8 scopes are active
+        // we still need a handle scope however...
         v8::HandleScope scope(isolate);
-        assert(object->InternalFieldCount() >= 1);
-        v8::Local<v8::External> ext = object->GetInternalField(0).As<v8::External>();
-        ObjectType* ptr = reinterpret_cast<ObjectType*>(ext->Value());
+
+        V8ClassInfoContainer *info = it->second;
+
+        if(info->type == JNIV8ObjectType::kWrapper) {
+            // does the object have a native object stored in a private key?
+            auto privateKey = v8::Private::ForApi(isolate, v8::String::NewFromUtf8(isolate, _v8PrivateKey));
+            auto privateValue = object->GetPrivate(isolate->GetCurrentContext(), privateKey);
+            if (!privateValue.IsEmpty()) {
+                ext = privateValue.ToLocalChecked().As<v8::External>();
+            } else {
+                // the private key was empty so we have to create a new object
+                v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
+                auto sharedPtr = info->creator(_getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent);
+
+                // store in private
+                object->SetPrivate(isolate->GetCurrentContext(), privateKey, v8::External::New(isolate, sharedPtr.get()));
+
+                return std::static_pointer_cast<ObjectType>(sharedPtr);
+            }
+        } else {
+            if (object->InternalFieldCount() >= 1) {
+                // does the object have internal fields? if so use it!
+                ext = object->GetInternalField(0).As<v8::External>();
+            } else {
+                return nullptr;
+            }
+        }
+
+        ptr = reinterpret_cast<JNIV8Object*>(ext->Value());
+        if(!JNIWrapper::isObjectInstanceOf<ObjectType>(ptr)) {
+            return nullptr;
+        }
         return std::static_pointer_cast<ObjectType>(ptr->getSharedPtr());
     };
 
@@ -114,18 +191,14 @@ public:
     static void initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlong jsObjPtr);
 
     /**
-     * internal utility method; should not be called manually
-     * used to refresh all references after classes where unloaded
-     */
-    static void reloadBindings();
-
-    /**
      * internal constructor callback for objects created from javascript
      */
     static void v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 
 private:
-    static void _registerObject(const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size);
+    static const char* _v8PrivateKey;
+
+    static void _registerObject(JNIV8ObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size);
     static V8ClassInfo* _getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine);
 
     static std::map<std::string, V8ClassInfoContainer*> _objmap;
@@ -149,15 +222,10 @@ private:
 };
 
 /**
- * macro to generate constructors for objects derived from JNIObject
- */
-#define BGJS_JNIV8OBJECT_CONSTRUCTOR(type) type(jobject obj, JNIClassInfo *info) : JNIV8Object(obj, info) {};
-
-/**
  * macro to register native class with JNI
  * specify the native class, and the full canonical name of the associated v8 enabled java class
  */
 #define BGJS_JNIV8OBJECT_LINK(type, canonicalName) BGJS_JNIOBJECT_LINK(type, canonicalName)
-
+#define BGJS_JNIV8OBJECT_DEF(type) template<> const std::string JNIWrapper::getCanonicalName<type>();
 
 #endif //__JNIV8WRAPPER_H

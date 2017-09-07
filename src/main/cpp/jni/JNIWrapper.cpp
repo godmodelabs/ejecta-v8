@@ -58,6 +58,20 @@ void JNIWrapper::reloadBindings() {
     }
 }
 
+bool JNIWrapper::isObjectInstanceOf(JNIObject *obj, const std::string &canonicalName) {
+    auto it = _objmap.find(canonicalName);
+    if(it == _objmap.end()) return false;
+    JNIClassInfo *info = it->second;
+    JNIClassInfo *info2 = obj->_jniClassInfo;
+    while(info2 != info) {
+        info2 = info2->baseClassInfo;
+        if(!info2) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void JNIWrapper::_registerObject(JNIObjectType type,
                                  const std::string &canonicalName, const std::string &baseCanonicalName,
                                  ObjectInitializer i, ObjectConstructor c) {
@@ -77,6 +91,31 @@ void JNIWrapper::_registerObject(JNIObjectType type,
             return;
         }
         baseInfo = it->second;
+
+        // pure java objects can only directly extend JNIObject if they are abstract!
+        if(JNIWrapper::getCanonicalName<JNIObject>() == baseCanonicalName && !i && type != JNIObjectType::kAbstract) {
+            return;
+        }
+    } else if(canonicalName != JNIWrapper::getCanonicalName<JNIObject>()) {
+        // an empty base class is only allowed here for internally registering JNIObject itself
+        return;
+    }
+
+    if(baseInfo) {
+        if (type == JNIObjectType::kTemporary) {
+            // temporary classes can only extend other temporary classes (or JNIObject directly)
+            JNIClassInfo *baseInfo2 = baseInfo;
+            do {
+                if (baseInfo2->type != JNIObjectType::kTemporary && baseInfo2->baseClassInfo) {
+                    return;
+                }
+                baseInfo2 = baseInfo->baseClassInfo;
+            } while (baseInfo2);
+        } else if (baseInfo->type == JNIObjectType::kTemporary &&
+                   baseInfo->type != type) {
+            // temporary classes can only be extended by other temporary classes!
+            return;
+        }
     }
 
     JNIEnv* env = JNIWrapper::getEnvironment();
@@ -165,12 +204,7 @@ void JNIWrapper::initializeNativeObject(jobject object) {
     assert(it != _objmap.end());
 
     JNIClassInfo *info = it->second;
-    // derived java classes have no own native class => use constructor of baseclass
-    if(!info->constructor) {
-        info->baseClassInfo->constructor(object, info);
-    } else {
-        info->constructor(object, info);
-    }
+    info->constructor(object, info);
 }
 
 jobject JNIWrapper::_createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs) {
