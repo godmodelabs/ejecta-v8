@@ -14,9 +14,25 @@
 
 // @TODO: asserts mit message
 // @TODO: asserts in create & register & wrap etc functions anstatt return nullptr
-// @TODO: automatically register JNIV8Object constructor?!
 // @TODO: JNIV8BridgedObject functionality might be better off in JNIV8Object directly? (wrapper objects..)
 
+/*
+ * @TODO
+
+ vllt mit hook um argumente in java objekte zu wrappen und dann einen constructor zu callen?
+contra: engine + js objekt parameter!!
+
+ Bridging: mapping function js obj to canonicalname?
+
+in Java: call JS methods / get/set properties protected?!
+
+ Java Objekt: protected Methoden calljs/setjs/getjs
+Optional: Static method initialize...
+
+Aber: generische wrapper Verwendung braucht eine Klasse mit public Methoden!!
+
+JNIV8ObjectType erweitern um non persistent wrapping: besser für generic wrapper!?
+ */
 class JNIV8Wrapper {
 public:
     static void init();

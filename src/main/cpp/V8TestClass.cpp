@@ -51,7 +51,6 @@ void V8TestClass::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("test", "(JFDLjava/lang/String;)V", (void*)_V8TestClass_test);
     info->registerNativeMethod("getName","()Ljava/lang/String;", (void*)_V8TestClass_getName);
 
-    info->registerConstructor("(Lag/boersego/bgjs/V8Engine;J)V","<JNIV8ObjectInit>");
     info->registerMethod("test3", "(JF)V");
     info->registerStaticMethod("test4", "(Lag/boersego/bgjs/V8TestClass;)V");
     info->registerField("testLong","J");

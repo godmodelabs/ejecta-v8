@@ -36,8 +36,10 @@ const std::string JNIClass::getSignature() const {
 #define GETTER_STATIC(TypeName, JNITypeName) \
 JNITypeName JNIClass::getJavaStatic##TypeName##Field(const std::string& fieldName) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
-    const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
-    return env->GetStatic##TypeName##Field(_jniClassInfo->jniClassRef, fieldId); \
+    auto it = _jniClassInfo->fieldMap.find(fieldName); \
+    assert(it != _jniClassInfo->fieldMap.end());\
+    assert(it->second.isStatic);\
+    return env->GetStatic##TypeName##Field(_jniClassInfo->jniClassRef, it->second.it); \
 }
 
 GETTER_STATIC(Long, jlong)
@@ -56,8 +58,10 @@ GETTER_STATIC(Object, jobject)
 #define SETTER_STATIC(TypeName, JNITypeName) \
 void JNIClass::setJavaStatic##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
-    const auto fieldId = _jniClassInfo->fieldMap.at(fieldName); \
-    return env->SetStatic##TypeName##Field(_jniClassInfo->jniClassRef, fieldId, value); \
+    auto it = _jniClassInfo->fieldMap.find(fieldName); \
+    assert(it != _jniClassInfo->fieldMap.end());\
+    assert(it->second.isStatic);\
+    return env->SetStatic##TypeName##Field(_jniClassInfo->jniClassRef, it->second.id, value); \
 }
 
 SETTER_STATIC(Long, jlong)
@@ -76,21 +80,25 @@ SETTER_STATIC(Object, jobject)
 #define METHOD_STATIC(TypeName, JNITypeName) \
 JNITypeName JNIClass::callJavaStatic##TypeName##Method(const char* name, ...) {\
     JNIEnv* env = JNIWrapper::getEnvironment();\
-    const auto methodId = _jniClassInfo->methodMap.at(name);\
+    auto it = _jniClassInfo->methodMap.find(name); \
+    assert(it != _jniClassInfo->methodMap.end());\
+    assert(it->second.isStatic);\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
-    res = env->CallStatic##TypeName##MethodV(_jniClassInfo->jniClassRef, methodId, args);\
+    res = env->CallStatic##TypeName##MethodV(_jniClassInfo->jniClassRef, it->second.id, args);\
     va_end(args);\
     return res;\
 }
 
 void JNIClass::callJavaStaticVoidMethod(const char* name, ...) {
     JNIEnv* env = JNIWrapper::getEnvironment();
-    const auto methodId = _jniClassInfo->methodMap.at(name);
+    auto it = _jniClassInfo->methodMap.find(name);
+    assert(it != _jniClassInfo->methodMap.end());
+    assert(it->second.isStatic);
     va_list args;
-    va_start(args, name);\
-    env->CallStaticVoidMethodV(_jniClassInfo->jniClassRef, methodId, args);
+    va_start(args, name);
+    env->CallStaticVoidMethodV(_jniClassInfo->jniClassRef, it->second.id, args);
     va_end(args);
 }
 

@@ -31,5 +31,4 @@ void V8TestClass2::initFromJS(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 void V8TestClass2::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-    info->registerConstructor("(Lag/boersego/bgjs/V8Engine;J)V","<JNIV8ObjectInit>");
 }

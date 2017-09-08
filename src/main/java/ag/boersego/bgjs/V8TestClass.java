@@ -24,6 +24,7 @@ public class V8TestClass extends JNIV8Object {
     }
     public long testLong;
 
+    public static void testMethod123() {}
     public static long staticField;
     public static void test4(V8TestClass cls) {
         Log.d("V8TestClass", "Static:" + cls.getName());

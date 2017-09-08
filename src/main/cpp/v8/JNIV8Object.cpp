@@ -111,6 +111,8 @@ void JNIV8Object::setJSObject(BGJSV8Engine *engine, V8ClassInfo *cls,
 }
 
 void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
+    info->registerConstructor("(Lag/boersego/bgjs/V8Engine;J)V","<JNIV8ObjectInit>");
+    info->registerConstructor("(Lag/boersego/bgjs/V8Engine;)V","<JNIV8ObjectInit#2>");
     info->registerNativeMethod("adjustJSExternalMemory", "(J)V", (void*)JNIV8Object::jniAdjustJSExternalMemory);
 }
 

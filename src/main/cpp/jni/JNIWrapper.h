@@ -160,12 +160,12 @@ public:
             JNIObject *jniObject;
             JNIEnv* env = JNIWrapper::getEnvironment();
             if(info->type == JNIObjectType::kPersistent || info->type == JNIObjectType::kAbstract) {
-                auto handleFieldId = info->fieldMap.at("nativeHandle");
-                if(!handleFieldId) {
+                auto handleField = info->fieldMap.find("nativeHandle");
+                if(handleField == info->fieldMap.end()) {
                     env->ExceptionClear();
                     return nullptr;
                 }
-                jlong handle = env->GetLongField(object, handleFieldId);
+                jlong handle = env->GetLongField(object, handleField->second.id);
                 // If object type did not match, the field access might fail => check for java exceptions
                 if (env->ExceptionCheck()) {
                     env->ExceptionClear();

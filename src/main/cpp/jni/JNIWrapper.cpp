@@ -50,7 +50,7 @@ void JNIWrapper::reloadBindings() {
         // check if a default constructor without arguments is available
         jmethodID constructor = info->getMethodID("<init>","()V",false);
         if(constructor) {
-            info->methodMap["<init>"] = constructor;
+            info->methodMap["<init>"] = {false, "<init>", "()V", constructor};
         }
 
         // call static initializer
@@ -126,11 +126,8 @@ void JNIWrapper::_registerObject(JNIObjectType type,
     // class has to exist...
     assert(clazz != NULL);
 
-    JNIClassInfo *info = new JNIClassInfo(type, canonicalName, i, c, baseInfo);
+    JNIClassInfo *info = new JNIClassInfo(type, clazz, canonicalName, i, c, baseInfo);
     _objmap[canonicalName] = info;
-
-    // cache class
-    info->jniClassRef = (jclass)env->NewGlobalRef(clazz);
 
     // if it is a persistent class, and has no base class, register the field for storing the native class
     // => this is only for JNIObject! ALL other objects have a baseclass
@@ -141,7 +138,7 @@ void JNIWrapper::_registerObject(JNIObjectType type,
     // check if a default constructor without arguments is available
     jmethodID constructor = info->getMethodID("<init>","()V",false);
     if(constructor) {
-        info->methodMap["<init>"] = constructor;
+        info->methodMap["<init>"] = {false, "<init>", "()V", constructor};
     }
 
     // call static initializer (for java derived classes it is empty)
@@ -221,10 +218,10 @@ jobject JNIWrapper::_createObject(const std::string& canonicalName, const char* 
         jclass clazz = env->FindClass(canonicalName.c_str());
         jmethodID constructor;
         if (!constructorAlias) {
-            constructor = info->methodMap.at("<init>");
+            constructor = info->methodMap.at("<init>").id;
             return env->NewObject(clazz, constructor);
         } else {
-            constructor = info->methodMap.at(constructorAlias);
+            constructor = info->methodMap.at(constructorAlias).id;
             return env->NewObjectV(clazz, constructor, constructorArgs);
         }
     }

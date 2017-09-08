@@ -119,7 +119,8 @@ JNITypeName JNIObject::getJava##TypeName##Field(const std::string& fieldName) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = _jniClassInfo->fieldMap.find(fieldName);\
     assert(it != _jniClassInfo->fieldMap.end());\
-    return env->Get##TypeName##Field(_jniObject, it->second); \
+    assert(!it->second.isStatic);\
+    return env->Get##TypeName##Field(_jniObject, it->second.id); \
 }
 
 GETTER(Long, jlong)
@@ -140,7 +141,8 @@ void JNIObject::setJava##TypeName##Field(const std::string& fieldName, JNITypeNa
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = _jniClassInfo->fieldMap.find(fieldName);\
     assert(it != _jniClassInfo->fieldMap.end());\
-    return env->Set##TypeName##Field(getJObject(), it->second, value); \
+    assert(!it->second.isStatic);\
+    return env->Set##TypeName##Field(getJObject(), it->second.id, value); \
 }
 
 SETTER(Long, jlong)
@@ -161,10 +163,11 @@ JNITypeName JNIObject::callJava##TypeName##Method(const char* name, ...) {\
     JNIEnv* env = JNIWrapper::getEnvironment();\
     auto it = _jniClassInfo->methodMap.find(name);\
     assert(it != _jniClassInfo->methodMap.end());\
+    assert(!it->second.isStatic);\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
-    res = env->Call##TypeName##MethodV(getJObject(), it->second, args);\
+    res = env->Call##TypeName##MethodV(getJObject(), it->second.id, args);\
     va_end(args);\
     return res;\
 }
@@ -173,9 +176,10 @@ void JNIObject::callJavaVoidMethod(const char* name, ...) {
     JNIEnv* env = JNIWrapper::getEnvironment();
     auto it = _jniClassInfo->methodMap.find(name);
     assert(it != _jniClassInfo->methodMap.end());
+    assert(!it->second.isStatic);
     va_list args;
     va_start(args, name);\
-    env->CallVoidMethodV(getJObject(), it->second, args);
+    env->CallVoidMethodV(getJObject(), it->second.id, args);
     va_end(args);
 }
 

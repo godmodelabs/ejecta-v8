@@ -16,4 +16,7 @@ public class V8TestClass2 extends V8TestClass {
         super(engine, jsObjPtr);
         Log.d("V8TestClass2", "Constructor:");
     }
+
+    public int testLong;
+    public static long staticField;
 }
