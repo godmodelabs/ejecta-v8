@@ -16,20 +16,28 @@ JNIClassInfo::JNIClassInfo(JNIObjectType  type, jclass clazz, const std::string&
     // copy up field & methodMap from baseclass for faster lookup
     // can be overwritten by subclass
     if(baseClassInfo) {
-        // we might have to register the base classes instance methods again on this class because they might have been overridden on the java side
-        // if we kept using the baseclasses ids, we would always call the baseclasses implementation!
-        // Assume A<-B<-C. If B overwrites method M from A, and we would be using the methodId from A, then C would bypass B's overridden method
-        // this clearly is NOT the desired outcome and not even possible in Java itself; there B could only call B.M from its own M implementation
+        // In contrast to methods, Java constructors are NOT virtual
+        // e.g. assume class B extends A; both have a constructor X taking the same parameters
+        // we have to obtain a different methodID for X on B if we want to create instances of B!
+        // => instead of requiring all subclasses to manually register constructors we just do this automatically!
+        // also, we just drop constructors that are NOT implemented on a subclass (because they can never be used to create an instance of the subclass)
         for(auto &it : baseClassInfo->methodMap) {
             // use base class id if:
-            // - method does not exist on the subclass it means it was not overridden
             // - method is static
-            if(it.second.isStatic || !getMethodID(it.second.name, it.second.signature, it.second.isStatic)) {
-                methodMap[it.first] = it.second;
+            // - method is not a constructor
+            // - method does not exist on the subclass (means it was not overridden)
+            if(it.second.isStatic || it.second.name[0] != '<' || !getMethodID(it.second.name, it.second.signature, it.second.isStatic)) {
+                // constructors that do not exist on subclasses are dropped, only methods are copied!
+                if(it.second.name[0] != '<') {
+                    methodMap[it.first] = it.second;
+                }
                 continue;
             }
             registerMethod(it.second.name, it.second.signature, it.first);
         }
+
+        // fields are simply copied from base class
+        fieldMap = baseClassInfo->fieldMap;
 
         // copy up constructor from base class
         if(!constructor) {
@@ -51,7 +59,7 @@ void JNIClassInfo::registerMethod(const std::string& methodName,
                                   const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : methodName;
     auto it = methodMap.find(finalAlias);
-    assert(it != methodMap.end());
+    assert(it == methodMap.end());
     jmethodID methodId = getMethodID(methodName, signature, false);
     assert(methodId);
     methodMap[finalAlias] = {false, methodName, signature, methodId};
@@ -63,7 +71,7 @@ void JNIClassInfo::registerField(const std::string& fieldName,
 ) {
     const std::string& finalAlias = alias.length() ? alias : fieldName;
     auto it = fieldMap.find(finalAlias);
-    assert(it != fieldMap.end());
+    assert(it == fieldMap.end());
     jfieldID fieldId = getFieldID(fieldName, signature, false);
     assert(fieldId);
     fieldMap[finalAlias] = {false, fieldName, signature, fieldId};
@@ -74,7 +82,7 @@ void JNIClassInfo::registerStaticMethod(const std::string& methodName,
                                         const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : methodName;
     auto it = methodMap.find(finalAlias);
-    assert(it != methodMap.end());
+    assert(it == methodMap.end());
     jmethodID methodId = getMethodID(methodName, signature, true);
     assert(methodId);
     methodMap[finalAlias] = {true, methodName, signature, methodId};
@@ -85,7 +93,7 @@ void JNIClassInfo::registerStaticField(const std::string& fieldName,
                                        const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : fieldName;
     auto it = fieldMap.find(finalAlias);
-    assert(it != fieldMap.end());
+    assert(it == fieldMap.end());
     jfieldID fieldId = getFieldID(fieldName, signature, true);
     assert(fieldId);
     fieldMap[finalAlias] = {true, fieldName, signature, fieldId};

@@ -114,7 +114,7 @@ private:
     std::vector<JNINativeMethod> methods;
     jclass jniClassRef;
     std::string canonicalName;
-
+    
     std::map<std::string, JNIMethodInfo> methodMap;
     std::map<std::string, JNIFieldInfo> fieldMap;
 };

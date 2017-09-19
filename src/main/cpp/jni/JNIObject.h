@@ -32,7 +32,8 @@ public:
     const jobject getJObject() const;
 
     /**
-     * calls the specified static java object method
+     * calls the specified java object method
+     * @TODO: do we need a way to call implementation of a specific type via template methods? (for super.foo())
      */
     void callJavaVoidMethod(const char* name, ...);
     jlong callJavaLongMethod(const char* name, ...);
@@ -44,6 +45,21 @@ public:
     jint callJavaIntMethod(const char* name, ...);
     jshort callJavaShortMethod(const char* name, ...);
     jobject callJavaObjectMethod(const char* name, ...);
+
+    /**
+     * non-virtually calls the specified java object method on the specified class
+     * e.g. a java equivalent would be calling "super.foo()"
+     */
+    void callJavaVoidMethod(const std::string& canonicalName, const char* name, ...);
+    jlong callJavaLongMethod(const std::string& canonicalName, const char* name, ...);
+    jboolean callJavaBooleanMethod(const std::string& canonicalName, const char* name, ...);
+    jbyte callJavaByteMethod(const std::string& canonicalName, const char* name, ...);
+    jchar callJavaCharMethod(const std::string& canonicalName, const char* name, ...);
+    jdouble callJavaDoubleMethod(const std::string& canonicalName, const char* name, ...);
+    jfloat callJavaFloatMethod(const std::string& canonicalName, const char* name, ...);
+    jint callJavaIntMethod(const std::string& canonicalName, const char* name, ...);
+    jshort callJavaShortMethod(const std::string& canonicalName, const char* name, ...);
+    jobject callJavaObjectMethod(const std::string& canonicalName, const char* name, ...);
 
     /**
      * retrieves the value of the specified static java object field

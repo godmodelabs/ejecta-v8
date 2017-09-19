@@ -17,6 +17,10 @@ public class V8TestClass2 extends V8TestClass {
         Log.d("V8TestClass2", "Constructor:");
     }
 
+    public void test3(long testL, float testF) {
+        Log.d("V8TestClass2", "Overwritten Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
+    }
+
     public int testLong;
     public static long staticField;
 }

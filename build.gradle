@@ -24,10 +24,6 @@ android {
             path "CMakeLists.txt"
         }
     }
-
-    // packagingOptions{
-    //        doNotStrip "*/x86_64/*.so"
-    // }
 }
 
 repositories {

@@ -39,7 +39,7 @@ JNITypeName JNIClass::getJavaStatic##TypeName##Field(const std::string& fieldNam
     auto it = _jniClassInfo->fieldMap.find(fieldName); \
     assert(it != _jniClassInfo->fieldMap.end());\
     assert(it->second.isStatic);\
-    return env->GetStatic##TypeName##Field(_jniClassInfo->jniClassRef, it->second.it); \
+    return env->GetStatic##TypeName##Field(_jniClassInfo->jniClassRef, it->second.id); \
 }
 
 GETTER_STATIC(Long, jlong)
