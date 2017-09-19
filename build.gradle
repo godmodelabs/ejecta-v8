@@ -5,10 +5,6 @@ android {
     compileSdkVersion 25
     buildToolsVersion '25.0.3'
     defaultPublishConfig "debug"
-    productFlavors {
-        library {
-        }
-    }
 
     defaultConfig {
         minSdkVersion 16
@@ -18,7 +14,7 @@ android {
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_STL=c++_static"
-                abiFilters 'armeabi-v7a', 'x86' //, 'arm64-v8a', 'x86_64'
+                abiFilters 'armeabi-v7a', 'x86', 'arm64-v8a' //, 'x86_64'
             }
         }
     }
@@ -29,9 +25,9 @@ android {
         }
     }
 
-    packagingOptions{
-        doNotStrip "*/x86/*.so"
-    }
+    // packagingOptions{
+    //        doNotStrip "*/x86_64/*.so"
+    // }
 }
 
 repositories {
@@ -44,7 +40,7 @@ repositories {
 
 dependencies {
     compile fileTree(dir: 'libs', include: '*.jar')
-    compile 'com.squareup.okhttp3:okhttp:3.4.1'
+    compile 'com.squareup.okhttp3:okhttp:3.8.1'
 }
 
 task distributeDebug() {
@@ -70,6 +66,6 @@ task distributeRelease {
 }
 
 afterEvaluate {
-    bundleLibraryDebug.finalizedBy distributeDebug
-    bundleLibraryRelease.finalizedBy distributeRelease
+    bundleDebug.finalizedBy distributeDebug
+    bundleRelease.finalizedBy distributeRelease
 }
