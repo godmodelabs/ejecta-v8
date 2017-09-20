@@ -14,8 +14,11 @@ android {
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_STL=c++_static"
-                abiFilters 'armeabi-v7a', 'x86', 'arm64-v8a' //, 'x86_64'
+                abiFilters 'x86', 'armeabi-v7a'// , 'arm64-v8a'
             }
+        }
+        ndk {
+            abiFilters 'x86', 'armeabi-v7a'// , 'arm64-v8a'
         }
     }
 
@@ -39,15 +42,15 @@ repositories {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: '*.jar')
-    compile 'com.squareup.okhttp3:okhttp:3.8.1'
+    implementation fileTree(dir: 'libs', include: '*.jar')
+    implementation 'com.squareup.okhttp3:okhttp:3.8.1'
 }
 
 task distributeDebug() {
     doLast {
         delete "dist/debug"
         copy {
-            from zipTree(new File('build/outputs/aar/ejecta-v8-library-debug.aar'))
+            from zipTree(new File('build/outputs/aar/ejecta-v8-debug.aar'))
             into "dist/debug"
             include 'jni/**'
         }
@@ -58,7 +61,7 @@ task distributeRelease {
     doLast {
         delete "dist/release"
         copy {
-            from zipTree(new File('build/outputs/aar/ejecta-v8-library-release.aar'))
+            from zipTree(new File('build/outputs/aar/ejecta-v8-release.aar'))
             into "dist/release"
             include 'jni/**'
         }
