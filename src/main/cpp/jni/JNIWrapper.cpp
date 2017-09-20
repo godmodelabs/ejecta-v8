@@ -11,12 +11,52 @@
 void JNIWrapper::init(JavaVM *vm) {
     _jniVM = vm;
 
-    _registerObject(JNIObjectType::kAbstract,
+    _registerObject(typeid(JNIObject).hash_code(), JNIObjectType::kAbstract,
                     JNIWrapper::getCanonicalName<JNIObject>(), "", initialize<JNIObject>, nullptr);
 }
 
 bool JNIWrapper::isInitialized() {
     return _jniVM != nullptr;
+}
+
+void JNIWrapper::_reloadBinding(std::map<std::string, bool>& alreadyReloaded, JNIClassInfo *info) {
+    JNIEnv* env = JNIWrapper::getEnvironment();
+    JNIClassInfo *info2;
+
+    info2 = info->baseClassInfo;
+    if(info2 && !alreadyReloaded[info2->canonicalName]) {
+        _reloadBinding(alreadyReloaded, info2);
+    }
+
+    // first reset class info
+    // empty cache
+    info->methodMap.clear();
+    info->fieldMap.clear();
+
+    // update class ref
+    env->DeleteGlobalRef(info->jniClassRef);
+    jclass clazz = env->FindClass(info->canonicalName.c_str());
+    info->jniClassRef = (jclass)env->NewGlobalRef(clazz);
+
+    // now inherit from base
+    info->inherit();
+
+    // if it is a persistent class, update the  field for storing the native handle
+    if(info->type == JNIObjectType::kPersistent) {
+        info->registerField("nativeHandle", "J");
+    }
+
+    // check if a default constructor without arguments is available
+    jmethodID constructor = info->getMethodID("<init>","()V",false);
+    if(constructor) {
+        info->methodMap["<init>"] = {false, "<init>", "()V", constructor};
+    }
+
+    // call static initializer
+    info->initializer(info, true);
+
+    // mark as reloaded
+    alreadyReloaded[info->canonicalName] = true;
 }
 
 void JNIWrapper::reloadBindings() {
@@ -25,36 +65,15 @@ void JNIWrapper::reloadBindings() {
         _firstCall = false;
         return;
     }
-    JNIEnv* env = JNIWrapper::getEnvironment();
     JNIClassInfo *info;
 
     _jniCanonicalNameMethodID = nullptr;
 
+    std::map<std::string, bool> alreadyReloaded;
+
     for(auto &it : _objmap) {
         info = it.second;
-
-        // empty cache
-        info->methodMap.clear();
-        info->fieldMap.clear();
-
-        // update class ref
-        env->DeleteGlobalRef(info->jniClassRef);
-        jclass clazz = env->FindClass(info->canonicalName.c_str());
-        info->jniClassRef = (jclass)env->NewGlobalRef(clazz);
-
-        // if it is a persistent class, update the  field for storing the native handle
-        if(info->type == JNIObjectType::kPersistent) {
-            info->registerField("nativeHandle", "J");
-        }
-
-        // check if a default constructor without arguments is available
-        jmethodID constructor = info->getMethodID("<init>","()V",false);
-        if(constructor) {
-            info->methodMap["<init>"] = {false, "<init>", "()V", constructor};
-        }
-
-        // call static initializer
-        info->initializer(info, true);
+        _reloadBinding(alreadyReloaded, info);
     }
 }
 
@@ -72,7 +91,7 @@ bool JNIWrapper::isObjectInstanceOf(JNIObject *obj, const std::string &canonical
     return true;
 }
 
-void JNIWrapper::_registerObject(JNIObjectType type,
+void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
                                  const std::string &canonicalName, const std::string &baseCanonicalName,
                                  ObjectInitializer i, ObjectConstructor c) {
     // canonicalName may be already registered
@@ -126,7 +145,8 @@ void JNIWrapper::_registerObject(JNIObjectType type,
     // class has to exist...
     assert(clazz != NULL);
 
-    JNIClassInfo *info = new JNIClassInfo(type, clazz, canonicalName, i, c, baseInfo);
+    JNIClassInfo *info = new JNIClassInfo(hashCode, type, clazz, canonicalName, i, c, baseInfo);
+    info->inherit();
     _objmap[canonicalName] = info;
 
     // if it is a persistent class, and has no base class, register the field for storing the native class

@@ -31,4 +31,8 @@ void V8TestClass2::initFromJS(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 void V8TestClass2::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
+
+    std::shared_ptr<V8TestClass2>* pObject;
+
+    this->getJavaBooleanField("bla");
 }

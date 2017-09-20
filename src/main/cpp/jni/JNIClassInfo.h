@@ -11,6 +11,7 @@
 
 class JNIClassInfo;
 class JNIObject;
+template<class ScopeClass, class BaseClass> class JNIScope;
 
 enum class JNIObjectType {
     /**
@@ -35,7 +36,7 @@ enum class JNIObjectType {
 typedef JNIObject*(*ObjectConstructor)(jobject obj, JNIClassInfo *info);
 typedef void(*ObjectInitializer)(JNIClassInfo *info, bool isReload);
 
-struct JNIMethodInfo{
+struct JNIMethodInfo {
     bool isStatic;
     std::string name, signature;
     jmethodID id;
@@ -51,6 +52,7 @@ struct JNIClassInfo {
     friend class JNIClass;
     friend class JNIObject;
     friend class JNIWrapper;
+    template<class ScopeClass, class BaseClass> friend class JNIScope;
 public:
     /**
      * register the callback for a native method
@@ -97,7 +99,8 @@ public:
     void registerStaticField(const std::string& fieldName, const std::string& signature, const std::string& alias = "");
 
 private:
-    JNIClassInfo(JNIObjectType type, jclass clazz, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c, JNIClassInfo *baseClassInfo);
+    JNIClassInfo(size_t hashCode, JNIObjectType type, jclass clazz, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c, JNIClassInfo *baseClassInfo);
+    void inherit();
 
     jmethodID getMethodID(const std::string& methodName,
                           const std::string& signature,
@@ -114,7 +117,7 @@ private:
     std::vector<JNINativeMethod> methods;
     jclass jniClassRef;
     std::string canonicalName;
-    
+    size_t hashCode;
     std::map<std::string, JNIMethodInfo> methodMap;
     std::map<std::string, JNIFieldInfo> fieldMap;
 };

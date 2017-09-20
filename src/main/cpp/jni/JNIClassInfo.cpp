@@ -8,11 +8,13 @@
 #include "JNIWrapper.h"
 #include "JNIClassInfo.h"
 
-JNIClassInfo::JNIClassInfo(JNIObjectType  type, jclass clazz, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c, JNIClassInfo *baseClassInfo) :
-        type(type), canonicalName(canonicalName), initializer(i), constructor(c), baseClassInfo(baseClassInfo) {
+JNIClassInfo::JNIClassInfo(size_t hashCode, JNIObjectType  type, jclass clazz, const std::string& canonicalName, ObjectInitializer i, ObjectConstructor c, JNIClassInfo *baseClassInfo) :
+        hashCode(hashCode), type(type), canonicalName(canonicalName), initializer(i), constructor(c), baseClassInfo(baseClassInfo) {
     // cache class
     jniClassRef = (jclass)JNIWrapper::getEnvironment()->NewGlobalRef(clazz);
+}
 
+void JNIClassInfo::inherit() {
     // copy up field & methodMap from baseclass for faster lookup
     // can be overwritten by subclass
     if(baseClassInfo) {

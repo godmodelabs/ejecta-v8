@@ -8,9 +8,9 @@
 #include <jni.h>
 #include "../v8/JNIV8Wrapper.h"
 
-class V8TestClass : public JNIV8Object {
+class V8TestClass : public JNIScope<V8TestClass, JNIV8Object> {
 public:
-    V8TestClass(jobject obj, JNIClassInfo *info) : JNIV8Object(obj, info) {};
+    V8TestClass(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void initializeV8Bindings(V8ClassInfo *info);

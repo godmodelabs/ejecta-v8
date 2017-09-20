@@ -8,9 +8,9 @@
 
 #include "V8TestClass.h"
 
-class V8TestClass2 : public V8TestClass {
+class V8TestClass2 : public JNIScope<V8TestClass2, V8TestClass> {
 public:
-    V8TestClass2(jobject obj, JNIClassInfo *info) : V8TestClass(obj, info) {};
+    V8TestClass2(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void initializeV8Bindings(V8ClassInfo *info);

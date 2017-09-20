@@ -13,6 +13,7 @@
 #include "JNIClassInfo.h"
 #include "JNIClass.h"
 #include "JNIObject.h"
+#include "JNIScope.h"
 #include <assert.h>
 
 class JNIWrapper {
@@ -53,7 +54,7 @@ public:
      */
     template<class ObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIObject>(),
+        _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIObject>(),
                         initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
     };
 
@@ -65,7 +66,7 @@ public:
      */
     template<class ObjectType, class BaseObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
+        _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
                         initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
     };
 
@@ -78,7 +79,7 @@ public:
      */
     template<class ObjectType> static
     void registerObject(const std::string &baseCanonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), baseCanonicalName,
+        _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), baseCanonicalName,
                         initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
     };
 
@@ -89,7 +90,7 @@ public:
      */
     template<class ObjectType> static
     void registerJavaObject(const std::string &canonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr);
+        _registerObject(typeid(void).hash_code(), type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr);
     };
 
     /**
@@ -100,7 +101,7 @@ public:
      */
     static
     void registerJavaObject(const std::string &canonicalName, const std::string &baseCanonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(type, canonicalName, baseCanonicalName, nullptr, nullptr);
+        _registerObject(typeid(void).hash_code(), type, canonicalName, baseCanonicalName, nullptr, nullptr);
     };
 
     /**
@@ -215,7 +216,9 @@ private:
     static jobject _createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs);
     static std::shared_ptr<JNIClass> _wrapClass(const std::string& canonicalName);
 
-    static void _registerObject(JNIObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
+    static void _registerObject(size_t hashCode, JNIObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
+
+    static void _reloadBinding(std::map<std::string, bool>& alreadyConverted, JNIClassInfo *info);
 
     static JavaVM *_jniVM;
     static JNIEnv *_jniEnv;
