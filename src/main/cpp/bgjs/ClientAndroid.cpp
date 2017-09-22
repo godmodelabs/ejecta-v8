@@ -119,7 +119,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
         return -1;
     }
 
-    if(!JNIWrapper::isInitialized()) {
+	if(!JNIWrapper::isInitialized()) {
         JNIWrapper::init(vm);
 		JNIV8Wrapper::init();
     }

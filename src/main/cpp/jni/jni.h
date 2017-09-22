@@ -5,6 +5,7 @@
 #ifndef ANDROID_TRADINGLIB_SAMPLE_JNI_H
 #define ANDROID_TRADINGLIB_SAMPLE_JNI_H
 
+#include "jni_assert.h"
 #include "JNIClassInfo.h"
 #include "JNIClass.h"
 #include "JNIObject.h"

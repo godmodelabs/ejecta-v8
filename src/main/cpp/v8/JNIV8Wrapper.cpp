@@ -34,7 +34,7 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
 V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine) {
     // find class info container
     auto it = _objmap.find(canonicalName);
-    assert(it != _objmap.end());
+    JNI_ASSERT(it != _objmap.end(), "Attempt to retrieve class info for unregistered class");
 
     // check if class info object already exists for this engine!
     for(auto &it2 : it->second->classInfos) {
@@ -69,7 +69,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
                 break;
             }
         }
-        assert(baseInfo);
+        JNI_ASSERT(baseInfo, "Failed to retrieve baseclass info");
         Local<FunctionTemplate> baseFT = Local<FunctionTemplate>::New(isolate, baseInfo->functionTemplate);
         ft->Inherit(baseFT);
     }

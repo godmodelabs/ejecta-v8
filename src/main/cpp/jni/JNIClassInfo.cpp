@@ -2,8 +2,9 @@
 // Created by Martin Kleinhans on 21.04.17.
 //
 
-#include <assert.h>
 #include <jni.h>
+
+#include "jni_assert.h"
 
 #include "JNIWrapper.h"
 #include "JNIClassInfo.h"
@@ -49,9 +50,11 @@ void JNIClassInfo::inherit() {
 }
 
 void JNIClassInfo::registerNativeMethod(const std::string &name, const std::string &signature, void* fnPtr) {
+#ifdef ENABLE_JNI_ASSERT
     for(auto &it : methods) {
-        assert(strcmp(it.name, name.c_str()));
+        JNI_ASSERTF(strcmp(it.name, name.c_str()), "Native method '%s' is already registered", name.c_str());
     }
+#endif
     methods.push_back({strdup(name.c_str()), strdup(signature.c_str()), fnPtr}); // freed after calling registerNatives
 }
 
@@ -64,9 +67,9 @@ void JNIClassInfo::registerMethod(const std::string& methodName,
                                   const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : methodName;
     auto it = methodMap.find(finalAlias);
-    assert(it == methodMap.end());
+    JNI_ASSERTF(it == methodMap.end(), "Method '%s' is already registered", methodName.c_str());
     jmethodID methodId = getMethodID(methodName, signature, false);
-    assert(methodId);
+    JNI_ASSERTF(methodId, "Method '%s' does not exist on Java class", methodName.c_str());
     methodMap[finalAlias] = {false, methodName, signature, methodId};
 }
 
@@ -76,7 +79,7 @@ void JNIClassInfo::registerField(const std::string& fieldName,
 ) {
     const std::string& finalAlias = alias.length() ? alias : fieldName;
     jfieldID fieldId = getFieldID(fieldName, signature, false);
-    assert(fieldId);
+    JNI_ASSERTF(fieldId, "Field '%s' does not exist on Java class", fieldName.c_str());
     fieldMap[finalAlias] = {false, fieldName, signature, fieldId};
 }
 
@@ -85,7 +88,7 @@ void JNIClassInfo::registerStaticMethod(const std::string& methodName,
                                         const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : methodName;
     jmethodID methodId = getMethodID(methodName, signature, true);
-    assert(methodId);
+    JNI_ASSERTF(methodId, "Method '%s' does not exist on Java class", methodName.c_str());
     methodMap[finalAlias] = {true, methodName, signature, methodId};
 }
 
@@ -94,7 +97,7 @@ void JNIClassInfo::registerStaticField(const std::string& fieldName,
                                        const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : fieldName;
     jfieldID fieldId = getFieldID(fieldName, signature, true);
-    assert(fieldId);
+    JNI_ASSERTF(fieldId, "Field '%s' does not exist on Java class", fieldName.c_str());
     fieldMap[finalAlias] = {true, fieldName, signature, fieldId};
 }
 

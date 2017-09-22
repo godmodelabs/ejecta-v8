@@ -58,6 +58,13 @@ add_library( # Sets the name of the library.
              )
 
 #--------------------------------------------------
+# definitions
+#--------------------------------------------------
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+add_definitions(-DENABLE_JNI_ASSERT=1)
+endif()
+
+#--------------------------------------------------
 # select right v8 library for current abi
 #--------------------------------------------------
 

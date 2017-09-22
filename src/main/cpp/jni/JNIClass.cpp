@@ -2,8 +2,7 @@
 // Created by Martin Kleinhans on 21.04.17.
 //
 
-#include <assert.h>
-
+#include "jni_assert.h"
 #include "JNIClass.h"
 #include "JNIWrapper.h"
 
@@ -14,8 +13,8 @@
 JNITypeName JNIClass::getJavaStatic##TypeName##Field(const std::string& fieldName) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = _jniClassInfo->fieldMap.find(fieldName); \
-    assert(it != _jniClassInfo->fieldMap.end());\
-    assert(it->second.isStatic);\
+    JNI_ASSERT(it != _jniClassInfo->fieldMap.end(), "Attempt to get unregistered field");\
+    JNI_ASSERT(it->second.isStatic, "Attempt to get non-static field via static get");\
     return env->GetStatic##TypeName##Field(_jniClassInfo->jniClassRef, it->second.id); \
 }
 
@@ -36,8 +35,8 @@ GETTER_STATIC(Object, jobject)
 void JNIClass::setJavaStatic##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = _jniClassInfo->fieldMap.find(fieldName); \
-    assert(it != _jniClassInfo->fieldMap.end());\
-    assert(it->second.isStatic);\
+    JNI_ASSERT(it != _jniClassInfo->fieldMap.end(), "Attempt to set unregistered field");\
+    JNI_ASSERT(it->second.isStatic, "Attempt to set non-static field via static setter");\
     return env->SetStatic##TypeName##Field(_jniClassInfo->jniClassRef, it->second.id, value); \
 }
 
@@ -58,8 +57,8 @@ SETTER_STATIC(Object, jobject)
 JNITypeName JNIClass::callJavaStatic##TypeName##Method(const char* name, ...) {\
     JNIEnv* env = JNIWrapper::getEnvironment();\
     auto it = _jniClassInfo->methodMap.find(name); \
-    assert(it != _jniClassInfo->methodMap.end());\
-    assert(it->second.isStatic);\
+    JNI_ASSERT(it != _jniClassInfo->methodMap.end(), "Attempt to call unregistered method");\
+    JNI_ASSERT(it->second.isStatic, "Attempt to call non-static method as static");\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
@@ -71,8 +70,8 @@ JNITypeName JNIClass::callJavaStatic##TypeName##Method(const char* name, ...) {\
 void JNIClass::callJavaStaticVoidMethod(const char* name, ...) {
     JNIEnv* env = JNIWrapper::getEnvironment();
     auto it = _jniClassInfo->methodMap.find(name);
-    assert(it != _jniClassInfo->methodMap.end());
-    assert(it->second.isStatic);
+    JNI_ASSERT(it != _jniClassInfo->methodMap.end(), "Attempt to call unregistered method");
+    JNI_ASSERT(it->second.isStatic, "Attempt to call non-static method as static");
     va_list args;
     va_start(args, name);
     env->CallStaticVoidMethodV(_jniClassInfo->jniClassRef, it->second.id, args);

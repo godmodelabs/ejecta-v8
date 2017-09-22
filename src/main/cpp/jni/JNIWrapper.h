@@ -9,7 +9,7 @@
 #import <string>
 #import <map>
 #include <jni.h>
-#include <assert.h>
+#include "jni_assert.h"
 
 #include "JNIClassInfo.h"
 #include "JNIClass.h"
@@ -26,7 +26,8 @@ public:
      */
     template <typename T> static
     const std::string getCanonicalName() {
-        assert("JNIWrapper::getCanonicalName called for unregistered class");
+        JNI_ASSERT(0, "JNIWrapper::getCanonicalName called for unregistered class");
+        return "<unknown>";
     }
 
     /**

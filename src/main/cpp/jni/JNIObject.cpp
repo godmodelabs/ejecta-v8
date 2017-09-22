@@ -2,7 +2,7 @@
 // Created by Martin Kleinhans on 18.04.17.
 //
 
-#include <assert.h>
+#include "jni_assert.h"
 
 #include "JNIObject.h"
 #include "JNIWrapper.h"
@@ -10,7 +10,6 @@
 BGJS_JNIOBJECT_LINK(JNIObject, "ag/boersego/bgjs/JNIObject");
 
 JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
-
     JNIEnv* env = JNIWrapper::getEnvironment();
     if(info->type == JNIObjectType::kPersistent) {
         // persistent objects are owned by the java side: they are destroyed once the java side is garbage collected
@@ -30,10 +29,10 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
     // actually type will never be kAbstract here, because JNIClassInfo will be provided for the subclass!
     // however, this gets rid of the "never used" warning for the constant, and works just fine as well.
     if(info->type != JNIObjectType::kTemporary) {
-        auto it = info->fieldMap.find("nativeHandle");
-        assert(it != info->fieldMap.end());
-        assert(!it->second.isStatic);
-        env->SetLongField(getJObject(), it->second.id, reinterpret_cast<jlong>(this));
+        JNIClassInfo *info = _jniClassInfo;
+        while(info && info->baseClassInfo) info = info->baseClassInfo;
+        auto it = info->fieldMap.at("nativeHandle");
+        env->SetLongField(getJObject(), it.id, reinterpret_cast<jlong>(this));
     }
 }
 
@@ -89,7 +88,7 @@ std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {
 }
 
 void JNIObject::retainJObject() {
-    assert(isPersistent());
+    JNI_ASSERT(isPersistent(), "Attempt to retain non-persistent native object");
     if(_jniObjectRefCount==0) {
         JNIEnv *env = JNIWrapper::getEnvironment();
         _jniObject = env->NewGlobalRef(_jniObjectWeak);
@@ -100,7 +99,7 @@ void JNIObject::retainJObject() {
 }
 
 void JNIObject::releaseJObject() {
-    assert(isPersistent());
+    JNI_ASSERT(isPersistent(), "Attempt to release non-persistent native object");
     if(_jniObjectRefCount==1) {
         JNIEnv *env = JNIWrapper::getEnvironment();
         _jniObjectWeak = env->NewWeakGlobalRef(_jniObject);
@@ -117,8 +116,8 @@ void JNIObject::releaseJObject() {
 JNITypeName JNIObject::callJava##TypeName##Method(const char* name, ...) {\
     JNIEnv* env = JNIWrapper::getEnvironment();\
     auto it = _jniClassInfo->methodMap.find(name);\
-    assert(it != _jniClassInfo->methodMap.end());\
-    assert(!it->second.isStatic);\
+    JNI_ASSERTF(it != _jniClassInfo->methodMap.end(), "Attempt to call unregistered method '%s'", name);\
+    JNI_ASSERTF(!it->second.isStatic, "Attempt to call non-static method '%s' as static", name);\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
@@ -130,8 +129,8 @@ JNITypeName JNIObject::callJava##TypeName##Method(const char* name, ...) {\
 void JNIObject::callJavaVoidMethod(const char* name, ...) {
     JNIEnv* env = JNIWrapper::getEnvironment();
     auto it = _jniClassInfo->methodMap.find(name);
-    assert(it != _jniClassInfo->methodMap.end());
-    assert(!it->second.isStatic);
+    JNI_ASSERTF(it != _jniClassInfo->methodMap.end(), "Attempt to call unregistered method '%s'", name);
+    JNI_ASSERTF(!it->second.isStatic, "Attempt to call non-static method '%s' as static", name);
     va_list args;
     va_start(args, name);\
     env->CallVoidMethodV(getJObject(), it->second.id, args);

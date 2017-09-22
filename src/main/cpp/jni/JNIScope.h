@@ -5,6 +5,8 @@
 #ifndef ANDROID_TRADINGLIB_SAMPLE_JNISCOPE_H
 #define ANDROID_TRADINGLIB_SAMPLE_JNISCOPE_H
 
+#include "jni_assert.h"
+
 class JNIObject;
 class JNIWrapper;
 class JNIClassInfo;
@@ -49,15 +51,15 @@ size_t scope = typeid(ScopeClass).hash_code(); \
 BaseClass* jniObject = static_cast<BaseClass*>(this); \
 JNIClassInfo *info = jniObject->_jniClassInfo; \
 while(info->hashCode != scope && info) info = info->baseClassInfo; \
-assert(info);
+JNI_ASSERT(info, "Invalid class hierarchy encountered");
 
 #define STATIC_METHOD(TypeName, JNITypeName) \
 JNITypeName callJavaStatic##TypeName##Method(const char* name, ...) {\
     CLASS_SCOPE() \
     JNIEnv* env = JNIWrapper::getEnvironment();\
     auto it = info->methodMap.find(name); \
-    assert(it != info->methodMap.end());\
-    assert(it->second.isStatic);\
+    JNI_ASSERTF(it != info->methodMap.end(), "Attempt to call unregistered method '%s'", name);\
+    JNI_ASSERTF(it->second.isStatic, "Attempt to call non-static method '%s' as static", name);\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
@@ -69,12 +71,12 @@ JNITypeName callJavaStatic##TypeName##Method(const char* name, ...) {\
 #define SUPER_METHOD(TypeName, JNITypeName) \
 JNITypeName callJavaSuper##TypeName##Method(const char* name, ...) {\
     CLASS_SCOPE() \
-    assert(info->baseClassInfo);\
+    JNI_ASSERT(info->baseClassInfo, "Attempt to call super on a class that has no super class");\
     info = info->baseClassInfo;\
     JNIEnv* env = JNIWrapper::getEnvironment();\
     auto it = info->methodMap.find(name);\
-    assert(it != info->methodMap.end());\
-    assert(!it->second.isStatic);\
+    JNI_ASSERTF(it != info->methodMap.end(), "Attempt to call method '%s' which is not registered on superclass", name);\
+    JNI_ASSERTF(!it->second.isStatic, "Attempt to call static method '%s' as non-static", name);\
     va_list args;\
     JNITypeName res;\
     va_start(args, name);\
@@ -88,8 +90,8 @@ JNITypeName getJava##TypeName##Field(const std::string& fieldName) {\
     CLASS_SCOPE() \
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = info->fieldMap.find(fieldName);\
-    assert(it != info->fieldMap.end());\
-    assert(!it->second.isStatic);\
+    JNI_ASSERTF(it != info->fieldMap.end(), "Attempt to get unregistered field '%s'", fieldName.c_str());\
+    JNI_ASSERTF(!it->second.isStatic, "Attempt to get static field '%s' with non-static getter", fieldName.c_str());\
     return env->Get##TypeName##Field(jniObject->getJObject(), it->second.id); \
 }
 
@@ -98,8 +100,8 @@ void setJava##TypeName##Field(const std::string& fieldName, JNITypeName value) {
     CLASS_SCOPE() \
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = info->fieldMap.find(fieldName);\
-    assert(it != info->fieldMap.end());\
-    assert(!it->second.isStatic);\
+    JNI_ASSERTF(it != info->fieldMap.end(), "Attempt to set unregistered field '%s'", fieldName.c_str());\
+    JNI_ASSERTF(!it->second.isStatic, "Attempt to set static field '%s' with non-static setter", fieldName.c_str());\
     return env->Set##TypeName##Field(jniObject->getJObject(), it->second.id, value); \
 }
 
@@ -108,8 +110,8 @@ JNITypeName getJavaStatic##TypeName##Field(const std::string& fieldName) {\
     CLASS_SCOPE() \
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = info->fieldMap.find(fieldName);\
-    assert(it != info->fieldMap.end());\
-    assert(it->second.isStatic);\
+    JNI_ASSERTF(it != info->fieldMap.end(), "Attempt to get unregistered field '%s'", fieldName.c_str());\
+    JNI_ASSERTF(it->second.isStatic, "Attempt to get static field '%s' with non-static getter", fieldName.c_str());\
     return env->GetStatic##TypeName##Field(info->jniClassRef, it->second.id); \
 }
 
@@ -118,8 +120,8 @@ void setJavaStatic##TypeName##Field(const std::string& fieldName, JNITypeName va
     CLASS_SCOPE() \
     JNIEnv* env = JNIWrapper::getEnvironment(); \
     auto it = info->fieldMap.find(fieldName);\
-    assert(it != info->fieldMap.end());\
-    assert(it->second.isStatic);\
+    JNI_ASSERTF(it != info->fieldMap.end(), "Attempt to set unregistered field '%s'", fieldName.c_str());\
+    JNI_ASSERTF(it->second.isStatic, "Attempt to set static field '%s' with non-static setter", fieldName.c_str());\
     return env->SetStatic##TypeName##Field(info->jniClassRef, it->second.id, value); \
 }
 
@@ -133,11 +135,11 @@ protected:
     void callJavaSuperVoidMethod(const char* name, ...) {
         CLASS_SCOPE()
         JNIEnv* env = JNIWrapper::getEnvironment();
-        assert(info->baseClassInfo);
+        JNI_ASSERT(info->baseClassInfo, "Attempt to call super on a class that has no super class");
         info = info->baseClassInfo;
         auto it = info->methodMap.find(name);
-        assert(it != info->methodMap.end());
-        assert(!it->second.isStatic);
+        JNI_ASSERTF(it != info->methodMap.end(), "Attempt to call method '%s' which is not registered on superclass", name);
+        JNI_ASSERTF(!it->second.isStatic, "Attempt to call static method '%s' as non-static", name);
         va_list args;
         va_start(args, name);
         env->CallNonvirtualVoidMethodV(jniObject->getJObject(), info->jniClassRef, it->second.id, args);
@@ -165,8 +167,8 @@ public:
         CLASS_SCOPE()
         JNIEnv* env = JNIWrapper::getEnvironment();
         auto it = info->methodMap.find(name);
-        assert(it != info->methodMap.end());
-        assert(it->second.isStatic);
+        JNI_ASSERTF(it != info->methodMap.end(), "Attempt to call unregistered method '%s'", name);
+        JNI_ASSERTF(it->second.isStatic, "Attempt to call non-static method '%s' as static", name);
         va_list args;
         va_start(args, name);
         env->CallStaticVoidMethodV(info->jniClassRef, it->second.id, args);

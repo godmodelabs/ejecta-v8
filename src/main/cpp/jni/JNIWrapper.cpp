@@ -111,12 +111,14 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
         }
         baseInfo = it->second;
 
-        // pure java objects can only directly extend JNIObject if they are abstract!
-        if(JNIWrapper::getCanonicalName<JNIObject>() == baseCanonicalName && !i && type != JNIObjectType::kAbstract) {
+        // pure java objects can not directly extend JNIObject
+        if(JNIWrapper::getCanonicalName<JNIObject>() == baseCanonicalName && !i) {
+            JNI_ASSERT(0, "Pure java objects must not directly extend JNIObject");
             return;
         }
     } else if(canonicalName != JNIWrapper::getCanonicalName<JNIObject>()) {
         // an empty base class is only allowed here for internally registering JNIObject itself
+        JNI_ASSERT(0, "Attempt to register an object without super class");
         return;
     }
 
@@ -126,6 +128,7 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
             JNIClassInfo *baseInfo2 = baseInfo;
             do {
                 if (baseInfo2->type != JNIObjectType::kTemporary && baseInfo2->baseClassInfo) {
+                    JNI_ASSERT(0, "Temporary classes can only extend JNIObject or other temporary classes");
                     return;
                 }
                 baseInfo2 = baseInfo->baseClassInfo;
@@ -133,6 +136,7 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
         } else if (baseInfo->type == JNIObjectType::kTemporary &&
                    baseInfo->type != type) {
             // temporary classes can only be extended by other temporary classes!
+            JNI_ASSERT(0, "Temporary classes can only be extended by other temporary classes");
             return;
         }
     }
@@ -143,7 +147,7 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
     jclass clazz = env->FindClass(canonicalName.c_str());
 
     // class has to exist...
-    assert(clazz != NULL);
+    JNI_ASSERTF(clazz != NULL, "Class '%s' not found", canonicalName.c_str());
 
     JNIClassInfo *info = new JNIClassInfo(hashCode, type, clazz, canonicalName, i, c, baseInfo);
     info->inherit();
@@ -180,13 +184,13 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
 
 JNIEnv* JNIWrapper::getEnvironment() {
     if(!_jniEnv) {
-        assert(_jniVM);
+        JNI_ASSERT(_jniVM, "JNI VM not available");
 
         int r = _jniVM->GetEnv((void**)&_jniEnv, JNI_VERSION_1_6);
-        assert(r == JNI_OK); (void)r;
+        JNI_ASSERT(r == JNI_OK, "JNI Env not available"); (void)r;
     }
     int r = _jniVM->AttachCurrentThread(&_jniEnv, nullptr);
-    assert(r == JNI_OK); (void)r;
+    JNI_ASSERT(r == JNI_OK, "Failed to attach thread to JVM"); (void)r;
     return _jniEnv;
 }
 
@@ -218,7 +222,7 @@ void JNIWrapper::initializeNativeObject(jobject object) {
     auto it = _objmap.find(canonicalName);
 
     // if nothing was found, the class was not registered
-    assert(it != _objmap.end());
+    JNI_ASSERT(it != _objmap.end(), "Encountered unknown class during initialization");
 
     JNIClassInfo *info = it->second;
     info->constructor(object, info);
