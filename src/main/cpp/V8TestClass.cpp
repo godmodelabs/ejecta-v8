@@ -53,13 +53,18 @@ void V8TestClass::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 
     info->registerMethod("test3", "(JF)V");
     info->registerStaticMethod("test4", "(Lag/boersego/bgjs/V8TestClass;)V");
-    info->registerField("testLong","J");
     info->registerStaticField("staticField","J");
+
+    info->registerField("shadowField","J");
+    info->registerStaticField("staticShadowField","J");
+
+    info->registerMethod("overwriteMe", "()V");
 }
 
 
 void V8TestClass::test() {
     this->callJavaVoidMethod("test3", (jlong)17, (jfloat)13.5);
+    this->callJavaVoidMethod("overwriteMe");
 
     /*
     auto pNewInstance = JNIWrapper::createObject<V8TestClass>("customInit",(jlong)1337);

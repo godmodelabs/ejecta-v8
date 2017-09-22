@@ -9,7 +9,7 @@
 
 BGJS_JNIOBJECT_LINK(JNIObject, "ag/boersego/bgjs/JNIObject");
 
-JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
+JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
 
     JNIEnv* env = JNIWrapper::getEnvironment();
     if(info->type == JNIObjectType::kPersistent) {
@@ -30,15 +30,14 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIClass(info) {
     // actually type will never be kAbstract here, because JNIClassInfo will be provided for the subclass!
     // however, this gets rid of the "never used" warning for the constant, and works just fine as well.
     if(info->type != JNIObjectType::kTemporary) {
-        setJavaLongField("nativeHandle", reinterpret_cast<jlong>(this));
+        auto it = info->fieldMap.find("nativeHandle");
+        assert(it != info->fieldMap.end());
+        assert(!it->second.isStatic);
+        env->SetLongField(getJObject(), it->second.id, reinterpret_cast<jlong>(this));
     }
 }
 
 JNIObject::~JNIObject() {
-    // not really necessary, since this should only happen if the java object is deleted, but maybe to avoid errors?
-    if(_jniClassInfo->type == JNIObjectType::kPersistent) {
-        setJavaLongField("nativeHandle", reinterpret_cast<jlong>(nullptr));
-    }
     if(_jniObject) {
         // this should/can never happen for persistent objects
         // if there is a strong ref to the JObject, then the native object must not be deleted!
@@ -110,50 +109,6 @@ void JNIObject::releaseJObject() {
     }
     _jniObjectRefCount--;
 }
-
-//--------------------------------------------------------------------------------------------------
-// Fields Getter
-//--------------------------------------------------------------------------------------------------
-#define GETTER(TypeName, JNITypeName) \
-JNITypeName JNIObject::getJava##TypeName##Field(const std::string& fieldName) {\
-    JNIEnv* env = JNIWrapper::getEnvironment(); \
-    auto it = _jniClassInfo->fieldMap.find(fieldName);\
-    assert(it != _jniClassInfo->fieldMap.end());\
-    assert(!it->second.isStatic);\
-    return env->Get##TypeName##Field(_jniObject, it->second.id); \
-}
-
-GETTER(Long, jlong)
-GETTER(Boolean, jboolean)
-GETTER(Byte, jbyte)
-GETTER(Char, jchar)
-GETTER(Double, jdouble)
-GETTER(Float, jfloat)
-GETTER(Int, jint)
-GETTER(Short, jshort)
-GETTER(Object, jobject)
-
-//--------------------------------------------------------------------------------------------------
-// Fields Setter
-//--------------------------------------------------------------------------------------------------
-#define SETTER(TypeName, JNITypeName) \
-void JNIObject::setJava##TypeName##Field(const std::string& fieldName, JNITypeName value) {\
-    JNIEnv* env = JNIWrapper::getEnvironment(); \
-    auto it = _jniClassInfo->fieldMap.find(fieldName);\
-    assert(it != _jniClassInfo->fieldMap.end());\
-    assert(!it->second.isStatic);\
-    return env->Set##TypeName##Field(getJObject(), it->second.id, value); \
-}
-
-SETTER(Long, jlong)
-SETTER(Boolean, jboolean)
-SETTER(Byte, jbyte)
-SETTER(Char, jchar)
-SETTER(Double, jdouble)
-SETTER(Float, jfloat)
-SETTER(Int, jint)
-SETTER(Short, jshort)
-SETTER(Object, jobject)
 
 //--------------------------------------------------------------------------------------------------
 // Methods

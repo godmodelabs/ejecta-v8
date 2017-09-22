@@ -9,12 +9,11 @@
 #import <string>
 #import <map>
 #include <jni.h>
+#include <assert.h>
 
 #include "JNIClassInfo.h"
 #include "JNIClass.h"
 #include "JNIObject.h"
-#include "JNIScope.h"
-#include <assert.h>
 
 class JNIWrapper {
 public:
@@ -27,8 +26,7 @@ public:
      */
     template <typename T> static
     const std::string getCanonicalName() {
-        // @TODO: wrong syntax. throw a real exception object here? or maybe something like an assert that turns up in the log
-        throw "JNIWrapper::getCanonicalName called for unregistered class";
+        assert("JNIWrapper::getCanonicalName called for unregistered class");
     }
 
     /**
@@ -71,19 +69,6 @@ public:
     };
 
     /**
-     * register a Java+Native object tuple extending a pure Java class that in turn extends a Java+Native tuple
-     * E.g. if there is a Java class "MySubclass" with native class "MySubclassNative" that extends
-     * the java class "MyJavaSubclass" which in turn extends the java class "MyObject" with native class "MyObjectNative" you would call
-     * registerObject<MySubclassNative>("com/example/MyJavaSubclass")
-     * Note: The native object MUST extend the next native object up the inheritance chain! In the example above this would be "MyObjectNative"
-     */
-    template<class ObjectType> static
-    void registerObject(const std::string &baseCanonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), baseCanonicalName,
-                        initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
-    };
-
-    /**
      * register a pure Java class extending a Java+Native tuple
      * E.g. if there is a pure Java class "MyJavaSubclass" that extends the java class "MyObject" with native class "MyObjectNative" you would call
      * registerJavaObject<MyObjectNative>("com/example/MyJavaSubclass")
@@ -91,17 +76,6 @@ public:
     template<class ObjectType> static
     void registerJavaObject(const std::string &canonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
         _registerObject(typeid(void).hash_code(), type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr);
-    };
-
-    /**
-     * register a pure Java class extending another pure Java class that (not necessarily directly) extends a Java+native tuple
-     * E.g. if there is a pure Java class "MyOtherJavaSubclass" that extends the pure java class "MyJavaSubclass" you would call
-     * registerJavaObject("com/example/MyOtherJavaSubclass","com/example/MyJavaSubclass")
-     * Note: somwhere up the inheritance chain "MyJavaSubclass" needs to extend a native class in this example!
-     */
-    static
-    void registerJavaObject(const std::string &canonicalName, const std::string &baseCanonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(typeid(void).hash_code(), type, canonicalName, baseCanonicalName, nullptr, nullptr);
     };
 
     /**

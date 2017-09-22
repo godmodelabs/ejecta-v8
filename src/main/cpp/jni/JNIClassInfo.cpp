@@ -49,6 +49,9 @@ void JNIClassInfo::inherit() {
 }
 
 void JNIClassInfo::registerNativeMethod(const std::string &name, const std::string &signature, void* fnPtr) {
+    for(auto &it : methods) {
+        assert(strcmp(it.name, name.c_str()));
+    }
     methods.push_back({strdup(name.c_str()), strdup(signature.c_str()), fnPtr}); // freed after calling registerNatives
 }
 
@@ -72,8 +75,6 @@ void JNIClassInfo::registerField(const std::string& fieldName,
                                  const std::string& alias
 ) {
     const std::string& finalAlias = alias.length() ? alias : fieldName;
-    auto it = fieldMap.find(finalAlias);
-    assert(it == fieldMap.end());
     jfieldID fieldId = getFieldID(fieldName, signature, false);
     assert(fieldId);
     fieldMap[finalAlias] = {false, fieldName, signature, fieldId};
@@ -83,8 +84,6 @@ void JNIClassInfo::registerStaticMethod(const std::string& methodName,
                                         const std::string& signature,
                                         const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : methodName;
-    auto it = methodMap.find(finalAlias);
-    assert(it == methodMap.end());
     jmethodID methodId = getMethodID(methodName, signature, true);
     assert(methodId);
     methodMap[finalAlias] = {true, methodName, signature, methodId};
@@ -94,8 +93,6 @@ void JNIClassInfo::registerStaticField(const std::string& fieldName,
                                        const std::string& signature,
                                        const std::string& alias) {
     const std::string& finalAlias = alias.length() ? alias : fieldName;
-    auto it = fieldMap.find(finalAlias);
-    assert(it == fieldMap.end());
     jfieldID fieldId = getFieldID(fieldName, signature, true);
     assert(fieldId);
     fieldMap[finalAlias] = {true, fieldName, signature, fieldId};

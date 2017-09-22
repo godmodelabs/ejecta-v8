@@ -7,14 +7,14 @@
 
 #import <string>
 #include <jni.h>
-#include "JNIClass.h"
+#include "JNIBase.h"
 
 /**
  * Base class for all native classes associated with a java object
  * constructor should never be called manually; if you want to create a new instance
  * use JNIWrapper::createObject<Type>(env) instead
  */
-class JNIObject : public JNIClass {
+class JNIObject : public JNIBase {
     friend class JNIWrapper;
 public:
     JNIObject(jobject obj, JNIClassInfo *info);
@@ -33,7 +33,6 @@ public:
 
     /**
      * calls the specified java object method
-     * @TODO: do we need a way to call implementation of a specific type via template methods? (for super.foo())
      */
     void callJavaVoidMethod(const char* name, ...);
     jlong callJavaLongMethod(const char* name, ...);
@@ -45,47 +44,6 @@ public:
     jint callJavaIntMethod(const char* name, ...);
     jshort callJavaShortMethod(const char* name, ...);
     jobject callJavaObjectMethod(const char* name, ...);
-
-    /**
-     * non-virtually calls the specified java object method on the specified class
-     * e.g. a java equivalent would be calling "super.foo()"
-     */
-    void callJavaVoidMethod(const std::string& canonicalName, const char* name, ...);
-    jlong callJavaLongMethod(const std::string& canonicalName, const char* name, ...);
-    jboolean callJavaBooleanMethod(const std::string& canonicalName, const char* name, ...);
-    jbyte callJavaByteMethod(const std::string& canonicalName, const char* name, ...);
-    jchar callJavaCharMethod(const std::string& canonicalName, const char* name, ...);
-    jdouble callJavaDoubleMethod(const std::string& canonicalName, const char* name, ...);
-    jfloat callJavaFloatMethod(const std::string& canonicalName, const char* name, ...);
-    jint callJavaIntMethod(const std::string& canonicalName, const char* name, ...);
-    jshort callJavaShortMethod(const std::string& canonicalName, const char* name, ...);
-    jobject callJavaObjectMethod(const std::string& canonicalName, const char* name, ...);
-
-    /**
-     * retrieves the value of the specified static java object field
-     */
-    jlong getJavaLongField(const std::string& fieldName);
-    jboolean getJavaBooleanField(const std::string& fieldName);
-    jbyte getJavaByteField(const std::string& fieldName);
-    jchar getJavaCharField(const std::string& fieldName);
-    jdouble getJavaDoubleField(const std::string& fieldName);
-    jfloat getJavaFloatField(const std::string& fieldName);
-    jint getJavaIntField(const std::string& fieldName);
-    jshort getJavaShortField(const std::string& fieldName);
-    jobject getJavaObjectField(const std::string& fieldName);
-
-    /**
-     * sets the value of the specified static java object field
-     */
-    void setJavaLongField(const std::string& fieldName, jlong value);
-    void setJavaBooleanField(const std::string& fieldName, jboolean value);
-    void setJavaByteField(const std::string& fieldName, jbyte value);
-    void setJavaCharField(const std::string& fieldName, jchar value);
-    void setJavaDoubleField(const std::string& fieldName, jdouble value);
-    void setJavaFloatField(const std::string& fieldName, jfloat value);
-    void setJavaIntField(const std::string& fieldName, jint value);
-    void setJavaShortField(const std::string& fieldName, jshort value);
-    void setJavaObjectField(const std::string& fieldName, jobject value);
 
 protected:
     void retainJObject();

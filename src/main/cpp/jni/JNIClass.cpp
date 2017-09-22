@@ -7,29 +7,6 @@
 #include "JNIClass.h"
 #include "JNIWrapper.h"
 
-JNIClass::JNIClass(JNIClassInfo *info) {
-    _jniClassInfo = info;
-}
-
-JNIClass::~JNIClass() {
-}
-
-bool JNIClass::isPersistent() const {
-    return _jniClassInfo->type == JNIObjectType::kPersistent;
-}
-
-const std::string& JNIClass::getCanonicalName() const {
-    return _jniClassInfo->canonicalName;
-}
-
-const jclass JNIClass::getJClass() const {
-    return _jniClassInfo->jniClassRef;
-}
-
-const std::string JNIClass::getSignature() const {
-    return "L" + _jniClassInfo->canonicalName + ";";
-}
-
 //--------------------------------------------------------------------------------------------------
 // Static Fields Getter
 //--------------------------------------------------------------------------------------------------

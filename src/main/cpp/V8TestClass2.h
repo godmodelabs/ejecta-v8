@@ -15,6 +15,7 @@ public:
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void initializeV8Bindings(V8ClassInfo *info);
 
+    void overwriteMe();
     void testMember(const std::string &methodName, const v8::FunctionCallbackInfo<v8::Value>& args);
 
     void initFromJS(const v8::FunctionCallbackInfo<v8::Value>& args);

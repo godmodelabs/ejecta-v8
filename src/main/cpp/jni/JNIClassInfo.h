@@ -11,6 +11,8 @@
 
 class JNIClassInfo;
 class JNIObject;
+class JNIWrapper;
+
 template<class ScopeClass, class BaseClass> class JNIScope;
 
 enum class JNIObjectType {
@@ -49,6 +51,7 @@ struct JNIFieldInfo {
 };
 
 struct JNIClassInfo {
+    friend class JNIBase;
     friend class JNIClass;
     friend class JNIObject;
     friend class JNIWrapper;

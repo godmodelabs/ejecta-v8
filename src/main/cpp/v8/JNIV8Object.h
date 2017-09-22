@@ -7,7 +7,7 @@
 
 #include "V8ClassInfo.h"
 #include <jni.h>
-#include "../jni/JNIWrapper.h"
+#include "../jni/jni.h"
 
 class BGJSV8Engine;
 class JNIV8Object;

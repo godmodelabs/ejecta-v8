@@ -25,6 +25,7 @@ add_library( # Sets the name of the library.
              src/main/cpp/jni/JNIClassInfo.cpp
              src/main/cpp/jni/JNIClass.cpp
              src/main/cpp/jni/JNIObject.cpp
+             src/main/cpp/jni/JNIBase.cpp
              src/main/cpp/jni/JNIWrapper.cpp
              src/main/cpp/bgjs/BGJSV8Engine.cpp
              src/main/cpp/bgjs/ClientAndroid.cpp

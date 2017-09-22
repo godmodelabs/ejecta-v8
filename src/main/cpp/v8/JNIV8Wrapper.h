@@ -8,7 +8,7 @@
 #include "V8ClassInfo.h"
 #include "../bgjs/BGJSV8Engine.h"
 
-#include "../jni/JNIWrapper.h"
+#include "../jni/jni.h"
 
 #include "JNIV8Object.h"
 
@@ -79,20 +79,6 @@ public:
     };
 
     /**
-     * register a Java+Native+js object tuple extending a pure Java class that in turn extends a Java+Native tuple
-     * E.g. if there is a Java class "MySubclass" with native class "MySubclassNative" that extends
-     * the java class "MyJavaSubclass" which in turn extends the java class "MyObject" with native class "MyObjectNative" you would call
-     * registerObject<MySubclassNative>("com/example/MyJavaSubclass")
-     * Note: The native object MUST extend the next native object up the inheritance chain! In the example above this would be "MyObjectNative"
-     */
-    template<class ObjectType> static
-    void registerObject(const std::string &baseCanonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
-        JNIWrapper::registerObject<ObjectType>(baseCanonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
-        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), baseCanonicalName,
-                        type == JNIV8ObjectType::kWrapper ? nullptr : initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
-    };
-
-    /**
      * register a pure Java class extending a Java+Native+js tuple
      * E.g. if there is a pure Java class "MyJavaSubclass" that extends the java class "MyObject" with native class "MyObjectNative" you would call
      * registerJavaObject<MyObjectNative>("com/example/MyJavaSubclass")
@@ -101,12 +87,6 @@ public:
     void registerJavaObject(const std::string &canonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
         JNIWrapper::registerJavaObject<ObjectType>(canonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
         _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, createDerivedJavaClass<ObjectType>, sizeof(ObjectType));
-    };
-
-    static
-    void registerJavaObject(const std::string &canonicalName, const std::string &baseCanonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
-        JNIWrapper::registerJavaObject(canonicalName, baseCanonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
-        _registerObject(type, canonicalName, baseCanonicalName, nullptr, nullptr, 0);
     };
 
     /**

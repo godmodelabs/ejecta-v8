@@ -5,8 +5,7 @@
 #ifndef __JNICLASS_H
 #define __JNICLASS_H
 
-#import <string>
-#include <jni.h>
+#include "JNIBase.h"
 
 class JNIClassInfo;
 class JNIWrapper;
@@ -19,17 +18,10 @@ class JNIWrapper;
  * JNIWrapper::wrapObject<Type>(obj) - to get the native wrapper for a java object (access to static & instance fields/methods)
  * JNIWrapper::createObject<Type>() - to create a new instance of a Java+Native object
  */
-class JNIClass {
+class JNIClass : public JNIBase {
     friend class JNIWrapper;
 public:
-    JNIClass(JNIClassInfo *info);
-    virtual ~JNIClass();
-
-    const std::string& getCanonicalName() const;
-    const jclass getJClass() const;
-    const std::string getSignature() const;
-
-    bool isPersistent() const;
+    JNIClass(JNIClassInfo *info) : JNIBase(info) {};
 
     /**
      * calls the specified static java object method
@@ -70,9 +62,6 @@ public:
     void setJavaStaticIntField(const std::string& fieldName, jint value);
     void setJavaStaticShortField(const std::string& fieldName, jshort value);
     void setJavaStaticObjectField(const std::string& fieldName, jobject value);
-
-protected:
-    JNIClassInfo *_jniClassInfo;
 };
 
 #endif //__JNICLASS_H
