@@ -78,6 +78,8 @@ elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
   set(v8-abi arm64-v8a)
 endif()
 
+MESSAGE( STATUS "CMAKE_SYSTEM_PROCESSOR:         " ${CMAKE_SYSTEM_PROCESSOR} )
+
 # Other possible abis that are currently not possible because we don't have the precompiled v8 libraries:
 # armv5te - for armeabi ABI
 # armv6 - for armeabi-v6 with VFP ABI
@@ -85,6 +87,8 @@ endif()
 # mips64 - for mips64 ABI
 
 set(v8-lib ${CMAKE_SOURCE_DIR}/libs/v8/${v8-abi}/libv8.a)
+
+MESSAGE( STATUS "v8-lib:         " ${v8-lib} )
 
 #--------------------------------------------------
 # other dependencies

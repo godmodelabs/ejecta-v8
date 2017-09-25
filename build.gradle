@@ -1,21 +1,22 @@
 apply plugin: 'com.android.library'
 
 android {
-    publishNonDefault true
-    compileSdkVersion 25
-    buildToolsVersion '25.0.3'
-    defaultPublishConfig "debug"
+    compileSdkVersion 26
+    buildToolsVersion '26.0.1'
 
     defaultConfig {
         minSdkVersion 16
-        targetSdkVersion 25
+        targetSdkVersion 26
         versionCode 1
         versionName "1.0"
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_STL=c++_static"
-                abiFilters 'armeabi-v7a', 'x86', 'arm64-v8a' //, 'x86_64'
+                abiFilters 'x86', 'armeabi-v7a', 'arm64-v8a'
             }
+        }
+        ndk {
+            abiFilters 'x86', 'armeabi-v7a' , 'arm64-v8a'
         }
     }
 
@@ -35,33 +36,44 @@ repositories {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: '*.jar')
-    compile 'com.squareup.okhttp3:okhttp:3.8.1'
+    implementation fileTree(dir: 'libs', include: '*.jar')
+    implementation 'com.squareup.okhttp3:okhttp:3.8.1'
 }
 
 task distributeDebug() {
-    doLast {
+    doFirst {
         delete "dist/debug"
+        mkdir "dist/debug/jni"
         copy {
-            from zipTree(new File('build/outputs/aar/ejecta-v8-library-debug.aar'))
-            into "dist/debug"
-            include 'jni/**'
+            from "build/intermediates/cmake/debug/obj"
+            into "dist/debug/jni"
         }
     }
 }
 
 task distributeRelease {
-    doLast {
+
+    doFirst {
+        /* println("LS")
+        def list = []
+
+        def dir = new File("ejecta-v8/build/intermediates/cmake/release/obj")
+        dir.eachFileRecurse (FileType.FILES) { file ->
+            list << file
+        }
+        list.each {
+            println it.path
+        } */
         delete "dist/release"
+        mkdir "dist/release/jni"
         copy {
-            from zipTree(new File('build/outputs/aar/ejecta-v8-library-release.aar'))
-            into "dist/release"
-            include 'jni/**'
+            from "build/intermediates/cmake/release/obj"
+            into "dist/release/jni"
         }
     }
 }
 
 afterEvaluate {
-    bundleDebug.finalizedBy distributeDebug
-    bundleRelease.finalizedBy distributeRelease
+    transformNativeLibsWithMergeJniLibsForDebug.finalizedBy distributeDebug
+    transformNativeLibsWithMergeJniLibsForRelease.finalizedBy distributeRelease
 }
