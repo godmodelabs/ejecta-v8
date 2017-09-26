@@ -111,11 +111,17 @@ void V8ClassInfo::registerAccessor(const std::string& propertyName,
                              data, DEFAULT, settings);
 }
 
-v8::Local<v8::FunctionTemplate> V8ClassInfo::getFunctionTemplate() const {
+v8::Local<v8::Object> V8ClassInfo::newInstance() const {
     assert(container->type == JNIV8ObjectType::kPersistent);
+
     Isolate* isolate = engine->getIsolate();
-    EscapableHandleScope scope(isolate);
-    return scope.Escape(Local<FunctionTemplate>::New(isolate, functionTemplate));
+    Isolate::Scope scope(isolate);
+    EscapableHandleScope handleScope(isolate);
+    Context::Scope ctxScope(engine->getContext());
+
+    Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
+
+    return handleScope.Escape(ft->InstanceTemplate()->NewInstance());
 }
 
 v8::Local<v8::Function> V8ClassInfo::getConstructor() const {

@@ -140,6 +140,7 @@ public:
         V8ClassInfoContainer *info = it->second;
 
         if(info->type == JNIV8ObjectType::kWrapper) {
+            /*
             // does the object have a native object stored in a private key?
             auto privateKey = v8::Private::ForApi(isolate, v8::String::NewFromUtf8(isolate, _v8PrivateKey));
             auto privateValue = object->GetPrivate(isolate->GetCurrentContext(), privateKey);
@@ -155,6 +156,11 @@ public:
 
                 return std::static_pointer_cast<ObjectType>(sharedPtr);
             }
+             */
+            // a new wrapper object is created every time!
+            v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
+            auto sharedPtr = info->creator(_getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent);
+            return std::static_pointer_cast<ObjectType>(sharedPtr);
         } else {
             if (object->InternalFieldCount() >= 1) {
                 // does the object have internal fields? if so use it!
@@ -180,6 +186,25 @@ public:
     }
 
     /**
+     * convert a v8 value to an instance of JNIV8Value
+     */
+    static jobject v8value2jobject(v8::Local<v8::Value> valueRef);
+
+    /**
+     * convert an instance of JNIV8Value to a v8value
+     */
+    static v8::Local<v8::Value> jobject2v8value(jobject object);
+
+    /**
+     * convert a jstring to a std::string
+     */
+    static v8::Local<v8::String> jstring2v8string(jstring string);
+    /**
+     * convert a std::string to a jstring
+     */
+    static jstring v8string2jstring(v8::Local<v8::String> string);
+
+    /**
      * internal utility method; should not be called manually!
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new V8 enabled Java+Native object tuple
@@ -192,7 +217,7 @@ public:
     static void v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 
 private:
-    static const char* _v8PrivateKey;
+    //static const char* _v8PrivateKey;
 
     static void _registerObject(JNIV8ObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size);
     static V8ClassInfo* _getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine);
@@ -216,6 +241,8 @@ private:
         return ptr;
     }
 };
+
+template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object);
 
 /**
  * macro to register native class with JNI

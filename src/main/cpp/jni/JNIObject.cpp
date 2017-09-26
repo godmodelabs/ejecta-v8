@@ -53,10 +53,14 @@ void JNIObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 }
 
 const jobject JNIObject::getJObject() const {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    // we always need to convert the object reference to local (both weak and global)
+    // because the global reference could be deleted when the last shared ptr to this instance is released
+    // e.g. "return instance->getJObject();" would then yield an invalid global ref!
     if(_jniObject) {
-        return _jniObject;
+        return env->NewLocalRef(_jniObject);
     }
-    return _jniObjectWeak;
+    return env->NewLocalRef(_jniObjectWeak);
 }
 
 std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {

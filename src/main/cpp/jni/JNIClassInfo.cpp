@@ -54,6 +54,8 @@ void JNIClassInfo::registerNativeMethod(const std::string &name, const std::stri
     for(auto &it : methods) {
         JNI_ASSERTF(strcmp(it.name, name.c_str()), "Native method '%s' is already registered", name.c_str());
     }
+    JNI_ASSERTF(getMethodID(name, signature, false) || getMethodID(name, signature, true),
+                "No matching method '%s' with signature '%s'", name.c_str(), signature.c_str());
 #endif
     methods.push_back({strdup(name.c_str()), strdup(signature.c_str()), fnPtr}); // freed after calling registerNatives
 }

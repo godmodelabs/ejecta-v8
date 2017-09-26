@@ -56,7 +56,7 @@ public:
 
     void registerAccessor(const std::string& propertyName, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0, v8::PropertyAttribute settings = v8::None);
 
-    v8::Local<v8::FunctionTemplate> getFunctionTemplate() const;
+    v8::Local<v8::Object> newInstance() const;
     v8::Local<v8::Function> getConstructor() const;
 private:
     V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine);
@@ -75,6 +75,7 @@ typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(V8ClassInfo *info, v8:
  * internal container object for managing all class info instances (one for each v8 engine) of an object
  */
 struct V8ClassInfoContainer {
+    friend class JNIV8Object;
     friend class JNIV8Wrapper;
     friend class V8ClassInfo;
 private:

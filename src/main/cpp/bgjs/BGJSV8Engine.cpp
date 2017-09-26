@@ -777,7 +777,7 @@ BGJSV8Engine::BGJSV8Engine(v8::Isolate* isolate, jobject javaObject) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     _javaObject = env->NewWeakGlobalRef(javaObject);
 
-    this->_isolate = isolate;
+    _isolate = isolate;
 }
 
 jobject BGJSV8Engine::getJObject() const {

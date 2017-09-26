@@ -21,6 +21,17 @@ public class V8TestClass2 extends V8TestClass {
 
     public void test3(long testL, float testF) {
         Log.d("V8TestClass2", "Overwritten Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
+
+        JNIV8GenericObject obj = JNIV8GenericObject.NewInstance(getV8Engine());
+        obj.getV8Field("test");
+
+        JNIV8Array arr = JNIV8Array.NewInstance(getV8Engine());
+
+        JNIV8Function f = JNIV8Function.NewInstance(getV8Engine());
+
+        JNIV8Value v = getV8Field("v8Prop");
+        JNIV8Value v2 = getV8Field("v8Prop2");
+        JNIV8Value v3 = callV8Method("v8Func");
     }
     public long shadowField;
     public static long staticShadowField = 456;

@@ -43,7 +43,9 @@ void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
 }
 
 void JNIV8Object::makeWeak() {
-    if(_jsObject.IsWeak()) return;
+    // wrapper type objects are not directly linked to the lifecycle of the js object
+    // they can be destroyed / gced from java at any time, and there can exist multiple
+    if(_v8ClassInfo->container->type == JNIV8ObjectType::kWrapper || _jsObject.IsWeak()) return;
     _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kFinalizer);
     // create a strong reference to the java object as long as the JS object is referenced from somewhere
     retainJObject();
@@ -56,7 +58,9 @@ void JNIV8Object::linkJSObject(v8::Handle<v8::Object> jsObject) {
     Isolate* isolate = _bgjsEngine->getIsolate();
 
     // store reference to native object in JS object
-    jsObject->SetInternalField(0, External::New(isolate, (void*)this));
+    if(_v8ClassInfo->container->type != JNIV8ObjectType::kWrapper) {
+        jsObject->SetInternalField(0, External::New(isolate, (void *) this));
+    }
 
     // store reference in persistent
     _jsObject.Reset(isolate, jsObject);
@@ -78,12 +82,14 @@ v8::Local<v8::Object> JNIV8Object::getJSObject() {
     EscapableHandleScope handleScope(isolate);
     Context::Scope ctxScope(_bgjsEngine->getContext());
 
-    Local<Object> localRef = Local<Object>::New(isolate, _jsObject);
+    Local<Object> localRef;
 
     // if there is no js object yet, create it now!
     if(_jsObject.IsEmpty()) {
-        localRef = _v8ClassInfo->getFunctionTemplate()->InstanceTemplate()->NewInstance();
+        localRef = _v8ClassInfo->newInstance();
         linkJSObject(localRef);
+    } else {
+        localRef = Local<Object>::New(isolate, _jsObject);
     }
 
     // make the persistent reference weak, to get notified when the returned reference is no longer used
@@ -110,15 +116,76 @@ void JNIV8Object::setJSObject(BGJSV8Engine *engine, V8ClassInfo *cls,
     }
 }
 
+BGJSV8Engine* JNIV8Object::getEngine() const {
+    return _bgjsEngine;
+}
+
 void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerConstructor("(Lag/boersego/bgjs/V8Engine;J)V","<JNIV8ObjectInit>");
     info->registerConstructor("(Lag/boersego/bgjs/V8Engine;)V","<JNIV8ObjectInit#2>");
+
     info->registerNativeMethod("adjustJSExternalMemory", "(J)V", (void*)JNIV8Object::jniAdjustJSExternalMemory);
+    info->registerNativeMethod("callV8Method", "(Ljava/lang/String;[Ljava/lang/Object;)Lag/boersego/bgjs/JNIV8Value;", (void*)JNIV8Object::jniCallV8Method);
+    info->registerNativeMethod("getV8Field", "(Ljava/lang/String;)Lag/boersego/bgjs/JNIV8Value;", (void*)JNIV8Object::jniGetV8Field);
+    info->registerNativeMethod("setV8Field", "(Ljava/lang/String;Ljava/lang/Object;)V", (void*)JNIV8Object::jniSetV8Field);
 }
 
 void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change) {
     auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
     ptr->adjustJSExternalMemory(change);
+}
+
+jobject JNIV8Object::jniGetV8Field(JNIEnv *env, jobject obj, jobject name) {
+    auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
+    BGJSV8Engine *engine = ptr->_bgjsEngine;
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    Isolate::Scope isolateScope(isolate);
+    HandleScope scope(isolate);
+    Context::Scope ctxScope(engine->getContext());
+
+    // if JSObject does not exist yet, create it!
+    if(ptr->_jsObject.IsEmpty()) {
+        ptr->getJSObject();
+    }
+
+    Local<Object> localRef = Local<Object>::New(isolate, ptr->_jsObject);
+
+    std::string fieldName = JNIWrapper::jstring2string((jstring)name);
+    Local<Value> valueRef = localRef->Get(String::NewFromUtf8(isolate, JNIWrapper::jstring2string((jstring)name).c_str()));
+
+    return JNIV8Wrapper::v8value2jobject(valueRef);
+}
+
+void JNIV8Object::jniSetV8Field(JNIEnv *env, jobject obj, jobject name, jobject value) {
+    auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
+    BGJSV8Engine *engine = ptr->_bgjsEngine;
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    Isolate::Scope isolateScope(isolate);
+    HandleScope scope(isolate);
+    Context::Scope ctxScope(engine->getContext());
+
+    // @TODO set property here
+    // arguments => v8 values
+}
+
+jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jobject name, jobject arguments) {
+    auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
+    BGJSV8Engine *engine = ptr->_bgjsEngine;
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    Isolate::Scope isolateScope(isolate);
+    HandleScope scope(isolate);
+    Context::Scope ctxScope(engine->getContext());
+
+    // @TODO: call method here
+    // arguments => v8 values
+
+    return JNIV8Wrapper::v8value2jobject(v8::Undefined(isolate));
 }
 
 //--------------------------------------------------------------------------------------------------

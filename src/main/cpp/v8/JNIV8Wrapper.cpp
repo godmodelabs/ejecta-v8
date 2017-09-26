@@ -6,13 +6,22 @@
 using namespace v8;
 
 #include "JNIV8Wrapper.h"
+#include "JNIV8Array.h"
+#include "JNIV8GenericObject.h"
+#include "JNIV8Function.h"
+
+#include <string>
+#include <algorithm>
 
 std::map<std::string, V8ClassInfoContainer*> JNIV8Wrapper::_objmap;
 
-const char* JNIV8Wrapper::_v8PrivateKey = "JNIV8WrapperPrivate";
+//const char* JNIV8Wrapper::_v8PrivateKey = "JNIV8WrapperPrivate";
 
 void JNIV8Wrapper::init() {
     JNIWrapper::registerObject<JNIV8Object>(JNIObjectType::kAbstract);
+    JNIV8Wrapper::registerObject<JNIV8Array>(JNIV8ObjectType::kWrapper);
+    JNIV8Wrapper::registerObject<JNIV8GenericObject>(JNIV8ObjectType::kWrapper);
+    JNIV8Wrapper::registerObject<JNIV8Function>(JNIV8ObjectType::kWrapper);
 }
 
 void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -54,9 +63,14 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     HandleScope scope(isolate);
     Context::Scope ctxScope(engine->getContext());
 
+    // v8 class name: canonical name with underscores instead of slashes
+    // e.g. ag/boersego/bgjs/Test becomes ag_boersego_bgjs_Test
+    std::string strV8ClassName = canonicalName;
+    std::replace(strV8ClassName.begin(), strV8ClassName.end(), '/', '_');
+
     Local<External> data = External::New(isolate, (void*)v8ClassInfo);
     Handle<FunctionTemplate> ft = FunctionTemplate::New(isolate, v8ConstructorCallback, data);
-    ft->SetClassName(String::NewFromUtf8(isolate, "V8TestClassName")); // @TODO: classname!
+    ft->SetClassName(String::NewFromUtf8(isolate, strV8ClassName.c_str()));
 
     // inherit from baseclass
     if(v8ClassInfo->container->baseClassInfo) {
@@ -144,7 +158,6 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
     if(baseInfo) {
         if (type == JNIV8ObjectType::kWrapper) {
             // wrapper classes can only extend other wrapper classes (or JNIV8Object directly)
-            // @TODO: what about JNIV8BridgedObject; if it includes calling v8 functions, it might be interesting as a wrapper?!
             V8ClassInfoContainer *baseInfo2 = baseInfo;
             do {
                 if (baseInfo2->type != JNIV8ObjectType::kWrapper && baseInfo2->baseClassInfo) {
@@ -162,3 +175,119 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
     V8ClassInfoContainer *info = new V8ClassInfoContainer(type, canonicalName, i, c, size, baseInfo);
     _objmap[canonicalName] = info;
 }
+
+/**
+ * convert a jstring to a std::string
+ */
+v8::Local<v8::String> JNIV8Wrapper::jstring2v8string(jstring string) {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    // because this method returns a local, we can assume that the correct v8 scopes are active around it already
+    // we still need a handle scope however...
+    v8::EscapableHandleScope scope(isolate);
+    return scope.Escape(v8::String::NewFromUtf8(isolate, JNIWrapper::jstring2string(string).c_str()));
+}
+
+/**
+ * convert a std::string to a jstring
+ */
+jstring JNIV8Wrapper::v8string2jstring(v8::Local<v8::String> string) {
+    return JNIWrapper::string2jstring(BGJS_STRING_FROM_V8VALUE(string));
+}
+
+/**
+ * convert an instance of V8Value to a jobject
+ */
+jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    jclass clsJNIV8Value = env->FindClass("ag/boersego/bgjs/JNIV8Value");
+    jmethodID constructor = env->GetMethodID(clsJNIV8Value, "<init>","(ILjava/lang/Object;)V");
+    jmethodID constructorNum = env->GetMethodID(clsJNIV8Value, "<init>","(D)V");
+    jmethodID constructorBool = env->GetMethodID(clsJNIV8Value, "<init>","(Z)V");
+
+    if(valueRef->IsUndefined()) {
+        return env->NewObject(clsJNIV8Value, constructor, 0, nullptr);
+    } else if(valueRef->IsNumber()) {
+        return env->NewObject(clsJNIV8Value, constructorNum, valueRef->NumberValue());
+    } else if(valueRef->IsString()) {
+        return env->NewObject(clsJNIV8Value, constructor, 2, JNIWrapper::string2jstring(BGJS_STRING_FROM_V8VALUE(valueRef)));
+    } else if(valueRef->IsBoolean()) {
+        return env->NewObject(clsJNIV8Value, constructorBool, valueRef->BooleanValue());
+    } else if(valueRef->IsSymbol()) {
+        JNI_ASSERT(0, "Symbols are not supported"); // return env->NewObject(clsJNIV8Value, constructor, 4, nullptr);
+    } else if(valueRef->IsNull()) {
+        return env->NewObject(clsJNIV8Value, constructor, 5, nullptr);
+    } else if(valueRef->IsFunction()){
+        return env->NewObject(clsJNIV8Value, constructor, 5, JNIV8Wrapper::wrapObject<JNIV8Function>(valueRef->ToObject())->getJObject());
+    } else if(valueRef->IsArray()){
+        return env->NewObject(clsJNIV8Value, constructor, 5, JNIV8Wrapper::wrapObject<JNIV8Array>(valueRef->ToObject())->getJObject());
+    } else if(valueRef->IsObject()) {
+        auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(valueRef->ToObject());
+        if(ptr) {
+            return env->NewObject(clsJNIV8Value, constructor, 5, ptr->getJObject());
+        } else if(valueRef->IsFunction()){
+            return env->NewObject(clsJNIV8Value, constructor, 5, JNIV8Wrapper::wrapObject<JNIV8GenericObject>(valueRef->ToObject())->getJObject());
+        }
+    } else {
+        JNI_ASSERT(0, "Encountered unexpected v8 type");
+    }
+    return nullptr;
+}
+
+/**
+ * convert an instance of JNIV8Value to a v8value
+ */
+v8::Local<v8::Value> JNIV8Wrapper::jobject2v8value(jobject object) {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    // because this method returns a local, we can assume that the correct v8 scopes are active around it already
+    // we still need a handle scope however...
+    v8::HandleScope scope(isolate);
+
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    // @TODO: cache!
+    jclass clsBoolean = env->FindClass("java/lang/Boolean");
+    jmethodID mBooleanValue = env->GetMethodID(clsBoolean, "booleanValue","()Z");
+    jclass clsString = env->FindClass("java/lang/String");
+    jclass clsChar = env->FindClass("java/lang/Character");
+    jmethodID mCharValue = env->GetMethodID(clsBoolean, "charValue","()C");
+    jclass clsNumber = env->FindClass("java/lang/Number");
+    jmethodID mDoubleValue = env->GetMethodID(clsBoolean, "doubleValue","()D");
+    jclass clsObj = env->FindClass("ag/boersego/bgjs/JNIV8Object");
+
+    if(env->IsInstanceOf(object, clsString)) {
+        return JNIV8Wrapper::jstring2v8string((jstring)object);
+    } else if(env->IsInstanceOf(object, clsChar)) {
+        jchar c = env->CallCharMethod(object, mCharValue);
+        v8::MaybeLocal<v8::String> maybeLocal = v8::String::NewFromTwoByte(isolate, &c, NewStringType::kNormal, 1);
+        if(!maybeLocal.IsEmpty()) {
+            return maybeLocal.ToLocalChecked();
+        }
+    } else if(env->IsInstanceOf(object, clsNumber)) {
+        jdouble n = env->CallDoubleMethod(object, mDoubleValue);
+        return v8::Number::New(isolate, n);
+    } else if(env->IsInstanceOf(object, clsBoolean)) {
+        jboolean b = env->CallBooleanMethod(object, mBooleanValue);
+        return v8::Boolean::New(isolate, b);
+    } else if(env->IsInstanceOf(object, clsObj)) {
+        return JNIV8Wrapper::wrapObject<JNIV8Object>(object)->getJSObject();
+    }
+    return v8::Undefined(isolate);
+}
+
+// persistent classes can also be accessed as JNIV8Object directly!
+template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object) {
+    v8::Local<v8::External> ext;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    // because this method takes a local, we can be sure that the correct v8 scopes are active around it already
+    // we still need a handle scope however...
+    v8::HandleScope scope(isolate);
+
+    if (object->InternalFieldCount() >= 1) {
+        // does the object have internal fields? if so use it!
+        ext = object->GetInternalField(0).As<v8::External>();
+    } else {
+        return nullptr;
+    }
+    return std::static_pointer_cast<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value())->getSharedPtr());
+};

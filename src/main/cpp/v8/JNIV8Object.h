@@ -29,6 +29,11 @@ public:
      */
     v8::Local<v8::Object> getJSObject();
 
+    /**
+     * returns the referenced engine
+     */
+    BGJSV8Engine* getEngine() const;
+
 protected:
     /**
      * can be used to tell the javascript engine about the amount of memory used by the
@@ -47,6 +52,9 @@ private:
     // jni callbacks
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
+    static jobject jniGetV8Field(JNIEnv *env, jobject obj, jobject name);
+    static void jniSetV8Field(JNIEnv *env, jobject obj, jobject name, jobject value);
+    static jobject jniCallV8Method(JNIEnv *env, jobject obj, jobject name, jobject arguments);
 
     // v8 callbacks
     static void weakPersistentCallback(const v8::WeakCallbackInfo<void>& data);

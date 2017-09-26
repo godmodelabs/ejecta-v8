@@ -75,6 +75,9 @@ void JNIWrapper::reloadBindings() {
         info = it.second;
         _reloadBinding(alreadyReloaded, info);
     }
+
+    _jniStringClass = nullptr;
+    _jniStringGetBytes = nullptr;
 }
 
 bool JNIWrapper::isObjectInstanceOf(JNIObject *obj, const std::string &canonicalName) {
@@ -261,7 +264,43 @@ std::shared_ptr<JNIClass> JNIWrapper::_wrapClass(const std::string& canonicalNam
     }
 }
 
+/**
+ * convert a jstring to a std::string
+ */
+std::string JNIWrapper::jstring2string(jstring string) {
+    JNI_ASSERT(_jniEnv, "JNI Environment not initialized");
+    if(!_jniStringClass) {
+        _jniStringClass = _jniEnv->FindClass("java/lang/String");
+        _jniStringGetBytes = _jniEnv->GetMethodID(_jniStringClass, "getBytes",
+                                                  "(Ljava/lang/String;)[B");
+    }
+
+    const jstring charsetName = _jniEnv->NewStringUTF("UTF-8");
+    const jbyteArray stringJbytes = (jbyteArray) _jniEnv->CallObjectMethod(string, _jniStringGetBytes, charsetName);
+    _jniEnv->DeleteLocalRef(charsetName);
+
+    const jsize length = _jniEnv->GetArrayLength(stringJbytes);
+    jbyte* pBytes = _jniEnv->GetByteArrayElements(stringJbytes, NULL);
+
+    std::string ret = std::string((char *)pBytes, (unsigned long)length);
+
+    _jniEnv->ReleaseByteArrayElements(stringJbytes, pBytes, JNI_ABORT);
+    _jniEnv->DeleteLocalRef(stringJbytes);
+
+    return ret;
+}
+
+/**
+ * convert a std::string to a jstring
+ */
+jstring JNIWrapper::string2jstring(const std::string& string) {
+    JNI_ASSERT(_jniEnv, "JNI Environment not initialized");
+    return _jniEnv->NewStringUTF(string.c_str());
+}
+
 std::map<std::string, JNIClassInfo*> JNIWrapper::_objmap;
 jmethodID JNIWrapper::_jniCanonicalNameMethodID = nullptr;
 JavaVM* JNIWrapper::_jniVM = nullptr;
 JNIEnv* JNIWrapper::_jniEnv = nullptr;
+jclass JNIWrapper::_jniStringClass = nullptr;
+jmethodID JNIWrapper::_jniStringGetBytes = nullptr;

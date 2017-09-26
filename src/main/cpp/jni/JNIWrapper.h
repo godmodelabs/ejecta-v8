@@ -125,6 +125,7 @@ public:
 
     /**
      * wraps a java object
+     * NOTE: returns nullptr for invalid/unknown objects!
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> wrapObject(jobject object) {
@@ -173,6 +174,16 @@ public:
         return _wrapClass(JNIWrapper::getCanonicalName<ObjectType>());
     }
 
+
+    /**
+     * convert a jstring to a std::string
+     */
+    static std::string jstring2string(jstring string);
+    /**
+     * convert a std::string to a jstring
+     */
+    static jstring string2jstring(const std::string& string);
+
     /**
      * creates a native object based on the specified class name
      * internal utility method; should not be called manually!
@@ -198,6 +209,9 @@ private:
     static JavaVM *_jniVM;
     static JNIEnv *_jniEnv;
     static jmethodID _jniCanonicalNameMethodID;
+
+    static jclass _jniStringClass;
+    static jmethodID _jniStringGetBytes;
 
     static std::map<std::string, JNIClassInfo*> _objmap;
 
