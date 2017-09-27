@@ -4,7 +4,7 @@ package ag.boersego.bgjs;
  * Created by martin on 18.04.17.
  */
 
-public class JNIObject {
+abstract public class JNIObject {
     private long nativeHandle;
     private native void initNative();
     private native void disposeNative(long nativeHandle);

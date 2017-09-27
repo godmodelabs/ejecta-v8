@@ -15,6 +15,7 @@ public:
     static void initializeV8Bindings(V8ClassInfo *info);
 
     static jobject NewInstance(JNIEnv *env, jobject obj, jlong enginePtr);
+    static jobject jniCallAsV8Function(JNIEnv *env, jobject obj, jobjectArray arguments);
 };
 
 BGJS_JNIV8OBJECT_DEF(JNIV8Function)

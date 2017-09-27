@@ -200,33 +200,35 @@ jstring JNIV8Wrapper::v8string2jstring(v8::Local<v8::String> string) {
 jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    jclass clsJNIV8Value = env->FindClass("ag/boersego/bgjs/JNIV8Value");
-    jmethodID constructor = env->GetMethodID(clsJNIV8Value, "<init>","(ILjava/lang/Object;)V");
-    jmethodID constructorNum = env->GetMethodID(clsJNIV8Value, "<init>","(D)V");
-    jmethodID constructorBool = env->GetMethodID(clsJNIV8Value, "<init>","(Z)V");
+    jclass clsUndefined = env->FindClass("ag/boersego/bgjs/JNIV8Undefined");
+    jclass clsDouble = env->FindClass("java/lang/Double");
+    jclass clsBool = env->FindClass("java/lang/Boolean");
+    jmethodID getterDouble = env->GetStaticMethodID(clsDouble, "valueOf","(D)Ljava/lang/Double;");
+    jmethodID getterBool = env->GetStaticMethodID(clsBool, "valueOf","(Z)Ljava/lang/Boolean;");
+    jmethodID getterUndefined = env->GetStaticMethodID(clsUndefined, "GetInstance","()Lag/boersego/bgjs/JNIV8Undefined;");
 
     if(valueRef->IsUndefined()) {
-        return env->NewObject(clsJNIV8Value, constructor, 0, nullptr);
+        return env->CallStaticObjectMethod(clsUndefined, getterUndefined);
     } else if(valueRef->IsNumber()) {
-        return env->NewObject(clsJNIV8Value, constructorNum, valueRef->NumberValue());
+        return env->CallStaticObjectMethod(clsDouble, getterDouble, valueRef->NumberValue());
     } else if(valueRef->IsString()) {
-        return env->NewObject(clsJNIV8Value, constructor, 2, JNIWrapper::string2jstring(BGJS_STRING_FROM_V8VALUE(valueRef)));
+        return JNIWrapper::string2jstring(BGJS_STRING_FROM_V8VALUE(valueRef));
     } else if(valueRef->IsBoolean()) {
-        return env->NewObject(clsJNIV8Value, constructorBool, valueRef->BooleanValue());
+        return env->CallStaticObjectMethod(clsBool, getterBool, valueRef->BooleanValue());
     } else if(valueRef->IsSymbol()) {
         JNI_ASSERT(0, "Symbols are not supported"); // return env->NewObject(clsJNIV8Value, constructor, 4, nullptr);
     } else if(valueRef->IsNull()) {
-        return env->NewObject(clsJNIV8Value, constructor, 5, nullptr);
+        return nullptr;
     } else if(valueRef->IsFunction()){
-        return env->NewObject(clsJNIV8Value, constructor, 5, JNIV8Wrapper::wrapObject<JNIV8Function>(valueRef->ToObject())->getJObject());
+        return JNIV8Wrapper::wrapObject<JNIV8Function>(valueRef->ToObject())->getJObject();
     } else if(valueRef->IsArray()){
-        return env->NewObject(clsJNIV8Value, constructor, 5, JNIV8Wrapper::wrapObject<JNIV8Array>(valueRef->ToObject())->getJObject());
+        return JNIV8Wrapper::wrapObject<JNIV8Array>(valueRef->ToObject())->getJObject();
     } else if(valueRef->IsObject()) {
         auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(valueRef->ToObject());
         if(ptr) {
-            return env->NewObject(clsJNIV8Value, constructor, 5, ptr->getJObject());
+            return ptr->getJObject();
         } else if(valueRef->IsFunction()){
-            return env->NewObject(clsJNIV8Value, constructor, 5, JNIV8Wrapper::wrapObject<JNIV8GenericObject>(valueRef->ToObject())->getJObject());
+            return JNIV8Wrapper::wrapObject<JNIV8GenericObject>(valueRef->ToObject())->getJObject();
         }
     } else {
         JNI_ASSERT(0, "Encountered unexpected v8 type");
@@ -235,13 +237,15 @@ jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
 }
 
 /**
- * convert an instance of JNIV8Value to a v8value
+ * convert an instance of Object to a v8value
  */
 v8::Local<v8::Value> JNIV8Wrapper::jobject2v8value(jobject object) {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     // because this method returns a local, we can assume that the correct v8 scopes are active around it already
     // we still need a handle scope however...
-    v8::HandleScope scope(isolate);
+    v8::EscapableHandleScope scope(isolate);
+
+    v8::Local<v8::Value> resultRef;
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 
@@ -250,29 +254,34 @@ v8::Local<v8::Value> JNIV8Wrapper::jobject2v8value(jobject object) {
     jmethodID mBooleanValue = env->GetMethodID(clsBoolean, "booleanValue","()Z");
     jclass clsString = env->FindClass("java/lang/String");
     jclass clsChar = env->FindClass("java/lang/Character");
-    jmethodID mCharValue = env->GetMethodID(clsBoolean, "charValue","()C");
+    jmethodID mCharValue = env->GetMethodID(clsChar, "charValue","()C");
     jclass clsNumber = env->FindClass("java/lang/Number");
-    jmethodID mDoubleValue = env->GetMethodID(clsBoolean, "doubleValue","()D");
+    jmethodID mDoubleValue = env->GetMethodID(clsNumber, "doubleValue","()D");
     jclass clsObj = env->FindClass("ag/boersego/bgjs/JNIV8Object");
 
     if(env->IsInstanceOf(object, clsString)) {
-        return JNIV8Wrapper::jstring2v8string((jstring)object);
+        resultRef = JNIV8Wrapper::jstring2v8string((jstring)object);
     } else if(env->IsInstanceOf(object, clsChar)) {
         jchar c = env->CallCharMethod(object, mCharValue);
         v8::MaybeLocal<v8::String> maybeLocal = v8::String::NewFromTwoByte(isolate, &c, NewStringType::kNormal, 1);
         if(!maybeLocal.IsEmpty()) {
-            return maybeLocal.ToLocalChecked();
+            resultRef = maybeLocal.ToLocalChecked();
         }
     } else if(env->IsInstanceOf(object, clsNumber)) {
         jdouble n = env->CallDoubleMethod(object, mDoubleValue);
-        return v8::Number::New(isolate, n);
+        resultRef = v8::Number::New(isolate, n);
     } else if(env->IsInstanceOf(object, clsBoolean)) {
         jboolean b = env->CallBooleanMethod(object, mBooleanValue);
-        return v8::Boolean::New(isolate, b);
+        resultRef = v8::Boolean::New(isolate, b);
     } else if(env->IsInstanceOf(object, clsObj)) {
-        return JNIV8Wrapper::wrapObject<JNIV8Object>(object)->getJSObject();
+        resultRef = JNIV8Wrapper::wrapObject<JNIV8Object>(object)->getJSObject();
+    } else if(!object) {
+        resultRef = v8::Null(isolate);
     }
-    return v8::Undefined(isolate);
+    if(resultRef.IsEmpty()) {
+        resultRef = v8::Undefined(isolate);
+    }
+    return scope.Escape(resultRef);
 }
 
 // persistent classes can also be accessed as JNIV8Object directly!

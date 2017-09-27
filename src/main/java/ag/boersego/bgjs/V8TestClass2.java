@@ -2,6 +2,8 @@ package ag.boersego.bgjs;
 
 import android.util.Log;
 
+import java.util.Map;
+
 /**
  * Created by martin on 07.09.17.
  */
@@ -24,15 +26,27 @@ public class V8TestClass2 extends V8TestClass {
 
         JNIV8GenericObject obj = JNIV8GenericObject.NewInstance(getV8Engine());
         obj.getV8Field("test");
+        obj.setV8Field("test", 13);
+
+        ((JNIV8Function)getV8Field("v8Func")).callAsV8Function(123, "abc", obj, this);
+        
+/*
+
+
+        Object v3 = callV8Method("v8Func", 123, "abc", obj, this);
 
         JNIV8Array arr = JNIV8Array.NewInstance(getV8Engine());
 
         JNIV8Function f = JNIV8Function.NewInstance(getV8Engine());
 
-        JNIV8Value v = getV8Field("v8Prop");
-        JNIV8Value v2 = getV8Field("v8Prop2");
-        JNIV8Value v3 = callV8Method("v8Func");
+        Object v = getV8Field("v8Prop");
+        Object v2 = getV8Field("v8Prop2");
+
+        setV8Field("v8Prop", 123);
+        v = getV8Field("v8Prop");
+        */
     }
+
     public long shadowField;
     public static long staticShadowField = 456;
 

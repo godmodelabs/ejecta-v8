@@ -13,4 +13,8 @@ public class JNIV8Function extends JNIV8Object {
     protected JNIV8Function(V8Engine engine, long jsObjPtr) {
         super(engine, jsObjPtr);
     }
+
+    public native Object callAsV8Function(Object... arguments);
+
+    // @TODO: call with this pointer? "callAsV8FunctionFromObject"?
 }

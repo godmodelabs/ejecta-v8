@@ -52,9 +52,13 @@ private:
     // jni callbacks
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
-    static jobject jniGetV8Field(JNIEnv *env, jobject obj, jobject name);
-    static void jniSetV8Field(JNIEnv *env, jobject obj, jobject name, jobject value);
-    static jobject jniCallV8Method(JNIEnv *env, jobject obj, jobject name, jobject arguments);
+    static jobject jniGetV8Field(JNIEnv *env, jobject obj, jstring name);
+    static void jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value);
+    static jobject jniCallV8Method(JNIEnv *env, jobject obj, jstring name, jobjectArray arguments);
+    static jboolean jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly);
+    static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);
+    static jobject jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly);
+    static jstring jniToV8String(JNIEnv *env, jobject obj, jboolean ownOnly);
 
     // v8 callbacks
     static void weakPersistentCallback(const v8::WeakCallbackInfo<void>& data);
