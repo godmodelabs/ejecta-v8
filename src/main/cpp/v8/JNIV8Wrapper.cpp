@@ -200,6 +200,7 @@ jstring JNIV8Wrapper::v8string2jstring(v8::Local<v8::String> string) {
 jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
+    // @TODO: cache
     jclass clsUndefined = env->FindClass("ag/boersego/bgjs/JNIV8Undefined");
     jclass clsDouble = env->FindClass("java/lang/Double");
     jclass clsBool = env->FindClass("java/lang/Boolean");
@@ -227,7 +228,7 @@ jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
         auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(valueRef->ToObject());
         if(ptr) {
             return ptr->getJObject();
-        } else if(valueRef->IsFunction()){
+        } else {
             return JNIV8Wrapper::wrapObject<JNIV8GenericObject>(valueRef->ToObject())->getJObject();
         }
     } else {
@@ -259,7 +260,10 @@ v8::Local<v8::Value> JNIV8Wrapper::jobject2v8value(jobject object) {
     jmethodID mDoubleValue = env->GetMethodID(clsNumber, "doubleValue","()D");
     jclass clsObj = env->FindClass("ag/boersego/bgjs/JNIV8Object");
 
-    if(env->IsInstanceOf(object, clsString)) {
+    // jobject referencing "null" can actually be non-null..
+    if(env->IsSameObject(object, NULL) || !object) {
+        resultRef = v8::Null(isolate);
+    } else if(env->IsInstanceOf(object, clsString)) {
         resultRef = JNIV8Wrapper::jstring2v8string((jstring)object);
     } else if(env->IsInstanceOf(object, clsChar)) {
         jchar c = env->CallCharMethod(object, mCharValue);
@@ -275,8 +279,6 @@ v8::Local<v8::Value> JNIV8Wrapper::jobject2v8value(jobject object) {
         resultRef = v8::Boolean::New(isolate, b);
     } else if(env->IsInstanceOf(object, clsObj)) {
         resultRef = JNIV8Wrapper::wrapObject<JNIV8Object>(object)->getJSObject();
-    } else if(!object) {
-        resultRef = v8::Null(isolate);
     }
     if(resultRef.IsEmpty()) {
         resultRef = v8::Undefined(isolate);

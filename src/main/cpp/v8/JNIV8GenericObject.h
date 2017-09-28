@@ -14,7 +14,7 @@ public:
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void initializeV8Bindings(V8ClassInfo *info);
 
-    static jobject NewInstance(JNIEnv *env, jobject obj, jlong enginePtr);
+    static jobject jniCreate(JNIEnv *env, jobject obj, jlong enginePtr);
 };
 
 BGJS_JNIV8OBJECT_DEF(JNIV8GenericObject)

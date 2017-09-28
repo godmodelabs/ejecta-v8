@@ -24,12 +24,25 @@ public class V8TestClass2 extends V8TestClass {
     public void test3(long testL, float testF) {
         Log.d("V8TestClass2", "Overwritten Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
 
-        JNIV8GenericObject obj = JNIV8GenericObject.NewInstance(getV8Engine());
+        JNIV8Function func = JNIV8Function.Create(getV8Engine(), new JNIV8Function.Handler() {
+            @Override
+            Object Callback(Object receiver, Object[] arguments) {
+                return "Hello from Java";
+            }
+        });
+
+        JNIV8Function func2 = JNIV8Function.Create(getV8Engine(), new JNIV8Function.Handler() {
+            @Override
+            Object Callback(Object receiver, Object[] arguments) {
+                return "Hello from Java";
+            }
+        });
+
+        JNIV8GenericObject obj = JNIV8GenericObject.Create(getV8Engine());
         obj.getV8Field("test");
         obj.setV8Field("test", 13);
 
-        ((JNIV8Function)getV8Field("v8Func")).callAsV8Function(123, "abc", obj, this);
-        
+        ((JNIV8Function)getV8Field("v8Func")).callAsV8Function(func, func2, 123, "abc", obj, this);
 /*
 
 

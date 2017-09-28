@@ -7,14 +7,14 @@
 BGJS_JNIV8OBJECT_LINK(JNIV8Array, "ag/boersego/bgjs/JNIV8Array");
 
 void JNIV8Array::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-    info->registerNativeMethod("NewInstance", "(J)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::NewInstance);
+    info->registerNativeMethod("Create", "(J)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreate);
 }
 
 void JNIV8Array::initializeV8Bindings(V8ClassInfo *info) {
 
 }
 
-jobject JNIV8Array::NewInstance(JNIEnv *env, jobject obj, jlong enginePtr) {
+jobject JNIV8Array::jniCreate(JNIEnv *env, jobject obj, jlong enginePtr) {
     BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
 
     v8::Isolate* isolate = engine->getIsolate();

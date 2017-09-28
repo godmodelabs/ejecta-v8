@@ -27,9 +27,11 @@ Local<Object> localRef = Local<Object>::New(isolate, ptr->_jsObject);\
 
 JNIV8Object::JNIV8Object(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
     _externalMemory = 0;
+    __android_log_print(ANDROID_LOG_INFO, "JNIV8Object", "created v8 object: %s", getCanonicalName().c_str());
 }
 
 JNIV8Object::~JNIV8Object() {
+    __android_log_print(ANDROID_LOG_INFO, "JNIV8Object", "deleted v8 object: %s", getCanonicalName().c_str());
     if(!_jsObject.IsEmpty()) {
         // adjust external memory counter if required
         if (_jsObject.IsWeak()) {

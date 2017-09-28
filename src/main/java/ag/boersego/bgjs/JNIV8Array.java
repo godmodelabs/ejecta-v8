@@ -5,8 +5,8 @@ package ag.boersego.bgjs;
  */
 
 public class JNIV8Array extends JNIV8Object {
-    public static JNIV8Array NewInstance(V8Engine engine) {
-        return NewInstance(engine.getNativePtr());
+    public static JNIV8Array Create(V8Engine engine) {
+        return Create(engine.getNativePtr());
     }
 
     /*
@@ -31,7 +31,7 @@ public class JNIV8Array extends JNIV8Object {
      */
     //------------------------------------------------------------------------
     // internal fields & methods
-    private static native JNIV8Array NewInstance(long nativePtr);
+    private static native JNIV8Array Create(long nativePtr);
 
     protected JNIV8Array(V8Engine engine, long jsObjPtr) {
         super(engine, jsObjPtr);

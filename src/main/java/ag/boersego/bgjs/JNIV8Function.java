@@ -5,16 +5,24 @@ package ag.boersego.bgjs;
  */
 
 public class JNIV8Function extends JNIV8Object {
-    public static JNIV8Function NewInstance(V8Engine engine) {
-        return NewInstance(engine.getNativePtr());
+    abstract public static class Handler {
+        abstract Object Callback(Object receiver, Object[] arguments);
+    };
+
+    public static JNIV8Function Create(V8Engine engine, JNIV8Function.Handler handler) {
+        return Create(engine.getNativePtr(), handler);
     }
-    private static native JNIV8Function NewInstance(long nativePtr);
+
+    public Object callAsV8Function(Object... arguments) {
+        return callAsV8FunctionWithReceiver(null, arguments);
+    }
+    public native Object callAsV8FunctionWithReceiver(Object receiver, Object... arguments);
+
+    //------------------------------------------------------------------------
+    // internal fields & methods
+    private static native JNIV8Function Create(long nativePtr, JNIV8Function.Handler handler);
 
     protected JNIV8Function(V8Engine engine, long jsObjPtr) {
         super(engine, jsObjPtr);
     }
-
-    public native Object callAsV8Function(Object... arguments);
-
-    // @TODO: call with this pointer? "callAsV8FunctionFromObject"?
 }
