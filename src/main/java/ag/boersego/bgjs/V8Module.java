@@ -13,6 +13,7 @@ public class V8Module extends JNIV8Module {
     public void Require(V8Engine engine, JNIV8GenericObject module) {
         JNIV8GenericObject exports = JNIV8GenericObject.Create(engine);
         exports.setV8Field("TestClass", engine.getConstructor(V8TestClassDerived.class));
+        exports.setV8Field("PureJavaClass", engine.getConstructor(V8PureJavaClass.class));
         module.setV8Field("exports", exports);
     }
 }

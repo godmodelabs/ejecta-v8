@@ -19,6 +19,9 @@ std::map<std::string, V8ClassInfoContainer*> JNIV8Wrapper::_objmap;
 
 void JNIV8Wrapper::init() {
     JNIWrapper::registerObject<JNIV8Object>(JNIObjectType::kAbstract);
+    _registerObject(JNIV8ObjectType::kAbstract, JNIWrapper::getCanonicalName<JNIV8Object>(), "",
+                    nullptr, createJavaClass<JNIV8Object>, sizeof(JNIV8Object));
+
     JNIV8Wrapper::registerObject<JNIV8Array>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8GenericObject>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8Function>(JNIV8ObjectType::kWrapper);
@@ -142,15 +145,15 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
 
     // base class has to be registered if it is not JNIV8Object (which is only registered with JNIWrapper, because it provides no JS functionality on its own)
     V8ClassInfoContainer *baseInfo = nullptr;
-    if (baseCanonicalName != JNIWrapper::getCanonicalName<JNIV8Object>()) {
+    if (!baseCanonicalName.empty()) {
         auto it = _objmap.find(baseCanonicalName);
         if (it == _objmap.end()) {
             return;
         }
         baseInfo = it->second;
-    // pure java objects can only directly extend JNIV8Object if they are abstract!
-    } else if(!i && type != JNIV8ObjectType::kAbstract) {
-        // @TODO: this should be possible...
+    } else if(canonicalName != JNIWrapper::getCanonicalName<JNIV8Object>()) {
+        // an empty base class is only allowed here for internally registering JNIObject itself
+        JNI_ASSERT(0, "Attempt to register an object without super class");
         return;
     }
 

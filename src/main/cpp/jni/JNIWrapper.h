@@ -54,7 +54,7 @@ public:
     template<class ObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
         _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIObject>(),
-                        initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
+                        initialize<ObjectType>, type != JNIObjectType::kTemporary ? instantiate<ObjectType> : nullptr);
     };
 
     /**
@@ -66,7 +66,7 @@ public:
     template<class ObjectType, class BaseObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
         _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
-                        initialize<ObjectType>, type == JNIObjectType::kPersistent ? instantiate<ObjectType> : nullptr);
+                        initialize<ObjectType>, type != JNIObjectType::kTemporary ? instantiate<ObjectType> : nullptr);
     };
 
     /**

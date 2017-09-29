@@ -19,5 +19,6 @@ public class V8TestClassDerived extends V8TestClass2 {
 
     public void test3(long testL, float testF) {
         Log.d("V8TestClassDerived", "Overwritte Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
+        super.test3(testL, testF);
     }
 }

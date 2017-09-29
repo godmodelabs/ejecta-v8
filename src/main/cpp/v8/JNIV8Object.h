@@ -49,8 +49,10 @@ private:
     // initialization; called from JNIV8Wrapper
     void setJSObject(BGJSV8Engine *engine, V8ClassInfo *cls, v8::Handle<v8::Object> jsObject);
 
-    // jni callbacks
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
+    static void initializeV8Bindings(V8ClassInfo *info);
+
+    // jni callbacks
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
     static jobject jniGetV8Field(JNIEnv *env, jobject obj, jstring name);
     static void jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value);
