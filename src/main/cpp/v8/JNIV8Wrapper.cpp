@@ -136,23 +136,22 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlo
 void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size) {
     // canonicalName may be already registered
     // (e.g. when called from JNI_OnLoad; when using multiple linked libraries it is called once for each library)
-    if(_objmap.find(canonicalName) != _objmap.end()) {
+    if (_objmap.find(canonicalName) != _objmap.end()) {
         return;
     }
 
     // base class has to be registered if it is not JNIV8Object (which is only registered with JNIWrapper, because it provides no JS functionality on its own)
     V8ClassInfoContainer *baseInfo = nullptr;
-    if(baseCanonicalName != JNIWrapper::getCanonicalName<JNIV8Object>()) {
+    if (baseCanonicalName != JNIWrapper::getCanonicalName<JNIV8Object>()) {
         auto it = _objmap.find(baseCanonicalName);
-        if(it == _objmap.end()) {
+        if (it == _objmap.end()) {
             return;
         }
         baseInfo = it->second;
-
-        // pure java objects can only directly extend JNIObject if they are abstract!
-        if(JNIWrapper::getCanonicalName<JNIV8Object>() == baseCanonicalName && !i && type != JNIV8ObjectType::kAbstract) {
-            return;
-        }
+    // pure java objects can only directly extend JNIV8Object if they are abstract!
+    } else if(!i && type != JNIV8ObjectType::kAbstract) {
+        // @TODO: this should be possible...
+        return;
     }
 
     if(baseInfo) {

@@ -125,7 +125,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     }
     JNIV8Wrapper::registerObject<V8TestClass>();
     JNIV8Wrapper::registerObject<V8TestClass2, V8TestClass>();
-    JNIV8Wrapper::registerJavaObject<V8TestClass>("ag/boersego/bgjs/V8TestClassDerived");
+    //JNIV8Wrapper::registerJavaObject<V8TestClass2>("ag/boersego/bgjs/V8TestClassDerived");
 
     // Get jclass with env->FindClass.
     // Register methods with env->RegisterNatives.

@@ -52,11 +52,14 @@ void v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 V8ClassInfoContainer::V8ClassInfoContainer(JNIV8ObjectType type, const std::string& canonicalName, JNIV8ObjectInitializer i,
-                                           JNIV8ObjectCreator c, size_t size, V8ClassInfoContainer *baseClassInfo) :
-        type(type), canonicalName(canonicalName), initializer(i), creator(c), size(size), baseClassInfo(baseClassInfo) {
+                                           JNIV8ObjectCreator c, size_t s, V8ClassInfoContainer *baseClassInfo) :
+        type(type), canonicalName(canonicalName), initializer(i), creator(c), size(s), baseClassInfo(baseClassInfo) {
     if(baseClassInfo) {
         if (!creator) {
             creator = baseClassInfo->creator;
+        }
+        if(!s) {
+            size = baseClassInfo->size;
         }
     }
 }

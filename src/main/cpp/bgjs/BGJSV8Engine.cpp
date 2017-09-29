@@ -8,6 +8,9 @@
 
 #include "BGJSV8Engine.h"
 #include "../jni/JNIWrapper.h"
+#include "../v8/JNIV8Wrapper.h"
+#include "../v8/JNIV8GenericObject.h"
+#include "../v8/JNIV8Function.h"
 
 #include "mallocdebug.h"
 #include <assert.h>
@@ -178,6 +181,40 @@ bool BGJSV8Engine::registerModule(const char* name, requireHook requireFn) {
 	return true;
 }
 
+void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target) {
+	Isolate *isolate = engine->getIsolate();
+	HandleScope scope(isolate);
+	Local<Context> context = engine->getContext();
+
+	MaybeLocal<Value> maybeLocal = target->Get(context, String::NewFromUtf8(isolate, "id"));
+	if(maybeLocal.IsEmpty()) {
+		return;
+	}
+	std::string moduleId = BGJS_STRING_FROM_V8VALUE(maybeLocal.ToLocalChecked().As<String>());
+
+	jobject module = engine->_javaModules.at(moduleId);
+
+	JNIEnv *env = JNIWrapper::getEnvironment();
+	// @TODO cache
+	jclass cls = env->FindClass("ag/boersego/bgjs/JNIV8Module");
+	jmethodID requireId = env->GetMethodID(cls, "Require", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8GenericObject;)V");
+
+	env->CallVoidMethod(module, requireId, engine->getJObject(), JNIV8Wrapper::wrapObject<JNIV8GenericObject>(target)->getJObject());
+}
+
+bool BGJSV8Engine::registerJavaModule(jobject module) {
+	JNIEnv *env = JNIWrapper::getEnvironment();
+	// @TODO cache
+	jclass cls = env->FindClass("ag/boersego/bgjs/JNIV8Module");
+	jmethodID getNameId = env->GetMethodID(cls, "getName", "()Ljava/lang/String;");
+
+	std::string strModuleName = JNIWrapper::jstring2string((jstring)env->CallObjectMethod(module, getNameId));
+	_javaModules[strModuleName] = env->NewGlobalRef(module);
+	_modules["javaModule"] = (requireHook)&BGJSV8Engine::JavaModuleRequireCallback;
+
+	return true;
+}
+
 uint8_t BGJSV8Engine::requestEmbedderDataIndex() {
     return _nextEmbedderDataIndex++;
 }
@@ -340,7 +377,8 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
     if (module) {
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+		moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, baseNameStr.c_str()));
+		moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
 
         module(this, moduleObj);
         result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
@@ -452,7 +490,8 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
 
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
+		moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
+		moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
 
         Handle<Value> fnModuleInitializerArgs[] = {
@@ -961,5 +1000,35 @@ BGJSV8Engine::~BGJSV8Engine() {
 		free(_locale);
 	}
     this->_isolate->Exit();
+
+	for(auto &it : _javaModules) {
+		env->DeleteGlobalRef(it.second);
+	}
 }
 
+extern "C" {
+JNIEXPORT void JNICALL
+Java_ag_boersego_bgjs_V8Engine_registerModule(JNIEnv *env, jobject obj, jlong enginePtr,
+											  jobject module) {
+	BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+	engine->registerJavaModule(module);
+}
+
+JNIEXPORT jobject JNICALL
+Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jlong enginePtr,
+											  jstring canonicalName) {
+	BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+
+	v8::Isolate* isolate = engine->getIsolate();
+	v8::Locker l(isolate);
+	v8::Isolate::Scope isolateScope(isolate);
+	v8::HandleScope scope(isolate);
+	v8::Local<v8::Context> context = engine->getContext();
+	v8::Context::Scope ctxScope(context);
+
+    std::string strCanonicalName = JNIWrapper::jstring2string(canonicalName);
+    std::replace(strCanonicalName.begin(), strCanonicalName.end(), '.', '/');
+
+	return JNIV8Wrapper::wrapObject<JNIV8Function>(JNIV8Wrapper::getJSConstructor(engine, strCanonicalName))->getJObject();
+}
+}

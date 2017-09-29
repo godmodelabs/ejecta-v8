@@ -69,6 +69,7 @@ public:
     v8::Local<v8::Value> require(std::string baseNameStr);
     uint8_t requestEmbedderDataIndex();
     bool registerModule(const char *name, requireHook f);
+	bool registerJavaModule(jobject module);
 
 	ClientAbstract* getClient() const;
 	v8::Isolate* getIsolate() const;
@@ -120,12 +121,15 @@ public:
 	char *_deviceClass;		// "phone"/"tablet"
 
 private:
+	static void JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target);
+
 	uint8_t _nextEmbedderDataIndex;
 	jobject _javaObject;
 
 	v8::Persistent<v8::Context> _context;
 
 	// Attributes
+	std::map<std::string, jobject> _javaModules;
 	std::map<std::string, requireHook> _modules;
     std::map<std::string, v8::Persistent<v8::Value>> _moduleCache;
     v8::Isolate* _isolate;

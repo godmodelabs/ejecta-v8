@@ -222,6 +222,16 @@ public class V8Engine extends Thread implements Handler.Callback {
 		mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
     }
 
+    public void registerModule(JNIV8Module module) {
+		registerModule(getNativePtr(), module);
+	}
+	private native void registerModule(long enginePtr, JNIV8Module module);
+
+	public JNIV8Function getConstructor(Class<? extends JNIV8Object> jniv8class) {
+		return getConstructor(getNativePtr(), jniv8class.getCanonicalName());
+	}
+	private native JNIV8Function getConstructor(long enginePtr, String canonicalName);
+
 	@Override
 	public void run() {
 		this.setName("V8Engine");

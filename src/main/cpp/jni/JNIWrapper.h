@@ -78,6 +78,15 @@ public:
     void registerJavaObject(const std::string &canonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
         _registerObject(typeid(void).hash_code(), type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr);
     };
+    /**
+     * this overload is primarily used for registering java classes directly from java where the template version above can not be used
+     * if possible use the template method instead.
+     * The base class MUST have been registered as a Java+Native tuple previously!
+     */
+    static
+    void registerJavaObject(const std::string &canonicalName, const std::string &baseCanonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
+        _registerObject(typeid(void).hash_code(), type, canonicalName, baseCanonicalName, nullptr, nullptr);
+    };
 
     /**
      * creates a Java+Native Object tuple based on the specified object type

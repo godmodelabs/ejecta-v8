@@ -59,6 +59,7 @@ private:
     static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);
     static jobject jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly);
     static jstring jniToV8String(JNIEnv *env, jobject obj, jboolean ownOnly);
+    static void jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
 
     // v8 callbacks
     static void weakPersistentCallback(const v8::WeakCallbackInfo<void>& data);

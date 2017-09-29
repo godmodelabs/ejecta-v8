@@ -7,6 +7,14 @@ import java.util.Map;
 
 
 abstract public class JNIV8Object extends JNIObject {
+    static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
+        RegisterV8Class(derivedClass, JNIV8Object.class);
+    }
+    static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass, Class<? extends JNIV8Object> baseClass) {
+        RegisterV8Class(derivedClass.getCanonicalName(), baseClass.getCanonicalName());
+    }
+    static private native void RegisterV8Class(String derivedClass, String baseClass);
+
     public V8Engine getV8Engine() {
         return _engine;
     }

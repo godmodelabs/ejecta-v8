@@ -65,7 +65,17 @@ public:
     template<class ObjectType> static
     void registerJavaObject(const std::string &canonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
         JNIWrapper::registerJavaObject<ObjectType>(canonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
-        _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, createDerivedJavaClass<ObjectType>, sizeof(ObjectType));
+        _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr, 0);
+    };
+    /**
+     * this overload is primarily used for registering java classes directly from java where the template version above can not be used
+     * if possible use the template method instead.
+     * The base class MUST have been registered as a Java+Native tuple previously!
+     */
+    static
+    void registerJavaObject(const std::string &canonicalName, const std::string &baseCanonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
+        JNIWrapper::registerJavaObject(canonicalName, baseCanonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
+        _registerObject(type, canonicalName, baseCanonicalName, nullptr, nullptr, 0);
     };
 
     /**
@@ -163,6 +173,9 @@ public:
     v8::Local<v8::Function> getJSConstructor(BGJSV8Engine *engine) {
         return _getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), engine)->getConstructor();
     }
+    static v8::Local<v8::Function> getJSConstructor(BGJSV8Engine *engine, const std::string &canonicalName) {
+        return _getV8ClassInfo(canonicalName, engine)->getConstructor();
+    }
 
     /**
      * convert a v8 value to an instance of Object
@@ -210,12 +223,6 @@ private:
 
     template<class ObjectType>
     static std::shared_ptr<JNIV8Object> createJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj) {
-        std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createObject<ObjectType>("<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj);
-        return ptr;
-    }
-
-    template<class ObjectType>
-    static std::shared_ptr<JNIV8Object> createDerivedJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj) {
         std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj);
         return ptr;
     }

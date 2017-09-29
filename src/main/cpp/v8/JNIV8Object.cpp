@@ -149,6 +149,7 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("getV8Fields", "(Z)Ljava/util/Map;", (void*)JNIV8Object::jniGetV8Fields);
 
     info->registerNativeMethod("toV8String", "()Ljava/lang/String;", (void*)JNIV8Object::jniToV8String);
+    info->registerNativeMethod("RegisterV8Class", "(Ljava/lang/String;Ljava/lang/String;)V", (void*)JNIV8Object::jniRegisterV8Class);
 }
 
 void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change) {
@@ -347,6 +348,16 @@ jstring JNIV8Object::jniToV8String(JNIEnv *env, jobject obj, jboolean ownOnly) {
         return nullptr;
     }
     return JNIV8Wrapper::v8string2jstring(maybeLocal.ToLocalChecked());
+}
+
+void JNIV8Object::jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass) {
+    std::string strDerivedClass = JNIWrapper::jstring2string(derivedClass);
+    std::replace(strDerivedClass.begin(), strDerivedClass.end(), '.', '/');
+
+    std::string strBaseClass = JNIWrapper::jstring2string(baseClass);
+    std::replace(strBaseClass.begin(), strBaseClass.end(), '.', '/');
+
+    JNIV8Wrapper::registerJavaObject(strDerivedClass, strBaseClass);
 }
 
 //--------------------------------------------------------------------------------------------------

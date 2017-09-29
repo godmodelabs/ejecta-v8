@@ -49,7 +49,7 @@ JNIObject::~JNIObject() {
 }
 
 void JNIObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-
+    info->registerNativeMethod("RegisterClass", "(Ljava/lang/String;Ljava/lang/String;)V", (void*)JNIObject::jniRegisterClass);
 }
 
 const jobject JNIObject::getJObject() const {
@@ -150,6 +150,16 @@ METHOD(Float, jfloat)
 METHOD(Int, jint)
 METHOD(Short, jshort)
 METHOD(Object, jobject)
+
+void JNIObject::jniRegisterClass(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass) {
+    std::string strDerivedClass = JNIWrapper::jstring2string(derivedClass);
+    std::replace(strDerivedClass.begin(), strDerivedClass.end(), '.', '/');
+
+    std::string strBaseClass = JNIWrapper::jstring2string(baseClass);
+    std::replace(strBaseClass.begin(), strBaseClass.end(), '.', '/');
+
+    JNIWrapper::registerJavaObject(strDerivedClass, strBaseClass);
+}
 
 //--------------------------------------------------------------------------------------------------
 // Exports

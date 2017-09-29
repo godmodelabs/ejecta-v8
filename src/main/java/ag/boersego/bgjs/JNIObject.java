@@ -14,11 +14,19 @@ abstract public class JNIObject {
         initBinding();
     }
 
+    static public void RegisterClass(Class<? extends JNIObject> derivedClass) {
+        RegisterClass(derivedClass, JNIObject.class);
+    }
+    static public void RegisterClass(Class<? extends JNIObject> derivedClass, Class<? extends JNIObject> baseClass) {
+        RegisterClass(derivedClass.getCanonicalName(), baseClass.getCanonicalName());
+    }
+    static private native void RegisterClass(String derivedClass, String baseClass);
+
     public JNIObject() {
         initNative();
     }
 
-    public void dispose() {
+    private void dispose() {
         if(nativeHandle == 0) return;
         disposeNative(nativeHandle);
         nativeHandle = 0;

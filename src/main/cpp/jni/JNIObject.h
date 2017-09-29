@@ -51,6 +51,7 @@ protected:
 
 private:
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
+    static void jniRegisterClass(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
 
     jobject _jniObject;
     jweak _jniObjectWeak;
