@@ -4,7 +4,7 @@ package ag.boersego.bgjs;
  * Created by martin on 26.09.17.
  */
 
-public class JNIV8Function extends JNIV8Object {
+final public class JNIV8Function extends JNIV8Object {
     abstract public static class Handler {
         abstract Object Callback(Object receiver, Object[] arguments);
     };

@@ -268,6 +268,11 @@ std::shared_ptr<JNIClass> JNIWrapper::_wrapClass(const std::string& canonicalNam
  * convert a jstring to a std::string
  */
 std::string JNIWrapper::jstring2string(jstring string) {
+    // string pointers can also be null but there is no real way to express that in a std::string
+    if(_jniEnv->IsSameObject(string, NULL)) {
+        return "";
+    }
+
     JNI_ASSERT(_jniEnv, "JNI Environment not initialized");
     if(!_jniStringClass) {
         _jniStringClass = _jniEnv->FindClass("java/lang/String");

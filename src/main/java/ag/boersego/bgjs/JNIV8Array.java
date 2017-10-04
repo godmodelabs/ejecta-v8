@@ -4,7 +4,7 @@ package ag.boersego.bgjs;
  * Created by martin on 26.09.17.
  */
 
-public class JNIV8Array extends JNIV8Object {
+final public class JNIV8Array extends JNIV8Object {
     public static JNIV8Array Create(V8Engine engine) {
         return Create(engine.getNativePtr());
     }

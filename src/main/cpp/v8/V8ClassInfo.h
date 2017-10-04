@@ -61,6 +61,9 @@ public:
 private:
     V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine);
 
+    void registerJavaMethod(const std::string& methodName, const std::string& javaMethodName);
+    void registerJavaAccessor(const std::string& propertyName, const std::string& javaGetterName, const std::string& javaSetterName, v8::PropertyAttribute settings = v8::None);
+
     BGJSV8Engine *engine;
     V8ClassInfoContainer *container;
     v8::Persistent<v8::FunctionTemplate> functionTemplate;
@@ -88,6 +91,34 @@ private:
     JNIV8ObjectInitializer initializer;
     JNIV8ObjectCreator creator;
     std::vector<V8ClassInfo*> classInfos;
+};
+
+/**
+ * internal struct for storing information for property accessor bound to java methods
+ */
+struct JNIV8ObjectJavaAccessorHolder {
+    std::string propertyName;
+    std::string javaGetterName;
+    std::string javaSetterName;
+
+    JNIV8ObjectJavaAccessorHolder(const std::string &name, const std::string &getterName, const std::string &setterName) {
+        propertyName = name;
+        javaGetterName = getterName;
+        javaSetterName = setterName;
+    }
+};
+
+/**
+ * internal struct for storing information for functions bound to java methods
+ */
+struct JNIV8ObjectJavaCallbackHolder {
+    std::string javaMethodName;
+    std::string methodName;
+
+    JNIV8ObjectJavaCallbackHolder(const std::string &method, const std::string &javaMethod) {
+        methodName = method;
+        javaMethodName = javaMethod;
+    }
 };
 
 /**

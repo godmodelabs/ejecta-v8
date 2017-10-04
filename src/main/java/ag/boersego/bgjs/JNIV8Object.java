@@ -1,4 +1,5 @@
 package ag.boersego.bgjs;
+import java.util.ArrayList;
 import java.util.Map;
 
 /**
@@ -7,6 +8,7 @@ import java.util.Map;
 
 
 abstract public class JNIV8Object extends JNIObject {
+
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
         RegisterV8Class(derivedClass, JNIV8Object.class);
     }

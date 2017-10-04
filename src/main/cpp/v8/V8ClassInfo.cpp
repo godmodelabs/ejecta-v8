@@ -5,8 +5,80 @@
 #include "V8ClassInfo.h"
 #include "../bgjs/BGJSV8Engine.h"
 #include "JNIV8Object.h"
+#include "JNIV8Wrapper.h"
 
 using namespace v8;
+
+void v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+    HandleScope scope(info.GetIsolate());
+
+    v8::Local<v8::External> ext;
+
+    ext = info.Data().As<v8::External>();
+    JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
+
+    ext = info.This()->GetInternalField(0).As<v8::External>();
+    JNIV8Object* v8Object = reinterpret_cast<JNIV8Object*>(ext->Value());
+
+    jobject jobj = v8Object->getJObject();
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    // @TODO: cache methodId
+    jclass cls = env->GetObjectClass(jobj);
+    jmethodID methodId = env->GetMethodID(cls, cb->javaGetterName.c_str(), "()Ljava/lang/Object;");
+
+    info.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(env->CallObjectMethod(jobj, methodId)));
+}
+
+
+void v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+    HandleScope scope(info.GetIsolate());
+
+    v8::Local<v8::External> ext;
+
+    ext = info.Data().As<v8::External>();
+    JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
+
+    ext = info.This()->GetInternalField(0).As<v8::External>();
+    JNIV8Object* v8Object = reinterpret_cast<JNIV8Object*>(ext->Value());
+
+    jobject jobj = v8Object->getJObject();
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    // @TODO: cache methodId
+    jclass cls = env->GetObjectClass(jobj);
+    jmethodID methodId = env->GetMethodID(cls, cb->javaSetterName.c_str(), "(Ljava/lang/Object;)V");
+
+    env->CallVoidMethod(jobj, methodId, JNIV8Wrapper::v8value2jobject(value));
+}
+
+void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    HandleScope scope(args.GetIsolate());
+
+    v8::Local<v8::External> ext;
+
+    ext = args.Data().As<v8::External>();
+    JNIV8ObjectJavaCallbackHolder* cb = static_cast<JNIV8ObjectJavaCallbackHolder*>(ext->Value());
+
+    ext = args.This()->GetInternalField(0).As<v8::External>();
+    JNIV8Object* v8Object = reinterpret_cast<JNIV8Object*>(ext->Value());
+
+    jobject jobj = v8Object->getJObject();
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    // @TODO: cache methodId
+    jclass cls = env->GetObjectClass(jobj);
+    jmethodID methodId = env->GetMethodID(cls, cb->javaMethodName.c_str(), "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+
+    jobjectArray jargs = env->NewObjectArray(args.Length(), env->FindClass("java/lang/Object"), nullptr);
+    for(int idx=0,n=args.Length(); idx<n; idx++) {
+        env->SetObjectArrayElement(jargs, idx, JNIV8Wrapper::v8value2jobject(args[idx]));
+    }
+
+    jobject result = env->CallObjectMethod(jobj, methodId, jobj, jargs);
+
+    args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
+}
 
 void v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
     HandleScope scope(info.GetIsolate());
@@ -90,6 +162,44 @@ void V8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMetho
     Local<External> data = External::New(isolate, (void*)holder);
 
     instanceTpl->Set(String::NewFromUtf8(isolate, methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data));
+}
+
+void V8ClassInfo::registerJavaMethod(const std::string& methodName, const std::string& javaMethodName) {
+    Isolate* isolate = engine->getIsolate();
+    HandleScope scope(isolate);
+
+    Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
+    // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
+    // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
+    // but other properties and accessors are copied without problems.
+    // Thought: it is not allowed to store actual Functions on these templates - only FunctionTemplates
+    // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
+    // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
+    Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
+
+    JNIV8ObjectJavaCallbackHolder* holder = new JNIV8ObjectJavaCallbackHolder(methodName, javaMethodName);
+    Local<External> data = External::New(isolate, (void*)holder);
+
+    instanceTpl->Set(String::NewFromUtf8(isolate, methodName.c_str()), FunctionTemplate::New(isolate, v8JavaMethodCallback, data));
+}
+
+void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const std::string& javaGetterName, const std::string& javaSetterName, v8::PropertyAttribute settings) {
+    Isolate* isolate = engine->getIsolate();
+    HandleScope scope(isolate);
+
+    Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
+    Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
+
+    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyName, javaGetterName, javaSetterName);
+    Local<External> data = External::New(isolate, (void*)holder);
+
+    AccessorSetterCallback finalSetter = 0;
+    if(!javaSetterName.empty()) {
+        finalSetter = v8JavaAccessorSetterCallback;
+    }
+    instanceTpl->SetAccessor(String::NewFromUtf8(isolate, propertyName.c_str()),
+                             v8JavaAccessorGetterCallback, finalSetter,
+                             data, DEFAULT, settings);
 }
 
 void V8ClassInfo::registerAccessor(const std::string& propertyName,

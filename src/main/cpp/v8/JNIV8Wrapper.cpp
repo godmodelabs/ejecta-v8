@@ -102,6 +102,49 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
         it->second->initializer(v8ClassInfo);
     }
 
+    // but it might have bindings on java that need to be processed
+    // binding classes + methods do not need to be cached here, because they are only used once upon initialization!
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    jclass cls = env->FindClass((canonicalName+"V8Binding").c_str());
+    if(cls) {
+        // @TODO cache functionInfo + accessorInfo class
+        jclass functionInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo");
+        jfieldID functionNameId = env->GetFieldID(functionInfoCls, "property", "Ljava/lang/String;");
+        jfieldID methodNameId = env->GetFieldID(functionInfoCls, "method", "Ljava/lang/String;");
+        jclass accessorInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8AccessorInfo");
+        jfieldID propertyNameId = env->GetFieldID(accessorInfoCls, "property", "Ljava/lang/String;");
+        jfieldID getterNameId = env->GetFieldID(accessorInfoCls, "getter", "Ljava/lang/String;");
+        jfieldID setterNameId = env->GetFieldID(accessorInfoCls, "setter", "Ljava/lang/String;");
+
+        jmethodID getFunctionsMethodId = env->GetStaticMethodID(cls, "getV8Functions",
+                                                                "()[Lag/boersego/v8annotations/generated/V8FunctionInfo;");
+        jmethodID getAccessorsMethodId = env->GetStaticMethodID(cls, "getV8Accessors",
+                                                                "()[Lag/boersego/v8annotations/generated/V8AccessorInfo;");
+
+        jobjectArray functionInfos = (jobjectArray) env->CallStaticObjectMethod(cls,
+                                                                                getFunctionsMethodId);
+        for(jsize idx=0,n=env->GetArrayLength(functionInfos);idx<n;idx++) {
+            jobject functionInfo = env->GetObjectArrayElement(functionInfos, idx);
+            const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, functionNameId));
+            const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, methodNameId));
+            v8ClassInfo->registerJavaMethod(strFunctionName, strMethodName);
+        }
+
+        jobjectArray accessorInfos = (jobjectArray) env->CallStaticObjectMethod(cls,
+                                                                                getAccessorsMethodId);
+        for(jsize idx=0,n=env->GetArrayLength(accessorInfos);idx<n;idx++) {
+            jobject accessorInfo = env->GetObjectArrayElement(accessorInfos, idx);
+            const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, propertyNameId));
+            const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, getterNameId));
+            const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, setterNameId));
+            v8ClassInfo->registerJavaAccessor(strPropertyName, strGetterName, strSetterName);
+        }
+    } else {
+        env->ExceptionClear();
+    }
+
+    // @TODO: loop through array and register methods & accessors on instance template
+
     return v8ClassInfo;
 }
 
