@@ -157,6 +157,10 @@ public:
                     env->ExceptionClear();
                     return nullptr;
                 }
+                // If handle was already disposed => cancel
+                if(!handle) {
+                    return nullptr;
+                }
                 jniObject = reinterpret_cast<JNIObject*>(handle);
                 // now check if this object is an instance of `ObjectType`
                 JNIClassInfo *info2 = jniObject->_jniClassInfo;

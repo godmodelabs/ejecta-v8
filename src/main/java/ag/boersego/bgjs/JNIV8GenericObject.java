@@ -9,6 +9,10 @@ final public class JNIV8GenericObject extends JNIV8Object {
         return Create(engine.getNativePtr());
     }
 
+    public void dispose() throws RuntimeException {
+        super.dispose();
+    }
+
     //------------------------------------------------------------------------
     // internal fields & methods
     private static native JNIV8GenericObject Create(long nativePtr);

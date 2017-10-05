@@ -1,16 +1,27 @@
 package ag.boersego.bgjs;
 
+import java.lang.ref.ReferenceQueue;
+
 /**
  * Created by martin on 18.04.17.
  */
 
 abstract public class JNIObject {
+    private static ReferenceQueue<JNIObject> referenceQueue;
+    private static final Thread finalizingThread;
+
+    private JNIObjectReference reference;
     private long nativeHandle;
     private native void initNative();
-    private native void disposeNative(long nativeHandle);
 
     private static native void initBinding();
     static {
+        referenceQueue = new ReferenceQueue<>();
+
+        finalizingThread = new Thread(new JNIObjectFinalizerRunnable(referenceQueue));
+        finalizingThread.setName("EjectaV8FinalizingDaemon");
+        finalizingThread.start();
+
         initBinding();
     }
 
@@ -24,21 +35,21 @@ abstract public class JNIObject {
 
     public JNIObject() {
         initNative();
+        reference = new JNIObjectReference(this, nativeHandle, referenceQueue);
     }
 
-    private void dispose() {
-        if(nativeHandle == 0) return;
-        disposeNative(nativeHandle);
+    protected void dispose() throws RuntimeException {
+        if(nativeHandle == 0) {
+            throw new RuntimeException("Object must not be disposed twice");
+        }
+        if(!reference.cleanup()) {
+            throw new RuntimeException("Object is strongly referenced from native side and must not be disposed manually");
+        }
         nativeHandle = 0;
+        reference = null;
     }
 
     public boolean isDisposed() {
         return nativeHandle == 0;
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-        dispose();
-        super.finalize();
     }
 }

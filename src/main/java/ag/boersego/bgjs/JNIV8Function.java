@@ -18,6 +18,10 @@ final public class JNIV8Function extends JNIV8Object {
     }
     public native Object callAsV8FunctionWithReceiver(Object receiver, Object... arguments);
 
+    public void dispose() throws RuntimeException {
+        super.dispose();
+    }
+
     //------------------------------------------------------------------------
     // internal fields & methods
     private static native JNIV8Function Create(long nativePtr, JNIV8Function.Handler handler);

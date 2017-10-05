@@ -45,6 +45,11 @@ public:
     jshort callJavaShortMethod(const char* name, ...);
     jobject callJavaObjectMethod(const char* name, ...);
 
+    /**
+     * checks if the native object is currently retaining
+     * a strong reference to the java object (keeping it from being gcd)
+     */
+    bool retainsJObject() const;
 protected:
     void retainJObject();
     void releaseJObject();

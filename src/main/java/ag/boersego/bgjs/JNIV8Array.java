@@ -29,6 +29,11 @@ final public class JNIV8Array extends JNIV8Object {
     slice? splice? shift? pop?
 
      */
+
+    public void dispose() throws RuntimeException {
+        super.dispose();
+    }
+
     //------------------------------------------------------------------------
     // internal fields & methods
     private static native JNIV8Array Create(long nativePtr);

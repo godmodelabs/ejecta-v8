@@ -12,8 +12,9 @@ using namespace v8;
 
 BGJS_JNIV8OBJECT_LINK(JNIV8Object, "ag/boersego/bgjs/JNIV8Object");
 
-#define JNIV8Object_PrepareJNICall()\
+#define JNIV8Object_PrepareJNICall(type)\
 auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);\
+if(!ptr){env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "Attempt to call method on disposed object"); return type;}\
 BGJSV8Engine *engine = ptr->_bgjsEngine;\
 v8::Isolate* isolate = engine->getIsolate();\
 v8::Locker l(isolate);\
@@ -162,7 +163,7 @@ void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong chan
 }
 
 jobject JNIV8Object::jniGetV8Field(JNIEnv *env, jobject obj, jstring name) {
-    JNIV8Object_PrepareJNICall();
+    JNIV8Object_PrepareJNICall(nullptr);
 
     MaybeLocal<Value> valueRef = localRef->Get(context, JNIV8Wrapper::jstring2v8string(name));
     if(valueRef.IsEmpty()) {
@@ -177,7 +178,7 @@ jobject JNIV8Object::jniGetV8Field(JNIEnv *env, jobject obj, jstring name) {
 }
 
 void JNIV8Object::jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value) {
-    JNIV8Object_PrepareJNICall();
+    JNIV8Object_PrepareJNICall(void());
 
     Maybe<bool> res = localRef->Set(context, JNIV8Wrapper::jstring2v8string(name), JNIV8Wrapper::jobject2v8value(value));
     if(res.IsNothing()) {
@@ -189,7 +190,7 @@ void JNIV8Object::jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject 
 }
 
 jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, jobjectArray arguments) {
-    JNIV8Object_PrepareJNICall();
+    JNIV8Object_PrepareJNICall(nullptr);
 
     MaybeLocal<Value> maybeLocal;
     Local<Value> funcRef;
@@ -237,7 +238,7 @@ jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, job
 }
 
 jboolean JNIV8Object::jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall();
+    JNIV8Object_PrepareJNICall(false);
 
     Local<String> keyRef = JNIV8Wrapper::jstring2v8string(name);
     Maybe<bool> res = ownOnly ? localRef->HasOwnProperty(context, keyRef) : localRef->Has(context, keyRef);
@@ -252,7 +253,7 @@ jboolean JNIV8Object::jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboo
 }
 
 jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall();
+    JNIV8Object_PrepareJNICall(nullptr);
 
     MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames();
     if(maybeArrayRef.IsEmpty()) {
@@ -290,7 +291,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
 }
 
 jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall();
+    JNIV8Object_PrepareJNICall(nullptr);
 
     MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames();
     if(maybeArrayRef.IsEmpty()) {
@@ -342,7 +343,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
 }
 
 jstring JNIV8Object::jniToV8String(JNIEnv *env, jobject obj, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall();
+    JNIV8Object_PrepareJNICall(nullptr);
     MaybeLocal<String> maybeLocal = localRef->ToString(context);
     if(maybeLocal.IsEmpty()) {
         // @TODO: v8 exception to java exception!!

@@ -113,6 +113,10 @@ void JNIObject::releaseJObject() {
     _jniObjectRefCount--;
 }
 
+bool JNIObject::retainsJObject() const {
+    return _jniObjectRefCount > 0;
+}
+
 //--------------------------------------------------------------------------------------------------
 // Methods
 //--------------------------------------------------------------------------------------------------
@@ -173,8 +177,13 @@ extern "C" {
         JNIWrapper::initializeNativeObject(obj);
     }
 
-    JNIEXPORT void JNICALL Java_ag_boersego_bgjs_JNIObject_disposeNative(JNIEnv *env, jobject obj, jlong nativeHandle) {
-        delete reinterpret_cast<JNIObject*>(nativeHandle);
+    JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_JNIObjectReference_disposeNative(JNIEnv *env, jobject obj, jlong nativeHandle) {
+        JNIObject *jniObject = reinterpret_cast<JNIObject*>(nativeHandle);
+        if(jniObject->retainsJObject()) {
+            return false;
+        }
+        delete jniObject;
+        return true;
     }
 }
 

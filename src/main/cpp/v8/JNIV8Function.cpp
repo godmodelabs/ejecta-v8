@@ -63,6 +63,11 @@ void JNIV8Function::initializeV8Bindings(V8ClassInfo *info) {
 
 jobject JNIV8Function::jniCallAsV8FunctionWithReceiver(JNIEnv *env, jobject obj, jobject receiver, jobjectArray arguments) {
     auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
+    if(!ptr) {
+        env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
+                      "Attempt to call method on disposed object");
+        return nullptr;
+    }
 
     v8::Isolate* isolate = ptr->getEngine()->getIsolate();
     v8::Locker l(isolate);
