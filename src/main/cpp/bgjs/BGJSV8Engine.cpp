@@ -1004,6 +1004,8 @@ BGJSV8Engine::~BGJSV8Engine() {
 	for(auto &it : _javaModules) {
 		env->DeleteGlobalRef(it.second);
 	}
+
+	JNIV8Wrapper::cleanupV8Engine(this);
 }
 
 extern "C" {

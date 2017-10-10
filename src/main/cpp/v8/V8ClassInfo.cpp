@@ -23,11 +23,7 @@ void v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallback
     jobject jobj = v8Object->getJObject();
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    // @TODO: cache methodId
-    jclass cls = env->GetObjectClass(jobj);
-    jmethodID methodId = env->GetMethodID(cls, cb->javaGetterName.c_str(), "()Ljava/lang/Object;");
-
-    info.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(env->CallObjectMethod(jobj, methodId)));
+    info.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(env->CallObjectMethod(jobj, cb->javaGetterId)));
 }
 
 
@@ -45,11 +41,7 @@ void v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, co
     jobject jobj = v8Object->getJObject();
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    // @TODO: cache methodId
-    jclass cls = env->GetObjectClass(jobj);
-    jmethodID methodId = env->GetMethodID(cls, cb->javaSetterName.c_str(), "(Ljava/lang/Object;)V");
-
-    env->CallVoidMethod(jobj, methodId, JNIV8Wrapper::v8value2jobject(value));
+    env->CallVoidMethod(jobj, cb->javaSetterId, JNIV8Wrapper::v8value2jobject(value));
 }
 
 void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -66,16 +58,12 @@ void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     jobject jobj = v8Object->getJObject();
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    // @TODO: cache methodId
-    jclass cls = env->GetObjectClass(jobj);
-    jmethodID methodId = env->GetMethodID(cls, cb->javaMethodName.c_str(), "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
-
     jobjectArray jargs = env->NewObjectArray(args.Length(), env->FindClass("java/lang/Object"), nullptr);
     for(int idx=0,n=args.Length(); idx<n; idx++) {
         env->SetObjectArrayElement(jargs, idx, JNIV8Wrapper::v8value2jobject(args[idx]));
     }
 
-    jobject result = env->CallObjectMethod(jobj, methodId, jobj, jargs);
+    jobject result = env->CallObjectMethod(jobj, cb->javaMethodId, jobj, jargs);
 
     args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
 }
@@ -140,6 +128,21 @@ V8ClassInfo::V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine) 
         container(container), engine(engine), constructorCallback(0) {
 }
 
+V8ClassInfo::~V8ClassInfo() {
+    for(auto &it : callbackHolders) {
+        delete it;
+    }
+    for(auto &it : accessorHolders) {
+        delete it;
+    }
+    for(auto &it : javaAccessorHolders) {
+        delete it;
+    }
+    for(auto &it : javaCallbackHolders) {
+        delete it;
+    }
+}
+
 void V8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback) {
     assert(container->type == JNIV8ObjectType::kPersistent);
     constructorCallback = callback;
@@ -159,12 +162,13 @@ void V8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMetho
     Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
 
     JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder(methodName, callback);
+    callbackHolders.push_back(holder);
     Local<External> data = External::New(isolate, (void*)holder);
 
     instanceTpl->Set(String::NewFromUtf8(isolate, methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data));
 }
 
-void V8ClassInfo::registerJavaMethod(const std::string& methodName, const std::string& javaMethodName) {
+void V8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID methodId) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
 
@@ -177,25 +181,31 @@ void V8ClassInfo::registerJavaMethod(const std::string& methodName, const std::s
     // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
     Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
 
-    JNIV8ObjectJavaCallbackHolder* holder = new JNIV8ObjectJavaCallbackHolder(methodName, javaMethodName);
+    JNIV8ObjectJavaCallbackHolder* holder = new JNIV8ObjectJavaCallbackHolder(methodName, methodId);
+    javaCallbackHolders.push_back(holder);
+
     Local<External> data = External::New(isolate, (void*)holder);
 
     instanceTpl->Set(String::NewFromUtf8(isolate, methodName.c_str()), FunctionTemplate::New(isolate, v8JavaMethodCallback, data));
 }
 
-void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const std::string& javaGetterName, const std::string& javaSetterName, v8::PropertyAttribute settings) {
+void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, jmethodID getterId, jmethodID setterId, v8::PropertyAttribute settings) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
 
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
     Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
 
-    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyName, javaGetterName, javaSetterName);
+    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyName, getterId, setterId);
+    javaAccessorHolders.push_back(holder);
+
     Local<External> data = External::New(isolate, (void*)holder);
 
     AccessorSetterCallback finalSetter = 0;
-    if(!javaSetterName.empty()) {
+    if(setterId) {
         finalSetter = v8JavaAccessorSetterCallback;
+    } else if(!(settings & v8::PropertyAttribute::ReadOnly)) {
+        settings = (v8::PropertyAttribute)(settings | v8::PropertyAttribute::ReadOnly);
     }
     instanceTpl->SetAccessor(String::NewFromUtf8(isolate, propertyName.c_str()),
                              v8JavaAccessorGetterCallback, finalSetter,
@@ -213,11 +223,14 @@ void V8ClassInfo::registerAccessor(const std::string& propertyName,
     Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
 
     JNIV8ObjectAccessorHolder* holder = new JNIV8ObjectAccessorHolder(propertyName, getter, setter);
+    accessorHolders.push_back(holder);
     Local<External> data = External::New(isolate, (void*)holder);
 
     AccessorSetterCallback finalSetter = 0;
     if(setter) {
         finalSetter = v8AccessorSetterCallback;
+    } else if(!(settings & v8::PropertyAttribute::ReadOnly)) {
+        settings = (v8::PropertyAttribute)(settings | v8::PropertyAttribute::ReadOnly);
     }
     instanceTpl->SetAccessor(String::NewFromUtf8(isolate, propertyName.c_str()),
                              v8AccessorGetterCallback, finalSetter,
@@ -244,4 +257,3 @@ v8::Local<v8::Function> V8ClassInfo::getConstructor() const {
     auto ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
     return scope.Escape(ft->GetFunction());
 }
-

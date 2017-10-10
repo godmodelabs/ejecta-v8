@@ -105,8 +105,9 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     // but it might have bindings on java that need to be processed
     // binding classes + methods do not need to be cached here, because they are only used once upon initialization!
     JNIEnv *env = JNIWrapper::getEnvironment();
-    jclass cls = env->FindClass((canonicalName+"V8Binding").c_str());
-    if(cls) {
+    jclass clsObject = env->FindClass(canonicalName.c_str());
+    jclass clsBinding = env->FindClass((canonicalName+"V8Binding").c_str());
+    if(clsBinding && clsObject) {
         // @TODO cache functionInfo + accessorInfo class
         jclass functionInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo");
         jfieldID functionNameId = env->GetFieldID(functionInfoCls, "property", "Ljava/lang/String;");
@@ -116,34 +117,38 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
         jfieldID getterNameId = env->GetFieldID(accessorInfoCls, "getter", "Ljava/lang/String;");
         jfieldID setterNameId = env->GetFieldID(accessorInfoCls, "setter", "Ljava/lang/String;");
 
-        jmethodID getFunctionsMethodId = env->GetStaticMethodID(cls, "getV8Functions",
+        jmethodID getFunctionsMethodId = env->GetStaticMethodID(clsBinding, "getV8Functions",
                                                                 "()[Lag/boersego/v8annotations/generated/V8FunctionInfo;");
-        jmethodID getAccessorsMethodId = env->GetStaticMethodID(cls, "getV8Accessors",
+        jmethodID getAccessorsMethodId = env->GetStaticMethodID(clsBinding, "getV8Accessors",
                                                                 "()[Lag/boersego/v8annotations/generated/V8AccessorInfo;");
 
-        jobjectArray functionInfos = (jobjectArray) env->CallStaticObjectMethod(cls,
+        jobjectArray functionInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
                                                                                 getFunctionsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(functionInfos);idx<n;idx++) {
             jobject functionInfo = env->GetObjectArrayElement(functionInfos, idx);
             const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, functionNameId));
             const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, methodNameId));
-            v8ClassInfo->registerJavaMethod(strFunctionName, strMethodName);
+            jmethodID javaMethodId = env->GetMethodID(clsObject, strMethodName.c_str(), "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+
+            v8ClassInfo->registerJavaMethod(strFunctionName, javaMethodId);
         }
 
-        jobjectArray accessorInfos = (jobjectArray) env->CallStaticObjectMethod(cls,
+        jobjectArray accessorInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
                                                                                 getAccessorsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(accessorInfos);idx<n;idx++) {
             jobject accessorInfo = env->GetObjectArrayElement(accessorInfos, idx);
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, propertyNameId));
             const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, getterNameId));
             const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, setterNameId));
-            v8ClassInfo->registerJavaAccessor(strPropertyName, strGetterName, strSetterName);
+
+            jmethodID javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;");
+            jmethodID javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V");
+
+            v8ClassInfo->registerJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
         }
     } else {
         env->ExceptionClear();
     }
-
-    // @TODO: loop through array and register methods & accessors on instance template
 
     return v8ClassInfo;
 }
@@ -347,3 +352,18 @@ template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v
     }
     return std::static_pointer_cast<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value())->getSharedPtr());
 };
+
+/**
+ * internal helper function called by V8Engine on destruction
+ */
+void JNIV8Wrapper::cleanupV8Engine(BGJSV8Engine *engine) {
+    for(auto it : _objmap) {
+        for (auto it2 = it.second->classInfos.begin(); it2 != it.second->classInfos.end(); ++it2) {
+            if((*it2)->engine == engine) {
+                delete *it2;
+                it.second->classInfos.erase(it2);
+                break;
+            }
+        }
+    }
+}

@@ -204,12 +204,6 @@ public:
      * - createObject<NativeType>() if you want to create a new Java+Native object tuple
      */
     static void initializeNativeObject(jobject object);
-
-    /**
-     * internal utility method; should not be called manually
-     * used to refresh all references after classes where unloaded
-     */
-    static void reloadBindings();
 private:
     // Factory method for creating objects
     static jobject _createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs);

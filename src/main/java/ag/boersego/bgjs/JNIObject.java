@@ -21,8 +21,6 @@ abstract public class JNIObject {
         finalizingThread = new Thread(new JNIObjectFinalizerRunnable(referenceQueue));
         finalizingThread.setName("EjectaV8FinalizingDaemon");
         finalizingThread.start();
-
-        initBinding();
     }
 
     static public void RegisterClass(Class<? extends JNIObject> derivedClass) {

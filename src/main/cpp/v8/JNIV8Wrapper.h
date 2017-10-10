@@ -208,6 +208,10 @@ public:
      */
     static void v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 
+    /**
+     * internal helper function called by V8Engine on destruction
+     */
+    static void cleanupV8Engine(BGJSV8Engine *engine);
 private:
     //static const char* _v8PrivateKey;
 
