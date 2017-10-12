@@ -5,7 +5,6 @@
 #include "stdlib.h"
 #include <jni.h>
 #include <cstdlib>
-
 #include "JNIWrapper.h"
 
 void JNIWrapper::init(JavaVM *vm) {
@@ -100,6 +99,7 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
     // => this is only for JNIObject! ALL other objects have a baseclass
     if(!baseInfo) {
         info->registerField("nativeHandle", "J");
+        _jniNativeHandleFieldID = info->fieldMap["nativeHandle"].id;
     }
 
     // check if a default constructor without arguments is available
@@ -126,14 +126,17 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
 }
 
 JNIEnv* JNIWrapper::getEnvironment() {
-    if(!_jniEnv) {
-        JNI_ASSERT(_jniVM, "JNI VM not available");
-
-        int r = _jniVM->GetEnv((void**)&_jniEnv, JNI_VERSION_1_6);
-        JNI_ASSERT(r == JNI_OK, "JNI Env not available"); (void)r;
+    pthread_t t = pthread_self();
+    if(_jniThreadId != t) {
+        int r = _jniVM->GetEnv((void **) &_jniEnv, JNI_VERSION_1_6);
+        if (r != JNI_OK) {
+            // @TODO: if a thread attached manually, it has to call detach when it finishes!
+            int r = _jniVM->AttachCurrentThread(&_jniEnv, nullptr);
+            JNI_ASSERT(r == JNI_OK, "Failed to attach thread to JVM");
+            (void) r;
+        }
+        _jniThreadId = t;
     }
-    int r = _jniVM->AttachCurrentThread(&_jniEnv, nullptr);
-    JNI_ASSERT(r == JNI_OK, "Failed to attach thread to JVM"); (void)r;
     return _jniEnv;
 }
 
@@ -154,12 +157,8 @@ void JNIWrapper::initializeNativeObject(jobject object) {
 
     jstring className = (jstring) env->CallObjectMethod(jniClass, _jniCanonicalNameMethodID);
 
-    // @TODO: method for converting jstring to std::string
-    const char* szClassName = env->GetStringUTFChars(className, NULL);
-    canonicalName = szClassName;
+    canonicalName = JNIWrapper::jstring2string(className);
     std::replace(canonicalName.begin(), canonicalName.end(), '.', '/');
-
-    env->ReleaseStringUTFChars(className, szClassName);
 
     // now retrieve registered native class
     auto it = _objmap.find(canonicalName);
@@ -208,29 +207,31 @@ std::shared_ptr<JNIClass> JNIWrapper::_wrapClass(const std::string& canonicalNam
  * convert a jstring to a std::string
  */
 std::string JNIWrapper::jstring2string(jstring string) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNI_ASSERT(env, "JNI Environment not initialized");
+
     // string pointers can also be null but there is no real way to express that in a std::string
-    if(_jniEnv->IsSameObject(string, NULL)) {
+    if(env->IsSameObject(string, NULL)) {
         return "";
     }
 
-    JNI_ASSERT(_jniEnv, "JNI Environment not initialized");
     if(!_jniStringClass) {
-        _jniStringClass = _jniEnv->FindClass("java/lang/String");
-        _jniStringGetBytes = _jniEnv->GetMethodID(_jniStringClass, "getBytes",
+        _jniStringClass = env->FindClass("java/lang/String");
+        _jniStringGetBytes = env->GetMethodID(_jniStringClass, "getBytes",
                                                   "(Ljava/lang/String;)[B");
     }
 
-    const jstring charsetName = _jniEnv->NewStringUTF("UTF-8");
-    const jbyteArray stringJbytes = (jbyteArray) _jniEnv->CallObjectMethod(string, _jniStringGetBytes, charsetName);
-    _jniEnv->DeleteLocalRef(charsetName);
+    const jstring charsetName = env->NewStringUTF("UTF-8");
+    const jbyteArray stringJbytes = (jbyteArray) env->CallObjectMethod(string, _jniStringGetBytes, charsetName);
+    env->DeleteLocalRef(charsetName);
 
-    const jsize length = _jniEnv->GetArrayLength(stringJbytes);
-    jbyte* pBytes = _jniEnv->GetByteArrayElements(stringJbytes, NULL);
+    const jsize length = env->GetArrayLength(stringJbytes);
+    jbyte* pBytes = env->GetByteArrayElements(stringJbytes, NULL);
 
     std::string ret = std::string((char *)pBytes, (unsigned long)length);
 
-    _jniEnv->ReleaseByteArrayElements(stringJbytes, pBytes, JNI_ABORT);
-    _jniEnv->DeleteLocalRef(stringJbytes);
+    env->ReleaseByteArrayElements(stringJbytes, pBytes, JNI_ABORT);
+    env->DeleteLocalRef(stringJbytes);
 
     return ret;
 }
@@ -239,13 +240,16 @@ std::string JNIWrapper::jstring2string(jstring string) {
  * convert a std::string to a jstring
  */
 jstring JNIWrapper::string2jstring(const std::string& string) {
-    JNI_ASSERT(_jniEnv, "JNI Environment not initialized");
-    return _jniEnv->NewStringUTF(string.c_str());
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNI_ASSERT(env, "JNI Environment not initialized");
+    return env->NewStringUTF(string.c_str());
 }
 
 std::map<std::string, JNIClassInfo*> JNIWrapper::_objmap;
 jmethodID JNIWrapper::_jniCanonicalNameMethodID = nullptr;
+jfieldID JNIWrapper::_jniNativeHandleFieldID = nullptr;
 JavaVM* JNIWrapper::_jniVM = nullptr;
 JNIEnv* JNIWrapper::_jniEnv = nullptr;
+pthread_t JNIWrapper::_jniThreadId = 0;
 jclass JNIWrapper::_jniStringClass = nullptr;
 jmethodID JNIWrapper::_jniStringGetBytes = nullptr;

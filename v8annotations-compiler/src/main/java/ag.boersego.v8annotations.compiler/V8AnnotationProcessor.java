@@ -98,16 +98,12 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             if(!types.isSameType(emeth.getReturnType(), objectType)) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,"annotated method must have return type Object", element);
             }
-            if(emeth.getParameterTypes().size() != 2) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,"annotated method must have exactly two parameters", element);
+            if(emeth.getParameterTypes().size() != 1) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,"annotated method must have exactly one parameters", element);
             } else {
                 TypeMirror param0 = emeth.getParameterTypes().get(0);
-                if(!types.isSameType(param0, objectType)) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,"first parameter of annotated method must be of type Object", element);
-                }
-                TypeMirror param1 = emeth.getParameterTypes().get(1);
-                if(!types.isSameType(param1, objectArrayType)) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,"second parameter of annotated method must be of type Object[]", element);
+                if(!types.isSameType(param0, objectArrayType)) {
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,"parameter of annotated method must be of type Object[]", element);
                 }
             }
             // store

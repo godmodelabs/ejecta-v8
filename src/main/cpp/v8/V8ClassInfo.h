@@ -40,9 +40,11 @@ struct JNIV8ObjectJavaAccessorHolder {
 struct JNIV8ObjectJavaCallbackHolder {
     std::string methodName;
     jmethodID javaMethodId;
+    jclass javaClass;
 
-    JNIV8ObjectJavaCallbackHolder(const std::string &method, jmethodID methodId) {
+    JNIV8ObjectJavaCallbackHolder(const std::string &method, jclass clazz, jmethodID methodId) {
         methodName = method;
+        javaClass = clazz;
         javaMethodId = methodId;
     }
 };

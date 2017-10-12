@@ -10,6 +10,7 @@
 #import <map>
 #include <jni.h>
 #include "jni_assert.h"
+#include <pthread.h>
 
 #include "JNIClassInfo.h"
 #include "JNIClass.h"
@@ -146,12 +147,7 @@ public:
             JNIObject *jniObject;
             JNIEnv* env = JNIWrapper::getEnvironment();
             if(info->type == JNIObjectType::kPersistent || info->type == JNIObjectType::kAbstract) {
-                auto handleField = info->fieldMap.find("nativeHandle");
-                if(handleField == info->fieldMap.end()) {
-                    env->ExceptionClear();
-                    return nullptr;
-                }
-                jlong handle = env->GetLongField(object, handleField->second.id);
+                jlong handle = env->GetLongField(object, _jniNativeHandleFieldID);
                 // If object type did not match, the field access might fail => check for java exceptions
                 if (env->ExceptionCheck()) {
                     env->ExceptionClear();
@@ -211,11 +207,11 @@ private:
 
     static void _registerObject(size_t hashCode, JNIObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
 
-    static void _reloadBinding(std::map<std::string, bool>& alreadyConverted, JNIClassInfo *info);
-
     static JavaVM *_jniVM;
     static JNIEnv *_jniEnv;
+    static pthread_t _jniThreadId;
     static jmethodID _jniCanonicalNameMethodID;
+    static jfieldID _jniNativeHandleFieldID;
 
     static jclass _jniStringClass;
     static jmethodID _jniStringGetBytes;

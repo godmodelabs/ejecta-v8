@@ -46,24 +46,41 @@ void v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, co
 
 void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     HandleScope scope(args.GetIsolate());
+    Isolate *isolate = args.GetIsolate();
 
     v8::Local<v8::External> ext;
 
     ext = args.Data().As<v8::External>();
     JNIV8ObjectJavaCallbackHolder* cb = static_cast<JNIV8ObjectJavaCallbackHolder*>(ext->Value());
 
-    ext = args.This()->GetInternalField(0).As<v8::External>();
-    JNIV8Object* v8Object = reinterpret_cast<JNIV8Object*>(ext->Value());
+    v8::Local<v8::Object> thisArg = args.This();
+    if(!thisArg->InternalFieldCount()) {
+        args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "invalid invocation"));
+        return;
+    }
+    v8::Local<v8::Value> internalField = thisArg->GetInternalField(0);
+    if(!internalField->IsExternal()) {
+        args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "invalid invocation"));
+        return;
+    }
 
+    // @TODO: this is not really "safe".. but how could it be? another part of the program could store arbitrary stuff in internal fields
+    ext = internalField.As<v8::External>();
+    JNIV8Object* v8Object = reinterpret_cast<JNIV8Object*>(ext->Value());
     jobject jobj = v8Object->getJObject();
     JNIEnv *env = JNIWrapper::getEnvironment();
+
+    if(!env->IsInstanceOf(jobj, cb->javaClass)) {
+        args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "invalid invocation"));
+        return;
+    }
 
     jobjectArray jargs = env->NewObjectArray(args.Length(), env->FindClass("java/lang/Object"), nullptr);
     for(int idx=0,n=args.Length(); idx<n; idx++) {
         env->SetObjectArrayElement(jargs, idx, JNIV8Wrapper::v8value2jobject(args[idx]));
     }
 
-    jobject result = env->CallObjectMethod(jobj, cb->javaMethodId, jobj, jargs);
+    jobject result = env->CallObjectMethod(jobj, cb->javaMethodId, jargs);
 
     args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
 }
@@ -138,7 +155,9 @@ V8ClassInfo::~V8ClassInfo() {
     for(auto &it : javaAccessorHolders) {
         delete it;
     }
+    JNIEnv *env = JNIWrapper::getEnvironment();
     for(auto &it : javaCallbackHolders) {
+        env->DeleteGlobalRef(it->javaClass);
         delete it;
     }
 }
@@ -181,7 +200,9 @@ void V8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID me
     // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
     Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
 
-    JNIV8ObjectJavaCallbackHolder* holder = new JNIV8ObjectJavaCallbackHolder(methodName, methodId);
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    jclass clazz = (jclass)env->NewGlobalRef(env->FindClass(container->canonicalName.c_str()));
+    JNIV8ObjectJavaCallbackHolder* holder = new JNIV8ObjectJavaCallbackHolder(methodName, clazz, methodId);
     javaCallbackHolders.push_back(holder);
 
     Local<External> data = External::New(isolate, (void*)holder);

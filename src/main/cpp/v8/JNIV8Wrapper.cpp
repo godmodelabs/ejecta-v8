@@ -128,7 +128,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             jobject functionInfo = env->GetObjectArrayElement(functionInfos, idx);
             const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, functionNameId));
             const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, methodNameId));
-            jmethodID javaMethodId = env->GetMethodID(clsObject, strMethodName.c_str(), "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+            jmethodID javaMethodId = env->GetMethodID(clsObject, strMethodName.c_str(), "([Ljava/lang/Object;)Ljava/lang/Object;");
 
             v8ClassInfo->registerJavaMethod(strFunctionName, javaMethodId);
         }
