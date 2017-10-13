@@ -16,8 +16,11 @@ class JNIV8Object;
 // there is no implicit conversion however, so methods of derived classes have to be casted manually
 typedef void(JNIV8Object::*JNIV8ObjectConstructorCallback)(const v8::FunctionCallbackInfo<v8::Value>& args);
 typedef void(JNIV8Object::*JNIV8ObjectMethodCallback)(const std::string &methodName, const v8::FunctionCallbackInfo<v8::Value>& args);
+typedef void(*JNIV8ObjectStaticMethodCallback)(const std::string &methodName, const v8::FunctionCallbackInfo<v8::Value>& args);
 typedef void(JNIV8Object::*JNIV8ObjectAccessorGetterCallback)(const std::string &propertyName, const v8::PropertyCallbackInfo<v8::Value> &info);
 typedef void(JNIV8Object::*JNIV8ObjectAccessorSetterCallback)(const std::string &propertyName, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
+typedef void(*JNIV8ObjectStaticAccessorGetterCallback)(const std::string &propertyName, const v8::PropertyCallbackInfo<v8::Value> &info);
+typedef void(*JNIV8ObjectStaticAccessorSetterCallback)(const std::string &propertyName, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
 
 /**
  * internal struct for storing information for property accessor bound to java methods
@@ -26,12 +29,8 @@ struct JNIV8ObjectJavaAccessorHolder {
     std::string propertyName;
     jmethodID javaGetterId;
     jmethodID javaSetterId;
-
-    JNIV8ObjectJavaAccessorHolder(const std::string &name, jmethodID getterId, jmethodID setterId) {
-        propertyName = name;
-        javaGetterId = getterId;
-        javaSetterId = setterId;
-    }
+    jclass javaClass;
+    bool isStatic;
 };
 
 /**
@@ -41,37 +40,34 @@ struct JNIV8ObjectJavaCallbackHolder {
     std::string methodName;
     jmethodID javaMethodId;
     jclass javaClass;
-
-    JNIV8ObjectJavaCallbackHolder(const std::string &method, jclass clazz, jmethodID methodId) {
-        methodName = method;
-        javaClass = clazz;
-        javaMethodId = methodId;
-    }
+    bool isStatic;
 };
 
 /**
  * internal struct for storing member function pointers for property accessors
  */
 struct JNIV8ObjectAccessorHolder {
-    JNIV8ObjectAccessorHolder(const std::string &name, JNIV8ObjectAccessorGetterCallback getterCb, JNIV8ObjectAccessorSetterCallback setterCb) {
-        propertyName = name;
-        getterCallback = getterCb;
-        setterCallback = setterCb;
-    }
-    JNIV8ObjectAccessorGetterCallback getterCallback;
-    JNIV8ObjectAccessorSetterCallback setterCallback;
+    union {
+        JNIV8ObjectAccessorGetterCallback i;
+        JNIV8ObjectStaticAccessorGetterCallback s;
+    } getterCallback;
+    union {
+        JNIV8ObjectAccessorSetterCallback i;
+        JNIV8ObjectStaticAccessorSetterCallback s;
+    } setterCallback;
     std::string propertyName;
+    bool isStatic;
 };
 
 /**
  * internal struct for storing member function pointers for methods
  */
 struct JNIV8ObjectCallbackHolder {
-    JNIV8ObjectCallbackHolder(const std::string &name, JNIV8ObjectMethodCallback cb) {
-        callback = cb;
-        methodName = name;
-    }
-    JNIV8ObjectMethodCallback callback;
+    union {
+        JNIV8ObjectMethodCallback i;
+        JNIV8ObjectStaticMethodCallback s;
+    } callback;
+    bool isStatic;
     std::string methodName;
 };
 
@@ -109,8 +105,9 @@ public:
     void registerConstructor(JNIV8ObjectConstructorCallback callback);
 
     void registerMethod(const std::string& methodName, JNIV8ObjectMethodCallback callback);
-
-    void registerAccessor(const std::string& propertyName, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0, v8::PropertyAttribute settings = v8::None);
+    void registerStaticMethod(const std::string& methodName, JNIV8ObjectStaticMethodCallback callback);
+    void registerAccessor(const std::string& propertyName, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0);
+    void registerStaticAccessor(const std::string& propertyName, JNIV8ObjectStaticAccessorGetterCallback getter, JNIV8ObjectStaticAccessorSetterCallback setter = 0);
 
     v8::Local<v8::Object> newInstance() const;
     v8::Local<v8::Function> getConstructor() const;
@@ -119,7 +116,14 @@ private:
     ~V8ClassInfo();
 
     void registerJavaMethod(const std::string& methodName, jmethodID methodId);
-    void registerJavaAccessor(const std::string& propertyName, jmethodID getterId, jmethodID setterId, v8::PropertyAttribute settings = v8::None);
+    void registerStaticJavaMethod(const std::string& methodName, jmethodID methodId);
+    void registerJavaAccessor(const std::string& propertyName, jmethodID getterId, jmethodID setterId);
+    void registerStaticJavaAccessor(const std::string& propertyName, jmethodID getterId, jmethodID setterId);
+
+    void _registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder);
+    void _registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder);
+    void _registerMethod(JNIV8ObjectCallbackHolder *holder);
+    void _registerAccessor(JNIV8ObjectAccessorHolder *holder);
 
     std::vector<JNIV8ObjectJavaCallbackHolder*> javaCallbackHolders;
     std::vector<JNIV8ObjectJavaAccessorHolder*> javaAccessorHolders;

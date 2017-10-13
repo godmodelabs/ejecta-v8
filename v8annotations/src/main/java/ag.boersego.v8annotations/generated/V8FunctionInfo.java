@@ -9,9 +9,11 @@ import ag.boersego.v8annotations.V8Function;
 public class V8FunctionInfo {
     public String method;
     public String property;
+    public boolean isStatic;
 
-    public V8FunctionInfo(String property, String method) {
+    public V8FunctionInfo(String property, String method, boolean isStatic) {
         this.property = property;
         this.method = method;
+        this.isStatic = isStatic;
     }
 };

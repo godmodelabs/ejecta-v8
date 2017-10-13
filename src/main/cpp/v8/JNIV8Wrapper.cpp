@@ -112,11 +112,12 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
         jclass functionInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo");
         jfieldID functionNameId = env->GetFieldID(functionInfoCls, "property", "Ljava/lang/String;");
         jfieldID methodNameId = env->GetFieldID(functionInfoCls, "method", "Ljava/lang/String;");
+        jfieldID isStaticMethodId = env->GetFieldID(functionInfoCls, "isStatic", "Z");
         jclass accessorInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8AccessorInfo");
         jfieldID propertyNameId = env->GetFieldID(accessorInfoCls, "property", "Ljava/lang/String;");
         jfieldID getterNameId = env->GetFieldID(accessorInfoCls, "getter", "Ljava/lang/String;");
         jfieldID setterNameId = env->GetFieldID(accessorInfoCls, "setter", "Ljava/lang/String;");
-
+        jfieldID isStaticAccessorId = env->GetFieldID(accessorInfoCls, "isStatic", "Z");
         jmethodID getFunctionsMethodId = env->GetStaticMethodID(clsBinding, "getV8Functions",
                                                                 "()[Lag/boersego/v8annotations/generated/V8FunctionInfo;");
         jmethodID getAccessorsMethodId = env->GetStaticMethodID(clsBinding, "getV8Accessors",
@@ -128,9 +129,16 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             jobject functionInfo = env->GetObjectArrayElement(functionInfos, idx);
             const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, functionNameId));
             const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, methodNameId));
-            jmethodID javaMethodId = env->GetMethodID(clsObject, strMethodName.c_str(), "([Ljava/lang/Object;)Ljava/lang/Object;");
-
-            v8ClassInfo->registerJavaMethod(strFunctionName, javaMethodId);
+            jmethodID javaMethodId;
+            if(env->GetBooleanField(functionInfo, isStaticMethodId)) {
+                javaMethodId = env->GetStaticMethodID(clsObject, strMethodName.c_str(),
+                                                "([Ljava/lang/Object;)Ljava/lang/Object;");
+                v8ClassInfo->registerStaticJavaMethod(strFunctionName, javaMethodId);
+            } else {
+                javaMethodId = env->GetMethodID(clsObject, strMethodName.c_str(),
+                                                "([Ljava/lang/Object;)Ljava/lang/Object;");
+                v8ClassInfo->registerJavaMethod(strFunctionName, javaMethodId);
+            }
         }
 
         jobjectArray accessorInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
@@ -140,11 +148,16 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, propertyNameId));
             const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, getterNameId));
             const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, setterNameId));
-
-            jmethodID javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;");
-            jmethodID javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V");
-
-            v8ClassInfo->registerJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
+            jmethodID javaGetterId, javaSetterId;
+            if(env->GetBooleanField(accessorInfo, isStaticAccessorId)) {
+                javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;");
+                javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V");
+                v8ClassInfo->registerStaticJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
+            } else {
+                javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;");
+                javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V");
+                v8ClassInfo->registerJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
+            }
         }
     } else {
         env->ExceptionClear();

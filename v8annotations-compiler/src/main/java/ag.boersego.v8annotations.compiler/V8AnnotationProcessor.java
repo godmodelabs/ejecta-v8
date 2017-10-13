@@ -16,9 +16,11 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.NoType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -186,7 +188,8 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             if(property.isEmpty()) {
                 property = methodName;
             }
-            builder.append("\t\t\t"+(index++==0?"":",")+"new V8FunctionInfo(\"" + property + "\",\"" + methodName + "\")\n");
+            boolean isStatic = e.getModifiers().contains(Modifier.STATIC);
+            builder.append("\t\t\t"+(index++==0?"":",")+"new V8FunctionInfo(\"" + property + "\",\"" + methodName + "\","+(isStatic?"true":"false")+")\n");
         }
 
         builder.append("\t\t};\n")
@@ -199,7 +202,12 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         for(AccessorTuple tuple : holder.annotatedAccessors) {
             String getterName = tuple.getter!=null ? tuple.getter.getSimpleName().toString() : null;
             String setterName = tuple.getter!=null ? tuple.setter.getSimpleName().toString() : null;
-            builder.append("\t\t\t"+(index++==0?"":",")+"new V8AccessorInfo(\""+tuple.property+"\",\""+getterName+"\",\""+setterName+"\")\n");
+            boolean isGetterStatic = tuple.getter.getModifiers().contains(Modifier.STATIC);
+            boolean isSetterStatic = tuple.setter.getModifiers().contains(Modifier.STATIC);
+            if(isGetterStatic != isSetterStatic) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,"getter and setter must both have same receiver type (static or non-static)", tuple.getter);
+            }
+            builder.append("\t\t\t"+(index++==0?"":",")+"new V8AccessorInfo(\""+tuple.property+"\",\""+getterName+"\",\""+setterName+"\","+(isGetterStatic?"true":"false")+")\n");
         }
 
         builder.append("\t\t};\n")
