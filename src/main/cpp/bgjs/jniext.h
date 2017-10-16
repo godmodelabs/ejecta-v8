@@ -10,9 +10,12 @@
  */
 
 extern "C" {
+	// BGJSV8Engine
+	JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_V8Engine_createNative(JNIEnv * env, jobject obj);
+
 	// ClientAndroid
-	JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
-			JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang, jstring timezone, float density, jstring deviceClass);
+	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
+			JNIEnv * env, jobject obj, jobject assetManager, jlong v8Engine, jstring locale, jstring lang, jstring timezone, float density, jstring deviceClass);
 	JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxSuccess(
 			JNIEnv * env, jobject obj, jlong ctxPtr, jstring data,
 			jint responseCode, jlong cbPtr, jlong thisPtr);

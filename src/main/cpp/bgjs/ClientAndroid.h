@@ -24,7 +24,7 @@ public:
     jmethodID bgjsWebPushSubscribeMethod;
     jmethodID bgjsWebPushSubUnsubscribeMethod;
 	jmethodID v8EnginegetIAPState;
-	jobject v8Engine;
+
 	const char* loadFile (const char* path, unsigned int* length = NULL);
 	void on (const char* event, void* cbPtr, void *thisObjPtr);
 	~ClientAndroid();

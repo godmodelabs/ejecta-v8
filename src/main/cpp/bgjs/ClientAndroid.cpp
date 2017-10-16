@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <v8.h>
-#include <libplatform/libplatform.h>
 
 #include "BGJSV8Engine.h"
 #include "ClientAbstract.h"
@@ -201,8 +200,13 @@ JNIEnv* JNU_GetEnv() {
 	return env;
 }
 
-JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
-		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang,
+JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_V8Engine_createNative(
+		JNIEnv * env, jobject obj) {
+	return (jlong) new BGJSV8Engine(obj);
+};
+
+JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
+		JNIEnv * env, jobject obj, jobject assetManager, jlong v8Engine, jstring locale, jstring lang,
         jstring timezone, jfloat density, jstring deviceClass) {
 
 	#if DEBUG
@@ -212,25 +216,7 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	_client->envCache = env;
 	env->GetJavaVM(&(_client->cachedJVM));
 
-	_client->v8Engine = v8Engine;
-
-	LOGI("Creating default platform");
-    v8::Platform* platform = v8::platform::CreateDefaultPlatform();
-    LOGD("Created default platform %p", platform);
-    v8::V8::InitializePlatform(platform);
-    LOGD("Initialized platform");
-    v8::V8::Initialize();
-    LOGD("Initialized v8");
-    v8::Isolate::CreateParams create_params;
-    create_params.array_buffer_allocator =
-          v8::ArrayBuffer::Allocator::NewDefaultAllocator();
-    LOGI("Initialized createParams");
-    v8::Isolate* isolate = v8::Isolate::New(create_params);
-    v8::Locker l (isolate);
-	v8::Isolate::Scope isolateScope(isolate);
-    LOGD("Initialized Isolate %p", isolate);
-
-	BGJSV8Engine* ct = new BGJSV8Engine(isolate, v8Engine);
+	BGJSV8Engine* ct = reinterpret_cast<BGJSV8Engine*>(v8Engine);
 
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
 	const char* langStr = env->GetStringUTFChars(lang, NULL);
@@ -248,8 +234,6 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	ct->registerModule("ajax", AjaxModule::doRequire);
 	ct->registerModule("canvas", BGJSGLModule::doRequire);
 	LOGD("ClientAndroid init: registerModule done");
-
-	return (jlong) ct;
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_run(JNIEnv * env,

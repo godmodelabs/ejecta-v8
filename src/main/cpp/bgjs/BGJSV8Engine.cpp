@@ -6,6 +6,7 @@
  * Licensed under the MIT license.
  */
 
+#include <libplatform/libplatform.h>
 #include "BGJSV8Engine.h"
 #include "../jni/JNIWrapper.h"
 #include "../v8/JNIV8Wrapper.h"
@@ -806,7 +807,7 @@ void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& ar
 	}
 }
 
-BGJSV8Engine::BGJSV8Engine(v8::Isolate* isolate, jobject javaObject) {
+BGJSV8Engine::BGJSV8Engine(jobject javaObject) {
 	_client = NULL;
 	_nextTimerId = 1;
 	_locale = NULL;
@@ -815,7 +816,7 @@ BGJSV8Engine::BGJSV8Engine(v8::Isolate* isolate, jobject javaObject) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     _javaObject = env->NewWeakGlobalRef(javaObject);
 
-    _isolate = isolate;
+    _isolate = NULL;
 }
 
 jobject BGJSV8Engine::getJObject() const {
@@ -823,6 +824,24 @@ jobject BGJSV8Engine::getJObject() const {
 }
 
 void BGJSV8Engine::createContext() {
+	static bool isPlatformInitialized = false;
+
+	if(!isPlatformInitialized) {
+		isPlatformInitialized = true;
+		LOGI("Creating default platform");
+		v8::Platform *platform = v8::platform::CreateDefaultPlatform();
+		LOGD("Created default platform %p", platform);
+		v8::V8::InitializePlatform(platform);
+		LOGD("Initialized platform");
+		v8::V8::Initialize();
+		LOGD("Initialized v8");
+	}
+
+	v8::Isolate::CreateParams create_params;
+	create_params.array_buffer_allocator =
+			v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+
+	_isolate = v8::Isolate::New(create_params);
 
 	v8::Locker l(_isolate);
 	Isolate::Scope isolate_scope(_isolate);

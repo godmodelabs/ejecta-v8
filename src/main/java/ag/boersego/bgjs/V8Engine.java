@@ -148,6 +148,8 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 	}
 
+	private native long createNative();
+
 	protected V8Engine(Application application, String path) {
         if (path != null) {
             scriptPath = path;
@@ -173,7 +175,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 		mLang = locale.getLanguage();
 		mTimeZone = TimeZone.getDefault().getID();
-		
+		mNativePtr = createNative();
 	}
 
     public void setUrlCache (V8UrlCache cache) {
@@ -219,7 +221,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 			e.printStackTrace();
 		}
 		Log.d(TAG, "Initializing V8Engine");
-		mNativePtr = ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
+		ClientAndroid.initialize(assetManager, mNativePtr, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
     }
 
     public void registerModule(JNIV8Module module) {

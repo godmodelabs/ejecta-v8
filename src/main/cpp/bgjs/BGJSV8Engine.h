@@ -60,7 +60,7 @@ typedef enum EBGJSV8EngineEmbedderData {
 class BGJSV8Engine {
 public:
     // static BGJSV8Engine& getInstance();
-    BGJSV8Engine(v8::Isolate* isolate, jobject javaObject);
+    BGJSV8Engine(jobject javaObject);
 	virtual ~BGJSV8Engine();
 
     v8::Local<v8::Value> require(std::string baseNameStr);
