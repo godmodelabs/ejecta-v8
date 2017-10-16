@@ -38,9 +38,6 @@
 #define BGJS_STRING_FROM_V8VALUE(value) \
 	(value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(value->ToString())))
 
-#define BGJS_CHAR_FROM_V8VALUE(value) \
-	(value.IsEmpty() ? "" : *v8::String::Utf8Value(value->ToString()))
-
 class BGJSGLView;
 
 #define MAX_FRAME_REQUESTS 10

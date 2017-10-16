@@ -34,6 +34,12 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     v8::Isolate* isolate = info->engine->getIsolate();
     HandleScope scope(isolate);
 
+    // check if class can be created from JS
+    if(info->createFromNativeOnly) {
+        args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "Illegal constructor invocation. Instances must not be created from JavaScript"));
+        return;
+    }
+
     // create temporary persistent for the js object and then call the constructor
     v8::Persistent<Object>* jsObj = new v8::Persistent<v8::Object>(isolate, args.This());
     auto ptr = info->container->creator(info, jsObj);
@@ -108,6 +114,9 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     jclass clsObject = env->FindClass(canonicalName.c_str());
     jclass clsBinding = env->FindClass((canonicalName+"V8Binding").c_str());
     if(clsBinding && clsObject) {
+        jfieldID createFromNativeOnlyId = env->GetStaticFieldID(clsBinding, "createFromNativeOnly", "Z");
+        v8ClassInfo->createFromNativeOnly = env->GetStaticBooleanField(clsBinding, createFromNativeOnlyId);
+
         // @TODO cache functionInfo + accessorInfo class
         jclass functionInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo");
         jfieldID functionNameId = env->GetFieldID(functionInfoCls, "property", "Ljava/lang/String;");

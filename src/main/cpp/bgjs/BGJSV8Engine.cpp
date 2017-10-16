@@ -477,7 +477,6 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
     // compile script
     Handle<Script> scriptR = Script::Compile(source, String::NewFromUtf8(_isolate, baseNameStr.c_str()));
 
-
     // run script; this will effectively return a function if everything worked
     // if not, something went wrong
     if(!scriptR.IsEmpty()) {
@@ -887,22 +886,22 @@ void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
 	HandleScope scope(isolate);
 	Local<Context> context = isolate->GetCurrentContext();
 
-	const char* exception_string = BGJS_CHAR_FROM_V8VALUE(try_catch->Exception());
+	const std::string exception_string = BGJS_STRING_FROM_V8VALUE(try_catch->Exception());
 	v8::Handle<v8::Message> message = try_catch->Message();
 
 	if (message.IsEmpty()) {
 		// V8 didn't provide any extra information about this error; just
 		// print the exception.
-		LOGE("Exception: %s", exception_string);
+		LOGE("Exception: %s", exception_string.c_str());
 	} else {
 		// Print (filename):(line number): (message).
-		const char* filename_string = BGJS_CHAR_FROM_V8VALUE(message->GetScriptResourceName());
+		const std::string filename_string = BGJS_STRING_FROM_V8VALUE(message->GetScriptResourceName());
 		int linenum = message->GetLineNumber();
         int colnum = message->GetStartColumn();
-		LOGE("Exception: %s:%i:%i %s\n", filename_string, linenum, colnum, exception_string);
+		LOGE("Exception: %s:%i:%i %s\n", filename_string.c_str(), linenum, colnum, exception_string.c_str());
 		// Print line of source code.
-		const char* sourceline_string = BGJS_CHAR_FROM_V8VALUE(message->GetSourceLine());
-		LOGE("%s\n", sourceline_string);
+		const std::string sourceline_string = BGJS_STRING_FROM_V8VALUE(message->GetSourceLine());
+		LOGE("%s\n", sourceline_string.c_str());
 		std::stringstream str;
 		// Print wavy underline (GetUnderline is deprecated).
 		int start = message->GetStartColumn();
@@ -917,7 +916,7 @@ void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
 
 		MaybeLocal<Value> stack_trace = try_catch->StackTrace(context);
 		if (!stack_trace.IsEmpty()) {
-			LOGE("%s", BGJS_CHAR_FROM_V8VALUE(try_catch->StackTrace()));
+			LOGE("%s", BGJS_STRING_FROM_V8VALUE(try_catch->StackTrace()).c_str());
 		}
 
 		/* excStr = env->NewStringUTF(exception_string);
@@ -944,7 +943,7 @@ void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>
 	std::stringstream str;
 	int l = args.Length();
 	for (int i = 0; i < l; i++) {
-		str << " " << BGJS_CHAR_FROM_V8VALUE(args[i]);
+		str << " " << BGJS_STRING_FROM_V8VALUE(args[i]).c_str();
 	}
 
 	LOG(debugLevel, "%s", str.str().c_str());

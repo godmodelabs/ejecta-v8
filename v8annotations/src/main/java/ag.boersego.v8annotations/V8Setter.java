@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * Created by martin on 02.10.17.
  */
 
-@Retention(RetentionPolicy.RUNTIME)
+@Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
 public @interface V8Setter {
     String property() default "";

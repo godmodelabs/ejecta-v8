@@ -134,6 +134,7 @@ private:
     V8ClassInfoContainer *container;
     v8::Persistent<v8::FunctionTemplate> functionTemplate;
     JNIV8ObjectConstructorCallback constructorCallback;
+    bool createFromNativeOnly;
 };
 
 // internal helper methods for creating and initializing objects

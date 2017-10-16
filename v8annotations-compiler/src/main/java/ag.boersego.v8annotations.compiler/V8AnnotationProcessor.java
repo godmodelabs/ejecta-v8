@@ -1,5 +1,7 @@
 package ag.boersego.v8annotations.compiler;
 
+import ag.boersego.v8annotations.V8Class;
+import ag.boersego.v8annotations.V8ClassCreationPolicy;
 import ag.boersego.v8annotations.V8Function;
 import ag.boersego.v8annotations.V8Getter;
 import ag.boersego.v8annotations.V8Setter;
@@ -16,6 +18,7 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -40,10 +43,16 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         public TypeElement classElement;
         public ArrayList<Element> annotatedFunctions;
         public ArrayList<AccessorTuple> annotatedAccessors;
+        public boolean createFromNativeOnly;
     };
 
     private AnnotationHolder getHolder(HashMap<String, AnnotationHolder> annotatedClasses, Element element) {
-        TypeElement classElement = TypeElement.class.cast(element.getEnclosingElement());
+        TypeElement classElement;
+        if(element.getKind().isClass()) {
+            classElement = TypeElement.class.cast(element);
+        } else {
+            classElement = TypeElement.class.cast(element.getEnclosingElement());
+        }
         String name = classElement.getQualifiedName().toString();
 
         AnnotationHolder holder;
@@ -53,6 +62,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             holder.annotatedFunctions = new ArrayList<Element>();
             holder.annotatedAccessors = new ArrayList<AccessorTuple>();
             holder.classElement = classElement;
+            holder.createFromNativeOnly = false;
             annotatedClasses.put(name, holder);
         }
 
@@ -94,6 +104,11 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         Types types = processingEnv.getTypeUtils();
         TypeMirror objectType = elems.getTypeElement("java.lang.Object").asType();
         ArrayType objectArrayType = types.getArrayType(objectType);
+
+        for (Element element : env.getElementsAnnotatedWith(V8Class.class)) {
+            AnnotationHolder holder = getHolder(annotatedClasses, element);
+            holder.createFromNativeOnly = (element.getAnnotation(V8Class.class).creationPolicy() == V8ClassCreationPolicy.NATIVE_ONLY);
+        }
         for (Element element : env.getElementsAnnotatedWith(V8Function.class)) {
             // validate signature
             ExecutableType emeth = (ExecutableType)element.asType();
@@ -178,6 +193,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 .append("import ag.boersego.v8annotations.generated.V8FunctionInfo;\n")
                 .append("import ag.boersego.v8annotations.generated.V8AccessorInfo;\n\n")
                 .append("public class " + name+ " {\n\n") // open class
+                .append("\tpublic static boolean createFromNativeOnly = " + (holder.createFromNativeOnly ? "true" : "false") + ";")
                 .append("\tpublic static V8FunctionInfo[] getV8Functions() {\n") // open method
                 .append("\t\tV8FunctionInfo[] res = {\n");
 
