@@ -156,6 +156,8 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 // V8Engine
 //-----------------------------------------------------------
 
+decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module;
+
 /* static Handle<Value> AssertCallback(const Arguments& args) {
  if (args.Length() < 1)
  return v8::Undefined();
@@ -196,20 +198,18 @@ void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8
 	jobject module = engine->_javaModules.at(moduleId);
 
 	JNIEnv *env = JNIWrapper::getEnvironment();
-	// @TODO cache
-	jclass cls = env->FindClass("ag/boersego/bgjs/JNIV8Module");
-	jmethodID requireId = env->GetMethodID(cls, "Require", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8GenericObject;)V");
-
-	env->CallVoidMethod(module, requireId, engine->getJObject(), JNIV8Wrapper::wrapObject<JNIV8GenericObject>(target)->getJObject());
+	env->CallVoidMethod(module, _jniV8Module.requireId, engine->getJObject(), JNIV8Wrapper::wrapObject<JNIV8GenericObject>(target)->getJObject());
 }
 
 bool BGJSV8Engine::registerJavaModule(jobject module) {
 	JNIEnv *env = JNIWrapper::getEnvironment();
-	// @TODO cache
-	jclass cls = env->FindClass("ag/boersego/bgjs/JNIV8Module");
-	jmethodID getNameId = env->GetMethodID(cls, "getName", "()Ljava/lang/String;");
+	if(!_jniV8Module.clazz) {
+		_jniV8Module.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Module"));
+		_jniV8Module.getNameId = env->GetMethodID(_jniV8Module.clazz, "getName", "()Ljava/lang/String;");
+		_jniV8Module.requireId = env->GetMethodID(_jniV8Module.clazz, "Require", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8GenericObject;)V");
+	}
 
-	std::string strModuleName = JNIWrapper::jstring2string((jstring)env->CallObjectMethod(module, getNameId));
+	std::string strModuleName = JNIWrapper::jstring2string((jstring)env->CallObjectMethod(module, _jniV8Module.getNameId));
 	_javaModules[strModuleName] = env->NewGlobalRef(module);
 	_modules["javaModule"] = (requireHook)&BGJSV8Engine::JavaModuleRequireCallback;
 
@@ -348,9 +348,7 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
 
-	// @TODO check locker here?
-
-    Local<Value> result;
+	Local<Value> result;
     // Catch errors
     TryCatch try_catch;
 

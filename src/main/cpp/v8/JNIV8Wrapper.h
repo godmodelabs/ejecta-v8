@@ -230,6 +230,48 @@ private:
         std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj);
         return ptr;
     }
+    
+    // cache of classes + ids
+    static struct {
+        jclass clazz;
+        jfieldID propertyId;
+        jfieldID methodId;
+        jfieldID isStaticId;
+    } _jniV8FunctionInfo;
+    static struct {
+        jclass clazz;
+        jfieldID propertyId;
+        jfieldID getterId;
+        jfieldID setterId;
+        jfieldID isStaticId;
+    } _jniV8AccessorInfo;
+    static struct {
+        jclass clazz;
+        jmethodID GetInstanceId;
+    } _jniV8Undefined;
+    static struct {
+        jclass clazz;
+        jmethodID valueOfId;
+    } _jniDouble;
+    static struct {
+        jclass clazz;
+        jmethodID valueOfId;
+        jmethodID booleanValueId;
+    } _jniBoolean;
+    static struct {
+        jclass clazz;
+    } _jniString;
+    static struct {
+        jclass clazz;
+        jmethodID charValueId;
+    } _jniCharacter;
+    static struct {
+        jclass clazz;
+        jmethodID doubleValueId;
+    } _jniNumber;
+    static struct {
+        jclass clazz;
+    } _jniV8Object;
 };
 
 template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object);

@@ -119,6 +119,11 @@ public:
 
 private:
 	static void JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target);
+	static struct {
+		jclass clazz;
+		jmethodID getNameId;
+		jmethodID requireId;
+	} _jniV8Module;
 
 	uint8_t _nextEmbedderDataIndex;
 	jobject _javaObject;

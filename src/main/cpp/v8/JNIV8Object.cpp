@@ -26,6 +26,9 @@ if(ptr->_jsObject.IsEmpty()) ptr->getJSObject();\
 v8::TryCatch try_catch;\
 Local<Object> localRef = Local<Object>::New(isolate, ptr->_jsObject);\
 
+decltype(JNIV8Object::_jniString) JNIV8Object::_jniString;
+decltype(JNIV8Object::_jniHashMap) JNIV8Object::_jniHashMap;
+
 JNIV8Object::JNIV8Object(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
     _externalMemory = 0;
     __android_log_print(ANDROID_LOG_INFO, "JNIV8Object", "created v8 object: %s", getCanonicalName().c_str());
@@ -269,6 +272,11 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
 
     jobjectArray result = nullptr;
     jstring string;
+
+    if(!_jniString.clazz) {
+        _jniString.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/String"));
+    }
+
     for(uint32_t i=0,n=arrayRef->Length(); i<n; i++) {
         MaybeLocal<Value> maybeValueRef = arrayRef->Get(context, i);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
@@ -280,8 +288,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
         }
         string = JNIV8Wrapper::v8string2jstring(Local<String>::Cast(valueRef));
         if(!result) {
-            // @TODO: cached string class?
-            result = env->NewObjectArray(n, env->FindClass("java/lang/String"), string);
+            result = env->NewObjectArray(n, _jniString.clazz, string);
         } else {
             env->SetObjectArrayElement(result, i, string);
         }
@@ -306,12 +313,14 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
     Local<Value> valueRef;
     Local<String> keyRef;
 
-    // @TODO: cache class + method
-    jclass mapClass = env->FindClass("java/util/HashMap");
-    jmethodID constructor = env->GetMethodID(mapClass, "<init>", "()V");
-    jmethodID putMethodId = env->GetMethodID(mapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    if(!_jniHashMap.clazz) {
+        _jniHashMap.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/util/HashMap"));
+        _jniHashMap.initId = env->GetMethodID(_jniHashMap.clazz, "<init>", "()V");
+        _jniHashMap.putId = env->GetMethodID(_jniHashMap.clazz, "put",
+                                                 "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    }
 
-    jobject result = env->NewObject(mapClass, constructor);
+    jobject result = env->NewObject(_jniHashMap.clazz, _jniHashMap.initId);
     for(uint32_t i=0,n=arrayRef->Length(); i<n; i++) {
         MaybeLocal<Value> maybeValueRef = arrayRef->Get(context, i);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
@@ -333,7 +342,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
         }
 
         env->CallObjectMethod(result,
-                              putMethodId,
+                              _jniHashMap.putId,
                               JNIV8Wrapper::v8string2jstring(keyRef),
                               JNIV8Wrapper::v8value2jobject(valueRef)
         );

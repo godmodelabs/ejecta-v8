@@ -12,6 +12,7 @@ BGJS_JNIV8OBJECT_LINK(JNIV8Function, "ag/boersego/bgjs/JNIV8Function");
 struct JNIV8FunctionCallbackHolder {
     v8::Persistent<v8::Function> persistent;
     jobject jFuncRef;
+    jmethodID callbackMethodId;
 };
 
 void JNIV8FunctionWeakPersistentCallback(const v8::WeakCallbackInfo<void>& data) {
@@ -34,10 +35,6 @@ void JNIV8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
     JNIV8FunctionCallbackHolder *holder = static_cast<JNIV8FunctionCallbackHolder*>(ext->Value());
 
-    // @TODO cache class & method
-    jclass handlerClass = env->FindClass("ag/boersego/bgjs/JNIV8Function$Handler");
-    jmethodID callbackMethodId = env->GetMethodID(handlerClass, "Callback", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
-
     jobject receiver = JNIV8Wrapper::v8value2jobject(args.This());
     jobjectArray arguments = nullptr;
     jobject value;
@@ -48,7 +45,7 @@ void JNIV8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
         env->SetObjectArrayElement(arguments, i-1, value);
     }
 
-    jobject result = env->CallObjectMethod(holder->jFuncRef, callbackMethodId, receiver, arguments);
+    jobject result = env->CallObjectMethod(holder->jFuncRef, holder->callbackMethodId, receiver, arguments);
     args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
 }
 
@@ -176,6 +173,7 @@ jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jlong enginePtr, jobj
     // java reference is stored in the functions data parameter to be retrieved when called
     JNIV8FunctionCallbackHolder *holder = new JNIV8FunctionCallbackHolder();
     holder->jFuncRef = env->NewGlobalRef(handler);
+    holder->callbackMethodId = env->GetMethodID(env->GetObjectClass(handler), "Callback", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
 
     v8::Local<v8::External> data = v8::External::New(isolate, (void*)holder);
 

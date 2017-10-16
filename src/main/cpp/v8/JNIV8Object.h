@@ -66,6 +66,15 @@ private:
     // v8 callbacks
     static void weakPersistentCallback(const v8::WeakCallbackInfo<void>& data);
 
+    // cached classes + ids
+    static struct {
+        jclass clazz;
+    } _jniString;
+    static struct {
+        jclass clazz;
+        jmethodID initId;
+        jmethodID putId;
+    } _jniHashMap;
     // private properties
     int64_t _externalMemory;
     V8ClassInfo *_v8ClassInfo;

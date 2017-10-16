@@ -17,6 +17,16 @@ std::map<std::string, V8ClassInfoContainer*> JNIV8Wrapper::_objmap;
 
 //const char* JNIV8Wrapper::_v8PrivateKey = "JNIV8WrapperPrivate";
 
+decltype(JNIV8Wrapper::_jniV8FunctionInfo) JNIV8Wrapper::_jniV8FunctionInfo;
+decltype(JNIV8Wrapper::_jniV8AccessorInfo) JNIV8Wrapper::_jniV8AccessorInfo;
+decltype(JNIV8Wrapper::_jniV8Undefined) JNIV8Wrapper::_jniV8Undefined;
+decltype(JNIV8Wrapper::_jniDouble) JNIV8Wrapper::_jniDouble;
+decltype(JNIV8Wrapper::_jniBoolean) JNIV8Wrapper::_jniBoolean;
+decltype(JNIV8Wrapper::_jniString) JNIV8Wrapper::_jniString;
+decltype(JNIV8Wrapper::_jniCharacter) JNIV8Wrapper::_jniCharacter;
+decltype(JNIV8Wrapper::_jniNumber) JNIV8Wrapper::_jniNumber;
+decltype(JNIV8Wrapper::_jniV8Object) JNIV8Wrapper::_jniV8Object;
+
 void JNIV8Wrapper::init() {
     JNIWrapper::registerObject<JNIV8Object>(JNIObjectType::kAbstract);
     _registerObject(JNIV8ObjectType::kAbstract, JNIWrapper::getCanonicalName<JNIV8Object>(), "",
@@ -25,6 +35,39 @@ void JNIV8Wrapper::init() {
     JNIV8Wrapper::registerObject<JNIV8Array>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8GenericObject>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8Function>(JNIV8ObjectType::kWrapper);
+
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    _jniV8FunctionInfo.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo"));
+    _jniV8FunctionInfo.propertyId = env->GetFieldID(_jniV8FunctionInfo.clazz, "property", "Ljava/lang/String;");
+    _jniV8FunctionInfo.methodId = env->GetFieldID(_jniV8FunctionInfo.clazz, "method", "Ljava/lang/String;");
+    _jniV8FunctionInfo.isStaticId = env->GetFieldID(_jniV8FunctionInfo.clazz, "isStatic", "Z");
+
+    _jniV8AccessorInfo.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/v8annotations/generated/V8AccessorInfo"));
+    _jniV8AccessorInfo.propertyId = env->GetFieldID(_jniV8AccessorInfo.clazz, "property", "Ljava/lang/String;");
+    _jniV8AccessorInfo.getterId = env->GetFieldID(_jniV8AccessorInfo.clazz, "getter", "Ljava/lang/String;");
+    _jniV8AccessorInfo.setterId = env->GetFieldID(_jniV8AccessorInfo.clazz, "setter", "Ljava/lang/String;");
+    _jniV8AccessorInfo.isStaticId = env->GetFieldID(_jniV8AccessorInfo.clazz, "isStatic", "Z");
+
+    _jniV8Undefined.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Undefined"));
+    _jniV8Undefined.GetInstanceId = env->GetStaticMethodID(_jniV8Undefined.clazz, "GetInstance","()Lag/boersego/bgjs/JNIV8Undefined;");
+
+    _jniDouble.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Double"));
+    _jniDouble.valueOfId = env->GetStaticMethodID(_jniDouble.clazz, "valueOf","(D)Ljava/lang/Double;");
+
+    _jniBoolean.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Boolean"));
+    _jniBoolean.valueOfId = env->GetStaticMethodID(_jniBoolean.clazz, "valueOf","(Z)Ljava/lang/Boolean;");
+    _jniBoolean.booleanValueId = env->GetMethodID(_jniBoolean.clazz, "booleanValue","()Z");
+
+    _jniString.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/String"));
+
+    _jniCharacter.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Character"));
+    _jniCharacter.charValueId = env->GetMethodID(_jniCharacter.clazz, "charValue","()C");
+
+    _jniNumber.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Number"));
+    _jniNumber.doubleValueId = env->GetMethodID(_jniNumber.clazz, "doubleValue","()D");
+
+    _jniV8Object.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Object"));
 }
 
 void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -109,7 +152,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     }
 
     // but it might have bindings on java that need to be processed
-    // binding classes + methods do not need to be cached here, because they are only used once upon initialization!
+    // binding classes + methods do not need to be cached here, because they are only used once per Engine upon initialization!
     JNIEnv *env = JNIWrapper::getEnvironment();
     jclass clsObject = env->FindClass(canonicalName.c_str());
     jclass clsBinding = env->FindClass((canonicalName+"V8Binding").c_str());
@@ -117,16 +160,6 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
         jfieldID createFromNativeOnlyId = env->GetStaticFieldID(clsBinding, "createFromNativeOnly", "Z");
         v8ClassInfo->createFromNativeOnly = env->GetStaticBooleanField(clsBinding, createFromNativeOnlyId);
 
-        // @TODO cache functionInfo + accessorInfo class
-        jclass functionInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo");
-        jfieldID functionNameId = env->GetFieldID(functionInfoCls, "property", "Ljava/lang/String;");
-        jfieldID methodNameId = env->GetFieldID(functionInfoCls, "method", "Ljava/lang/String;");
-        jfieldID isStaticMethodId = env->GetFieldID(functionInfoCls, "isStatic", "Z");
-        jclass accessorInfoCls = env->FindClass("ag/boersego/v8annotations/generated/V8AccessorInfo");
-        jfieldID propertyNameId = env->GetFieldID(accessorInfoCls, "property", "Ljava/lang/String;");
-        jfieldID getterNameId = env->GetFieldID(accessorInfoCls, "getter", "Ljava/lang/String;");
-        jfieldID setterNameId = env->GetFieldID(accessorInfoCls, "setter", "Ljava/lang/String;");
-        jfieldID isStaticAccessorId = env->GetFieldID(accessorInfoCls, "isStatic", "Z");
         jmethodID getFunctionsMethodId = env->GetStaticMethodID(clsBinding, "getV8Functions",
                                                                 "()[Lag/boersego/v8annotations/generated/V8FunctionInfo;");
         jmethodID getAccessorsMethodId = env->GetStaticMethodID(clsBinding, "getV8Accessors",
@@ -136,10 +169,10 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
                                                                                 getFunctionsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(functionInfos);idx<n;idx++) {
             jobject functionInfo = env->GetObjectArrayElement(functionInfos, idx);
-            const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, functionNameId));
-            const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, methodNameId));
+            const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.propertyId));
+            const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.methodId));
             jmethodID javaMethodId;
-            if(env->GetBooleanField(functionInfo, isStaticMethodId)) {
+            if(env->GetBooleanField(functionInfo, _jniV8FunctionInfo.isStaticId)) {
                 javaMethodId = env->GetStaticMethodID(clsObject, strMethodName.c_str(),
                                                 "([Ljava/lang/Object;)Ljava/lang/Object;");
                 v8ClassInfo->registerStaticJavaMethod(strFunctionName, javaMethodId);
@@ -154,11 +187,11 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
                                                                                 getAccessorsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(accessorInfos);idx<n;idx++) {
             jobject accessorInfo = env->GetObjectArrayElement(accessorInfos, idx);
-            const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, propertyNameId));
-            const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, getterNameId));
-            const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, setterNameId));
+            const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.propertyId));
+            const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.getterId));
+            const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.setterId));
             jmethodID javaGetterId, javaSetterId;
-            if(env->GetBooleanField(accessorInfo, isStaticAccessorId)) {
+            if(env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isStaticId)) {
                 javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;");
                 javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V");
                 v8ClassInfo->registerStaticJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
@@ -272,22 +305,14 @@ jstring JNIV8Wrapper::v8string2jstring(v8::Local<v8::String> string) {
 jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    // @TODO: cache
-    jclass clsUndefined = env->FindClass("ag/boersego/bgjs/JNIV8Undefined");
-    jclass clsDouble = env->FindClass("java/lang/Double");
-    jclass clsBool = env->FindClass("java/lang/Boolean");
-    jmethodID getterDouble = env->GetStaticMethodID(clsDouble, "valueOf","(D)Ljava/lang/Double;");
-    jmethodID getterBool = env->GetStaticMethodID(clsBool, "valueOf","(Z)Ljava/lang/Boolean;");
-    jmethodID getterUndefined = env->GetStaticMethodID(clsUndefined, "GetInstance","()Lag/boersego/bgjs/JNIV8Undefined;");
-
-    if(valueRef->IsUndefined()) {
-        return env->CallStaticObjectMethod(clsUndefined, getterUndefined);
+        if(valueRef->IsUndefined()) {
+        return env->CallStaticObjectMethod(_jniV8Undefined.clazz, _jniV8Undefined.GetInstanceId);
     } else if(valueRef->IsNumber()) {
-        return env->CallStaticObjectMethod(clsDouble, getterDouble, valueRef->NumberValue());
+        return env->CallStaticObjectMethod(_jniDouble.clazz, _jniDouble.valueOfId, valueRef->NumberValue());
     } else if(valueRef->IsString()) {
         return JNIWrapper::string2jstring(BGJS_STRING_FROM_V8VALUE(valueRef));
     } else if(valueRef->IsBoolean()) {
-        return env->CallStaticObjectMethod(clsBool, getterBool, valueRef->BooleanValue());
+        return env->CallStaticObjectMethod(_jniBoolean.clazz, _jniBoolean.valueOfId, valueRef->BooleanValue());
     } else if(valueRef->IsSymbol()) {
         JNI_ASSERT(0, "Symbols are not supported"); // return env->NewObject(clsJNIV8Value, constructor, 4, nullptr);
     } else if(valueRef->IsNull()) {
@@ -322,34 +347,24 @@ v8::Local<v8::Value> JNIV8Wrapper::jobject2v8value(jobject object) {
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    // @TODO: cache!
-    jclass clsBoolean = env->FindClass("java/lang/Boolean");
-    jmethodID mBooleanValue = env->GetMethodID(clsBoolean, "booleanValue","()Z");
-    jclass clsString = env->FindClass("java/lang/String");
-    jclass clsChar = env->FindClass("java/lang/Character");
-    jmethodID mCharValue = env->GetMethodID(clsChar, "charValue","()C");
-    jclass clsNumber = env->FindClass("java/lang/Number");
-    jmethodID mDoubleValue = env->GetMethodID(clsNumber, "doubleValue","()D");
-    jclass clsObj = env->FindClass("ag/boersego/bgjs/JNIV8Object");
-
     // jobject referencing "null" can actually be non-null..
     if(env->IsSameObject(object, NULL) || !object) {
         resultRef = v8::Null(isolate);
-    } else if(env->IsInstanceOf(object, clsString)) {
+    } else if(env->IsInstanceOf(object, _jniString.clazz)) {
         resultRef = JNIV8Wrapper::jstring2v8string((jstring)object);
-    } else if(env->IsInstanceOf(object, clsChar)) {
-        jchar c = env->CallCharMethod(object, mCharValue);
+    } else if(env->IsInstanceOf(object, _jniCharacter.clazz)) {
+        jchar c = env->CallCharMethod(object, _jniCharacter.charValueId);
         v8::MaybeLocal<v8::String> maybeLocal = v8::String::NewFromTwoByte(isolate, &c, NewStringType::kNormal, 1);
         if(!maybeLocal.IsEmpty()) {
             resultRef = maybeLocal.ToLocalChecked();
         }
-    } else if(env->IsInstanceOf(object, clsNumber)) {
-        jdouble n = env->CallDoubleMethod(object, mDoubleValue);
+    } else if(env->IsInstanceOf(object, _jniNumber.clazz)) {
+        jdouble n = env->CallDoubleMethod(object, _jniNumber.doubleValueId);
         resultRef = v8::Number::New(isolate, n);
-    } else if(env->IsInstanceOf(object, clsBoolean)) {
-        jboolean b = env->CallBooleanMethod(object, mBooleanValue);
+    } else if(env->IsInstanceOf(object, _jniBoolean.clazz)) {
+        jboolean b = env->CallBooleanMethod(object, _jniBoolean.booleanValueId);
         resultRef = v8::Boolean::New(isolate, b);
-    } else if(env->IsInstanceOf(object, clsObj)) {
+    } else if(env->IsInstanceOf(object, _jniV8Object.clazz)) {
         resultRef = JNIV8Wrapper::wrapObject<JNIV8Object>(object)->getJSObject();
     }
     if(resultRef.IsEmpty()) {
