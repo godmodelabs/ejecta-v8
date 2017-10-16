@@ -79,11 +79,10 @@ void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
             return;
         }
 
-        // @TODO: this is not really "safe".. but how could it be? another part of the program could store arbitrary stuff in internal fields
+        // this is not really "safe".. but how could it be? another part of the program could store arbitrary stuff in internal fields
         ext = internalField.As<v8::External>();
         JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
         jobj = v8Object->getJObject();
-
 
         if (!env->IsInstanceOf(jobj, cb->javaClass)) {
             args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "invalid invocation"));

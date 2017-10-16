@@ -92,7 +92,6 @@ jobject JNIV8Function::jniCallAsV8FunctionWithReceiver(JNIEnv *env, jobject obj,
     v8::Local<v8::Value> resultRef;
     maybeLocal = ptr->getJSObject()->CallAsFunction(context, JNIV8Wrapper::jobject2v8value(receiver), numArgs, args);
     if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
-        // @TODO: v8 exception to java exception!!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during function call");

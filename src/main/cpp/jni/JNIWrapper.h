@@ -199,7 +199,7 @@ public:
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new Java+Native object tuple
      */
-    static void initializeNativeObject(jobject object);
+    static void initializeNativeObject(jobject object, jstring canonicalName);
 private:
     // Factory method for creating objects
     static jobject _createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs);

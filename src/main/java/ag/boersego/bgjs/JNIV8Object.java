@@ -68,17 +68,21 @@ abstract public class JNIV8Object extends JNIObject {
     private V8Engine _engine;
 
     public JNIV8Object(V8Engine engine, long jsObjPtr) {
+        super(true);
         _engine = engine;
-        initNativeJNIV8Object(engine.getNativePtr(), jsObjPtr);
+        initNativeJNIV8Object(getClass().getCanonicalName(), engine.getNativePtr(), jsObjPtr);
+        initAutomaticDisposure();
     }
 
     public JNIV8Object(V8Engine engine) {
+        super(true);
         _engine = engine;
-        initNativeJNIV8Object(engine.getNativePtr(), 0);
+        initNativeJNIV8Object(getClass().getCanonicalName(), engine.getNativePtr(), 0);
+        initAutomaticDisposure();
     }
 
     private native boolean hasV8Field(String name, boolean ownOnly);
     private native String[] getV8Keys(boolean ownOnly);
     private native Map<String,Object> getV8Fields(boolean ownOnly);
-    private native void initNativeJNIV8Object(long enginePtr, long jsObjPtr);
+    private native void initNativeJNIV8Object(String canonicalName, long enginePtr, long jsObjPtr);
 }

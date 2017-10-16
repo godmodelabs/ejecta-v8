@@ -169,8 +169,8 @@ void JNIObject::jniRegisterClass(JNIEnv *env, jobject obj, jstring derivedClass,
 // Exports
 //--------------------------------------------------------------------------------------------------
 extern "C" {
-    JNIEXPORT void JNICALL Java_ag_boersego_bgjs_JNIObject_initNative(JNIEnv *env, jobject obj) {
-        JNIWrapper::initializeNativeObject(obj);
+    JNIEXPORT void JNICALL Java_ag_boersego_bgjs_JNIObject_initNative(JNIEnv *env, jobject obj, jstring canonicalName) {
+        JNIWrapper::initializeNativeObject(obj, canonicalName);
     }
 
     JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_JNIObjectReference_disposeNative(JNIEnv *env, jobject obj, jlong nativeHandle) {

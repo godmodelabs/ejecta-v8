@@ -9,13 +9,11 @@ import android.util.Log;
 public class V8TestClass extends JNIV8Object {
     public V8TestClass(V8Engine engine) {
         super(engine);
-        Log.d("V8TestClass", "Constructor");
         shadowField = 123;
     }
 
     public V8TestClass(V8Engine engine, long jsObjPtr) {
         super(engine, jsObjPtr);
-        Log.d("V8TestClass", "Constructor:");
         shadowField = 123;
     }
 

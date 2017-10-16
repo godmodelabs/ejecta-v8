@@ -9,12 +9,10 @@ import android.util.Log;
 public class V8TestClassDerived extends V8TestClass2 {
     public V8TestClassDerived(V8Engine engine) {
         super(engine);
-        Log.d("V8TestClassDerived", "Constructor");
     }
 
     public V8TestClassDerived(V8Engine engine, long jsObjPtr) {
         super(engine, jsObjPtr);
-        Log.d("V8TestClassDerived", "Constructor:");
     }
 
     public void test3(long testL, float testF) {

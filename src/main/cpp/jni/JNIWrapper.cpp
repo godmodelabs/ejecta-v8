@@ -130,7 +130,7 @@ JNIEnv* JNIWrapper::getEnvironment() {
     if(_jniThreadId != t) {
         int r = _jniVM->GetEnv((void **) &_jniEnv, JNI_VERSION_1_6);
         if (r != JNI_OK) {
-            // @TODO: if a thread attached manually, it has to call detach when it finishes!
+            __android_log_print(ANDROID_LOG_DEBUG, "JNIWrapper", "attached new thread to JNI. Make sure to detach on exit!");
             int r = _jniVM->AttachCurrentThread(&_jniEnv, nullptr);
             JNI_ASSERT(r == JNI_OK, "Failed to attach thread to JVM");
             (void) r;
@@ -140,24 +140,10 @@ JNIEnv* JNIWrapper::getEnvironment() {
     return _jniEnv;
 }
 
-void JNIWrapper::initializeNativeObject(jobject object) {
+void JNIWrapper::initializeNativeObject(jobject object, jstring className) {
     JNIEnv* env = JNIWrapper::getEnvironment();
-    std::string canonicalName;
 
-    // first determine canonical name of the class (required for mapping to native class)
-    jclass jniClass = env->GetObjectClass(object);
-
-    // we cache the getCanonicalName method locally to speed things up a little
-    // theoretically we would have to make the Class class ref a global ref, but it will probably never
-    // be unloaded anyways??!
-    if(!_jniCanonicalNameMethodID) {
-        jclass jniClassClass = env->GetObjectClass(jniClass);
-        _jniCanonicalNameMethodID = env->GetMethodID(jniClassClass, "getCanonicalName", "()Ljava/lang/String;");
-    }
-
-    jstring className = (jstring) env->CallObjectMethod(jniClass, _jniCanonicalNameMethodID);
-
-    canonicalName = JNIWrapper::jstring2string(className);
+    auto canonicalName = JNIWrapper::jstring2string(className);
     std::replace(canonicalName.begin(), canonicalName.end(), '.', '/');
 
     // now retrieve registered native class

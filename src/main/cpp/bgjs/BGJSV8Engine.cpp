@@ -935,21 +935,6 @@ void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
 		if (!stack_trace.IsEmpty()) {
 			LOGE("%s", BGJS_STRING_FROM_V8VALUE(try_catch->StackTrace()).c_str());
 		}
-
-		/* excStr = env->NewStringUTF(exception_string);
-		if (data != v8::Undefined()) {
-			String::Utf8Value dataLocal(data);
-			dataStr = env->NewStringUTF(*dataLocal);
-		} else {
-			dataStr = 0;
-		}
-
-		if (method != v8::Undefined()) {
-			String::Utf8Value methodLocal(method);
-			methodStr = env->NewStringUTF(*methodLocal);
-		} else {
-			methodStr = 0;
-		} */
 	}
 }
 
