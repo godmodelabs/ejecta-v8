@@ -260,6 +260,8 @@ public class AjaxRequest implements Runnable {
             } else if (mMethod != null) {
                 if (mMethod.equals("DELETE")) {
                     requestBuilder.delete();
+                } else if (mMethod.equals("POST")) {
+                    requestBuilder.post(RequestBody.create(null, new byte[0]));
                 }
             }
 
