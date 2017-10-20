@@ -197,6 +197,11 @@ public:
     static jstring v8string2jstring(v8::Local<v8::String> string);
 
     /**
+     * return an object representing undefined in java
+     */
+    static jobject undefinedInJava();
+
+    /**
      * internal utility method; should not be called manually!
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new V8 enabled Java+Native object tuple
@@ -219,6 +224,8 @@ private:
     static V8ClassInfo* _getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine);
 
     static std::map<std::string, V8ClassInfoContainer*> _objmap;
+
+    static jobject _undefined;
 
     template<class ObjectType>
     static void initialize(V8ClassInfo *info) {
@@ -245,10 +252,6 @@ private:
         jfieldID setterId;
         jfieldID isStaticId;
     } _jniV8AccessorInfo;
-    static struct {
-        jclass clazz;
-        jmethodID GetInstanceId;
-    } _jniV8Undefined;
     static struct {
         jclass clazz;
         jmethodID valueOfId;

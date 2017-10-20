@@ -19,7 +19,7 @@ public class V8TestClass extends JNIV8Object {
 
     public native void test(long testL, float testF, double testD, String str);
     public native String getName();
-    public void test3(long testL, float testF) {
+    public void test3(long testL, float testF) throws Exception {
         Log.d("V8TestClass", "Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
     }
     public long shadowField;

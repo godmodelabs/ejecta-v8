@@ -12,6 +12,19 @@
 class BGJSV8Engine;
 class JNIV8Object;
 
+#define JNIV8Object_PrepareJNICall(T, L, R)\
+auto ptr = JNIWrapper::wrapObject<T>(obj);\
+if(!ptr){env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "Attempt to call method on disposed object"); return R;}\
+BGJSV8Engine *engine = ptr->getEngine();\
+v8::Isolate* isolate = engine->getIsolate();\
+v8::Locker l(isolate);\
+v8::Isolate::Scope isolateScope(isolate);\
+v8::HandleScope scope(isolate);\
+v8::Local<v8::Context> context = engine->getContext();\
+v8::Context::Scope ctxScope(context);\
+v8::TryCatch try_catch;\
+v8::Local<L> localRef = v8::Local<v8::Object>::New(isolate, ptr->getJSObject()).As<L>();
+
 /**
  * Base class for all native classes associated with a java object and a js object
  * constructor should never be called manually; if you want to create a new instance
@@ -60,7 +73,8 @@ private:
     static jboolean jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly);
     static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);
     static jobject jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly);
-    static jstring jniToV8String(JNIEnv *env, jobject obj, jboolean ownOnly);
+    static jstring jniToString(JNIEnv *env, jobject obj);
+    static jstring jniToJSON(JNIEnv *env, jobject obj);
     static void jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
 
     // v8 callbacks

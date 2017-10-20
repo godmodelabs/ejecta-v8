@@ -19,13 +19,13 @@ std::map<std::string, V8ClassInfoContainer*> JNIV8Wrapper::_objmap;
 
 decltype(JNIV8Wrapper::_jniV8FunctionInfo) JNIV8Wrapper::_jniV8FunctionInfo;
 decltype(JNIV8Wrapper::_jniV8AccessorInfo) JNIV8Wrapper::_jniV8AccessorInfo;
-decltype(JNIV8Wrapper::_jniV8Undefined) JNIV8Wrapper::_jniV8Undefined;
 decltype(JNIV8Wrapper::_jniDouble) JNIV8Wrapper::_jniDouble;
 decltype(JNIV8Wrapper::_jniBoolean) JNIV8Wrapper::_jniBoolean;
 decltype(JNIV8Wrapper::_jniString) JNIV8Wrapper::_jniString;
 decltype(JNIV8Wrapper::_jniCharacter) JNIV8Wrapper::_jniCharacter;
 decltype(JNIV8Wrapper::_jniNumber) JNIV8Wrapper::_jniNumber;
 decltype(JNIV8Wrapper::_jniV8Object) JNIV8Wrapper::_jniV8Object;
+jobject JNIV8Wrapper::_undefined = nullptr;
 
 void JNIV8Wrapper::init() {
     JNIWrapper::registerObject<JNIV8Object>(JNIObjectType::kAbstract);
@@ -38,6 +38,11 @@ void JNIV8Wrapper::init() {
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 
+    jclass clsUndefined = env->FindClass("ag/boersego/bgjs/JNIV8Undefined");
+    jmethodID getInstanceId = env->GetStaticMethodID(clsUndefined, "GetInstance", "()Lag/boersego/bgjs/JNIV8Undefined;");
+
+    _undefined = env->NewGlobalRef(env->CallStaticObjectMethod(clsUndefined, getInstanceId));
+
     _jniV8FunctionInfo.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo"));
     _jniV8FunctionInfo.propertyId = env->GetFieldID(_jniV8FunctionInfo.clazz, "property", "Ljava/lang/String;");
     _jniV8FunctionInfo.methodId = env->GetFieldID(_jniV8FunctionInfo.clazz, "method", "Ljava/lang/String;");
@@ -48,9 +53,6 @@ void JNIV8Wrapper::init() {
     _jniV8AccessorInfo.getterId = env->GetFieldID(_jniV8AccessorInfo.clazz, "getter", "Ljava/lang/String;");
     _jniV8AccessorInfo.setterId = env->GetFieldID(_jniV8AccessorInfo.clazz, "setter", "Ljava/lang/String;");
     _jniV8AccessorInfo.isStaticId = env->GetFieldID(_jniV8AccessorInfo.clazz, "isStatic", "Z");
-
-    _jniV8Undefined.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Undefined"));
-    _jniV8Undefined.GetInstanceId = env->GetStaticMethodID(_jniV8Undefined.clazz, "GetInstance","()Lag/boersego/bgjs/JNIV8Undefined;");
 
     _jniDouble.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Double"));
     _jniDouble.valueOfId = env->GetStaticMethodID(_jniDouble.clazz, "valueOf","(D)Ljava/lang/Double;");
@@ -305,7 +307,7 @@ jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     if(valueRef->IsUndefined()) {
-        return env->CallStaticObjectMethod(_jniV8Undefined.clazz, _jniV8Undefined.GetInstanceId);
+        return _undefined;
     } else if(valueRef->IsNumber()) {
         return env->CallStaticObjectMethod(_jniDouble.clazz, _jniDouble.valueOfId, valueRef->NumberValue());
     } else if(valueRef->IsString()) {
@@ -403,4 +405,11 @@ void JNIV8Wrapper::cleanupV8Engine(BGJSV8Engine *engine) {
             }
         }
     }
+}
+
+/**
+ * return an object representing undefined in java
+ */
+jobject JNIV8Wrapper::undefinedInJava() {
+    return _undefined;
 }

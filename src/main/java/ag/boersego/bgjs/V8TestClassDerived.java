@@ -15,7 +15,7 @@ public class V8TestClassDerived extends V8TestClass2 {
         super(engine, jsObjPtr);
     }
 
-    public void test3(long testL, float testF) {
+    public void test3(long testL, float testF) throws Exception {
         Log.d("V8TestClassDerived", "Overwritte Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
         super.test3(testL, testF);
     }

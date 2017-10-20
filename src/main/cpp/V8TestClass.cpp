@@ -64,6 +64,11 @@ void V8TestClass::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 
 void V8TestClass::test() {
     this->callJavaVoidMethod("test3", (jlong)17, (jfloat)13.5);
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    if(env->ExceptionCheck()) {
+        getEngine()->forwardJNIExceptionToV8();
+        return;
+    }
     this->callJavaVoidMethod("overwriteMe");
 
     /*

@@ -234,6 +234,16 @@ public class V8Engine extends Thread implements Handler.Callback {
 	}
 	private native JNIV8Function getConstructor(long enginePtr, String canonicalName);
 
+	public JNIV8Object parseJSON(String json) {
+		return parseJSON(getNativePtr(), json);
+	}
+	public JNIV8Object runScript(String script) {
+		return runScript(getNativePtr(), script);
+	}
+
+	public native JNIV8Object parseJSON(long enginePtr, String json);
+	public native JNIV8Object runScript(long enginePtr, String script);
+
 	@Override
 	public void run() {
 		this.setName("V8Engine");

@@ -106,9 +106,26 @@ void JNIObject::releaseJObject() {
     JNI_ASSERT(isPersistent(), "Attempt to release non-persistent native object");
     if(_jniObjectRefCount==1) {
         JNIEnv *env = JNIWrapper::getEnvironment();
+
+        // this method might be executed automatically if a shared_ptr falls of the stack
+        // if an exception was thrown after the shared_ptr was created, we can
+        // not call any JNI functions without clearing the exception first and then rethrowing it
+        // In most cases this could be done in the method itself, but it is tedious and likely to be forgotten
+        // also, there are cases
+        // e.g. when an exception is thrown in a method that is not immediately called from Java/JNI, but the shared_ptr is used in a method further upp the call stack
+        // when it is very hard or even impossible to do this
+        // => handle this here!
+        jthrowable exc = nullptr;
+        if(env->ExceptionCheck()) {
+            exc = env->ExceptionOccurred();
+            env->ExceptionClear();
+        }
+
         _jniObjectWeak = env->NewWeakGlobalRef(_jniObject);
         env->DeleteGlobalRef(_jniObject);
         _jniObject = nullptr;
+
+        if(exc) env->Throw(exc);
     }
     _jniObjectRefCount--;
 }

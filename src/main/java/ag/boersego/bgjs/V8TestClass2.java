@@ -19,10 +19,12 @@ public class V8TestClass2 extends V8TestClass {
         shadowField = 456;
     }
 
-    public void test3(long testL, float testF) {
+    public void test3(long testL, float testF) throws Exception {
+        //throw new Exception("boing");
+
         Log.d("V8TestClass2", "Overwritten Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
 
-        JNIV8Function func = JNIV8Function.Create(getV8Engine(), new JNIV8Function.Handler() {
+                JNIV8Function func = JNIV8Function.Create(getV8Engine(), new JNIV8Function.Handler() {
             @Override
             Object Callback(Object receiver, Object[] arguments) {
                 return "Hello from Java";
@@ -36,11 +38,25 @@ public class V8TestClass2 extends V8TestClass {
             }
         });
 
+        JNIV8Object objT = getV8Engine().parseJSON("{\"foo\":5}");
+
+        String test = objT.toJSON();
+        String test2 = objT.toString();
+
+        JNIV8Object objT2 = getV8Engine().runScript("(function foo() { return 7; })");
+
         JNIV8GenericObject obj = JNIV8GenericObject.Create(getV8Engine());
         obj.getV8Field("test");
         obj.setV8Field("test", 13);
 
-        ((JNIV8Function)getV8Field("v8Func")).callAsV8Function(func, func2, 123, "abc", obj, this);
+        JNIV8Array array = JNIV8Array.CreateWithElements(getV8Engine(), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        ((JNIV8Function)getV8Field("v8Func")).callAsV8Function(func, func2, 123, "abc", obj, array.callV8Method("slice", 0, 2));
+
+        Object[] values = array.getV8Elements();
+        Object value = array.getV8Element(0);
+        Object[] values2 = array.getV8Elements(2, 4);
+
+        int i = 1;
 /*
 
 

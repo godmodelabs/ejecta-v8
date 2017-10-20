@@ -76,6 +76,9 @@ public:
     		int argc, v8::Handle<v8::Value> argv[]) const;
 
 
+	bool forwardJNIExceptionToV8();
+	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch);
+
 	static void ReportException(v8::TryCatch* try_catch);
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
     int run(const char *path = NULL);
@@ -107,7 +110,7 @@ public:
 	void unregisterGLView(BGJSGLView* view);
 
 	v8::Handle<v8::Value> JsonParse(v8::Handle<v8::Object> recv, v8::Handle<v8::String> source);
-	v8::Handle<v8::Value> JsonStringify(v8::Handle<v8::Object> recv, v8::Handle<v8::Object> source) const;
+	v8::Handle<v8::Value> JsonStringify(v8::Handle<v8::Object> recv, v8::Handle<v8::Object> source);
 
 	void createContext();
 	ClientAbstract *_client;
@@ -137,6 +140,9 @@ private:
     v8::Isolate* _isolate;
 
     v8::Persistent<v8::Function> _requireFn, _makeRequireFn;
+	v8::Persistent<v8::Function> _jsonParseFn, _jsonStringifyFn;
+	v8::Persistent<v8::Function> _makeJavaErrorFn;
+	v8::Persistent<v8::Function> _getStackTraceFn;
     v8::Local<v8::Function> makeRequireFunction(std::string pathName);
 
 	std::set<BGJSGLView*> _glViews;

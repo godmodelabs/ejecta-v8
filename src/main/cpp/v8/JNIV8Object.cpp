@@ -12,20 +12,6 @@ using namespace v8;
 
 BGJS_JNIV8OBJECT_LINK(JNIV8Object, "ag/boersego/bgjs/JNIV8Object");
 
-#define JNIV8Object_PrepareJNICall(type)\
-auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);\
-if(!ptr){env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "Attempt to call method on disposed object"); return type;}\
-BGJSV8Engine *engine = ptr->_bgjsEngine;\
-v8::Isolate* isolate = engine->getIsolate();\
-v8::Locker l(isolate);\
-Isolate::Scope isolateScope(isolate);\
-HandleScope scope(isolate);\
-Local<Context> context = engine->getContext();\
-Context::Scope ctxScope(context);\
-if(ptr->_jsObject.IsEmpty()) ptr->getJSObject();\
-v8::TryCatch try_catch;\
-Local<Object> localRef = Local<Object>::New(isolate, ptr->_jsObject);\
-
 decltype(JNIV8Object::_jniString) JNIV8Object::_jniString;
 decltype(JNIV8Object::_jniHashMap) JNIV8Object::_jniHashMap;
 
@@ -149,6 +135,7 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerConstructor("(Lag/boersego/bgjs/V8Engine;)V","<JNIV8ObjectInit#2>");
 
     info->registerNativeMethod("adjustJSExternalMemory", "(J)V", (void*)JNIV8Object::jniAdjustJSExternalMemory);
+    info->registerNativeMethod("applyV8Method", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Object::jniCallV8Method);
     info->registerNativeMethod("callV8Method", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Object::jniCallV8Method);
     info->registerNativeMethod("getV8Field", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)JNIV8Object::jniGetV8Field);
     info->registerNativeMethod("setV8Field", "(Ljava/lang/String;Ljava/lang/Object;)V", (void*)JNIV8Object::jniSetV8Field);
@@ -157,7 +144,9 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("getV8Keys", "(Z)[Ljava/lang/String;", (void*)JNIV8Object::jniGetV8Keys);
     info->registerNativeMethod("getV8Fields", "(Z)Ljava/util/Map;", (void*)JNIV8Object::jniGetV8Fields);
 
-    info->registerNativeMethod("toV8String", "()Ljava/lang/String;", (void*)JNIV8Object::jniToV8String);
+    info->registerNativeMethod("toString", "()Ljava/lang/String;", (void*)JNIV8Object::jniToString);
+    info->registerNativeMethod("toJSON", "()Ljava/lang/String;", (void*)JNIV8Object::jniToJSON);
+
     info->registerNativeMethod("RegisterV8Class", "(Ljava/lang/String;Ljava/lang/String;)V", (void*)JNIV8Object::jniRegisterV8Class);
 }
 
@@ -167,10 +156,11 @@ void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong chan
 }
 
 jobject JNIV8Object::jniGetV8Field(JNIEnv *env, jobject obj, jstring name) {
-    JNIV8Object_PrepareJNICall(nullptr);
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
     MaybeLocal<Value> valueRef = localRef->Get(context, JNIV8Wrapper::jstring2v8string(name));
     if(valueRef.IsEmpty()) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during getter call");
@@ -181,10 +171,11 @@ jobject JNIV8Object::jniGetV8Field(JNIEnv *env, jobject obj, jstring name) {
 }
 
 void JNIV8Object::jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value) {
-    JNIV8Object_PrepareJNICall(void());
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, void());
 
     Maybe<bool> res = localRef->Set(context, JNIV8Wrapper::jstring2v8string(name), JNIV8Wrapper::jobject2v8value(value));
     if(res.IsNothing()) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during setter call");
@@ -192,18 +183,20 @@ void JNIV8Object::jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject 
 }
 
 jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, jobjectArray arguments) {
-    JNIV8Object_PrepareJNICall(nullptr);
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
     MaybeLocal<Value> maybeLocal;
     Local<Value> funcRef;
     maybeLocal = localRef->Get(context, JNIV8Wrapper::jstring2v8string(name));
     if (!maybeLocal.ToLocal<Value>(&funcRef)) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during function call");
         return nullptr;
     }
     if(!funcRef->IsFunction()) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"),
                       "Called v8 field is not a function");
         return nullptr;
@@ -225,6 +218,7 @@ jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, job
     Local<Value> resultRef;
     maybeLocal = Local<Object>::Cast(funcRef)->CallAsFunction(context, localRef, numArgs, args);
     if (!maybeLocal.ToLocal<Value>(&resultRef)) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during function call");
@@ -234,15 +228,16 @@ jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, job
     if(args) {
         free(args);
     }
-    return JNIV8Wrapper::v8value2jobject(v8::Undefined(isolate));
+    return JNIV8Wrapper::v8value2jobject(resultRef);
 }
 
 jboolean JNIV8Object::jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall(false);
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, false);
 
     Local<String> keyRef = JNIV8Wrapper::jstring2v8string(name);
     Maybe<bool> res = ownOnly ? localRef->HasOwnProperty(context, keyRef) : localRef->Has(context, keyRef);
     if(res.IsNothing()) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during setter call");
@@ -252,10 +247,11 @@ jboolean JNIV8Object::jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboo
 }
 
 jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall(nullptr);
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
     MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames();
     if(maybeArrayRef.IsEmpty()) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during setter call");
@@ -275,6 +271,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
     for(uint32_t i=0,n=arrayRef->Length(); i<n; i++) {
         MaybeLocal<Value> maybeValueRef = arrayRef->Get(context, i);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
+            ptr = nullptr; // release shared_ptr before throwing an exception!
             BGJSV8Engine::ReportException(&try_catch);
             env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                           "V8 Exception occured during setter call");
@@ -292,10 +289,11 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
 }
 
 jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall(nullptr);
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
     MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames();
     if(maybeArrayRef.IsEmpty()) {
+        ptr = nullptr; // release shared_ptr before throwing an exception!
         BGJSV8Engine::ReportException(&try_catch);
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8 Exception occured during setter call");
@@ -317,6 +315,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
     for(uint32_t i=0,n=arrayRef->Length(); i<n; i++) {
         MaybeLocal<Value> maybeValueRef = arrayRef->Get(context, i);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
+            ptr = nullptr; // release shared_ptr before throwing an exception!
             BGJSV8Engine::ReportException(&try_catch);
             env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                           "V8 Exception occured during setter call");
@@ -326,6 +325,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
 
         maybeValueRef = localRef->Get(context, keyRef);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
+            ptr = nullptr; // release shared_ptr before throwing an exception!
             BGJSV8Engine::ReportException(&try_catch);
             env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                           "V8 Exception occured during getter call");
@@ -342,13 +342,21 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
     return result;
 }
 
-jstring JNIV8Object::jniToV8String(JNIEnv *env, jobject obj, jboolean ownOnly) {
-    JNIV8Object_PrepareJNICall(nullptr);
+jstring JNIV8Object::jniToJSON(JNIEnv *env, jobject obj) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
+    v8::Local<v8::Value> stringValue = engine->JsonStringify(context->Global(), localRef);
+    if(stringValue.IsEmpty()) {
+        engine->forwardV8ExceptionToJNI(&try_catch);
+        return nullptr;
+    }
+    return JNIV8Wrapper::v8string2jstring(stringValue.As<v8::String>());
+}
+
+jstring JNIV8Object::jniToString(JNIEnv *env, jobject obj) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
     MaybeLocal<String> maybeLocal = localRef->ToString(context);
     if(maybeLocal.IsEmpty()) {
-        BGJSV8Engine::ReportException(&try_catch);
-        env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
-                      "V8 Exception occured during setter call");
+        engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
     return JNIV8Wrapper::v8string2jstring(maybeLocal.ToLocalChecked());

@@ -17,10 +17,14 @@ abstract public class JNIV8Object extends JNIObject {
     }
     static private native void RegisterV8Class(String derivedClass, String baseClass);
 
+    public native String toString();
+    public native String toJSON();
+
     public V8Engine getV8Engine() {
         return _engine;
     }
 
+    public native Object applyV8Method(String name, Object... arguments);
     public native Object callV8Method(String name, Object... arguments);
     /*
     Question: Do we need these? (coercion on JS side or in Java?)
@@ -56,8 +60,6 @@ abstract public class JNIV8Object extends JNIObject {
     public Map<String,Object> getV8OwnFields() {
         return getV8Fields(true);
     }
-
-    public native String toV8String();
 
     public native void setV8Field(String name, Object value);
 

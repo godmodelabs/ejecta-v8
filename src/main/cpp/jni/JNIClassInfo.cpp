@@ -56,7 +56,7 @@ void JNIClassInfo::inherit() {
 void JNIClassInfo::registerNativeMethod(const std::string &name, const std::string &signature, void* fnPtr) {
 #ifdef ENABLE_JNI_ASSERT
     for(auto &it : methods) {
-        JNI_ASSERTF(strcmp(it.name, name.c_str()), "Native method '%s' is already registered", name.c_str());
+        JNI_ASSERTF(strcmp(it.name, name.c_str()) || strcmp(it.signature, signature.c_str()), "Native method '%s' is already with same signature registered", name.c_str());
     }
     JNI_ASSERTF(getMethodID(name, signature, false) || getMethodID(name, signature, true),
                 "No matching method '%s' with signature '%s'", name.c_str(), signature.c_str());
