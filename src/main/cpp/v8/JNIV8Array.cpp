@@ -8,6 +8,8 @@
 
 BGJS_JNIV8OBJECT_LINK(JNIV8Array, "ag/boersego/bgjs/JNIV8Array");
 
+decltype(JNIV8Array::_jniObject) JNIV8Array::_jniObject = {0};
+
 jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32_t from, uint32_t to) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     BGJSV8Engine *engine = getEngine();
@@ -22,7 +24,12 @@ jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32
         from = 0;
         to = len-1;
     }
-    jobjectArray elements = env->NewObjectArray(size, env->FindClass("java/lang/Object"), nullptr);
+
+    if(!_jniObject.clazz) {
+        _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
+    }
+
+    jobjectArray elements = env->NewObjectArray(size, _jniObject.clazz, nullptr);
     for(uint32_t i=from; i<=to; i++) {
         v8::MaybeLocal<v8::Value> maybeValue = array->Get(context, i);
         v8::Local<v8::Value> value;

@@ -15,6 +15,8 @@ struct JNIV8FunctionCallbackHolder {
     jmethodID callbackMethodId;
 };
 
+decltype(JNIV8Function::_jniObject) JNIV8Function::_jniObject = {0};
+
 void JNIV8FunctionWeakPersistentCallback(const v8::WeakCallbackInfo<void>& data) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
@@ -25,7 +27,7 @@ void JNIV8FunctionWeakPersistentCallback(const v8::WeakCallbackInfo<void>& data)
     delete holder;
 }
 
-void JNIV8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     v8::HandleScope scope(args.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -39,7 +41,11 @@ void JNIV8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     jobjectArray arguments = nullptr;
     jobject value;
 
-    arguments = env->NewObjectArray(args.Length()-1, env->FindClass("java/lang/Object"), nullptr);
+    if(!_jniObject.clazz) {
+        _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
+    }
+
+    arguments = env->NewObjectArray(args.Length()-1, _jniObject.clazz, nullptr);
     for(int i=1,n=args.Length(); i<n; i++) {
         value = JNIV8Wrapper::v8value2jobject(args[i]);
         env->SetObjectArrayElement(arguments, i-1, value);
@@ -102,7 +108,7 @@ jobject JNIV8Function::jniCallAsV8FunctionWithReceiver(JNIEnv *env, jobject obj,
     return JNIV8Wrapper::v8value2jobject(v8::Undefined(isolate));
 }
 
-v8::MaybeLocal<v8::Function> getJNIV8FunctionBaseFunction() {
+v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::EscapableHandleScope scope(isolate);
     v8::Local<v8::Context> context = isolate->GetCurrentContext();
@@ -123,7 +129,7 @@ v8::MaybeLocal<v8::Function> getJNIV8FunctionBaseFunction() {
     // only functions that are created via script are garbage collected like other objects
     // => we have to use a dynamically created "wrapper" function around a native function created via
     // function template
-    maybeFuncRef = v8::FunctionTemplate::New(isolate, JNIV8FunctionCallback)->GetFunction(context);
+    maybeFuncRef = v8::FunctionTemplate::New(isolate, v8FunctionCallback)->GetFunction(context);
     if (!maybeFuncRef.ToLocal(&baseFuncRef)) {
         return v8::MaybeLocal<v8::Function>();
     }

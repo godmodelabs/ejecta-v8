@@ -16,6 +16,12 @@ public:
 
     static jobject jniCreate(JNIEnv *env, jobject obj, jlong enginePtr, jobject handler);
     static jobject jniCallAsV8FunctionWithReceiver(JNIEnv *env, jobject obj, jobject receiver, jobjectArray arguments);
+private:
+    static struct {
+        jclass clazz;
+    } _jniObject;
+    static v8::MaybeLocal<v8::Function> getJNIV8FunctionBaseFunction();
+    static void v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 BGJS_JNIV8OBJECT_DEF(JNIV8Function)

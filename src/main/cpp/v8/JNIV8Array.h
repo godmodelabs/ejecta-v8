@@ -40,6 +40,9 @@ public:
     static jobject jniGetV8Element(JNIEnv *env, jobject obj, jint index);
 
 private:
+    static struct {
+        jclass clazz;
+    } _jniObject;
     jobjectArray v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32_t from=1, uint32_t to=0);
 };
 

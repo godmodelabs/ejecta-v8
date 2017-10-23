@@ -9,7 +9,9 @@
 
 using namespace v8;
 
-void v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+decltype(V8ClassInfo::_jniObject) V8ClassInfo::_jniObject = {0};
+
+void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -33,7 +35,7 @@ void v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallback
 }
 
 
-void v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -54,7 +56,7 @@ void v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, co
     }
 }
 
-void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     HandleScope scope(args.GetIsolate());
     Isolate *isolate = args.GetIsolate();
 
@@ -90,7 +92,11 @@ void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
         }
     }
 
-    jobjectArray jargs = env->NewObjectArray(args.Length(), env->FindClass("java/lang/Object"), nullptr);
+    if(!_jniObject.clazz) {
+        _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
+    }
+
+    jobjectArray jargs = env->NewObjectArray(args.Length(), _jniObject.clazz, nullptr);
     for(int idx=0,n=args.Length(); idx<n; idx++) {
         env->SetObjectArrayElement(jargs, idx, JNIV8Wrapper::v8value2jobject(args[idx]));
     }
@@ -105,7 +111,7 @@ void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
 }
 
-void v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+void V8ClassInfo::v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -124,7 +130,7 @@ void v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo
 }
 
 
-void v8AccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+void V8ClassInfo::v8AccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -142,7 +148,7 @@ void v8AccessorSetterCallback(Local<String> property, Local<Value> value, const 
     }
 }
 
-void v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void V8ClassInfo::v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     HandleScope scope(args.GetIsolate());
 
     v8::Local<v8::External> ext;
