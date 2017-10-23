@@ -90,6 +90,11 @@ enum class JNIV8ObjectType {
     kWrapper
 };
 
+enum class JNIV8ClassCreationPolicy {
+    DEFAULT = 0,
+    NATIVE_ONLY = 1
+};
+
 struct V8ClassInfo {
     friend class JNIV8Object;
     friend class JNIV8Wrapper;
@@ -97,6 +102,13 @@ public:
     BGJSV8Engine* getEngine() const {
         return engine;
     };
+
+    /**
+     * objects can be configured so that they can not be created from java script
+     * even if the prototype is exported
+     * invoking the constructor with new will throw an exception
+     */
+    void setCreationPolicy(JNIV8ClassCreationPolicy policy);
 
     /**
      * if multiple classes in the objects hierarchy registered a constructor, it is only called for the final class

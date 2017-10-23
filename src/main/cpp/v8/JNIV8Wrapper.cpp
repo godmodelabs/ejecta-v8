@@ -17,14 +17,14 @@ std::map<std::string, V8ClassInfoContainer*> JNIV8Wrapper::_objmap;
 
 //const char* JNIV8Wrapper::_v8PrivateKey = "JNIV8WrapperPrivate";
 
-decltype(JNIV8Wrapper::_jniV8FunctionInfo) JNIV8Wrapper::_jniV8FunctionInfo;
-decltype(JNIV8Wrapper::_jniV8AccessorInfo) JNIV8Wrapper::_jniV8AccessorInfo;
-decltype(JNIV8Wrapper::_jniDouble) JNIV8Wrapper::_jniDouble;
-decltype(JNIV8Wrapper::_jniBoolean) JNIV8Wrapper::_jniBoolean;
-decltype(JNIV8Wrapper::_jniString) JNIV8Wrapper::_jniString;
-decltype(JNIV8Wrapper::_jniCharacter) JNIV8Wrapper::_jniCharacter;
-decltype(JNIV8Wrapper::_jniNumber) JNIV8Wrapper::_jniNumber;
-decltype(JNIV8Wrapper::_jniV8Object) JNIV8Wrapper::_jniV8Object;
+decltype(JNIV8Wrapper::_jniV8FunctionInfo) JNIV8Wrapper::_jniV8FunctionInfo = {0};
+decltype(JNIV8Wrapper::_jniV8AccessorInfo) JNIV8Wrapper::_jniV8AccessorInfo = {0};
+decltype(JNIV8Wrapper::_jniDouble) JNIV8Wrapper::_jniDouble = {0};
+decltype(JNIV8Wrapper::_jniBoolean) JNIV8Wrapper::_jniBoolean = {0};
+decltype(JNIV8Wrapper::_jniString) JNIV8Wrapper::_jniString = {0};
+decltype(JNIV8Wrapper::_jniCharacter) JNIV8Wrapper::_jniCharacter = {0};
+decltype(JNIV8Wrapper::_jniNumber) JNIV8Wrapper::_jniNumber = {0};
+decltype(JNIV8Wrapper::_jniV8Object) JNIV8Wrapper::_jniV8Object = {0};
 jobject JNIV8Wrapper::_undefined = nullptr;
 
 void JNIV8Wrapper::init() {
@@ -81,7 +81,7 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
 
     // check if class can be created from JS
     if(info->createFromNativeOnly) {
-        args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "Illegal constructor invocation. Instances must not be created from JavaScript"));
+        args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "Illegal constructor invocation. Instances must not be created from JavaScript")));
         return;
     }
 

@@ -70,12 +70,12 @@ void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     if(!cb->isStatic) {
         v8::Local<v8::Object> thisArg = args.This();
         if (!thisArg->InternalFieldCount()) {
-            args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "invalid invocation"));
+            args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "invalid invocation")));
             return;
         }
         v8::Local<v8::Value> internalField = thisArg->GetInternalField(0);
         if (!internalField->IsExternal()) {
-            args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "invalid invocation"));
+            args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "invalid invocation")));
             return;
         }
 
@@ -85,7 +85,7 @@ void v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
         jobj = v8Object->getJObject();
 
         if (!env->IsInstanceOf(jobj, cb->javaClass)) {
-            args.GetIsolate()->ThrowException(String::NewFromUtf8(isolate, "invalid invocation"));
+            args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "invalid invocation")));
             return;
         }
     }
@@ -175,7 +175,7 @@ V8ClassInfoContainer::V8ClassInfoContainer(JNIV8ObjectType type, const std::stri
 }
 
 V8ClassInfo::V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine) :
-        container(container), engine(engine), constructorCallback(0) {
+        container(container), engine(engine), constructorCallback(0), createFromNativeOnly(false) {
 }
 
 V8ClassInfo::~V8ClassInfo() {
@@ -194,6 +194,10 @@ V8ClassInfo::~V8ClassInfo() {
         env->DeleteGlobalRef(it->javaClass);
         delete it;
     }
+}
+
+void V8ClassInfo::setCreationPolicy(JNIV8ClassCreationPolicy policy) {
+    createFromNativeOnly = policy == JNIV8ClassCreationPolicy::NATIVE_ONLY;
 }
 
 void V8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback) {

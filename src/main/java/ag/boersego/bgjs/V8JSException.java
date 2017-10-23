@@ -1,12 +1,17 @@
 package ag.boersego.bgjs;
 
+import ag.boersego.bgjs.V8Exception;
+
 /**
- * Created by martin on 20.10.17.
+ * Created by martin on 23.10.17.
  */
 
-public class V8Exception extends RuntimeException {
-    public V8Exception(String message, Throwable cause) {
+public class V8JSException extends RuntimeException {
+    private Object v8Exception;
+
+    public V8JSException(String message, Object v8Exception, Throwable cause) {
         super(message, cause);
+        this.v8Exception = v8Exception;
     }
 
     /**
@@ -15,18 +20,13 @@ public class V8Exception extends RuntimeException {
      * Could also be any other wrapped JS value (primitive, function, Java/V8 tuple) or null
      */
     Object getV8Exception() {
-        Throwable cause = this.getCause();
-        if(cause instanceof V8JSException) {
-            return ((V8Exception)cause).getV8Exception();
-        }
-        return null;
+        return v8Exception;
     }
 
     /**
      * checks if this exception was actually caused by JS, or by native/Java code
      */
     boolean wasCausedByJS() {
-        Throwable cause = this.getCause();
-        return cause != null && cause.getCause() == null;
+        return getCause() == null;
     }
 }

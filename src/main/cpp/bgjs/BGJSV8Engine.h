@@ -63,7 +63,7 @@ public:
     BGJSV8Engine(jobject javaObject);
 	virtual ~BGJSV8Engine();
 
-    v8::Local<v8::Value> require(std::string baseNameStr);
+    v8::MaybeLocal<v8::Value> require(std::string baseNameStr);
     uint8_t requestEmbedderDataIndex();
     bool registerModule(const char *name, requireHook f);
 	bool registerJavaModule(jobject module);
@@ -79,14 +79,15 @@ public:
 	bool forwardJNIExceptionToV8();
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch);
 
-	static void ReportException(v8::TryCatch* try_catch);
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
-    int run(const char *path = NULL);
-	void setClient(ClientAbstract* client);
+    void setClient(ClientAbstract* client);
 
 	jobject getJObject() const;
 
 	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
+
+	// deprecated; use forwardV8ExceptionToJNI if possible!
+	static void ReportException(v8::TryCatch* try_catch);
 
 	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -105,7 +106,7 @@ public:
     static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
 	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
 	void cancelAnimationFrame(int id);
-	bool runAnimationRequests(BGJSGLView* view) const;
+	bool runAnimationRequests(BGJSGLView* view);
 	void registerGLView(BGJSGLView* view);
 	void unregisterGLView(BGJSGLView* view);
 
@@ -127,6 +128,22 @@ private:
 		jmethodID getNameId;
 		jmethodID requireId;
 	} _jniV8Module;
+
+	static struct {
+		jclass clazz;
+		jmethodID initId;
+		jmethodID setStackTraceId;
+	} _jniV8JSException;
+
+	static struct {
+		jclass clazz;
+		jmethodID initId;
+	} _jniV8Exception;
+
+	static struct {
+		jclass clazz;
+		jmethodID initId;
+	} _jniStackTraceElement;
 
 	uint8_t _nextEmbedderDataIndex;
 	jobject _javaObject;

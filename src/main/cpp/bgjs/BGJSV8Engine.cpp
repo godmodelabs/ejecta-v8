@@ -147,16 +147,20 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(isolate);
 
-	Local<Value> result = engine->require(BGJS_STRING_FROM_V8VALUE(args[0]));
-
-	args.GetReturnValue().Set(scope.Escape(result));
+	MaybeLocal<Value> result = engine->require(BGJS_STRING_FROM_V8VALUE(args[0]));
+    if(!result.IsEmpty()) {
+        args.GetReturnValue().Set(scope.Escape(result.ToLocalChecked()));
+    }
 }
 
 //-----------------------------------------------------------
 // V8Engine
 //-----------------------------------------------------------
 
-decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module;
+decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module = {0};
+decltype(BGJSV8Engine::_jniV8Exception) BGJSV8Engine::_jniV8Exception = {0};
+decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {0};
+decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {0};
 
 /* static Handle<Value> AssertCallback(const Arguments& args) {
  if (args.Length() < 1)
@@ -258,11 +262,6 @@ V = JNIV8Wrapper::v8string2jstring(value.As<String>());\
 }
 
 bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
-    // @TODO: cache classes
-    // @TODO: different Exception classes? the one with the JS stacktrace should be V8JSException?
-    // @TODO: replace usage of ReportException in JNIV8Object and other places with forward*
-    // @TODO: remove ReportException completely?
-
     if(!try_catch->HasCaught()) return false;
 
     JNIEnv *env = JNIWrapper::getEnvironment();
@@ -270,7 +269,22 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
     HandleScope scope(_isolate);
     Local<Context> context = getContext();
 
-    jclass exceptionCls = env->FindClass("ag/boersego/bgjs/V8Exception");
+    // cache involved classes
+    if(!_jniV8JSException.clazz) {
+        _jniV8JSException.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8JSException"));
+        _jniV8JSException.initId = env->GetMethodID(_jniV8JSException.clazz, "<init>",
+                                                    "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Throwable;)V");
+        _jniV8JSException.setStackTraceId = env->GetMethodID(_jniV8JSException.clazz, "setStackTrace",
+                                                     "([Ljava/lang/StackTraceElement;)V");
+
+        _jniV8Exception.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Exception"));
+        _jniV8Exception.initId = env->GetMethodID(_jniV8Exception.clazz, "<init>",
+                                            "(Ljava/lang/String;Ljava/lang/Throwable;)V");
+
+        _jniStackTraceElement.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/StackTraceElement"));
+        _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
+                                                            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
+    }
 
     jobject causeException = nullptr;
 
@@ -292,7 +306,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
         if (maybeValue.ToLocal(&value) && value->IsExternal()) {
             BGJSV8EngineJavaErrorHolder *holder = static_cast<BGJSV8EngineJavaErrorHolder *>(value.As<External>()->Value());
 
-            if(!env->IsInstanceOf(holder->throwable, exceptionCls)) {
+            if(!env->IsInstanceOf(holder->throwable, _jniV8Exception.clazz)) {
                 // if the wrapped java exception was not of type V8Exception
                 // then we need to wrap it to preserve the v8 call stack
                 causeException = env->NewLocalRef(holder->throwable);
@@ -306,16 +320,11 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
 
     jobject exceptionAsObject = JNIV8Wrapper::v8value2jobject(exception);
 
-    jmethodID initId = env->GetMethodID(exceptionCls, "<init>", "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Throwable;)V");
-    jmethodID setStackTraceID = env->GetMethodID(exceptionCls, "setStackTrace", "([Ljava/lang/StackTraceElement;)V");
-    jclass stackTraceElementCls = env->FindClass("java/lang/StackTraceElement");
-    jmethodID newStackTraceElementId = env->GetMethodID(stackTraceElementCls, "<init>",
-                                                        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
-
     // convert v8 stack trace to a java stack trace
-    jobject v8Exception = env->NewObject(exceptionCls, initId, JNIV8Wrapper::v8string2jstring(exception->ToString()), exceptionAsObject, causeException);
+    jobject v8JSException = env->NewObject(_jniV8JSException.clazz, _jniV8JSException.initId, JNIV8Wrapper::v8string2jstring(exception->ToString()), exceptionAsObject, causeException);
 
     jobjectArray stackTrace = nullptr;
+    bool error = false;
     if(exception->IsObject()) {
         // Init
         if (_getStackTraceFn.IsEmpty()) {
@@ -340,9 +349,8 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
         if (maybeValue.ToLocal(&value) && value->IsArray()) {
             Local<Array> array = value.As<Array>();
 
-            bool error = false;
             uint32_t size = array->Length();
-            stackTrace = env->NewObjectArray(size, stackTraceElementCls, nullptr);
+            stackTrace = env->NewObjectArray(size, _jniStackTraceElement.clazz, nullptr);
 
             jobject stackTraceElement;
             for(uint32_t i=0; i<size; i++) {
@@ -369,7 +377,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
                         }
                     }
 
-                    stackTraceElement = env->NewObject(stackTraceElementCls, newStackTraceElementId,
+                    stackTraceElement = env->NewObject(_jniStackTraceElement.clazz, _jniStackTraceElement.initId,
                                                        typeName ? typeName : JNIWrapper::string2jstring("function"),
                                                        !methodName && !functionName ? JNIWrapper::string2jstring("<anonymous>"): methodName ? methodName : functionName,
                                                        fileName ? fileName : JNIWrapper::string2jstring("<unknown>"),
@@ -380,16 +388,24 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
                     break;
                 }
             }
-
-            // apply trace to exception
-            if(!error) {
-                env->CallVoidMethod(v8Exception, setStackTraceID, stackTrace);
-            }
         }
     }
 
+    // if no stack trace was provided by v8, or if there was an error converting it, we still have to show something
+    if(error || !stackTrace) {
+        stackTrace = env->NewObjectArray(1, _jniStackTraceElement.clazz,
+                                         env->NewObject(_jniStackTraceElement.clazz, _jniStackTraceElement.initId,
+                                                        JNIWrapper::string2jstring("<unknown>"),
+                                                        JNIWrapper::string2jstring("<anonymous>"),
+                                                        JNIWrapper::string2jstring("<unknown>"),
+                                                        0));
+    }
+
+    // apply trace to js exception
+    env->CallVoidMethod(v8JSException, _jniV8JSException.setStackTraceId, stackTrace);
+
     // throw final exception
-    env->Throw((jthrowable)env->NewObject(exceptionCls, initId, JNIWrapper::string2jstring("An exception occured in JavaScript"), exceptionAsObject, v8Exception));
+    env->Throw((jthrowable)env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId, JNIWrapper::string2jstring("An exception occured in JavaScript"), v8JSException));
 
     return true;
 }
@@ -539,13 +555,11 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
     return handle_scope.Escape(Local<Function>::Cast(result));
 }
 
-Local<Value> BGJSV8Engine::require(std::string baseNameStr){
+MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
 
 	Local<Value> result;
-    // Catch errors
-    TryCatch try_catch;
 
     if(baseNameStr.find("./") == 0) {
         baseNameStr = baseNameStr.substr(2);
@@ -677,6 +691,8 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
         result = scriptR->Run();
     }
 
+    MaybeLocal<Value> maybeLocal;
+
     // if we received a function, run it!
     if (!result.IsEmpty() && result->IsFunction()) {
         Local<Function> requireFn = makeRequireFunction(pathName);
@@ -695,29 +711,17 @@ Local<Value> BGJSV8Engine::require(std::string baseNameStr){
                 String::NewFromUtf8(_isolate, pathName.c_str())  // __dirname
         };
         Local<Function> fnModuleInitializer = Local<Function>::Cast(result);
-        fnModuleInitializer->Call(context->Global(), 5, fnModuleInitializerArgs);
+        maybeLocal = fnModuleInitializer->Call(context, context->Global(), 5, fnModuleInitializerArgs);
 
-        if(!try_catch.HasCaught()) {
+        if(!maybeLocal.IsEmpty()) {
             result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
 			_moduleCache[baseNameStr].Reset(_isolate, result);
             return handle_scope.Escape(result);
         }
     }
 
-    // somewhere along the way an exception was raised.. process it here
-    if(try_catch.HasCaught()) {
-        BGJSV8Engine::ReportException(&try_catch);
-
-        /* ReThrow doesn't re-throw TerminationExceptions; a null exception value
-         * is re-thrown instead (see Isolate::PropagatePendingExceptionToExternalTryCatch())
-         * so we re-propagate a TerminationException explicitly here if necessary. */
-        if (!try_catch.CanContinue()) {
-            v8::V8::TerminateExecution(_isolate);
-        }
-    }
-
     // this only happens when something went wrong (e.g. exception)
-    return Undefined(_isolate);
+    return maybeLocal;
 }
 
 void BGJSV8Engine::setClient(ClientAbstract* client) {
@@ -763,7 +767,7 @@ void BGJSV8Engine::unregisterGLView(BGJSGLView* view) {
 	_glViews.erase(view);
 }
 
-bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view) const  {
+bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view)  {
 	v8::Locker l(_isolate);
     Isolate::Scope isolateScope(_isolate);
 	HandleScope scope(_isolate);
@@ -786,8 +790,8 @@ bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view) const  {
 					Local<Object>::New(_isolate, request->thisObj), 0, args);
 
 			if (result.IsEmpty()) {
-				LOGE("Exception occured while running runAnimationRequest cb");
-				BGJSV8Engine::ReportException(&trycatch);
+                forwardV8ExceptionToJNI(&trycatch);
+                return false;
 			}
 
 			String::Utf8Value fnName(Local<Object>::New(_isolate, request->callback)->ToString());
@@ -1089,6 +1093,10 @@ void BGJSV8Engine::createContext() {
     Local<Context> context = v8::Context::New(_isolate, NULL, globalObjTpl);
 	context->SetAlignedPointerInEmbedderData(EBGJSV8EngineEmbedderData::kContext, this);
 
+    // register global object for all required modules
+    v8::Context::Scope ctxScope(context);
+    context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
+
 	_context.Reset(_isolate, context);
 }
 
@@ -1146,35 +1154,6 @@ void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>
 	LOG(debugLevel, "%s", str.str().c_str());
 }
 
-int BGJSV8Engine::run(const char *path) {
-    Locker locker(_isolate);
-    Isolate::Scope isolate_scope(_isolate);
-
-	HandleScope scope(_isolate);
-
-    v8::TryCatch try_catch;
-
-    // create context
-    Local<Context> context = Local<Context>::New(_isolate, _context);
-
-    Context::Scope context_scope(context);
-
-    // register global object for all required modules
-    context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
-
-    // if an initial module was specified load it immediately
-    if(path) {
-	    Local<Value> result = require(path);
-
-        if (result.IsEmpty()) {
-            ReportException(&try_catch);
-            return false;
-        }
-    }
-
-	return 1;
-}
-
 void BGJSV8Engine::setLocale(const char* locale, const char* lang,
                              const char* tz, const char* deviceClass) {
     _locale = strdup(locale);
@@ -1230,6 +1209,29 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jlong engineP
         return nullptr;
     }
     return JNIV8Wrapper::v8value2jobject(value);
+}
+
+JNIEXPORT jobject JNICALL
+Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jlong enginePtr,
+                                         jstring file) {
+    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    v8::TryCatch try_catch;
+
+    v8::MaybeLocal<v8::Value> value = engine->require(JNIWrapper::jstring2string(file));
+
+    if(value.IsEmpty()) {
+        engine->forwardV8ExceptionToJNI(&try_catch);
+        return nullptr;
+    }
+    return JNIV8Wrapper::v8value2jobject(value.ToLocalChecked());
 }
 
 JNIEXPORT jobject JNICALL

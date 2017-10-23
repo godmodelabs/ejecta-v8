@@ -15,7 +15,6 @@ public class ClientAndroid {
 	public static native void timeoutCB(long ctxPtr, long jsCb, long thisObj, boolean cleanup, boolean runCallback);
 
 	public static native void initialize(AssetManager am, long engine, String locale, String lang, String timezone, float density, final String deviceClass);
-    public static native void run (long ctxPtr, String filename);
 
     public static native void runCBBoolean (long ctxPtr, long cbPtr, long thisPtr, boolean b);
 	

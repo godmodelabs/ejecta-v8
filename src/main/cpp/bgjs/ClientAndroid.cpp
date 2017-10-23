@@ -236,17 +236,6 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	LOGD("ClientAndroid init: registerModule done");
 }
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_run(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jstring path) {
-	if (DEBUG) {
-		LOGD("clientAndroid run");
-	}
-    const char* pathStr = env->GetStringUTFChars(path, 0);
-	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
-	_client->envCache = env;
-	ct->run(pathStr);
-}
-
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 		JNIEnv * env, jobject obj, jlong ctxPtr, jlong jsCbPtr, jlong thisPtr, jboolean cleanup, jboolean runCb) {
 	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
