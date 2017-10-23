@@ -162,21 +162,6 @@ decltype(BGJSV8Engine::_jniV8Exception) BGJSV8Engine::_jniV8Exception = {0};
 decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {0};
 decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {0};
 
-/* static Handle<Value> AssertCallback(const Arguments& args) {
- if (args.Length() < 1)
- return v8::Undefined();
-
- BGJSV8Engine::log(LOG_ERROR, args);
- return v8::Undefined();
- } */
-
-/* BGJSV8Engine& BGJSV8Engine::getInstance()
- {
- static BGJSV8Engine    instance; // Guaranteed to be destroyed.
- // Instantiated on first use.
- return instance;
- } */
-
 /**
  * internal struct for storing information for wrapped java functions
  */
@@ -252,10 +237,10 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() {
     return true;
 }
 
-#define CALLSITE_STRING(M, V)\
-maybeValue = callSite->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) M));\
+#define CALLSITE_STRING(L, M, V)\
+maybeValue = L->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) M));\
 if(maybeValue.ToLocal(&value) && value->IsFunction()) {\
-maybeValue = value.As<Function>()->Call(context, callSite, 0, nullptr);\
+maybeValue = value.As<Function>()->Call(context, L, 0, nullptr);\
 if(maybeValue.ToLocal(&value) && value->IsString()) {\
 V = JNIV8Wrapper::v8string2jstring(value.As<String>());\
 }\
@@ -321,12 +306,19 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
     jobject exceptionAsObject = JNIV8Wrapper::v8value2jobject(exception);
 
     // convert v8 stack trace to a java stack trace
-    jobject v8JSException = env->NewObject(_jniV8JSException.clazz, _jniV8JSException.initId, JNIV8Wrapper::v8string2jstring(exception->ToString()), exceptionAsObject, causeException);
+    jobject v8JSException;
+    jstring exceptionMessage = nullptr;
 
     jobjectArray stackTrace = nullptr;
     bool error = false;
     if(exception->IsObject()) {
-        // Init
+        // retrieve message (toString contains typename, we don't want that..)
+        maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "message"));
+        if(maybeValue.ToLocal(&value) && value->IsString()) {
+            exceptionMessage = JNIV8Wrapper::v8string2jstring(maybeValue.ToLocalChecked().As<String>());
+        }
+
+        // Init stack retrieval utility function
         if (_getStackTraceFn.IsEmpty()) {
             Local<Function> getStackTraceFn_ =
                     Local<Function>::Cast(
@@ -364,10 +356,10 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
                     jstring typeName = nullptr;
                     jint lineNumber = 0;
 
-                    CALLSITE_STRING("getFileName", fileName);
-                    CALLSITE_STRING("getMethodName", methodName);
-                    CALLSITE_STRING("getFunctionName", functionName);
-                    CALLSITE_STRING("getTypeName", typeName);
+                    CALLSITE_STRING(callSite, "getFileName", fileName);
+                    CALLSITE_STRING(callSite, "getMethodName", methodName);
+                    CALLSITE_STRING(callSite, "getFunctionName", functionName);
+                    CALLSITE_STRING(callSite, "getTypeName", typeName);
 
                     maybeValue = callSite->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "getLineNumber"));
                     if(maybeValue.ToLocal(&value) && value->IsFunction()) {
@@ -378,10 +370,10 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
                     }
 
                     stackTraceElement = env->NewObject(_jniStackTraceElement.clazz, _jniStackTraceElement.initId,
-                                                       typeName ? typeName : JNIWrapper::string2jstring("function"),
+                                                       typeName ? typeName : JNIWrapper::string2jstring("<unknown>"),
                                                        !methodName && !functionName ? JNIWrapper::string2jstring("<anonymous>"): methodName ? methodName : functionName,
-                                                       fileName ? fileName : JNIWrapper::string2jstring("<unknown>"),
-                                                       lineNumber);
+                                                       fileName, // fileName can be zero => maps to "Unknown Source" or "Native Method" (Depending on line numer)
+                                                       fileName ? (lineNumber >= 1 ? lineNumber : -1) : -2); // -1 is unknown, -2 means native
                     env->SetObjectArrayElement(stackTrace, i, stackTraceElement);
                 } else {
                     error = true;
@@ -391,21 +383,27 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
         }
     }
 
+    // if exception was not an Error object, or if .message is not set for some reason => use toString()
+    if(!exceptionMessage) {
+        exceptionMessage = JNIV8Wrapper::v8string2jstring(exception->ToString());
+    }
+
     // if no stack trace was provided by v8, or if there was an error converting it, we still have to show something
     if(error || !stackTrace) {
         stackTrace = env->NewObjectArray(1, _jniStackTraceElement.clazz,
                                          env->NewObject(_jniStackTraceElement.clazz, _jniStackTraceElement.initId,
                                                         JNIWrapper::string2jstring("<unknown>"),
-                                                        JNIWrapper::string2jstring("<anonymous>"),
                                                         JNIWrapper::string2jstring("<unknown>"),
-                                                        0));
+                                                        nullptr,
+                                                        -1));
     }
 
     // apply trace to js exception
+    v8JSException = env->NewObject(_jniV8JSException.clazz, _jniV8JSException.initId, exceptionMessage, exceptionAsObject, causeException);
     env->CallVoidMethod(v8JSException, _jniV8JSException.setStackTraceId, stackTrace);
 
     // throw final exception
-    env->Throw((jthrowable)env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId, JNIWrapper::string2jstring("An exception occured in JavaScript"), v8JSException));
+    env->Throw((jthrowable)env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId, JNIWrapper::string2jstring("An exception was thrown in JavaScript"), v8JSException));
 
     return true;
 }
@@ -653,10 +651,12 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
         isJson = true;
     }
 
+    MaybeLocal<Value> maybeLocal;
+
     if (!buf) {
-        LOGE("Cannot find file %s", baseNameStr.c_str());
+        _isolate->ThrowException(v8::Exception::Error(String::NewFromUtf8(_isolate, (const char*)("Cannot find module '"+baseNameStr+"'").c_str())));
         //log(LOG_ERROR, args);
-        return Undefined(_isolate);
+        return maybeLocal;
     }
 
     if (isJson) {
@@ -690,8 +690,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     if(!scriptR.IsEmpty()) {
         result = scriptR->Run();
     }
-
-    MaybeLocal<Value> maybeLocal;
 
     // if we received a function, run it!
     if (!result.IsEmpty() && result->IsFunction()) {
@@ -1236,7 +1234,7 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jlong enginePtr
 
 JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jlong enginePtr,
-                                              jstring script) {
+                                              jstring script, jstring name) {
     BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
 
     v8::Isolate* isolate = engine->getIsolate();
@@ -1251,7 +1249,7 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jlong engineP
     v8::MaybeLocal<v8::Value> value =
     Script::Compile(
             JNIV8Wrapper::jstring2v8string(script),
-            String::NewFromOneByte(isolate, (const uint8_t*)"binding:script")
+            String::NewFromOneByte(isolate, (const uint8_t*)("script:"+JNIWrapper::jstring2string(name)).c_str())
     )->Run(context);
 
     if(value.IsEmpty()) {

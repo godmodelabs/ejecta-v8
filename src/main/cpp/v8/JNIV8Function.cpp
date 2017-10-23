@@ -136,7 +136,7 @@ v8::MaybeLocal<v8::Function> getJNIV8FunctionBaseFunction() {
     funcRef = v8::Local<v8::Function>::Cast(
             v8::Script::Compile(
                     v8::String::NewFromOneByte(isolate, (const uint8_t*)"(function(x){return function(y){return function(...args){return x(y,...args);}}})"),
-                    v8::String::NewFromOneByte(v8::Isolate::GetCurrent(), (const uint8_t*)"JNIV8Function::wrapper")
+                    v8::String::NewFromOneByte(v8::Isolate::GetCurrent(), (const uint8_t*)"binding:JNIV8Function")
             )->Run()
     );
 

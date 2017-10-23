@@ -311,25 +311,25 @@ jobject JNIV8Wrapper::v8value2jobject(Local<Value> valueRef) {
     } else if(valueRef->IsNumber()) {
         return env->CallStaticObjectMethod(_jniDouble.clazz, _jniDouble.valueOfId, valueRef->NumberValue());
     } else if(valueRef->IsString()) {
-        return JNIWrapper::string2jstring(BGJS_STRING_FROM_V8VALUE(valueRef));
+        return JNIV8Wrapper::v8string2jstring(valueRef.As<String>());
     } else if(valueRef->IsBoolean()) {
         return env->CallStaticObjectMethod(_jniBoolean.clazz, _jniBoolean.valueOfId, valueRef->BooleanValue());
     } else if(valueRef->IsObject()) {
-        if(valueRef->IsFunction()){
+        if (valueRef->IsFunction()) {
             return JNIV8Wrapper::wrapObject<JNIV8Function>(valueRef->ToObject())->getJObject();
-        } else if(valueRef->IsArray()){
+        } else if (valueRef->IsArray()) {
             return JNIV8Wrapper::wrapObject<JNIV8Array>(valueRef->ToObject())->getJObject();
-        } else if(valueRef->IsNull()) {
-            return nullptr;
         }
         auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(valueRef->ToObject());
-        if(ptr) {
+        if (ptr) {
             return ptr->getJObject();
         } else {
             return JNIV8Wrapper::wrapObject<JNIV8GenericObject>(valueRef->ToObject())->getJObject();
         }
+    } else if(valueRef->IsNull()) {
+        return nullptr;
     } else if(valueRef->IsSymbol()) {
-        JNI_ASSERT(0, "Symbols are not supported"); // return env->NewObject(clsJNIV8Value, constructor, 4, nullptr);
+        JNI_ASSERT(0, "Symbols are not supported");
     } else {
         JNI_ASSERT(0, "Encountered unexpected v8 type");
     }

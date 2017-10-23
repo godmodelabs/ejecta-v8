@@ -22,7 +22,8 @@ public class V8TestClass2 extends V8TestClass {
     public void test3(long testL, float testF) {
 //        throw new Exception("boing");
 
-        //getV8Engine().parseJSON("{\"foo\":5xzcx}");
+        getV8Engine().parseJSON("{\"foo\":5xzcx}");
+
 
         Log.d("V8TestClass2", "Overwritten Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
 
@@ -45,7 +46,7 @@ public class V8TestClass2 extends V8TestClass {
         //String test = objT.toJSON();
         //String test2 = objT.toString();
 
-        Object objT2 = getV8Engine().runScript("(function foo() { return 7; })");
+        Object objT2 = getV8Engine().runScript("(function foo() { return 7; })", "test");
 
         JNIV8GenericObject obj = JNIV8GenericObject.Create(getV8Engine());
         obj.getV8Field("test");

@@ -75,7 +75,6 @@ public:
 	v8::Handle<v8::Value> callFunction(v8::Isolate* isolate, v8::Handle<v8::Object> recv, const char* name,
     		int argc, v8::Handle<v8::Value> argv[]) const;
 
-
 	bool forwardJNIExceptionToV8();
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch);
 

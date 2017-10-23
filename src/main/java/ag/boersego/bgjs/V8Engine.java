@@ -237,15 +237,15 @@ public class V8Engine extends Thread implements Handler.Callback {
 	public Object parseJSON(String json) {
 		return parseJSON(getNativePtr(), json);
 	}
-	public Object runScript(String script) {
-		return runScript(getNativePtr(), script);
+	public Object runScript(String script, String name) {
+		return runScript(getNativePtr(), script, name);
 	}
 	public Object require(String file) {
 		return require(getNativePtr(), file);
 	}
 
 	private native Object parseJSON(long enginePtr, String json);
-	private native Object runScript(long enginePtr, String script);
+	private native Object runScript(long enginePtr, String script, String name);
 	private native Object require(long enginePtr, String file);
 
 	@Override
