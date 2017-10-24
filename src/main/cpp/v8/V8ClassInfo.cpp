@@ -11,6 +11,14 @@ using namespace v8;
 
 decltype(V8ClassInfo::_jniObject) V8ClassInfo::_jniObject = {0};
 
+/**
+ * cache JNI class references
+ */
+void V8ClassInfo::initJNICache() {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
+}
+
 void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
     HandleScope scope(info.GetIsolate());
 
@@ -61,7 +69,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
     Isolate *isolate = args.GetIsolate();
 
     JNIEnv *env = JNIWrapper::getEnvironment();
-    jobject jobj;
+    jobject jobj = nullptr;
 
     v8::Local<v8::External> ext;
     ext = args.Data().As<v8::External>();
@@ -90,10 +98,6 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
             args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "invalid invocation")));
             return;
         }
-    }
-
-    if(!_jniObject.clazz) {
-        _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
     }
 
     jobjectArray jargs = env->NewObjectArray(args.Length(), _jniObject.clazz, nullptr);
@@ -177,6 +181,22 @@ V8ClassInfoContainer::V8ClassInfoContainer(JNIV8ObjectType type, const std::stri
         if(!s) {
             size = baseClassInfo->size;
         }
+    }
+
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    jclass clazz;
+
+    clazz = env->FindClass(canonicalName.c_str());
+    JNI_ASSERT(clazz != nullptr, "Failed to retrieve java class");
+    clsObject = (jclass)env->NewGlobalRef(clazz);
+
+    // binding is optional; if it does not exist we have to clear the pending exception
+    clazz = env->FindClass((canonicalName+"$V8Binding").c_str());
+    if(clazz) {
+        clsBinding = (jclass)env->NewGlobalRef(clazz);
+    } else {
+        clsBinding = nullptr;
+        env->ExceptionClear();
     }
 }
 

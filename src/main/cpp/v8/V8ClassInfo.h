@@ -123,6 +123,11 @@ public:
 
     v8::Local<v8::Object> newInstance() const;
     v8::Local<v8::Function> getConstructor() const;
+
+    /**
+     * cache JNI class references
+     */
+    static void initJNICache();
 private:
     V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine);
     ~V8ClassInfo();
@@ -182,6 +187,8 @@ private:
     JNIV8ObjectInitializer initializer;
     JNIV8ObjectCreator creator;
     std::vector<V8ClassInfo*> classInfos;
+
+    jclass clsObject, clsBinding;
 };
 
 #endif //TRADINGLIB_SAMPLE_V8CLASSINFO_H

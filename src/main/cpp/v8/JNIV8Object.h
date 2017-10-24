@@ -47,6 +47,10 @@ public:
      */
     BGJSV8Engine* getEngine() const;
 
+    /**
+     * cache JNI class references
+     */
+    static void initJNICache();
 protected:
     /**
      * can be used to tell the javascript engine about the amount of memory used by the

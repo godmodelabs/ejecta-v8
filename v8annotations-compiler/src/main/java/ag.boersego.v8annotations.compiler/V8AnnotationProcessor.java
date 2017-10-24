@@ -181,7 +181,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
     private void generateBinding(AnnotationHolder holder) {
         String className = holder.classElement.getQualifiedName().toString();
-        String generatedClassName = className + "V8Binding";
+        String generatedClassName = className + "$V8Binding";
 
         String pkg = generatedClassName.substring(0, className.lastIndexOf("."));
         String name = generatedClassName.substring(className.lastIndexOf(".")+1);

@@ -39,6 +39,10 @@ public:
      */
     static jobject jniGetV8Element(JNIEnv *env, jobject obj, jint index);
 
+    /**
+     * cache JNI class references
+     */
+    static void initJNICache();
 private:
     static struct {
         jclass clazz;

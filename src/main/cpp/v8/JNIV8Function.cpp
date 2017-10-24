@@ -17,6 +17,14 @@ struct JNIV8FunctionCallbackHolder {
 
 decltype(JNIV8Function::_jniObject) JNIV8Function::_jniObject = {0};
 
+/**
+ * cache JNI class references
+ */
+void JNIV8Function::initJNICache() {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
+}
+
 void JNIV8FunctionWeakPersistentCallback(const v8::WeakCallbackInfo<void>& data) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
@@ -44,10 +52,6 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
     jobject receiver = JNIV8Wrapper::v8value2jobject(args.This());
     jobjectArray arguments = nullptr;
     jobject value;
-
-    if(!_jniObject.clazz) {
-        _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
-    }
 
     arguments = env->NewObjectArray(numArgs - 1, _jniObject.clazz, nullptr);
     for (int i = 1, n = numArgs; i < n; i++) {

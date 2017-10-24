@@ -70,6 +70,11 @@ void JNIV8Wrapper::init() {
     _jniNumber.doubleValueId = env->GetMethodID(_jniNumber.clazz, "doubleValue","()D");
 
     _jniV8Object.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Object"));
+
+    JNIV8Object::initJNICache();
+    JNIV8Function::initJNICache();
+    JNIV8Array::initJNICache();
+    V8ClassInfo::initJNICache();
 }
 
 void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -156,8 +161,8 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     // but it might have bindings on java that need to be processed
     // binding classes + methods do not need to be cached here, because they are only used once per Engine upon initialization!
     JNIEnv *env = JNIWrapper::getEnvironment();
-    jclass clsObject = env->FindClass(canonicalName.c_str());
-    jclass clsBinding = env->FindClass((canonicalName+"V8Binding").c_str());
+    jclass clsObject = it->second->clsObject;
+    jclass clsBinding = it->second->clsBinding;
     if(clsBinding && clsObject) {
         jfieldID createFromNativeOnlyId = env->GetStaticFieldID(clsBinding, "createFromNativeOnly", "Z");
         v8ClassInfo->createFromNativeOnly = env->GetStaticBooleanField(clsBinding, createFromNativeOnlyId);
@@ -203,8 +208,6 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
                 v8ClassInfo->registerJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
             }
         }
-    } else {
-        env->ExceptionClear();
     }
 
     return v8ClassInfo;

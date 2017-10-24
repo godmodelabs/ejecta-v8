@@ -16,6 +16,11 @@ public:
 
     static jobject jniCreate(JNIEnv *env, jobject obj, jlong enginePtr, jobject handler);
     static jobject jniCallAsV8FunctionWithReceiver(JNIEnv *env, jobject obj, jobject receiver, jobjectArray arguments);
+
+    /**
+     * cache JNI class references
+     */
+    static void initJNICache();
 private:
     static struct {
         jclass clazz;
