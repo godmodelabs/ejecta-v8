@@ -27,19 +27,9 @@ public class V8TestClass2 extends V8TestClass {
 
         Log.d("V8TestClass2", "Overwritten Hello:" + Long.toString(testL) + ":" + Float.toString(testF));
 
-                JNIV8Function func = JNIV8Function.Create(getV8Engine(), new JNIV8Function.Handler() {
-            @Override
-            Object Callback(Object receiver, Object[] arguments) {
-                return "Hello from Java";
-            }
-        });
+            JNIV8Function func = JNIV8Function.Create(getV8Engine(), (receiver, arguments) -> "Hello from Java");
 
-        JNIV8Function func2 = JNIV8Function.Create(getV8Engine(), new JNIV8Function.Handler() {
-            @Override
-            Object Callback(Object receiver, Object[] arguments) {
-                return "Hello from Java";
-            }
-        });
+        JNIV8Function func2 = JNIV8Function.Create(getV8Engine(), (receiver, arguments) -> "Hello from Java");
 
         Object objT = getV8Engine().parseJSON("{\"foo\":5}");
 

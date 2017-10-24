@@ -5,8 +5,8 @@ package ag.boersego.bgjs;
  */
 
 final public class JNIV8Function extends JNIV8Object {
-    abstract public static class Handler {
-        abstract Object Callback(Object receiver, Object[] arguments);
+    public interface Handler {
+        Object Callback(Object receiver, Object[] arguments);
     };
 
     public static JNIV8Function Create(V8Engine engine, JNIV8Function.Handler handler) {
