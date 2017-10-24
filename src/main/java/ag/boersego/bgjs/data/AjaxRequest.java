@@ -11,6 +11,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -113,13 +114,16 @@ public class AjaxRequest implements Runnable {
 	public String version;
 	private String mReferer;
 	
-	public int connectionTimeout = 12000;
-    public int readTimeout = 5000;
+	public int connectionTimeout = DEFAULT_CONNECTIONTIMEOUT;
+    public int readTimeout = DEFAULT_READTIMEOUT;
 	protected String mErrorData;
 	protected int mErrorCode;
 	protected Exception mErrorThrowable;
 	protected String mSuccessData;
 	protected int mSuccessCode;
+
+	public static final int DEFAULT_CONNECTIONTIMEOUT = 12000;
+    private static final int DEFAULT_READTIMEOUT = 5000;
 	
 	protected boolean mDoRunOnUiThread = true;
 	
@@ -256,6 +260,8 @@ public class AjaxRequest implements Runnable {
             } else if (mMethod != null) {
                 if (mMethod.equals("DELETE")) {
                     requestBuilder.delete();
+                } else if (mMethod.equals("POST")) {
+                    requestBuilder.post(RequestBody.create(null, new byte[0]));
                 }
             }
 
@@ -271,6 +277,13 @@ public class AjaxRequest implements Runnable {
             if (mHttpClient == null) {
                 Log.d(TAG, "no http client");
                 throw new RuntimeException("no http client");
+            }
+
+            final OkHttpClient client;
+            if (connectionTimeout != DEFAULT_CONNECTIONTIMEOUT || readTimeout != DEFAULT_READTIMEOUT) {
+                client = mHttpClient.newBuilder().connectTimeout(connectionTimeout, TimeUnit.MILLISECONDS).readTimeout(readTimeout, TimeUnit.MILLISECONDS).build();
+            } else {
+                client = mHttpClient;
             }
             response = mHttpClient.newCall(request).execute();
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);

@@ -251,8 +251,19 @@ public class V8Engine extends Thread implements Handler.Callback {
 	@Override
 	public void run() {
 		this.setName("V8Engine");
-		
-		System.loadLibrary("bgjs");
+
+		try {
+            System.loadLibrary("bgjs");
+        } catch (UnsatisfiedLinkError e){
+
+		    if(DEBUG){
+		        Log.e(TAG,"UnsatisfiedLinkError while loading library \"bgjs\"");
+                e.printStackTrace();
+		    }
+		    
+            return;
+
+        }
 
 		Looper.prepare();
 		mHandler = new Handler (this);
