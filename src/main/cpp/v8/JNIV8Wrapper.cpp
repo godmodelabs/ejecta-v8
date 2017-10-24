@@ -75,6 +75,7 @@ void JNIV8Wrapper::init() {
     JNIV8Function::initJNICache();
     JNIV8Array::initJNICache();
     V8ClassInfo::initJNICache();
+    BGJSV8Engine::initJNICache();
 }
 
 void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {

@@ -14,9 +14,7 @@
 
 class ClientAndroid : public ClientAbstract {
 public:
-	JNIEnv* envCache;
 	JavaVM *cachedJVM;
-	jobject assetManager;
 	jclass bgjsPushHelper;
 	jclass bgjsWebPushHelper;
 	jclass chartingV8Engine;
@@ -25,16 +23,8 @@ public:
     jmethodID bgjsWebPushSubUnsubscribeMethod;
 	jmethodID v8EnginegetIAPState;
 
-	const char* loadFile (const char* path, unsigned int* length = NULL);
 	void on (const char* event, void* cbPtr, void *thisObjPtr);
 	~ClientAndroid();
-
-	unsigned char *_magnifierImage;
-	unsigned int _magnifierWidth;
-	unsigned int _magnifierHeight;
-	unsigned int _magnifierTexWidth;
-	unsigned int _magnifierTexHeight;
-	unsigned char *_maskImage;
 };
 
 // http://stackoverflow.com/questions/5991615/unable-to-get-jnienv-value-in-arbitrary-context

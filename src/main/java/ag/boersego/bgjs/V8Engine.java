@@ -30,6 +30,9 @@ import okhttp3.OkHttpClient;
  **/
 
 public class V8Engine extends Thread implements Handler.Callback {
+	{
+		System.loadLibrary("bgjs");
+	}
 
 	protected static V8Engine mInstance;
 	protected final boolean mIsTablet;
@@ -148,7 +151,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 	}
 
-	private native long createNative();
+	private native long createNative(AssetManager assetManager);
 
 	protected V8Engine(Application application, String path) {
         if (path != null) {
@@ -175,7 +178,8 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 		mLang = locale.getLanguage();
 		mTimeZone = TimeZone.getDefault().getID();
-		mNativePtr = createNative();
+
+		mNativePtr = createNative(assetManager);
 	}
 
     public void setUrlCache (V8UrlCache cache) {
@@ -251,8 +255,6 @@ public class V8Engine extends Thread implements Handler.Callback {
 	@Override
 	public void run() {
 		this.setName("V8Engine");
-
-		System.loadLibrary("bgjs");
 
 		Looper.prepare();
 		mHandler = new Handler (this);

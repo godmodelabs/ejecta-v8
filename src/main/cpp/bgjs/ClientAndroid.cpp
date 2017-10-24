@@ -50,36 +50,6 @@ ClientAndroid::~ClientAndroid() {
 	// TODO: Delete global reference to assetManager
 }
 
-const char* ClientAndroid::loadFile(const char* path, unsigned int* length) {
-	AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(), this->assetManager);
-	AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
-
-	if (!asset) {
-		if (DEBUG) {
-			LOGE("Cannot find file %s", path);
-		}
-		return NULL;
-	}
-
-	const size_t count = (unsigned int)AAsset_getLength(asset);
-    if(length) {
-        *length = count;
-    }
-	char *buf = (char*) malloc(count + 1), *ptr = buf;
-	bzero(buf, count + 1);
-	int bytes_read = 0;
-    size_t bytes_to_read = count;
-
-    while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
-		bytes_to_read -= bytes_read;
-		ptr += bytes_read;
-	}
-
-	AAsset_close(asset);
-
-	return buf;
-}
-
 ClientAndroid* _client = new ClientAndroid();
 
 void ClientAndroid::on (const char* event, void* cbPtr, void *thisObjPtr) {
@@ -189,8 +159,6 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	#if DEBUG
 		LOGD("bgjs initialize, AM %p this %p", assetManager, _client);
 	#endif
-	_client->assetManager = env->NewGlobalRef(assetManager);
-	_client->envCache = env;
 	env->GetJavaVM(&(_client->cachedJVM));
 
 	BGJSV8Engine* ct = reinterpret_cast<BGJSV8Engine*>(v8Engine);
@@ -200,6 +168,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	const char* tzStr = env->GetStringUTFChars(timezone, NULL);
 	const char* deviceClassStr = env->GetStringUTFChars(deviceClass, NULL);
 	ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
+	ct->setDensity(density);
 	env->ReleaseStringUTFChars(locale, localeStr);
 	env->ReleaseStringUTFChars(lang, langStr);
 	env->ReleaseStringUTFChars(timezone, tzStr);

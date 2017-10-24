@@ -13,6 +13,9 @@
 #include "../v8/JNIV8GenericObject.h"
 #include "../v8/JNIV8Function.h"
 
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
+
 #include "mallocdebug.h"
 #include <assert.h>
 #include <sstream>
@@ -180,7 +183,7 @@ void BGJSV8EngineJavaErrorHolderWeakPersistentCallback(const v8::WeakCallbackInf
     delete holder;
 }
 
-bool BGJSV8Engine::forwardJNIExceptionToV8() {
+bool BGJSV8Engine::forwardJNIExceptionToV8() const {
     JNIEnv *env = JNIWrapper::getEnvironment();
     jthrowable e = env->ExceptionOccurred();
     if(!e) return false;
@@ -193,31 +196,6 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() {
      * `e` could be an instance of V8Exception containing a v8 error
      * but we do NOT unwrap it and use the existing error because then we would loose some additional java stack trace entries
      */
-
-    // Init
-    if (_makeJavaErrorFn.IsEmpty()) {
-        Local<Function> makeJavaErrorFn_ =
-                Local<Function>::Cast(
-                        Script::Compile(
-                                String::NewFromOneByte(Isolate::GetCurrent(),(const uint8_t*)
-                                        "(function() {"
-                                        "function makeJavaError(message) { return new JavaError(message); };"
-                                        "function JavaError(message) {"
-                                                "this.name = 'JavaError';"
-                                                "this.message = message || 'An exception was thrown in Java';"
-                                                "const _ = Error.prepareStackTrace;"
-                                                "Error.prepareStackTrace = (_, stack) => stack;"
-                                                "Error.captureStackTrace(this, makeJavaError);"
-                                                "Error.prepareStackTrace = _;"
-                                        "}"
-                                        "JavaError.prototype = Object.create(Error.prototype);"
-                                        "JavaError.prototype.constructor = JavaError;"
-                                        "return makeJavaError;"
-                                        "}())"
-                                ),
-                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:makeJavaError"))->Run());
-        _makeJavaErrorFn.Reset(_isolate, makeJavaErrorFn_);
-    }
 
     BGJSV8EngineJavaErrorHolder *holder = new BGJSV8EngineJavaErrorHolder();
     Handle<Value> args[] = {};
@@ -246,30 +224,13 @@ V = JNIV8Wrapper::v8string2jstring(value.As<String>());\
 }\
 }
 
-bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
+bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
     if(!try_catch->HasCaught()) return false;
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     HandleScope scope(_isolate);
     Local<Context> context = getContext();
-
-    // cache involved classes
-    if(!_jniV8JSException.clazz) {
-        _jniV8JSException.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8JSException"));
-        _jniV8JSException.initId = env->GetMethodID(_jniV8JSException.clazz, "<init>",
-                                                    "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Throwable;)V");
-        _jniV8JSException.setStackTraceId = env->GetMethodID(_jniV8JSException.clazz, "setStackTrace",
-                                                     "([Ljava/lang/StackTraceElement;)V");
-
-        _jniV8Exception.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Exception"));
-        _jniV8Exception.initId = env->GetMethodID(_jniV8Exception.clazz, "<init>",
-                                            "(Ljava/lang/String;Ljava/lang/Throwable;)V");
-
-        _jniStackTraceElement.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/StackTraceElement"));
-        _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
-                                                            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
-    }
 
     jobject causeException = nullptr;
 
@@ -318,23 +279,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) {
             exceptionMessage = JNIV8Wrapper::v8string2jstring(maybeValue.ToLocalChecked().As<String>());
         }
 
-        // Init stack retrieval utility function
-        if (_getStackTraceFn.IsEmpty()) {
-            Local<Function> getStackTraceFn_ =
-                    Local<Function>::Cast(
-                            Script::Compile(
-                                    String::NewFromOneByte(Isolate::GetCurrent(),(const uint8_t*)
-                                            "(function(e) {"
-                                                    "const _ = Error.prepareStackTrace;"
-                                                    "Error.prepareStackTrace = (_, stack) => stack;"
-                                                    "const stack = e.stack;"
-                                                    "Error.prepareStackTrace = _;"
-                                                    "return stack;"
-                                            "})"
-                                    ),
-                                    String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:getStackTrace"))->Run());
-            _getStackTraceFn.Reset(_isolate, getStackTraceFn_);
-        }
+        // @TODO: syntaxerrors do not have a stack trace..?
         Local<Function> getStackTraceFn = Local<Function>::New(_isolate, _getStackTraceFn);
 
         maybeValue = getStackTraceFn->Call(context, context->Global(), 1, &exception);
@@ -458,20 +403,9 @@ uint8_t BGJSV8Engine::requestEmbedderDataIndex() {
 //////////////////////////
 // Require
 
-Handle<Value> BGJSV8Engine::parseJSON(Handle<String> source) {
+Handle<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
 	EscapableHandleScope scope(_isolate);
 	Handle<Value> args[] = { source };
-
-	// Init
-	if (_jsonParseFn.IsEmpty()) {
-	    Local<Function> jsonParseMethod_ =
-			Local<Function>::Cast(
-					Script::Compile(
-							String::NewFromOneByte(Isolate::GetCurrent(),
-									(const uint8_t*)"(function(source) { return JSON.parse(source); })"),
-							String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:JSONParse"))->Run());
-	    _jsonParseFn.Reset(_isolate, jsonParseMethod_);
-	}
 
     Local<Function> jsonParseFn = Local<Function>::New(_isolate, _jsonParseFn);
 	Local<Value> result = jsonParseFn->Call(getContext()->Global(), 1, args);
@@ -479,21 +413,11 @@ Handle<Value> BGJSV8Engine::parseJSON(Handle<String> source) {
 	return scope.Escape(result);
 }
 
-Handle<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) {
+Handle<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) const {
 	EscapableHandleScope scope(Isolate::GetCurrent());
 
 	Handle<Value> args[] = { source };
 
-	// Init
-	if (_jsonStringifyFn.IsEmpty()) {
-	    Local<Function> jsonStringifyMethod_ =
-			Local<Function>::Cast(
-					Script::Compile(
-							String::NewFromOneByte(Isolate::GetCurrent(),
-												   (const uint8_t*)"(function(source) { return JSON.stringify(source); })"),
-							String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:JSONStringify"))->Run());
-        _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
-	}
     Local<Function> jsonStringifyFn = Local<Function>::New(_isolate, _jsonStringifyFn);
 	Local<Value> result = jsonStringifyFn->Call(getContext()->Global(), 1, args);
 
@@ -587,26 +511,26 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     std::string fileName, pathName;
 
     fileName = baseNameStr;
-    buf = this->_client->loadFile(fileName.c_str());
+    buf = loadFile(fileName.c_str());
     if (!buf) {
         // Check if this is a directory containing index.js or package.json
         fileName = baseNameStr + "/package.json";
-        buf = this->_client->loadFile(fileName.c_str());
+        buf = loadFile(fileName.c_str());
 
         if (!buf) {
             // It might be a directory with an index.js
             fileName = baseNameStr + "/index.js";
-            buf = this->_client->loadFile(fileName.c_str());
+            buf = loadFile(fileName.c_str());
 
             if (!buf) {
                 // So it might just be a js file
                 fileName = baseNameStr + ".js";
-                buf = this->_client->loadFile(fileName.c_str());
+                buf = loadFile(fileName.c_str());
 
                 if (!buf) {
                     // No JS file, but maybe JSON?
                     fileName = baseNameStr + ".json";
-                    buf = this->_client->loadFile(fileName.c_str());
+                    buf = loadFile(fileName.c_str());
 					
                     if (buf) {
                         isJson = true;
@@ -630,7 +554,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
                 }
 
                 // It might be a directory with an index.js
-                buf = this->_client->loadFile(fileName.c_str());
+                buf = loadFile(fileName.c_str());
             } else {
                 LOGE("%s doesn't have a main object: %s", baseNameStr.c_str(), buf);
                 if (buf) {
@@ -676,6 +600,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     // compile script
     Handle<Script> scriptR = Script::Compile(source, String::NewFromUtf8(_isolate, baseNameStr.c_str()));
 
+    // @TODO: SyntaxError thrown here does not include the file name..
+
     // run script; this will effectively return a function if everything worked
     // if not, something went wrong
     if(!scriptR.IsEmpty()) {
@@ -711,6 +637,10 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 
     // this only happens when something went wrong (e.g. exception)
     return maybeLocal;
+}
+
+ClientAbstract* BGJSV8Engine::getClient() const {
+    return _client;
 }
 
 void BGJSV8Engine::setClient(ClientAbstract* client) {
@@ -989,7 +919,28 @@ void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& ar
 	}
 }
 
-BGJSV8Engine::BGJSV8Engine(jobject javaObject) {
+/**
+ * cache JNI class references
+ */
+void BGJSV8Engine::initJNICache() {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    _jniV8JSException.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8JSException"));
+    _jniV8JSException.initId = env->GetMethodID(_jniV8JSException.clazz, "<init>",
+                                                "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Throwable;)V");
+    _jniV8JSException.setStackTraceId = env->GetMethodID(_jniV8JSException.clazz, "setStackTrace",
+                                                         "([Ljava/lang/StackTraceElement;)V");
+
+    _jniV8Exception.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Exception"));
+    _jniV8Exception.initId = env->GetMethodID(_jniV8Exception.clazz, "<init>",
+                                              "(Ljava/lang/String;Ljava/lang/Throwable;)V");
+
+    _jniStackTraceElement.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/StackTraceElement"));
+    _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
+                                                    "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
+}
+
+BGJSV8Engine::BGJSV8Engine(jobject javaObject, jobject javaAssetManager) {
 	_client = NULL;
 	_nextTimerId = 1;
 	_locale = NULL;
@@ -997,6 +948,7 @@ BGJSV8Engine::BGJSV8Engine(jobject javaObject) {
 
     JNIEnv *env = JNIWrapper::getEnvironment();
     _javaObject = env->NewWeakGlobalRef(javaObject);
+    _javaAssetManager = env->NewGlobalRef(javaAssetManager);
 
     _isolate = NULL;
 }
@@ -1083,6 +1035,75 @@ void BGJSV8Engine::createContext() {
     context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
 
 	_context.Reset(_isolate, context);
+
+    //----------------------------------------
+    // create bindings
+    //----------------------------------------
+
+    // init error creation binding
+    {
+        Local<Function> makeJavaErrorFn_ =
+                Local<Function>::Cast(
+                        Script::Compile(
+                                String::NewFromOneByte(Isolate::GetCurrent(),(const uint8_t*)
+                                        "(function() {"
+                                                "function makeJavaError(message) { return new JavaError(message); };"
+                                                "function JavaError(message) {"
+                                                "this.name = 'JavaError';"
+                                                "this.message = message || 'An exception was thrown in Java';"
+                                                "const _ = Error.prepareStackTrace;"
+                                                "Error.prepareStackTrace = (_, stack) => stack;"
+                                                "Error.captureStackTrace(this, makeJavaError);"
+                                                "Error.prepareStackTrace = _;"
+                                                "}"
+                                                "JavaError.prototype = Object.create(Error.prototype);"
+                                                "JavaError.prototype.constructor = JavaError;"
+                                                "return makeJavaError;"
+                                                "}())"
+                                ),
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:makeJavaError"))->Run());
+        _makeJavaErrorFn.Reset(_isolate, makeJavaErrorFn_);
+    }
+
+    // Init stack retrieval utility function
+    {
+        Local<Function> getStackTraceFn_ =
+                Local<Function>::Cast(
+                        Script::Compile(
+                                String::NewFromOneByte(Isolate::GetCurrent(),(const uint8_t*)
+                                        "(function(e) {"
+                                                "const _ = Error.prepareStackTrace;"
+                                                "Error.prepareStackTrace = (_, stack) => stack;"
+                                                "const stack = e.stack;"
+                                                "Error.prepareStackTrace = _;"
+                                                "return stack;"
+                                                "})"
+                                ),
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:getStackTrace"))->Run());
+        _getStackTraceFn.Reset(_isolate, getStackTraceFn_);
+    }
+
+    // Init json parse binding
+    {
+        Local<Function> jsonParseMethod_ =
+                Local<Function>::Cast(
+                        Script::Compile(
+                                String::NewFromOneByte(Isolate::GetCurrent(),
+                                                       (const uint8_t*)"(function(source) { return JSON.parse(source); })"),
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:JSONParse"))->Run());
+        _jsonParseFn.Reset(_isolate, jsonParseMethod_);
+    }
+
+    // Init json stringify binding
+    {
+        Local<Function> jsonStringifyMethod_ =
+                Local<Function>::Cast(
+                        Script::Compile(
+                                String::NewFromOneByte(Isolate::GetCurrent(),
+                                                       (const uint8_t*)"(function(source) { return JSON.stringify(source); })"),
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:JSONStringify"))->Run());
+        _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
+    }
 }
 
 void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -1106,11 +1127,46 @@ void BGJSV8Engine::setLocale(const char* locale, const char* lang,
     _deviceClass = strdup(deviceClass);
 }
 
+void BGJSV8Engine::setDensity(float density) {
+    _density = density;
+}
+float BGJSV8Engine::getDensity() const {
+    return _density;
+}
+
+char* BGJSV8Engine::loadFile(const char* path, unsigned int* length) const {
+    AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(), _javaAssetManager);
+    AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
+
+    if (!asset) {
+        return nullptr;
+    }
+
+    const size_t count = (unsigned int)AAsset_getLength(asset);
+    if(length) {
+        *length = (unsigned int)count;
+    }
+    char *buf = (char*) malloc(count + 1), *ptr = buf;
+    bzero(buf, count + 1);
+    int bytes_read = 0;
+    size_t bytes_to_read = count;
+
+    while ((bytes_read = AAsset_read(asset, ptr, bytes_to_read)) > 0) {
+        bytes_to_read -= bytes_read;
+        ptr += bytes_read;
+    }
+
+    AAsset_close(asset);
+
+    return buf;
+}
+
 BGJSV8Engine::~BGJSV8Engine() {
 	LOGI("Cleaning up");
 
     JNIEnv* env = JNIWrapper::getEnvironment();
     env->DeleteWeakGlobalRef(_javaObject);
+    env->DeleteGlobalRef(_javaAssetManager);
 
 	// clear persistent references
 	_context.Reset();
@@ -1135,9 +1191,10 @@ BGJSV8Engine::~BGJSV8Engine() {
 
 extern "C" {
 
-JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_V8Engine_createNative(
-        JNIEnv * env, jobject obj) {
-    return (jlong) new BGJSV8Engine(obj);
+JNIEXPORT jlong JNICALL
+Java_ag_boersego_bgjs_V8Engine_createNative(
+        JNIEnv * env, jobject obj, jobject assetManager) {
+    return (jlong) new BGJSV8Engine(obj, assetManager);
 };
 
 JNIEXPORT jobject JNICALL

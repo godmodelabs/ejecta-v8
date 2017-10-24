@@ -57,7 +57,7 @@ typedef enum EBGJSV8EngineEmbedderData {
 class BGJSV8Engine {
 public:
     // static BGJSV8Engine& getInstance();
-    BGJSV8Engine(jobject javaObject);
+    BGJSV8Engine(jobject javaObject, jobject javaAssetManager);
 	virtual ~BGJSV8Engine();
 
     v8::MaybeLocal<v8::Value> require(std::string baseNameStr);
@@ -71,15 +71,21 @@ public:
 	v8::Handle<v8::Value> callFunction(v8::Isolate* isolate, v8::Handle<v8::Object> recv, const char* name,
     		int argc, v8::Handle<v8::Value> argv[]) const;
 
-	bool forwardJNIExceptionToV8();
-	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch);
+	bool forwardJNIExceptionToV8() const;
+	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
 
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
+
+	ClientAbstract* getClient() const;
     void setClient(ClientAbstract* client);
 
 	jobject getJObject() const;
 
 	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
+	void setDensity(float density);
+	float getDensity() const;
+
+	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
 	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -102,8 +108,8 @@ public:
 	void registerGLView(BGJSGLView* view);
 	void unregisterGLView(BGJSGLView* view);
 
-	v8::Handle<v8::Value> parseJSON(v8::Handle<v8::String> source);
-	v8::Handle<v8::Value> stringifyJSON(v8::Handle<v8::Object> source);
+	v8::Handle<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
+	v8::Handle<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
 
 	void createContext();
 	ClientAbstract *_client;
@@ -113,6 +119,10 @@ public:
 	char *_tz;		// Europe/Berlin
 	char *_deviceClass;		// "phone"/"tablet"
 
+    /**
+     * cache JNI class references
+     */
+    static void initJNICache();
 private:
 	static void JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target);
 	static struct {
@@ -137,8 +147,10 @@ private:
 		jmethodID initId;
 	} _jniStackTraceElement;
 
+	float _density;
+
 	uint8_t _nextEmbedderDataIndex;
-	jobject _javaObject;
+	jobject _javaObject, _javaAssetManager;
 
 	v8::Persistent<v8::Context> _context;
 
