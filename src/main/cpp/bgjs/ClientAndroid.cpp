@@ -182,11 +182,6 @@ JNIEnv* JNU_GetEnv() {
 	return env;
 }
 
-JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_V8Engine_createNative(
-		JNIEnv * env, jobject obj) {
-	return (jlong) new BGJSV8Engine(obj);
-};
-
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 		JNIEnv * env, jobject obj, jobject assetManager, jlong v8Engine, jstring locale, jstring lang,
         jstring timezone, jfloat density, jstring deviceClass) {

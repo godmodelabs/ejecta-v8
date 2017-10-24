@@ -1134,6 +1134,12 @@ BGJSV8Engine::~BGJSV8Engine() {
 }
 
 extern "C" {
+
+JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_V8Engine_createNative(
+        JNIEnv * env, jobject obj) {
+    return (jlong) new BGJSV8Engine(obj);
+};
+
 JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jlong enginePtr,
                                               jstring json) {
