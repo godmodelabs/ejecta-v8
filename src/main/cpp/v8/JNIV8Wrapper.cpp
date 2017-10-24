@@ -290,14 +290,42 @@ v8::Local<v8::String> JNIV8Wrapper::jstring2v8string(jstring string) {
     // because this method returns a local, we can assume that the correct v8 scopes are active around it already
     // we still need a handle scope however...
     v8::EscapableHandleScope scope(isolate);
-    return scope.Escape(v8::String::NewFromUtf8(isolate, JNIWrapper::jstring2string(string).c_str()));
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    MaybeLocal<String> maybeLocal;
+    jsize len;
+
+    // string pointers can also be null
+    if(env->IsSameObject(string, NULL)) {
+        return scope.Escape(v8::Null(isolate).As<String>());
+    }
+
+    len = env->GetStringLength(string);
+
+    if(len > 0) {
+        const jchar *chars = env->GetStringChars(string, nullptr);
+        maybeLocal = v8::String::NewFromTwoByte(isolate, chars, NewStringType::kNormal, len);
+        env->ReleaseStringChars(string, chars);
+    }
+
+    // if string is empty or if conversion failed we return an empty string
+    if(!len || maybeLocal.IsEmpty()) {
+        maybeLocal = v8::String::NewFromOneByte(isolate, (uint8_t*)"");
+        if(maybeLocal.IsEmpty()) {
+            return scope.Escape(v8::Undefined(isolate).As<String>());
+        }
+    }
+
+    return scope.Escape(maybeLocal.ToLocalChecked());
 }
 
 /**
- * convert a std::string to a jstring
+ * convert a v8 string to a jstring
  */
 jstring JNIV8Wrapper::v8string2jstring(v8::Local<v8::String> string) {
-    return JNIWrapper::string2jstring(BGJS_STRING_FROM_V8VALUE(string));
+    const jchar *chars = *v8::String::Value(string); // returns NULL if not a string
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    return env->NewString(chars, string->Length()); // returns "" when called with NULL,0
 }
 
 /**

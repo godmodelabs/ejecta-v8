@@ -210,11 +210,12 @@ private:
     static JavaVM *_jniVM;
     static JNIEnv *_jniEnv;
     static pthread_t _jniThreadId;
-    static jmethodID _jniCanonicalNameMethodID;
     static jfieldID _jniNativeHandleFieldID;
 
     static jclass _jniStringClass;
     static jmethodID _jniStringGetBytes;
+    static jmethodID _jniStringInit;
+    static jstring _jniCharsetName;
 
     static std::map<std::string, JNIClassInfo*> _objmap;
 
