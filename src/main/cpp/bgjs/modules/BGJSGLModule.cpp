@@ -16,6 +16,7 @@
 #include <EJCanvasTypes.h>
 
 #include "../jniext.h"
+#include "../../jni/JNIWrapper.h"
 
 // #define DEBUG 1
 #undef DEBUG
@@ -1199,12 +1200,17 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
     Context::Scope context_scope(ct->getContext());
 
 	BGJSGLView *view = (BGJSGLView*) objPtr;
+	TryCatch try_catch;
 
 	if (width != view->width || height != view->height || !view->opened) {
 #ifdef DEBUG
 		LOGD("Resizing from %dx%d to %dx%d, resizeOnly %i", view->width, view->height, width, height, (int)(view->opened));
 #endif
 		view->resize(width, height, view->opened);
+		if(try_catch.HasCaught()) {
+			ct->forwardV8ExceptionToJNI(&try_catch);
+			return -1;
+		}
 	}
 	Handle<Value> uiObj;
 
@@ -1214,6 +1220,10 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 
 		LOGI("setupGraphics(%s)", cbStr);
 		Local<Value> res = view->startJS(cbStr, NULL, v8::Undefined(isolate), 0, false);
+		if(try_catch.HasCaught()) {
+			ct->forwardV8ExceptionToJNI(&try_catch);
+			return -1;
+		}
 		view->opened = true;
 		env->ReleaseStringUTFChars(callbackName, cbStr);
 
@@ -1306,11 +1316,12 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
 
 	eventObjRef->Set(String::NewFromUtf8(isolate, "touches"), touchesArray);
 
-	view->sendEvent(eventObjRef);
-
-	// Cleanup JNI stuff
+	// Cleanup JNI stuff used for constructing the event object
 	env->ReleaseFloatArrayElements(xArr, x, 0);
 	env->ReleaseFloatArrayElements(yArr, y, 0);
 	env->ReleaseStringUTFChars(typeStr, type);
+
+	// send event to view (can throw jni exception)
+	view->sendEvent(eventObjRef);
 }
 

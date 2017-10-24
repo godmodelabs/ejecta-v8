@@ -29,17 +29,12 @@ public:
 	void on (const char* event, void* cbPtr, void *thisObjPtr);
 	~ClientAndroid();
 
-	static jint throwNoSuchFieldError( JNIEnv *env, char *message );
-
 	unsigned char *_magnifierImage;
 	unsigned int _magnifierWidth;
 	unsigned int _magnifierHeight;
 	unsigned int _magnifierTexWidth;
 	unsigned int _magnifierTexHeight;
 	unsigned char *_maskImage;
-
-
-
 };
 
 // http://stackoverflow.com/questions/5991615/unable-to-get-jnienv-value-in-arbitrary-context

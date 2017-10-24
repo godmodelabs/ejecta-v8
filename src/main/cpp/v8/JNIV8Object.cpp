@@ -314,7 +314,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
 
 jstring JNIV8Object::jniToJSON(JNIEnv *env, jobject obj) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
-    v8::Local<v8::Value> stringValue = engine->JsonStringify(context->Global(), localRef);
+    v8::Local<v8::Value> stringValue = engine->stringifyJSON(localRef);
     if(stringValue.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;

@@ -458,8 +458,7 @@ uint8_t BGJSV8Engine::requestEmbedderDataIndex() {
 //////////////////////////
 // Require
 
-Handle<Value> BGJSV8Engine::JsonParse(Handle<Object> recv,
-		Handle<String> source) {
+Handle<Value> BGJSV8Engine::parseJSON(Handle<String> source) {
 	EscapableHandleScope scope(_isolate);
 	Handle<Value> args[] = { source };
 
@@ -475,13 +474,12 @@ Handle<Value> BGJSV8Engine::JsonParse(Handle<Object> recv,
 	}
 
     Local<Function> jsonParseFn = Local<Function>::New(_isolate, _jsonParseFn);
-	Local<Value> result = jsonParseFn->Call(recv, 1, args);
+	Local<Value> result = jsonParseFn->Call(getContext()->Global(), 1, args);
 
 	return scope.Escape(result);
 }
 
-Handle<Value> BGJSV8Engine::JsonStringify(Handle<Object> recv,
-									  Handle<Object> source) {
+Handle<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
 
 	Handle<Value> args[] = { source };
@@ -497,7 +495,7 @@ Handle<Value> BGJSV8Engine::JsonStringify(Handle<Object> recv,
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
 	}
     Local<Function> jsonStringifyFn = Local<Function>::New(_isolate, _jsonStringifyFn);
-	Local<Value> result = jsonStringifyFn->Call(recv, 1, args);
+	Local<Value> result = jsonStringifyFn->Call(getContext()->Global(), 1, args);
 
 	return scope.Escape(result);
 }
@@ -512,11 +510,6 @@ Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, 
 			String::Utf8Value value(fn);
 	
 	Local<Value> result = fn->Call(recv, argc, argv);
-	if (result.IsEmpty()) {
-		LOGE("callFunction exception");
-		BGJSV8Engine::ReportException(&trycatch);
-		return v8::Undefined(isolate);
-	}
 	return scope.Escape(result);
 }
 
@@ -624,8 +617,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
             // Parse the package.json
             // Create a string containing the JSON source
             source = String::NewFromUtf8(_isolate, buf);
-            Handle<Object> res = BGJSV8Engine::JsonParse(
-                    _isolate->GetEnteredContext()->Global(), source)->ToObject();
+            Handle<Object> res = BGJSV8Engine::parseJSON(source)->ToObject();
             Handle<String> mainStr = String::NewFromUtf8(_isolate, (const char *) "main");
             if (res->Has(mainStr)) {
                 Handle<String> jsFileName = res->Get(mainStr)->ToString();
@@ -662,8 +654,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     if (isJson) {
         // Create a string containing the JSON source
         source = String::NewFromUtf8(_isolate, buf);
-        Local<Value> res = BGJSV8Engine::JsonParse(
-                _isolate->GetEnteredContext()->Global(), source);
+        Local<Value> res = BGJSV8Engine::parseJSON(source);
         free((void*) buf);
         return handle_scope.Escape(res);
     }
@@ -724,10 +715,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 
 void BGJSV8Engine::setClient(ClientAbstract* client) {
 	this->_client = client;
-}
-
-ClientAbstract* BGJSV8Engine::getClient() const {
-    return this->_client;
 }
 
 v8::Isolate* BGJSV8Engine::getIsolate() const {
@@ -1098,47 +1085,6 @@ void BGJSV8Engine::createContext() {
 	_context.Reset(_isolate, context);
 }
 
-void BGJSV8Engine::ReportException(v8::TryCatch* try_catch) {
-    if(!try_catch->HasCaught()) return;
-	Isolate* isolate = Isolate::GetCurrent();
-	HandleScope scope(isolate);
-	Local<Context> context = isolate->GetCurrentContext();
-
-	const std::string exception_string = BGJS_STRING_FROM_V8VALUE(try_catch->Exception());
-	v8::Handle<v8::Message> message = try_catch->Message();
-
-	if (message.IsEmpty()) {
-		// V8 didn't provide any extra information about this error; just
-		// print the exception.
-		LOGE("Exception: %s", exception_string.c_str());
-	} else {
-		// Print (filename):(line number): (message).
-		const std::string filename_string = BGJS_STRING_FROM_V8VALUE(message->GetScriptResourceName());
-		int linenum = message->GetLineNumber();
-        int colnum = message->GetStartColumn();
-		LOGE("Exception: %s:%i:%i %s\n", filename_string.c_str(), linenum, colnum, exception_string.c_str());
-		// Print line of source code.
-		const std::string sourceline_string = BGJS_STRING_FROM_V8VALUE(message->GetSourceLine());
-		LOGE("%s\n", sourceline_string.c_str());
-		std::stringstream str;
-		// Print wavy underline (GetUnderline is deprecated).
-		int start = message->GetStartColumn();
-		for (int i = 0; i < start; i++) {
-			str << " ";
-		}
-		int end = message->GetEndColumn();
-		for (int i = start; i < end; i++) {
-			str << "^";
-		}
-		LOGE("%s", str.str().c_str());
-
-		MaybeLocal<Value> stack_trace = try_catch->StackTrace(context);
-		if (!stack_trace.IsEmpty()) {
-			LOGE("%s", BGJS_STRING_FROM_V8VALUE(try_catch->StackTrace()).c_str());
-		}
-	}
-}
-
 void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>& args) {
 	v8::Locker locker(args.GetIsolate());
 	HandleScope scope(args.GetIsolate());
@@ -1201,7 +1147,7 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jlong engineP
     v8::Context::Scope ctxScope(context);
 
     v8::TryCatch try_catch;
-    v8::Local<v8::Value> value = engine->JsonParse(context->Global(), JNIV8Wrapper::jstring2v8string(json));
+    v8::Local<v8::Value> value = engine->parseJSON(JNIV8Wrapper::jstring2v8string(json));
     if(value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;

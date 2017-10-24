@@ -32,6 +32,10 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
 
     v8::Local<v8::External> ext;
 
+    int numArgs = args.Length();
+
+    JNI_ASSERT(numArgs >= 1, "invalid invocation of JNIV8Function");
+
     ext = args[0].As<v8::External>();
     JNIEnv *env = JNIWrapper::getEnvironment();
 
@@ -45,10 +49,10 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
         _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
     }
 
-    arguments = env->NewObjectArray(args.Length()-1, _jniObject.clazz, nullptr);
-    for(int i=1,n=args.Length(); i<n; i++) {
+    arguments = env->NewObjectArray(numArgs - 1, _jniObject.clazz, nullptr);
+    for (int i = 1, n = numArgs; i < n; i++) {
         value = JNIV8Wrapper::v8value2jobject(args[i]);
-        env->SetObjectArrayElement(arguments, i-1, value);
+        env->SetObjectArrayElement(arguments, i - 1, value);
     }
 
     jobject result = env->CallObjectMethod(holder->jFuncRef, holder->callbackMethodId, receiver, arguments);

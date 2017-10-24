@@ -55,8 +55,6 @@ add_library( # Sets the name of the library.
              src/main/cpp/v8/JNIV8GenericObject.cpp
              src/main/cpp/v8/JNIV8Array.cpp
              src/main/cpp/v8/JNIV8Function.cpp
-             src/main/cpp/V8TestClass.cpp
-             src/main/cpp/V8TestClass2.cpp
              )
 
 #--------------------------------------------------

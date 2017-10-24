@@ -201,7 +201,7 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 
 	Handle<Value> args[] = { eventObjRef };
 
-	const int count = _cbEvent.size();
+	const int count = (int)_cbEvent.size();
 
 	// eventObjRef->Set(String::New("target"))
 
@@ -216,7 +216,8 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 	    Local<Object> callback = Local<Object>::New (isolate, *cb);
 		Handle<Value> result = callback->CallAsFunction(callback, 1, args);
 		if (result.IsEmpty()) {
-			BGJSV8Engine::ReportException(&trycatch);
+			_engine->forwardV8ExceptionToJNI(&trycatch);
+			return;
 		}
 	}
 }
@@ -232,7 +233,7 @@ void BGJSView::call(std::vector<Persistent<Object, v8::CopyablePersistentTraits<
 
 	Handle<Value> args[] = { };
 
-	const int count = list.size();
+	const int count = (int)list.size();
 
 	for (std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*>::size_type i = 0; i < count; i++) {
 	    Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = list[i];
@@ -240,7 +241,8 @@ void BGJSView::call(std::vector<Persistent<Object, v8::CopyablePersistentTraits<
 
 		Local<Value> result = callback->CallAsFunction(callback, 0, args);
 		if (result.IsEmpty()) {
-			BGJSV8Engine::ReportException(&trycatch);
+			_engine->forwardV8ExceptionToJNI(&trycatch);
+			return;
 		}
 	}
 }

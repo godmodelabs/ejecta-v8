@@ -137,8 +137,6 @@ void BGJSGLView::resize(int widthp, int heightp, bool resizeOnly) {
 		Local<Context> context = _engine->getContext();
 		Context::Scope context_scope(context);
 
-		TryCatch trycatch;
-
 		Handle<Value> args[0];
 		for (std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*>::size_type i = 0; i < count; i++) {
         	Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = _cbResize[i];
@@ -146,9 +144,8 @@ void BGJSGLView::resize(int widthp, int heightp, bool resizeOnly) {
         	LOGD("resize callback call");
 
 			Handle<Value> result = callback->CallAsFunction(callback, 0, args);
-
 			if (result.IsEmpty()) {
-				BGJSV8Engine::ReportException(&trycatch);
+				return;
 			}
 		}
 	}

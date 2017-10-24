@@ -30,9 +30,6 @@
 #include "../jni/JNIWrapper.h"
 #include "../v8/JNIV8Wrapper.h"
 
-#include "../V8TestClass.h"
-#include "../V8TestClass2.h"
-
 using namespace v8;
 
 #include <unistd.h>
@@ -45,18 +42,6 @@ extern unsigned int __page_size = getpagesize();
 #define	DEBUG false
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
-
-/* Persistent<Object>* __debugPersistentAllocObject(v8::Isolate* isolate, v8::Local<Object>* data, const char* file, int line, const char* func) {
-	Persistent<Object>* pers = new Persistent<Object>(isolate, *data);
-	
-	return pers;
-}
-
-Persistent<Function>* __debugPersistentAllocFunction(v8::Isolate* isolate, v8::Local<Function>* data, const char* file, int line, const char* func) {
-	Persistent<Function>* pers = new Persistent<Function>(isolate, *data);
-	LOGD("BGJS_NEW_PERSISTENT_PTR %p file %s line %i func %s", pers, file, line, func);
-	return pers;
-} */
 
 ClientAbstract::~ClientAbstract() {
 }
@@ -122,9 +107,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
         JNIWrapper::init(vm);
 		JNIV8Wrapper::init();
     }
-    JNIV8Wrapper::registerObject<V8TestClass>();
-    JNIV8Wrapper::registerObject<V8TestClass2, V8TestClass>();
-    //JNIV8Wrapper::registerJavaObject<V8TestClass2>("ag/boersego/bgjs/V8TestClassDerived");
 
     // Get jclass with env->FindClass.
     // Register methods with env->RegisterNatives.
@@ -263,7 +245,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 
 		Handle<Value> result = callbackP->Call(thisObj, argcount, argarray);
 		if (result.IsEmpty()) {
-			BGJSV8Engine::ReportException(&trycatch);
+			context->forwardV8ExceptionToJNI(&trycatch);
 		}
 		if (DEBUG) {
 			LOGI("timeoutCb finished");
@@ -303,7 +285,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
 
 	Handle<Value> result = fn->Call(thisObj, argcount, argarray);
 	if (result.IsEmpty()) {
-		BGJSV8Engine::ReportException(&trycatch);
+		context->forwardV8ExceptionToJNI(&trycatch);
 	}
 	// TODO: Don't we need to clean up these persistents?
     // => No, because they are pointers to a persistent that is stored elsewhere?!

@@ -164,8 +164,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		nativeString = env->GetStringUTFChars(dataStr, 0);
 		Handle<Value> resultObj;
 		if (processData) {
-			resultObj = context->JsonParse(thisObjLocal,
-				String::NewFromUtf8(isolate,nativeString));
+			resultObj = context->parseJSON(String::NewFromUtf8(isolate,nativeString));
 		} else {
 			resultObj = String::NewFromUtf8(isolate, nativeString);
 		}
@@ -187,7 +186,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		}
 	}
 	if (result.IsEmpty()) {
-		BGJSV8Engine::ReportException(&trycatch);
+		context->forwardV8ExceptionToJNI(&trycatch);
 	}
 	if (nativeString) {
 		env->ReleaseStringUTFChars(dataStr, nativeString);

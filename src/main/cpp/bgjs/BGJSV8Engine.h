@@ -32,9 +32,6 @@
 #define BGJS_CURRENT_V8ENGINE(isolate) \
 	reinterpret_cast<BGJSV8Engine*>(isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
 
-#define BGJS_V8ENGINE(context) \
-	reinterpret_cast<BGJSV8Engine*>(context->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
-
 #define BGJS_STRING_FROM_V8VALUE(value) \
 	(value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(value->ToString())))
 
@@ -68,7 +65,6 @@ public:
     bool registerModule(const char *name, requireHook f);
 	bool registerJavaModule(jobject module);
 
-	ClientAbstract* getClient() const;
 	v8::Isolate* getIsolate() const;
 	v8::Local<v8::Context> getContext() const;
 
@@ -84,9 +80,6 @@ public:
 	jobject getJObject() const;
 
 	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
-
-	// deprecated; use forwardV8ExceptionToJNI if possible!
-	static void ReportException(v8::TryCatch* try_catch);
 
 	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -109,8 +102,8 @@ public:
 	void registerGLView(BGJSGLView* view);
 	void unregisterGLView(BGJSGLView* view);
 
-	v8::Handle<v8::Value> JsonParse(v8::Handle<v8::Object> recv, v8::Handle<v8::String> source);
-	v8::Handle<v8::Value> JsonStringify(v8::Handle<v8::Object> recv, v8::Handle<v8::Object> source);
+	v8::Handle<v8::Value> parseJSON(v8::Handle<v8::String> source);
+	v8::Handle<v8::Value> stringifyJSON(v8::Handle<v8::Object> source);
 
 	void createContext();
 	ClientAbstract *_client;
