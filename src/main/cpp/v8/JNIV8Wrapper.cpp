@@ -87,7 +87,7 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
 
     // check if class can be created from JS
     if(info->createFromNativeOnly) {
-        args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "Illegal constructor invocation. Instances must not be created from JavaScript")));
+        args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Illegal constructor")));
         return;
     }
 

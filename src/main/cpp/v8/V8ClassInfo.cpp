@@ -80,12 +80,12 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
     if(!cb->isStatic) {
         v8::Local<v8::Object> thisArg = args.This();
         if (!thisArg->InternalFieldCount()) {
-            args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "invalid invocation")));
+            args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid invocation")));
             return;
         }
         v8::Local<v8::Value> internalField = thisArg->GetInternalField(0);
         if (!internalField->IsExternal()) {
-            args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "invalid invocation")));
+            args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid invocation")));
             return;
         }
 
@@ -95,7 +95,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
         jobj = v8Object->getJObject();
 
         if (!env->IsInstanceOf(jobj, cb->javaClass)) {
-            args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "invalid invocation")));
+            args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid invocation")));
             return;
         }
     }
