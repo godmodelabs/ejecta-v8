@@ -274,12 +274,29 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
     bool error = false;
     if(exception->IsObject()) {
         // retrieve message (toString contains typename, we don't want that..)
+        std::string strExceptionMessage;
         maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "message"));
         if(maybeValue.ToLocal(&value) && value->IsString()) {
-            exceptionMessage = JNIV8Wrapper::v8string2jstring(maybeValue.ToLocalChecked().As<String>());
+            strExceptionMessage = BGJS_STRING_FROM_V8VALUE(maybeValue.ToLocalChecked().As<String>());
         }
 
-        // @TODO: syntaxerrors do not have a stack trace..?
+        // retrieve error name (e.g. "SyntaxError")
+        std::string strErrorName;
+        maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "name"));
+        if(maybeValue.ToLocal(&value) && value->IsString()) {
+            strErrorName = BGJS_STRING_FROM_V8VALUE(maybeValue.ToLocalChecked().As<String>());
+        }
+
+        // the stack trace for syntax errors does not contain the location of the actual error
+        // and neither does the message
+        // so we have to append that manually
+        if(strErrorName == "SyntaxError") {
+            strExceptionMessage = BGJS_STRING_FROM_V8VALUE(try_catch->Message()->GetScriptResourceName()) + ":" +
+                    std::to_string(try_catch->Message()->GetLineNumber()) + " - " + strExceptionMessage;
+        }
+
+        exceptionMessage = JNIWrapper::string2jstring("[" + strErrorName + "] " + strExceptionMessage);
+
         Local<Function> getStackTraceFn = Local<Function>::New(_isolate, _getStackTraceFn);
 
         maybeValue = getStackTraceFn->Call(context, context->Global(), 1, &exception);
@@ -444,9 +461,9 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
 
     if(_makeRequireFn.IsEmpty()) {
         const char *szJSRequireCode =
-                "(function(require, prefix) {"
-                        "   return function(path) {"
-                        "       return require(path.indexOf('./')===0?'./'+prefix+'/'+path.substr(2):path);"
+                "(function(internalRequire, prefix) {"
+                        "   return function require(path) {"
+                        "       return internalRequire(path.indexOf('./')===0?'./'+prefix+'/'+path.substr(2):path);"
                         "   };"
                         "})";
 
@@ -599,8 +616,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 
     // compile script
     Handle<Script> scriptR = Script::Compile(source, String::NewFromUtf8(_isolate, baseNameStr.c_str()));
-
-    // @TODO: SyntaxError thrown here does not include the file name..
 
     // run script; this will effectively return a function if everything worked
     // if not, something went wrong
@@ -1038,6 +1053,8 @@ void BGJSV8Engine::createContext() {
 
     //----------------------------------------
     // create bindings
+    // we create as much as possible here all at once, so methods can be const
+    // and we also save some checks on each execution..
     //----------------------------------------
 
     // init error creation binding
@@ -1089,8 +1106,8 @@ void BGJSV8Engine::createContext() {
                 Local<Function>::Cast(
                         Script::Compile(
                                 String::NewFromOneByte(Isolate::GetCurrent(),
-                                                       (const uint8_t*)"(function(source) { return JSON.parse(source); })"),
-                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:JSONParse"))->Run());
+                                                       (const uint8_t*)"(function parseJSON(source) { return JSON.parse(source); })"),
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:parseJSON"))->Run());
         _jsonParseFn.Reset(_isolate, jsonParseMethod_);
     }
 
@@ -1100,8 +1117,8 @@ void BGJSV8Engine::createContext() {
                 Local<Function>::Cast(
                         Script::Compile(
                                 String::NewFromOneByte(Isolate::GetCurrent(),
-                                                       (const uint8_t*)"(function(source) { return JSON.stringify(source); })"),
-                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:JSONStringify"))->Run());
+                                                       (const uint8_t*)"(function stringifyJSON(source) { return JSON.stringify(source); })"),
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:stringifyJSON"))->Run());
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
     }
 }
