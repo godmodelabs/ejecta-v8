@@ -291,8 +291,13 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
         // and neither does the message
         // so we have to append that manually
         if(strErrorName == "SyntaxError") {
-            strExceptionMessage = BGJS_STRING_FROM_V8VALUE(try_catch->Message()->GetScriptResourceName()) + ":" +
-                    std::to_string(try_catch->Message()->GetLineNumber()) + " - " + strExceptionMessage;
+            int lineNumber = -1;
+            Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
+            if(!maybeLineNumber.IsNothing()) {
+                lineNumber = maybeLineNumber.ToChecked();
+            }
+            strExceptionMessage = BGJS_STRING_FROM_V8VALUE(try_catch->Message()->GetScriptResourceName()) + (lineNumber > 0 ? ":" +
+                    std::to_string(try_catch->Message()->GetLineNumber()) : "") + " - " + strExceptionMessage;
         }
 
         exceptionMessage = JNIWrapper::string2jstring("[" + strErrorName + "] " + strExceptionMessage);
@@ -345,19 +350,26 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
         }
     }
 
-    // if exception was not an Error object, or if .message is not set for some reason => use toString()
-    if(!exceptionMessage) {
-        exceptionMessage = JNIV8Wrapper::v8string2jstring(exception->ToString());
-    }
-
     // if no stack trace was provided by v8, or if there was an error converting it, we still have to show something
     if(error || !stackTrace) {
+        int lineNumber = -1;
+        Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
+        if(!maybeLineNumber.IsNothing()) {
+            lineNumber = maybeLineNumber.ToChecked();
+        }
+
+        // dummy trace entry
         stackTrace = env->NewObjectArray(1, _jniStackTraceElement.clazz,
                                          env->NewObject(_jniStackTraceElement.clazz, _jniStackTraceElement.initId,
                                                         JNIWrapper::string2jstring("<unknown>"),
                                                         JNIWrapper::string2jstring("<unknown>"),
-                                                        nullptr,
-                                                        -1));
+                                                        JNIV8Wrapper::v8string2jstring(try_catch->Message()->GetScriptResourceName().As<String>()),
+                                                        lineNumber));
+    }
+
+    // if exception was not an Error object, or if .message is not set for some reason => use toString()
+    if(!exceptionMessage) {
+        exceptionMessage = JNIV8Wrapper::v8string2jstring(exception->ToString());
     }
 
     // apply trace to js exception

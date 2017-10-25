@@ -107,13 +107,8 @@ public:
 	v8::Handle<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
 
 	void createContext();
-	static bool debug;
-	char *_locale;	// de_DE
-	char *_lang;	// de
-	char *_tz;		// Europe/Berlin
-	char *_deviceClass;		// "phone"/"tablet"
 
-    /**
+	/**
      * cache JNI class references
      */
     static void initJNICache();
@@ -140,6 +135,11 @@ private:
 		jclass clazz;
 		jmethodID initId;
 	} _jniStackTraceElement;
+
+	char *_locale;		// de_DE
+	char *_lang;		// de
+	char *_tz;			// Europe/Berlin
+	char *_deviceClass; // "phone"/"tablet"
 
 	float _density;
 
