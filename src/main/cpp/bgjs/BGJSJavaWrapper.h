@@ -22,7 +22,6 @@ class BGJSJavaWrapper {
     bool needsClear;
 public:
 
-	BGJSJavaWrapper ();
 	BGJSJavaWrapper (const BGJSV8Engine* context, JNIEnv* env, jobject javaObject);
 
 	bool coerceArgToString (JNIEnv* env, jobject &object, jclass& clazz, const char *keyName, const char *valAsString);
@@ -43,7 +42,7 @@ public:
                                   v8::WeakCallbackType type);
     v8::Local<v8::Object> getLocalObject();
 	~BGJSJavaWrapper();
-	void cleanUp(JNIEnv* env);
+	void cleanUp();
 	const BGJSV8Engine* _context;
 	jobject _javaObject;
 };

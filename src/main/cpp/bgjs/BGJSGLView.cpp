@@ -17,6 +17,7 @@
 #include <v8.h>
 
 #include "os-android.h"
+#include "../jni/JNIWrapper.h"
 
 #undef DEBUG
 // #define DEBUG 1
@@ -168,7 +169,7 @@ void BGJSGLView::close() {
 }
 
 void BGJSGLView::requestRefresh() {
-	JNIEnv* env = JNU_GetEnv();
+	JNIEnv* env = JNIWrapper::getEnvironment();
 	if (env == NULL) {
 		LOGE("Cannot refresh BGJSGLView with no envCache");
 		return;

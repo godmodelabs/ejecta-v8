@@ -3,6 +3,7 @@
 #include "mallocdebug.h"
 
 #include "stdlib.h"
+#include "../jni/JNIWrapper.h"
 #include <math.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -26,7 +27,7 @@ using namespace v8;
 
 
 BGJSJavaWrapper::~BGJSJavaWrapper () {
-	cleanUp(JNU_GetEnv());
+	cleanUp();
 }
 
 
@@ -44,7 +45,8 @@ v8::Local<v8::Object> BGJSJavaWrapper::getLocalObject() {
     return (*reinterpret_cast<Local<Object>*>(&_jsObject));
 }
 
-void BGJSJavaWrapper::cleanUp(JNIEnv* env) {
+void BGJSJavaWrapper::cleanUp() {
+	JNIEnv* env = JNIWrapper::getEnvironment();
 	if (_context != 0) {
 		Isolate::Scope scope(_context->getIsolate());
 		HandleScope handleScope(_context->getIsolate());
@@ -575,10 +577,10 @@ void BGJSJavaWrapper::jsToJava (const char *argsSpec, const char* javaMethodName
 		const bool isStatic, const v8::FunctionCallbackInfo<v8::Value>& args, bool (*f)(const char*, const char*, int, char**)) {
 	v8::Isolate* isolate = Isolate::GetCurrent();
 	EscapableHandleScope scope(isolate);
-	int len = strlen(argsSpec);
+	int len = (int)strlen(argsSpec);
 	int argCount = getArgCount (argsSpec, len);
 
-	JNIEnv* env = JNU_GetEnv();
+	JNIEnv* env = JNIWrapper::getEnvironment();
 	if (env == NULL) {
 		LOGE("Cannot execute jsToJava with no envCache");
 		args.GetReturnValue().SetUndefined();

@@ -3,7 +3,7 @@
 #include "../BGJSV8Engine.h"
 #include "AjaxModule.h"
 
-#include "../ClientAbstract.h"
+#include "../../jni/JNIWrapper.h"
 
 #define LOG_TAG	"AjaxModule"
 
@@ -88,7 +88,7 @@ void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 #ifdef ANDROID
 	jstring dataStr, urlStr, methodStr;
-	JNIEnv* env = JNU_GetEnv();
+	JNIEnv* env = JNIWrapper::getEnvironment();
 	if (env == NULL) {
 		LOGE("Cannot execute AJAX request with no envCache");
         args.GetReturnValue().SetUndefined();

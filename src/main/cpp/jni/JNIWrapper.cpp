@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include "JNIWrapper.h"
 
+pthread_mutex_t JNIWrapper::_mutexEnv = PTHREAD_MUTEX_INITIALIZER;
+
 void JNIWrapper::init(JavaVM *vm) {
     _jniVM = vm;
 
@@ -134,7 +136,13 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
 }
 
 JNIEnv* JNIWrapper::getEnvironment() {
-    pthread_t t = pthread_self();
+    // currently we just cache the most recently used env in a static variable..
+    // if multiple threads are used frequently this is certainly not optimal
+    // otherwise it should be "okay"
+
+    pthread_mutex_lock(&_mutexEnv);
+
+    pid_t t = gettid();
     if(_jniThreadId != t) {
         int r = _jniVM->GetEnv((void **) &_jniEnv, JNI_VERSION_1_6);
         if (r != JNI_OK) {
@@ -145,7 +153,11 @@ JNIEnv* JNIWrapper::getEnvironment() {
         }
         _jniThreadId = t;
     }
-    return _jniEnv;
+    JNIEnv *env = _jniEnv;
+
+    pthread_mutex_unlock(&_mutexEnv);
+
+    return env;
 }
 
 void JNIWrapper::initializeNativeObject(jobject object, jstring className) {
@@ -244,7 +256,7 @@ std::map<std::string, JNIClassInfo*> JNIWrapper::_objmap;
 jfieldID JNIWrapper::_jniNativeHandleFieldID = nullptr;
 JavaVM* JNIWrapper::_jniVM = nullptr;
 JNIEnv* JNIWrapper::_jniEnv = nullptr;
-pthread_t JNIWrapper::_jniThreadId = 0;
+pid_t JNIWrapper::_jniThreadId = 0;
 jstring JNIWrapper::_jniCharsetName = nullptr;
 jclass JNIWrapper::_jniStringClass = nullptr;
 jmethodID JNIWrapper::_jniStringInit = nullptr;

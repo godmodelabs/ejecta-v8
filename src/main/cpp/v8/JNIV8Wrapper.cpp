@@ -27,7 +27,14 @@ decltype(JNIV8Wrapper::_jniNumber) JNIV8Wrapper::_jniNumber = {0};
 decltype(JNIV8Wrapper::_jniV8Object) JNIV8Wrapper::_jniV8Object = {0};
 jobject JNIV8Wrapper::_undefined = nullptr;
 
+pthread_mutex_t JNIV8Wrapper::_mutexEnv;
+
 void JNIV8Wrapper::init() {
+    pthread_mutexattr_t Attr;
+    pthread_mutexattr_init(&Attr);
+    pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&_mutexEnv, &Attr);
+
     JNIWrapper::registerObject<JNIV8Object>(JNIObjectType::kAbstract);
     _registerObject(JNIV8ObjectType::kAbstract, JNIWrapper::getCanonicalName<JNIV8Object>(), "",
                     nullptr, createJavaClass<JNIV8Object>, sizeof(JNIV8Object));
@@ -101,6 +108,8 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
 }
 
 V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine) {
+    pthread_mutex_lock(&_mutexEnv);
+
     // find class info container
     auto it = _objmap.find(canonicalName);
     JNI_ASSERT(it != _objmap.end(), "Attempt to retrieve class info for unregistered class");
@@ -108,6 +117,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     // check if class info object already exists for this engine!
     for(auto &it2 : it->second->classInfos) {
         if(it2->engine == engine) {
+            pthread_mutex_unlock(&_mutexEnv);
             return it2;
         }
     }
@@ -210,6 +220,8 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             }
         }
     }
+
+    pthread_mutex_unlock(&_mutexEnv);
 
     return v8ClassInfo;
 }
@@ -428,6 +440,7 @@ template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v
  * internal helper function called by V8Engine on destruction
  */
 void JNIV8Wrapper::cleanupV8Engine(BGJSV8Engine *engine) {
+    pthread_mutex_lock(&_mutexEnv);
     for(auto it : _objmap) {
         for (auto it2 = it.second->classInfos.begin(); it2 != it.second->classInfos.end(); ++it2) {
             if((*it2)->engine == engine) {
@@ -437,6 +450,7 @@ void JNIV8Wrapper::cleanupV8Engine(BGJSV8Engine *engine) {
             }
         }
     }
+    pthread_mutex_unlock(&_mutexEnv);
 }
 
 /**

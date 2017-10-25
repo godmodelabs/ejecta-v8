@@ -654,14 +654,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     return maybeLocal;
 }
 
-ClientAbstract* BGJSV8Engine::getClient() const {
-    return _client;
-}
-
-void BGJSV8Engine::setClient(ClientAbstract* client) {
-	this->_client = client;
-}
-
 v8::Isolate* BGJSV8Engine::getIsolate() const {
     return this->_isolate;
 }
@@ -866,8 +858,7 @@ void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args
 
 		jlong timeout = (jlong)(Local<Number>::Cast(args[1])->Value());
 
-		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE(args.GetIsolate())->_client);
-		JNIEnv* env = JNU_GetEnv();
+		JNIEnv* env = JNIWrapper::getEnvironment();
 		if (env == NULL) {
 			LOGE("Cannot execute setTimeout with no envCache");
 			args.GetReturnValue().SetUndefined();
@@ -913,8 +904,7 @@ void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& ar
 			return;
 		}
 
-		ClientAndroid* client = (ClientAndroid*) (BGJS_CURRENT_V8ENGINE(args.GetIsolate())->_client);
-		JNIEnv* env = JNU_GetEnv();
+		JNIEnv* env = JNIWrapper::getEnvironment();
 		if (env == NULL) {
 			LOGE("Cannot execute setTimeout with no envCache");
 			return;
@@ -956,7 +946,6 @@ void BGJSV8Engine::initJNICache() {
 }
 
 BGJSV8Engine::BGJSV8Engine(jobject javaObject, jobject javaAssetManager) {
-	_client = NULL;
 	_nextTimerId = 1;
 	_locale = NULL;
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
@@ -1152,7 +1141,8 @@ float BGJSV8Engine::getDensity() const {
 }
 
 char* BGJSV8Engine::loadFile(const char* path, unsigned int* length) const {
-    AAssetManager* mgr = AAssetManager_fromJava(JNU_GetEnv(), _javaAssetManager);
+    JNIEnv* env = JNIWrapper::getEnvironment();
+    AAssetManager* mgr = AAssetManager_fromJava(env, _javaAssetManager);
     AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
 
     if (!asset) {

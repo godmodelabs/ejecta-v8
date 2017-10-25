@@ -227,6 +227,8 @@ private:
 
     static jobject _undefined;
 
+    static pthread_mutex_t _mutexEnv;
+
     template<class ObjectType>
     static void initialize(V8ClassInfo *info) {
         ObjectType::initializeV8Bindings(info);

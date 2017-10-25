@@ -21,8 +21,6 @@
 #include <v8.h>
 
 #include "BGJSV8Engine.h"
-#include "ClientAbstract.h"
-#include "ClientAndroid.h"
 #include "modules/AjaxModule.h"
 #include "modules/BGJSGLModule.h"
 
@@ -32,8 +30,6 @@
 
 using namespace v8;
 
-#include <unistd.h>
-extern unsigned int __page_size = getpagesize();
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -43,124 +39,19 @@ extern unsigned int __page_size = getpagesize();
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
-ClientAbstract::~ClientAbstract() {
-}
 
-ClientAndroid::~ClientAndroid() {
-	// TODO: Delete global reference to assetManager
-}
-
-ClientAndroid* _client = new ClientAndroid();
-
-void ClientAndroid::on (const char* event, void* cbPtr, void *thisObjPtr) {
-	JNIEnv* env = JNU_GetEnv();
-
-	jclass clazz = env->FindClass("ag/boersego/bgjs/V8Engine");
-	jmethodID mid = env->GetStaticMethodID(clazz, "onFromJS", "(Ljava/lang/String;JJ)V");
-	assert(mid);
-	assert(clazz);
-
-
-	jstring eventStr = env->NewStringUTF(event);
-
-	env->CallStaticVoidMethod(clazz, mid, eventStr, (jlong)cbPtr, (jlong)thisObjPtr);
-}
-
-jint JNI_OnLoad(JavaVM* vm, void* reserved)
-{
-    JNIEnv* env;
-    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        return -1;
-    }
-
-	if(!JNIWrapper::isInitialized()) {
+jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
+    if(!JNIWrapper::isInitialized()) {
         JNIWrapper::init(vm);
 		JNIV8Wrapper::init();
     }
 
-    // Get jclass with env->FindClass.
-    // Register methods with env->RegisterNatives.
-    jclass clazz = env->FindClass("ag/boersego/android/conn/BGJSPushHelper");
-	if (clazz == NULL) {
-		LOGE("Cannot find class BGJSPushHelper!");
-		env->ExceptionClear();
-	} else {
-		_client->bgjsPushHelper = (jclass)env->NewGlobalRef(clazz);
-		jmethodID pushMethod = env->GetStaticMethodID(clazz,
-			"registerPush", "(Ljava/lang/String;JJZ)I");
-		if (pushMethod) {
-			_client->bgjsPushSubscribeMethod = pushMethod;
-		} else {
-			LOGE("Cannot find static method BGJSPushHelper.registerPush!");
-		}
-
-		pushMethod = env->GetStaticMethodID(clazz, "unregisterPush", "(I)V");
-
-		if (pushMethod) {
-			_client->bgjsPushUnsubscribeMethod = pushMethod;
-		} else {
-			LOGE("Cannot find static method BGJSPushHelper.registerPush!");
-		}
-	}
-
-	clazz = env->FindClass("ag/boersego/android/conn/BGJSWebPushHelper");
-	if (clazz == NULL) {
-		LOGE("Cannot find class BGJSWebPushHelper!");
-		env->ExceptionClear();
-	} else {
-		_client->bgjsWebPushHelper = (jclass)env->NewGlobalRef(clazz);
-		jmethodID pushMethod = env->GetStaticMethodID(clazz,
-													  "registerPush", "(Ljava/lang/String;JJJJ)Lag/boersego/android/conn/BGJSWebPushHelper$JSWebPushSubscription;");
-		if (pushMethod) {
-			_client->bgjsWebPushSubscribeMethod = pushMethod;
-		} else {
-			LOGE("Cannot find static method BGJSWebPushHelper.registerPush!");
-		}
-	}
-
-    clazz = env->FindClass("ag/boersego/android/conn/BGJSWebPushHelper$JSWebPushSubscription");
-    if (clazz == NULL) {
-        LOGE("Cannot find class BGJSWebPushHelper$JSWebPushSubscription!");
-        env->ExceptionClear();
-    } else {
-        jmethodID unsubscribeMethod = env->GetMethodID(clazz,
-                                                      "unbind", "()Z");
-        if (unsubscribeMethod) {
-            _client->bgjsWebPushSubUnsubscribeMethod = unsubscribeMethod;
-        } else {
-            LOGE("Cannot find static method BGJSWebPushHelper$JSWebPushSubscription.unbind!");
-        }
-    }
-
-	clazz = env->FindClass("ag/boersego/chartingjs/ChartingV8Engine");
-
-	if (clazz == NULL) {
-		LOGE("Cannot find class ChartingV8Engine!");
-		env->ExceptionClear();
-	} else {
-		_client->chartingV8Engine = (jclass)env->NewGlobalRef(clazz);
-		_client->v8EnginegetIAPState = env->GetStaticMethodID(clazz, "getIAPState", "(Ljava/lang/String;)Z");
-	}
-
-
     return JNI_VERSION_1_6;
-}
-
-JNIEnv* JNU_GetEnv() {
-	JNIEnv* env;
-	_client->cachedJVM->GetEnv((void**) &env, JNI_VERSION_1_6);
-	return env;
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 		JNIEnv * env, jobject obj, jobject assetManager, jlong v8Engine, jstring locale, jstring lang,
         jstring timezone, jfloat density, jstring deviceClass) {
-
-	#if DEBUG
-		LOGD("bgjs initialize, AM %p this %p", assetManager, _client);
-	#endif
-	env->GetJavaVM(&(_client->cachedJVM));
-
 	BGJSV8Engine* ct = reinterpret_cast<BGJSV8Engine*>(v8Engine);
 
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
@@ -173,7 +64,6 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	env->ReleaseStringUTFChars(lang, langStr);
 	env->ReleaseStringUTFChars(timezone, tzStr);
     env->ReleaseStringUTFChars(deviceClass, deviceClassStr);
-	ct->setClient(_client);
 	ct->createContext();
 	LOGD("BGJS context created");
 

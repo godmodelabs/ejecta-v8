@@ -10,6 +10,7 @@
 #import <map>
 #include <jni.h>
 #include "jni_assert.h"
+#include <unistd.h>
 #include <pthread.h>
 
 #include "JNIClassInfo.h"
@@ -207,9 +208,10 @@ private:
 
     static void _registerObject(size_t hashCode, JNIObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
 
+    static pthread_mutex_t _mutexEnv;
     static JavaVM *_jniVM;
     static JNIEnv *_jniEnv;
-    static pthread_t _jniThreadId;
+    static pid_t _jniThreadId;
     static jfieldID _jniNativeHandleFieldID;
 
     static jclass _jniStringClass;

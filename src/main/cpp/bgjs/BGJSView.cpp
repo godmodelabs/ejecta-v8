@@ -5,10 +5,6 @@
 
 #include "GLcompat.h"
 
-#if defined __ANDROID__
-#include "ClientAndroid.h"
-#endif
-
 /**
  * BGJSView
  * A v8 wrapper around a native window

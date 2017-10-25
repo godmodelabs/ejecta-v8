@@ -15,7 +15,6 @@
 
 #include "BGJSModule.h"
 
-#include "ClientAbstract.h"
 #include <map>
 #include <string>
 #include <set>
@@ -56,7 +55,6 @@ typedef enum EBGJSV8EngineEmbedderData {
 
 class BGJSV8Engine {
 public:
-    // static BGJSV8Engine& getInstance();
     BGJSV8Engine(jobject javaObject, jobject javaAssetManager);
 	virtual ~BGJSV8Engine();
 
@@ -75,9 +73,6 @@ public:
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
 
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
-
-	ClientAbstract* getClient() const;
-    void setClient(ClientAbstract* client);
 
 	jobject getJObject() const;
 
@@ -112,7 +107,6 @@ public:
 	v8::Handle<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
 
 	void createContext();
-	ClientAbstract *_client;
 	static bool debug;
 	char *_locale;	// de_DE
 	char *_lang;	// de

@@ -1,7 +1,6 @@
 #include "BGJSCanvasContext.h"
 
 #include "BGJSV8Engine.h"
-// #include "../ClientAndroid.h"
 
 #include "mallocdebug.h"
 #include "v8.h"
