@@ -6,6 +6,8 @@
 #include "JNIV8Wrapper.h"
 #include "../bgjs/BGJSV8Engine.h"
 
+#include <stdlib.h>
+
 #define LOG_TAG "JNIV8Object"
 
 using namespace v8;

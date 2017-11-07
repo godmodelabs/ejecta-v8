@@ -7,6 +7,8 @@
 #include "JNIV8Object.h"
 #include "JNIV8Wrapper.h"
 
+#include <cassert>
+
 using namespace v8;
 
 decltype(V8ClassInfo::_jniObject) V8ClassInfo::_jniObject = {0};

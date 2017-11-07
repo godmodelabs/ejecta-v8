@@ -4,6 +4,8 @@
 
 #include "JNIV8Function.h"
 
+#include <stdlib.h>
+
 BGJS_JNIV8OBJECT_LINK(JNIV8Function, "ag/boersego/bgjs/JNIV8Function");
 
 /**
