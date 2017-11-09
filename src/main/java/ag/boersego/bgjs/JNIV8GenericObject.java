@@ -17,7 +17,7 @@ final public class JNIV8GenericObject extends JNIV8Object {
     // internal fields & methods
     private static native JNIV8GenericObject Create(long nativePtr);
 
-    protected JNIV8GenericObject(V8Engine engine, long jsObjPtr) {
-        super(engine, jsObjPtr);
+    protected JNIV8GenericObject(V8Engine engine, long jsObjPtr, Object[] arguments) {
+        super(engine, jsObjPtr, arguments);
     }
 }

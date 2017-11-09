@@ -27,7 +27,7 @@ abstract public class JNIObject {
         if(Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
         }
-        
+
         // there might be one or more abstract levels between this class and the next registered superclass
         // => we can just skip them!
         Class superClass = derivedClass.getSuperclass();

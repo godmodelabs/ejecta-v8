@@ -33,7 +33,7 @@ final public class JNIV8Function extends JNIV8Object {
     // internal fields & methods
     private static native JNIV8Function Create(long nativePtr, JNIV8Function.Handler handler);
 
-    protected JNIV8Function(V8Engine engine, long jsObjPtr) {
-        super(engine, jsObjPtr);
+    protected JNIV8Function(V8Engine engine, long jsObjPtr, Object[] arguments) {
+        super(engine, jsObjPtr, arguments);
     }
 }

@@ -34,7 +34,7 @@ abstract public class JNIV8Object extends JNIObject {
         return _engine;
     }
 
-    public native Object applyV8Method(String name, Object... arguments);
+    public native Object applyV8Method(String name, Object[] arguments);
     public native Object callV8Method(String name, Object... arguments);
     /*
     Question: Do we need these? (coercion on JS side or in Java?)
@@ -79,7 +79,7 @@ abstract public class JNIV8Object extends JNIObject {
     // internal fields & methods
     private V8Engine _engine;
 
-    public JNIV8Object(V8Engine engine, long jsObjPtr) {
+    public JNIV8Object(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(true);
         _engine = engine;
         initNativeJNIV8Object(getClass().getCanonicalName(), engine.getNativePtr(), jsObjPtr);

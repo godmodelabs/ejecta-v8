@@ -168,7 +168,7 @@ private:
 
 // internal helper methods for creating and initializing objects
 typedef void(*JNIV8ObjectInitializer)(V8ClassInfo *info);
-typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj);
+typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments);
 
 /**
  * internal container object for managing all class info instances (one for each v8 engine) of an object

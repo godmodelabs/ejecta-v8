@@ -148,7 +148,9 @@ public:
              */
             // a new wrapper object is created every time!
             v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
-            auto sharedPtr = info->creator(_getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent);
+            JNIEnv *env = JNIWrapper::getEnvironment();
+            jobjectArray arguments = env->NewObjectArray(0, _jniObject.clazz, nullptr);
+            auto sharedPtr = info->creator(_getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent, arguments);
             return std::static_pointer_cast<ObjectType>(sharedPtr);
         } else {
             if (object->InternalFieldCount() >= 1) {
@@ -235,8 +237,8 @@ private:
     }
 
     template<class ObjectType>
-    static std::shared_ptr<JNIV8Object> createJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj) {
-        std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj);
+    static std::shared_ptr<JNIV8Object> createJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments) {
+        std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj, arguments);
         return ptr;
     }
     
@@ -277,6 +279,9 @@ private:
     static struct {
         jclass clazz;
     } _jniV8Object;
+    static struct {
+        jclass clazz;
+    } _jniObject;
 };
 
 template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object);

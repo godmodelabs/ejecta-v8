@@ -56,7 +56,7 @@ final public class JNIV8Array extends JNIV8Object {
     private static native JNIV8Array Create(long nativePtr, int length);
     private static native JNIV8Array Create(long nativePtr, Object[] elements);
 
-    protected JNIV8Array(V8Engine engine, long jsObjPtr) {
-        super(engine, jsObjPtr);
+    protected JNIV8Array(V8Engine engine, long jsObjPtr, Object[] arguments) {
+        super(engine, jsObjPtr, arguments);
     }
 }

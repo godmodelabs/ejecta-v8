@@ -25,6 +25,7 @@ decltype(JNIV8Wrapper::_jniString) JNIV8Wrapper::_jniString = {0};
 decltype(JNIV8Wrapper::_jniCharacter) JNIV8Wrapper::_jniCharacter = {0};
 decltype(JNIV8Wrapper::_jniNumber) JNIV8Wrapper::_jniNumber = {0};
 decltype(JNIV8Wrapper::_jniV8Object) JNIV8Wrapper::_jniV8Object = {0};
+decltype(JNIV8Wrapper::_jniObject) JNIV8Wrapper::_jniObject = {0};
 jobject JNIV8Wrapper::_undefined = nullptr;
 
 pthread_mutex_t JNIV8Wrapper::_mutexEnv;
@@ -78,6 +79,8 @@ void JNIV8Wrapper::init() {
 
     _jniV8Object.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Object"));
 
+    _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
+
     JNIV8Object::initJNICache();
     JNIV8Function::initJNICache();
     JNIV8Array::initJNICache();
@@ -107,9 +110,22 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     // check that `this` has expected type
     JNI_ASSERT(Local<FunctionTemplate>::New(isolate, info->functionTemplate)->HasInstance(args.This()), "created object has unexpected class");
 
+    // convert arguments
+    jobjectArray arguments = nullptr;
+    jobject value;
+    int numArgs = args.Length();
+
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    arguments = env->NewObjectArray(numArgs, _jniObject.clazz, nullptr);
+    for (int i = 0, n = numArgs; i < n; i++) {
+        value = JNIV8Wrapper::v8value2jobject(args[i]);
+        env->SetObjectArrayElement(arguments, i, value);
+    }
+
     // create temporary persistent for the js object and then call the constructor
     v8::Persistent<Object>* jsObj = new v8::Persistent<v8::Object>(isolate, args.This());
-    auto ptr = info->container->creator(info, jsObj);
+    auto ptr = info->container->creator(info, jsObj, arguments);
 
     if(info->constructorCallback) {
         (ptr.get()->*(info->constructorCallback))(args);
@@ -229,6 +245,24 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             }
         }
     }
+
+    // make sure that constructors exist!
+#ifdef ENABLE_JNI_ASSERT
+    jmethodID constructorId;
+    if(!v8ClassInfo->createFromNativeOnly) {
+        // if creation from javascript is allowed, we need the constructor!
+        constructorId = env->GetMethodID(it->second->clsObject, "<init>",
+                                         "(Lag/boersego/bgjs/V8Engine;J[Ljava/lang/Object;)V");
+        JNI_ASSERTF(constructorId,
+                   "Constructor '(V8Engine, long, Object[])' does not exist on registered class '%s'", canonicalName.c_str());
+    } else {
+        // if creation from javascript is not allowed, we need the other one...
+        constructorId = env->GetMethodID(it->second->clsObject, "<init>",
+                                         "(Lag/boersego/bgjs/V8Engine;)V");
+        JNI_ASSERTF(constructorId,
+                   "Constructor '(V8Engine)' does not exist on registered class '%s'", canonicalName.c_str());
+    }
+#endif
 
     pthread_mutex_unlock(&_mutexEnv);
 
