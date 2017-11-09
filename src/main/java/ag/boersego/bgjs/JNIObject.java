@@ -1,6 +1,7 @@
 package ag.boersego.bgjs;
 
 import java.lang.ref.ReferenceQueue;
+import java.lang.reflect.Modifier;
 
 /**
  * Created by martin on 18.04.17.
@@ -23,7 +24,21 @@ abstract public class JNIObject {
     }
 
     static public void RegisterClass(Class<? extends JNIObject> derivedClass) {
-        RegisterClass(derivedClass.getCanonicalName(), derivedClass.getSuperclass().getCanonicalName());
+        if(Modifier.isAbstract(derivedClass.getModifiers())) {
+            throw new RuntimeException("Abstract classes can not be registered");
+        }
+        if(!JNIObject.class.isAssignableFrom(derivedClass)) {
+            throw new RuntimeException("Registered class must be a subclass of JNIObject");
+        }
+
+        // there might be one or more abstract levels between this class and the next registered superclass
+        // => we can just skip them!
+        Class superClass = derivedClass.getSuperclass();
+        while(superClass != JNIObject.class && Modifier.isAbstract(superClass.getModifiers())) {
+            superClass = superClass.getSuperclass();
+        }
+
+        RegisterClass(derivedClass.getCanonicalName(), superClass.getCanonicalName());
     }
     static private native void RegisterClass(String derivedClass, String baseClass);
 

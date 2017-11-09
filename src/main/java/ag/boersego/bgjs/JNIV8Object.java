@@ -1,4 +1,5 @@
 package ag.boersego.bgjs;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -10,11 +11,23 @@ import java.util.Map;
 abstract public class JNIV8Object extends JNIObject {
 
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
-        RegisterV8Class(derivedClass, JNIV8Object.class);
+        if(Modifier.isAbstract(derivedClass.getModifiers())) {
+            throw new RuntimeException("Abstract classes can not be registered");
+        }
+        if(!JNIV8Object.class.isAssignableFrom(derivedClass)) {
+            throw new RuntimeException("Registered class must be a subclass of JNIV8Object");
+        }
+
+        // there might be one or more abstract levels between this class and the next registered superclass
+        // => we can just skip them!
+        Class superClass = derivedClass.getSuperclass();
+        while(superClass != JNIV8Object.class && Modifier.isAbstract(superClass.getModifiers())) {
+            superClass = superClass.getSuperclass();
+        }
+
+        RegisterV8Class(derivedClass.getCanonicalName(), superClass.getCanonicalName());
     }
-    static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass, Class<? extends JNIV8Object> baseClass) {
-        RegisterV8Class(derivedClass.getCanonicalName(), baseClass.getCanonicalName());
-    }
+
     static private native void RegisterV8Class(String derivedClass, String baseClass);
 
     public native String toString();
