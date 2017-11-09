@@ -420,7 +420,7 @@ bool BGJSV8Engine::registerJavaModule(jobject module) {
 
 	std::string strModuleName = JNIWrapper::jstring2string((jstring)env->CallObjectMethod(module, _jniV8Module.getNameId));
 	_javaModules[strModuleName] = env->NewGlobalRef(module);
-	_modules["javaModule"] = (requireHook)&BGJSV8Engine::JavaModuleRequireCallback;
+	_modules[strModuleName] = (requireHook)&BGJSV8Engine::JavaModuleRequireCallback;
 
 	return true;
 }
