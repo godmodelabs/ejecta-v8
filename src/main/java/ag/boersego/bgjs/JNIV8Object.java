@@ -1,6 +1,5 @@
 package ag.boersego.bgjs;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Map;
 
 /**
@@ -97,4 +96,17 @@ abstract public class JNIV8Object extends JNIObject {
     private native String[] getV8Keys(boolean ownOnly);
     private native Map<String,Object> getV8Fields(boolean ownOnly);
     private native void initNativeJNIV8Object(String canonicalName, long enginePtr, long jsObjPtr);
+
+    public static boolean getV8ObjectAsBoolean(final Object in) {
+        if (in instanceof Boolean) {
+            return ((Boolean)in);
+        }
+        if (in instanceof Number) {
+            return ((Number)in).intValue() > 0;
+        }
+        if (in instanceof String) {
+            return ((String)in).equalsIgnoreCase("true");
+        }
+        throw new ClassCastException("Cannot convert to boolean: " + in);
+    }
 }
