@@ -14,9 +14,6 @@ abstract public class JNIV8Object extends JNIObject {
         if(Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
         }
-        if(!JNIV8Object.class.isAssignableFrom(derivedClass)) {
-            throw new RuntimeException("Registered class must be a subclass of JNIV8Object");
-        }
 
         // there might be one or more abstract levels between this class and the next registered superclass
         // => we can just skip them!
