@@ -23,10 +23,7 @@ abstract public class JNIObject {
     }
 
     static public void RegisterClass(Class<? extends JNIObject> derivedClass) {
-        RegisterClass(derivedClass, JNIObject.class);
-    }
-    static public void RegisterClass(Class<? extends JNIObject> derivedClass, Class<? extends JNIObject> baseClass) {
-        RegisterClass(derivedClass.getCanonicalName(), baseClass.getCanonicalName());
+        RegisterClass(derivedClass.getCanonicalName(), derivedClass.getSuperclass().getCanonicalName());
     }
     static private native void RegisterClass(String derivedClass, String baseClass);
 

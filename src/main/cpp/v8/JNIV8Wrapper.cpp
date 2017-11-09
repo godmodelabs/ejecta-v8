@@ -98,6 +98,8 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
         return;
     }
 
+    JNI_ASSERT(args.This()->InternalFieldCount() == 1, "internal field count wrong");
+
     // create temporary persistent for the js object and then call the constructor
     v8::Persistent<Object>* jsObj = new v8::Persistent<v8::Object>(isolate, args.This());
     auto ptr = info->container->creator(info, jsObj);

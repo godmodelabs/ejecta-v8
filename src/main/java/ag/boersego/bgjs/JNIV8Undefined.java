@@ -5,13 +5,13 @@ package ag.boersego.bgjs;
  */
 
 public class JNIV8Undefined {
-    private static JNIV8Undefined instance;
-    public static JNIV8Undefined GetInstance() {
+    private volatile static JNIV8Undefined instance;
+    public synchronized static JNIV8Undefined GetInstance() {
         if(instance == null) {
             instance = new JNIV8Undefined();
         }
         return instance;
     }
 
-    protected JNIV8Undefined() {}
+    private JNIV8Undefined() {}
 }

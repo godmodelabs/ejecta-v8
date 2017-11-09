@@ -1,7 +1,5 @@
 package ag.boersego.bgjs;
 
-import ag.boersego.bgjs.JNIV8GenericObject;
-
 /**
  * Created by martin on 29.09.17.
  */
@@ -13,9 +11,15 @@ abstract public class JNIV8Module {
         this.name = name;
     }
 
-    public String getName() {
+    public final String getName() {
         return name;
     }
 
+    /**
+     * Implement class logic here. This is called when this module is required. Call setV8Field on
+     * the module.
+     * @param engine
+     * @param module
+     */
     abstract public void Require(V8Engine engine, JNIV8GenericObject module);
 }
