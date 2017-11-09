@@ -92,13 +92,20 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     v8::Isolate* isolate = info->engine->getIsolate();
     HandleScope scope(isolate);
 
+    // this method must be called as constructor
+    if(!args.IsConstructCall()) {
+        args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Please use the 'new' operator, this object constructor cannot be called as a function")));
+        return;
+    }
+
     // check if class can be created from JS
     if(info->createFromNativeOnly) {
         args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Illegal constructor")));
         return;
     }
 
-    JNI_ASSERT(args.This()->InternalFieldCount() == 1, "internal field count wrong");
+    // check that `this` has expected type
+    JNI_ASSERT(Local<FunctionTemplate>::New(isolate, info->functionTemplate)->HasInstance(args.This()), "created object has unexpected class");
 
     // create temporary persistent for the js object and then call the constructor
     v8::Persistent<Object>* jsObj = new v8::Persistent<v8::Object>(isolate, args.This());

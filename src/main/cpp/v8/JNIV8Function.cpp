@@ -67,14 +67,14 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
 
 void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("Create", "(JLag/boersego/bgjs/JNIV8Function$Handler;)Lag/boersego/bgjs/JNIV8Function;", (void*)JNIV8Function::jniCreate);
-    info->registerNativeMethod("callAsV8FunctionWithReceiver", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8FunctionWithReceiver);
+    info->registerNativeMethod("_callAsV8Function", "(ZLjava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
 }
 
 void JNIV8Function::initializeV8Bindings(V8ClassInfo *info) {
 
 }
 
-jobject JNIV8Function::jniCallAsV8FunctionWithReceiver(JNIEnv *env, jobject obj, jobject receiver, jobjectArray arguments) {
+jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jobject receiver, jobjectArray arguments) {
     auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
     if(!ptr) {
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
@@ -104,12 +104,23 @@ jobject JNIV8Function::jniCallAsV8FunctionWithReceiver(JNIEnv *env, jobject obj,
         args = nullptr;
     }
 
-    v8::MaybeLocal<v8::Value> maybeLocal;
     v8::Local<v8::Value> resultRef;
-    maybeLocal = ptr->getJSObject()->CallAsFunction(context, JNIV8Wrapper::jobject2v8value(receiver), numArgs, args);
-    if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
-        ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
-        return nullptr;
+    if(asConstructor) {
+        v8::MaybeLocal<v8::Object> maybeLocal;
+        maybeLocal = ptr->getJSObject().As<v8::Function>()->NewInstance(context, numArgs, args);
+        if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
+            ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
+            return nullptr;
+        }
+    } else {
+        v8::MaybeLocal<v8::Value> maybeLocal;
+        maybeLocal = ptr->getJSObject()->CallAsFunction(context,
+                                                        JNIV8Wrapper::jobject2v8value(receiver),
+                                                        numArgs, args);
+        if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
+            ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
+            return nullptr;
+        }
     }
 
     if(args) {

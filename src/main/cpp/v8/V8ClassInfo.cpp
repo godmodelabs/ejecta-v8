@@ -321,7 +321,7 @@ void V8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) {
 
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8JavaMethodCallback, data)->GetFunction());
+        f->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -331,7 +331,7 @@ void V8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) {
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
         instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()),
-                         FunctionTemplate::New(isolate, v8JavaMethodCallback, data));
+                         FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow));
     }
 }
 
@@ -380,7 +380,7 @@ void V8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
         f->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()),
-               FunctionTemplate::New(isolate, v8MethodCallback, data)->GetFunction());
+               FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -389,7 +389,7 @@ void V8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
         // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
-        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data));
+        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow));
     }
 }
 

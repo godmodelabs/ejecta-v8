@@ -1003,15 +1003,15 @@ void BGJSV8Engine::createContext() {
 	// Add methods to console function
 	v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(_isolate);
 	console->Set(String::NewFromUtf8(_isolate, "log"),
-				 v8::FunctionTemplate::New(_isolate, LogCallback));
+				 v8::FunctionTemplate::New(_isolate, LogCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	console->Set(String::NewFromUtf8(_isolate, "debug"),
-				 v8::FunctionTemplate::New(_isolate, DebugCallback));
+				 v8::FunctionTemplate::New(_isolate, DebugCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	console->Set(String::NewFromUtf8(_isolate, "info"),
-				 v8::FunctionTemplate::New(_isolate, InfoCallback));
+				 v8::FunctionTemplate::New(_isolate, InfoCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	console->Set(String::NewFromUtf8(_isolate, "error"),
-				 v8::FunctionTemplate::New(_isolate, ErrorCallback));
+				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	console->Set(String::NewFromUtf8(_isolate, "warn"),
-				 v8::FunctionTemplate::New(_isolate, ErrorCallback));
+				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
 
 	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
@@ -1029,18 +1029,18 @@ void BGJSV8Engine::createContext() {
 	// global functions
 	globalObjTpl->Set(String::NewFromUtf8(_isolate, "requestAnimationFrame"),
 				v8::FunctionTemplate::New(_isolate,
-										  BGJSV8Engine::js_global_requestAnimationFrame));
+										  BGJSV8Engine::js_global_requestAnimationFrame, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	globalObjTpl->Set(String::NewFromUtf8(_isolate, "cancelAnimationFrame"),
 				v8::FunctionTemplate::New(_isolate,
-										  BGJSV8Engine::js_global_cancelAnimationFrame));
+										  BGJSV8Engine::js_global_cancelAnimationFrame, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout));
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	globalObjTpl->Set(String::NewFromUtf8(_isolate, "setInterval"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval));
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeout));
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeout, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearInterval));
+				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearInterval, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 
 	// Create a new context.
     Local<Context> context = v8::Context::New(_isolate, NULL, globalObjTpl);

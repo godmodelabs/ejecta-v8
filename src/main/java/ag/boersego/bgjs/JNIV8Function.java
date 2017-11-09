@@ -14,9 +14,16 @@ final public class JNIV8Function extends JNIV8Object {
     }
 
     public Object callAsV8Function(Object... arguments) {
-        return callAsV8FunctionWithReceiver(null, arguments);
+        return _callAsV8Function(false, null, arguments);
     }
-    public native Object callAsV8FunctionWithReceiver(Object receiver, Object... arguments);
+    public Object callAsV8FunctionWithReceiver(Object receiver, Object... arguments) {
+        return _callAsV8Function(false, receiver, arguments);
+    }
+    public Object callAsV8Constructor(Object... arguments) {
+        return _callAsV8Function(true, null, arguments);
+    }
+
+    private native Object _callAsV8Function(boolean asConstructor, Object receiver, Object... arguments);
 
     public void dispose() throws RuntimeException {
         super.dispose();
