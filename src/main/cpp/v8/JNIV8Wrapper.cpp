@@ -127,6 +127,7 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     v8::Persistent<Object>* jsObj = new v8::Persistent<v8::Object>(isolate, args.This());
     auto ptr = info->container->creator(info, jsObj, arguments);
 
+    // also forward arguments to optional native constructor handler (if one was registered)
     if(info->constructorCallback) {
         (ptr.get()->*(info->constructorCallback))(args);
     }
