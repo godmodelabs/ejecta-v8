@@ -296,8 +296,12 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
             if(!maybeLineNumber.IsNothing()) {
                 lineNumber = maybeLineNumber.ToChecked();
             }
-            strExceptionMessage = BGJS_STRING_FROM_V8VALUE(try_catch->Message()->GetScriptResourceName()) + (lineNumber > 0 ? ":" +
-                    std::to_string(try_catch->Message()->GetLineNumber()) : "") + " - " + strExceptionMessage;
+            Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
+            if(jsScriptResourceName->IsString()) {
+                strExceptionMessage = BGJS_STRING_FROM_V8VALUE(jsScriptResourceName) +
+                                      (lineNumber > 0 ? ":" + std::to_string(lineNumber) : "") +
+                                      " - " + strExceptionMessage;
+            }
         }
 
         exceptionMessage = JNIWrapper::string2jstring("[" + strErrorName + "] " + strExceptionMessage);
