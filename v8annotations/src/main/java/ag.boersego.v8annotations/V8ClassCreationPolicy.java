@@ -6,5 +6,5 @@ package ag.boersego.v8annotations;
 
 public enum V8ClassCreationPolicy {
     DEFAULT,
-    NATIVE_ONLY
+    JAVA_ONLY
 }

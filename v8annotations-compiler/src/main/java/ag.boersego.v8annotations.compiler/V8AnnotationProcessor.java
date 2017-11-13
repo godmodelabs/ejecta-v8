@@ -107,7 +107,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
         for (Element element : env.getElementsAnnotatedWith(V8Class.class)) {
             AnnotationHolder holder = getHolder(annotatedClasses, element);
-            holder.createFromNativeOnly = (element.getAnnotation(V8Class.class).creationPolicy() == V8ClassCreationPolicy.NATIVE_ONLY);
+            holder.createFromNativeOnly = (element.getAnnotation(V8Class.class).creationPolicy() == V8ClassCreationPolicy.JAVA_ONLY);
         }
         for (Element element : env.getElementsAnnotatedWith(V8Function.class)) {
             // validate signature
