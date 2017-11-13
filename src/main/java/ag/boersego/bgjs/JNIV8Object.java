@@ -97,7 +97,15 @@ abstract public class JNIV8Object extends JNIObject {
     private native Map<String,Object> getV8Fields(boolean ownOnly);
     private native void initNativeJNIV8Object(String canonicalName, long enginePtr, long jsObjPtr);
 
+    /**
+     * Check if a wrapped object is truthy (see https://developer.mozilla.org/en-US/docs/Glossary/Falsy)
+     * @param in
+     * @return true if truthy
+     */
     public static boolean getV8ObjectAsBoolean(final Object in) {
+        if (in == null) {
+            return false;
+        }
         if (in instanceof Boolean) {
             return ((Boolean)in);
         }
@@ -105,7 +113,13 @@ abstract public class JNIV8Object extends JNIObject {
             return ((Number)in).intValue() > 0;
         }
         if (in instanceof String) {
-            return ((String)in).equalsIgnoreCase("true");
+            return !((String)in).isEmpty();
+        }
+        if (in instanceof JNIV8Array) {
+            return true;
+        }
+        if (in instanceof JNIV8Undefined) {
+            return false;
         }
         throw new ClassCastException("Cannot convert to boolean: " + in);
     }
