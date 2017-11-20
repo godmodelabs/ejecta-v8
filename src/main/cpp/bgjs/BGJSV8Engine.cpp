@@ -1264,6 +1264,22 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jlong enginePtr
     return JNIV8Wrapper::v8value2jobject(value.ToLocalChecked());
 }
 
+JNIEXPORT jlong JNICALL
+Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj, jlong enginePtr) {
+    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::Locker *locker = new Locker(isolate);
+
+    return (jlong)locker;
+}
+
+JNIEXPORT void JNICALL
+Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
+    v8::Locker *locker = reinterpret_cast<Locker *>(lockerPtr);
+    delete(locker);
+}
+
 JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jlong enginePtr,
                                               jstring script, jstring name) {

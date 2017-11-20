@@ -77,6 +77,10 @@ public class V8Engine extends Thread implements Handler.Callback {
         }
     }
 
+	public long lock() {
+		return lock(mNativePtr);
+	}
+
 	public interface V8EngineHandler {
 		void onReady();
 	}
@@ -251,6 +255,8 @@ public class V8Engine extends Thread implements Handler.Callback {
 	private native Object parseJSON(long enginePtr, String json);
 	private native Object runScript(long enginePtr, String script, String name);
 	private native Object require(long enginePtr, String file);
+	private native long lock(long enginePtr);
+    public native void unlock(long lockerPtr);
 
 	@Override
 	public void run() {
