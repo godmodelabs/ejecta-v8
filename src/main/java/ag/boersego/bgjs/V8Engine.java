@@ -78,7 +78,7 @@ public class V8Engine extends Thread implements Handler.Callback {
     }
 
 	public interface V8EngineHandler {
-		abstract public void onReady();
+		void onReady();
 	}
 	
 	public class V8EventCB {

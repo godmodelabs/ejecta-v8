@@ -1,5 +1,7 @@
 package ag.boersego.bgjs;
 
+import android.support.annotation.NonNull;
+
 /**
  * Created by martin on 29.09.17.
  */
@@ -21,5 +23,5 @@ abstract public class JNIV8Module {
      * @param engine
      * @param module
      */
-    abstract public void Require(V8Engine engine, JNIV8GenericObject module);
+    abstract public void Require(@NonNull V8Engine engine, JNIV8GenericObject module);
 }

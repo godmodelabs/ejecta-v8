@@ -37,11 +37,13 @@ repositories {
     flatDir{
         dirs 'libs'
     }
+    google()
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
     implementation 'com.squareup.okhttp3:okhttp:3.8.1'
+    implementation "com.android.support:support-annotations:$rootProject.ext.supportLibraryVersion"
 }
 
 task distributeDebug() {
