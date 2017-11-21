@@ -102,7 +102,7 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     }
 
     // check if class can be created from JS
-    if(info->createFromNativeOnly) {
+    if(info->createFromJavaOnly) {
         args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Illegal constructor")));
         return;
     }
@@ -201,8 +201,8 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     jclass clsObject = it->second->clsObject;
     jclass clsBinding = it->second->clsBinding;
     if(clsBinding && clsObject) {
-        jfieldID createFromNativeOnlyId = env->GetStaticFieldID(clsBinding, "createFromNativeOnly", "Z");
-        v8ClassInfo->createFromNativeOnly = env->GetStaticBooleanField(clsBinding, createFromNativeOnlyId);
+        jfieldID createFromJavaOnlyId = env->GetStaticFieldID(clsBinding, "createFromJavaOnly", "Z");
+        v8ClassInfo->createFromJavaOnly = env->GetStaticBooleanField(clsBinding, createFromJavaOnlyId);
 
         jmethodID getFunctionsMethodId = env->GetStaticMethodID(clsBinding, "getV8Functions",
                                                                 "()[Lag/boersego/v8annotations/generated/V8FunctionInfo;");
@@ -234,14 +234,14 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.propertyId));
             const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.getterId));
             const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.setterId));
-            jmethodID javaGetterId, javaSetterId;
+            jmethodID javaGetterId = NULL, javaSetterId = NULL;
             if(env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isStaticId)) {
-                javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;");
-                javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V");
+                if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;"); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V"); }
                 v8ClassInfo->registerStaticJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
             } else {
-                javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;");
-                javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V");
+                if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;"); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V"); }
                 v8ClassInfo->registerJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
             }
         }
@@ -250,7 +250,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
     // make sure that constructors exist!
 #ifdef ENABLE_JNI_ASSERT
     jmethodID constructorId;
-    if(!v8ClassInfo->createFromNativeOnly) {
+    if(!v8ClassInfo->createFromJavaOnly) {
         // if creation from javascript is allowed, we need the constructor!
         constructorId = env->GetMethodID(it->second->clsObject, "<init>",
                                          "(Lag/boersego/bgjs/V8Engine;J[Ljava/lang/Object;)V");

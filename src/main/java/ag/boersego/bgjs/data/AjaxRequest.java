@@ -1,8 +1,8 @@
 package ag.boersego.bgjs.data;
 
 import android.os.Build;
+import android.support.annotation.NonNull;
 import android.util.Log;
-
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -10,9 +10,13 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -26,9 +30,15 @@ public class AjaxRequest implements Runnable {
     private V8UrlCache mCache;
     private boolean mIsCancelled;
     private OkHttpClient mHttpClient;
+    private HashMap<String, String> mHeaders;
+    private Headers mResponseHeaders;
 
     public void setHttpClient(OkHttpClient httpClient) {
         mHttpClient = httpClient;
+    }
+
+    public void setHeaders(@NonNull HashMap<String, String> headers) {
+        mHeaders = headers;
     }
 
     public interface AjaxListener {
@@ -36,6 +46,10 @@ public class AjaxRequest implements Runnable {
 
 		void error(String data, int code, Throwable tr, AjaxRequest request);
 	}
+
+	public Headers getResponseHeaders() {
+        return mResponseHeaders;
+    }
 
     /**
      * This traffic-counting code is also in Java-WebSocket.
@@ -234,16 +248,24 @@ public class AjaxRequest implements Runnable {
 
 
 
-            if (mReferer != null) {
-                try {
-                    requestBuilder.addHeader("Referer", mReferer);
-                } catch (final Exception ex) {
-                    Log.e(TAG, "Cannot set referer", ex);
+            if (mHeaders != null && !mHeaders.isEmpty()) {
+                final Set<Map.Entry<String, String>> headerSet = mHeaders.entrySet();
+                for (Map.Entry<String, String> header : headerSet) {
+                    requestBuilder.addHeader(header.getKey(), header.getValue());
                 }
             } else {
-                try {
-                    Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
-                } catch (final Exception ignored) { }
+                if (mReferer != null) {
+                    try {
+                        requestBuilder.addHeader("Referer", mReferer);
+                    } catch (final Exception ex) {
+                        Log.e(TAG, "Cannot set referer", ex);
+                    }
+                } else {
+                    try {
+                        Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
+                    } catch (final Exception ignored) {
+                    }
+                }
             }
 
 			if (mResultBuilder != null) {
@@ -311,6 +333,11 @@ public class AjaxRequest implements Runnable {
 
 		} finally {
             if (response != null) {
+                try {
+                    mResponseHeaders = response.headers();
+                } catch (final Exception e) {
+                    Log.i(TAG, "Cannot read headers", e);
+                }
                 response.body().close();
             }
 		}
@@ -322,7 +349,7 @@ public class AjaxRequest implements Runnable {
             return;
         }
         try {
-            if (!connection.cacheControl().noStore() && connection.request().method().equals("GET")) {
+            if (!connection.cacheControl().noStore() && connection.request().method().equals("GET") && mCache != null) {
                 mCache.storeInCache(connection.request().url().toString(), cachedObject, connection.cacheControl().maxAgeSeconds(), size);
             }
         } catch (Exception ex) {

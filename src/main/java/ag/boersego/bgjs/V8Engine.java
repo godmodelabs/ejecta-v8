@@ -57,6 +57,22 @@ public class V8Engine extends Thread implements Handler.Callback {
     private V8UrlCache mCache;
 	private ThreadPoolExecutor mTPExecutor;
     private OkHttpClient mHttpClient;
+    private final ArrayList<Runnable> mNextTickQueue = new ArrayList<>();
+    private final Runnable mQueueWaitRunnable = new Runnable() {
+        @Override
+        public void run() {
+            final long v8Locker = lock(mNativePtr);
+
+            synchronized (mNextTickQueue) {
+                for (final Runnable r : mNextTickQueue) {
+                    r.run();
+                }
+                mNextTickQueue.clear();
+            }
+
+            unlock(v8Locker);
+        }
+    };
 	private boolean mPaused;
 
 	public static void doDebug (boolean debug) {
@@ -77,9 +93,38 @@ public class V8Engine extends Thread implements Handler.Callback {
         }
     }
 
-	public long lock() {
-		return lock(mNativePtr);
+    /**
+     * Enqueue any Runnable to be executed on the next tick
+     * @param runnable the function to execute once the currently executing JS block has relinquished control
+     * @return true if it had to be scheduled, false if other functions were queued already
+     */
+	public boolean enqueueOnNextTick(final Runnable runnable) {
+	    final boolean startBusyWaiting;
+		synchronized (mNextTickQueue) {
+		    startBusyWaiting = mNextTickQueue.isEmpty();
+		    mNextTickQueue.add(runnable);
+        }
+        if (startBusyWaiting) {
+            if (Thread.currentThread() == V8Engine.this) {
+                // We cannot really enqueue on our own thread!!
+                new Thread(mQueueWaitRunnable).start();
+                // throw new RuntimeException("Don't call enqueueOnNextTick from v8 thread!");
+            } else {
+                mHandler.postAtFrontOfQueue(mQueueWaitRunnable);
+            }
+        }
+
+        return startBusyWaiting;
 	}
+
+    /**
+     * Enqueue a wrapped v8 function to be executed on the next tick
+     * @param function the function to execute once the currently executing JS block has relinquished control
+     * @return true if it had to be scheduled, false if other functions were queued already
+     */
+	public boolean enqueueOnNextTick(final JNIV8Function function) {
+	    return enqueueOnNextTick(() -> function.callAsV8Function());
+    }
 
 	public interface V8EngineHandler {
 		void onReady();
@@ -256,7 +301,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 	private native Object runScript(long enginePtr, String script, String name);
 	private native Object require(long enginePtr, String file);
 	private native long lock(long enginePtr);
-    public native void unlock(long lockerPtr);
+    private native void unlock(long lockerPtr);
 
 	@Override
 	public void run() {

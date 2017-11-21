@@ -28,19 +28,22 @@ void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const Pro
 
     ext = info.Data().As<v8::External>();
     JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
+    if (cb->javaGetterId) {
 
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    if(!cb->isStatic) {
-        ext = info.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        if (!cb->isStatic) {
+            ext = info.This()->GetInternalField(0).As<v8::External>();
+            JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
-        jobject jobj = v8Object->getJObject();
+            jobject jobj = v8Object->getJObject();
 
-        info.GetReturnValue().Set(
-                JNIV8Wrapper::jobject2v8value(env->CallObjectMethod(jobj, cb->javaGetterId)));
-    } else {
-        info.GetReturnValue().Set(
-                JNIV8Wrapper::jobject2v8value(env->CallStaticObjectMethod(cb->javaClass, cb->javaGetterId)));
+            info.GetReturnValue().Set(
+                    JNIV8Wrapper::jobject2v8value(env->CallObjectMethod(jobj, cb->javaGetterId)));
+        } else {
+            info.GetReturnValue().Set(
+                    JNIV8Wrapper::jobject2v8value(
+                            env->CallStaticObjectMethod(cb->javaClass, cb->javaGetterId)));
+        }
     }
 }
 
@@ -53,16 +56,19 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
     ext = info.Data().As<v8::External>();
     JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
 
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    if(!cb->isStatic) {
-        ext = info.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+    if (cb->javaSetterId) {
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        if (!cb->isStatic) {
+            ext = info.This()->GetInternalField(0).As<v8::External>();
+            JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
-        jobject jobj = v8Object->getJObject();
+            jobject jobj = v8Object->getJObject();
 
-        env->CallVoidMethod(jobj, cb->javaSetterId, JNIV8Wrapper::v8value2jobject(value));
-    } else {
-        env->CallStaticVoidMethod(cb->javaClass, cb->javaSetterId, JNIV8Wrapper::v8value2jobject(value));
+            env->CallVoidMethod(jobj, cb->javaSetterId, JNIV8Wrapper::v8value2jobject(value));
+        } else {
+            env->CallStaticVoidMethod(cb->javaClass, cb->javaSetterId,
+                                      JNIV8Wrapper::v8value2jobject(value));
+        }
     }
 }
 
@@ -203,7 +209,7 @@ V8ClassInfoContainer::V8ClassInfoContainer(JNIV8ObjectType type, const std::stri
 }
 
 V8ClassInfo::V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine) :
-        container(container), engine(engine), constructorCallback(0), createFromNativeOnly(false) {
+        container(container), engine(engine), constructorCallback(0), createFromJavaOnly(false) {
 }
 
 V8ClassInfo::~V8ClassInfo() {
@@ -225,7 +231,7 @@ V8ClassInfo::~V8ClassInfo() {
 }
 
 void V8ClassInfo::setCreationPolicy(JNIV8ClassCreationPolicy policy) {
-    createFromNativeOnly = policy == JNIV8ClassCreationPolicy::NATIVE_ONLY;
+    createFromJavaOnly = policy == JNIV8ClassCreationPolicy::NATIVE_ONLY;
 }
 
 void V8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback) {

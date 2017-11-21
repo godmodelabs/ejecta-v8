@@ -164,6 +164,7 @@ decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module = {0};
 decltype(BGJSV8Engine::_jniV8Exception) BGJSV8Engine::_jniV8Exception = {0};
 decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {0};
 decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {0};
+decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {0};
 
 /**
  * internal struct for storing information for wrapped java functions
@@ -809,7 +810,6 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 	v8::Locker l(args.GetIsolate());
 	HandleScope scope(args.GetIsolate());
 
-
 	if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
 	    Local<Object> localFunc = args[0]->ToObject();
 		Handle<Object> objRef = args[1]->ToObject();
@@ -833,6 +833,14 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 		return;
 	}
 	args.GetReturnValue().Set(-1);
+}
+
+void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    BGJSV8Engine *ctx = BGJS_CURRENT_V8ENGINE(args.GetIsolate());
+
+    if (args.Length() >= 1 && args[0]->IsFunction()) {
+        ctx->enqueueNextTick(args);
+    }
 }
 
 void BGJSV8Engine::js_global_cancelAnimationFrame(
@@ -881,12 +889,9 @@ void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args
 			return;
 		}
 
-		jclass clazz = env->FindClass("ag/boersego/bgjs/V8Engine");
-		jmethodID pushMethod = env->GetStaticMethodID(clazz, "setTimeout",
-				"(JJJZ)I");
-		assert(pushMethod);
-		assert(clazz);
-		int subId = env->CallStaticIntMethod(clazz, pushMethod, (jlong) ws,
+		assert(ctx->_jniV8Engine.setTimeoutId);
+		assert(ctx->_jniV8Engine.clazz);
+		int subId = env->CallStaticIntMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.setTimeoutId, (jlong) ws,
 				(jlong) wo, timeout, (jboolean) recurring);
         args.GetReturnValue().Set(subId);
 	} else {
@@ -926,12 +931,7 @@ void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& ar
 			return;
 		}
 
-		jclass clazz = env->FindClass("ag/boersego/bgjs/V8Engine");
-		jmethodID pushMethod = env->GetStaticMethodID(clazz, "removeTimeout",
-				"(I)V");
-		assert(pushMethod);
-		assert(clazz);
-		env->CallStaticVoidMethod(clazz, pushMethod, (jint) id);
+		env->CallStaticVoidMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.removeTimeoutId, (jint) id);
 	} else {
         ctx->getIsolate()->ThrowException(
     				v8::Exception::ReferenceError(
@@ -959,6 +959,13 @@ void BGJSV8Engine::initJNICache() {
     _jniStackTraceElement.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/StackTraceElement"));
     _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
                                                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
+    _jniV8Engine.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
+    _jniV8Engine.enqueueOnNextTick = env->GetMethodID(_jniV8Engine.clazz, "enqueueOnNextTick",
+                                            "(Lag/boersego/bgjs/JNIV8Function;)Z");
+    _jniV8Engine.setTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "setTimeout",
+                                                       "(JJJZ)I");
+    _jniV8Engine.removeTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "removeTimeout",
+                                                          "(I)V");
 }
 
 BGJSV8Engine::BGJSV8Engine(jobject javaObject, jobject javaAssetManager) {
@@ -1019,6 +1026,12 @@ void BGJSV8Engine::createContext() {
 	// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
 
 	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
+
+    // Add methods to process function
+    v8::Local<v8::FunctionTemplate> process = v8::FunctionTemplate::New(_isolate);
+    process->Set(String::NewFromUtf8(_isolate, "nextTick"),
+                 v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_process_nextTick, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process"), process);
 
 	// environment variables
 	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
@@ -1210,6 +1223,13 @@ BGJSV8Engine::~BGJSV8Engine() {
 	}
 
 	JNIV8Wrapper::cleanupV8Engine(this);
+}
+
+void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    HandleScope scope(args.GetIsolate());
+    const shared_ptr<JNIV8Function> &wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
+    JNIEnv* env = JNIWrapper::getEnvironment();
+    env->CallBooleanMethod(_javaObject, _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
 }
 
 extern "C" {

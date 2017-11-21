@@ -83,6 +83,7 @@ public:
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
 	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
+    static void js_process_nextTick (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
 	static void js_global_setTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_clearTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
@@ -112,6 +113,7 @@ public:
      * cache JNI class references
      */
     static void initJNICache();
+
 private:
 	static void JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target);
 	static struct {
@@ -136,6 +138,13 @@ private:
 		jmethodID initId;
 	} _jniStackTraceElement;
 
+	static struct {
+		jclass clazz;
+		jmethodID removeTimeoutId;
+		jmethodID setTimeoutId;
+		jmethodID enqueueOnNextTick;
+	} _jniV8Engine;
+
 	char *_locale;		// de_DE
 	char *_lang;		// de
 	char *_tz;			// Europe/Berlin
@@ -145,6 +154,8 @@ private:
 
 	uint8_t _nextEmbedderDataIndex;
 	jobject _javaObject, _javaAssetManager;
+
+    void enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>&);
 
 	v8::Persistent<v8::Context> _context;
 
