@@ -19,6 +19,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import ag.boersego.bgjs.data.AjaxRequest;
 import ag.boersego.bgjs.data.V8UrlCache;
+import ag.boersego.bgjs.modules.BGJSModuleAjax2;
+import ag.boersego.bgjs.modules.BGJSModuleLocalStorage;
 import okhttp3.OkHttpClient;
 
 /**
@@ -229,14 +231,20 @@ public class V8Engine extends Thread implements Handler.Callback {
 		mTimeZone = TimeZone.getDefault().getID();
 
 		mNativePtr = createNative(assetManager);
+
+		// Register bundled Java-bridged JS modules
+		registerModule(BGJSModuleAjax2.getInstance());
+        registerModule(new BGJSModuleLocalStorage(application.getApplicationContext()));
 	}
 
     public void setUrlCache (V8UrlCache cache) {
         mCache = cache;
+        BGJSModuleAjax2.getInstance().setUrlCache(cache);
     }
 
 	public void setTPExecutor(final ThreadPoolExecutor executor) {
 		mTPExecutor = executor;
+        BGJSModuleAjax2.getInstance().setExecutor(executor);
 	}
 
     public long getNativePtr() {
@@ -482,6 +490,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 
 	public void setHttpClient(final OkHttpClient client) {
 		mHttpClient = client;
+		BGJSModuleAjax2.getInstance().setHttpClient(client);
 	}
 
 	public class V8AjaxRequest implements AjaxRequest.AjaxListener {
