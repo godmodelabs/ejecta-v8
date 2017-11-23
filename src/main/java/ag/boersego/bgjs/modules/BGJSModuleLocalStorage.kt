@@ -9,7 +9,7 @@ import android.content.SharedPreferences
  * Copyright (c) 2017 ${ORGANIZATION_NAME}. All rights reserved.
  */
 
-public class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localStorage") {
+class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localStorage") {
 
     private var mPref: SharedPreferences
 
@@ -22,7 +22,7 @@ public class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module(
 
         exports.setV8Field("getItem", JNIV8Function.Create(engine, JNIV8Function.Handler { receiver, arguments ->
             if (arguments.size < 1 || !(arguments[0] is String)) {
-                throw IllegalArgumentException("getItem needs one parameter of type String")
+                throw IllegalArgumentException("getItem needs one parameter of type String") as Throwable
             }
             val key = arguments[0] as String
 

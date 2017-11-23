@@ -18,11 +18,97 @@
 
 # public *** doAjaxRequest(...);
 -keep class ag.boersego.bgjs.V8Engine {
-  public *;
+    public *;
 }
 -keep class * extends ag.boersego.bgjs.V8BackedJavaClass {
-  public *;
+    public *;
 }
+
+-keep class * extends ag.boersego.bgjs.JNIV8Object {
+    public <init>(***);
+    public *;
+}
+
+-keep class * extends ag.boersego.bgjs.JNIObject {
+    public <init>(***);
+    public *;
+}
+
+-keep class * extends ag.boersego.bgjs.JNIV8Function {
+    public <init>(***);
+    public *;
+}
+
+-keep class * extends ag.boersego.bgjs.JNIV8Module {
+    public <init>(***);
+    public *;
+}
+
+-keepclasseswithmembers class * {
+    @ag.boersego.v8annotations.V8Class <methods>;
+    @ag.boersego.v8annotations.V8Function <methods>;
+    @ag.boersego.v8annotations.V8Getter <methods>;
+    @ag.boersego.v8annotations.V8Setter <methods>;
+}
+
+-keep class java.lang.String {
+    public <init>(java.lang.String);
+    public byte[] getBytes(java.lang.String);
+}
+
+-keep class java.lang.Object {
+    public String toString();
+}
+
+-keep class ag.boersego.bgjs.V8JSException {
+    public *;
+}
+
+-keep class java.lang.RuntimeException {
+    public <init>(**);
+}
+
+-keep class java.util.HashMap {
+    public <init>(**);
+}
+
+# JNIV8Wrapper
+-keep class ag.boersego.v8annotations.generated.V8FunctionInfo {
+    public *;
+}
+
+-keep class ag.boersego.v8annotations.generated.V8AccessorInfo {
+    public *;
+}
+
+-keep class java.lang.Double {
+    public java.lang.Double valueOf();
+}
+
+-keep class java.lang.Boolean {
+    public java.lang.Boolean valueOf();
+    public boolean booleanValue();
+}
+
+-keep class java.lang.Character {
+    public char booleanValue();
+}
+
+-keep class java.lang.Number {
+    public double doubleValue();
+}
+
+-keepnames class java.lang.StackTraceElement {
+    public *;
+}
+
+-keepattributes *ag.boersego.v8annotations.V8*
+
+-keep class **$V8Binding {
+    public <init>(***);
+    public *;
+}
+
 -keepclasseswithmembernames class * {
     native <methods>;
 }
