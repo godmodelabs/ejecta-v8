@@ -136,7 +136,7 @@ void EJTexture::createTextureWithPixels (GLubyte *pixels, GLenum formatp) {
 	}
 	format = formatp;
 
-	bool wasEnabled = glIsEnabled(GL_TEXTURE_2D);
+	bool wasEnabled = true; // glIsEnabled(GL_TEXTURE_2D);
 	int boundTexture = 0;
 	glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
 
