@@ -44,6 +44,16 @@
     public *;
 }
 
+-keep class * extends ag.boersego.bgjs.JNIV8GenericObject {
+    public <init>(***);
+    public *;
+}
+
+-keep class * extends ag.boersego.bgjs.JNIV8Array {
+    public <init>(***);
+    public *;
+}
+
 -keepclasseswithmembers class * {
     @ag.boersego.v8annotations.V8Class <methods>;
     @ag.boersego.v8annotations.V8Function <methods>;
@@ -91,7 +101,7 @@
 }
 
 -keep class java.lang.Character {
-    public char booleanValue();
+    public char characterValue();
 }
 
 -keep class java.lang.Number {
