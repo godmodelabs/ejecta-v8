@@ -100,5 +100,6 @@ private:
     v8::Persistent<v8::Object> _jsObject;
 };
 
+BGJS_JNI_LINK_DEF(JNIV8Object)
 
 #endif //TRADINGLIB_SAMPLE_JNIV8Object_H

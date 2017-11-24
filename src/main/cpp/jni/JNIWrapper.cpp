@@ -21,7 +21,7 @@ void JNIWrapper::init(JavaVM *vm) {
     _jniCharsetName = (jstring)env->NewGlobalRef(env->NewStringUTF("UTF-8"));
 
     _registerObject(typeid(JNIObject).hash_code(), JNIObjectType::kAbstract,
-                    JNIWrapper::getCanonicalName<JNIObject>(), "", initialize<JNIObject>, nullptr);
+                    JNIBase::getCanonicalName<JNIObject>(), "", initialize<JNIObject>, nullptr);
 }
 
 bool JNIWrapper::isInitialized() {
@@ -63,11 +63,11 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
         baseInfo = it->second;
 
         // pure java objects can not directly extend JNIObject
-        if(JNIWrapper::getCanonicalName<JNIObject>() == baseCanonicalName && !i) {
+        if(JNIBase::getCanonicalName<JNIObject>() == baseCanonicalName && !i) {
             JNI_ASSERT(0, "Pure java objects must not directly extend JNIObject");
             return;
         }
-    } else if(canonicalName != JNIWrapper::getCanonicalName<JNIObject>()) {
+    } else if(canonicalName != JNIBase::getCanonicalName<JNIObject>()) {
         // an empty base class is only allowed here for internally registering JNIObject itself
         JNI_ASSERT(0, "Attempt to register an object without super class");
         return;

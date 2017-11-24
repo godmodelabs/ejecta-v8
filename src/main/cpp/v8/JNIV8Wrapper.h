@@ -21,7 +21,7 @@ public:
      */
     template <typename ObjectType> static
     const std::string getCanonicalName() {
-        return JNIWrapper::getCanonicalName<ObjectType>();
+        return JNIBase::getCanonicalName<ObjectType>();
     }
 
     /**
@@ -40,7 +40,7 @@ public:
     template<class ObjectType> static
     void registerObject(JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
         JNIWrapper::registerObject<ObjectType, JNIV8Object>(type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
-        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIV8Object>(),
+        _registerObject(type, JNIBase::getCanonicalName<ObjectType>(), JNIBase::getCanonicalName<JNIV8Object>(),
                         type == JNIV8ObjectType::kWrapper ? nullptr : initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
     };
 
@@ -53,7 +53,7 @@ public:
     template<class ObjectType, class BaseObjectType> static
     void registerObject(JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
         JNIWrapper::registerObject<ObjectType, BaseObjectType>(type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
-        _registerObject(type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
+        _registerObject(type, JNIBase::getCanonicalName<ObjectType>(), JNIBase::getCanonicalName<BaseObjectType>(),
                         type == JNIV8ObjectType::kWrapper ? nullptr : initialize<ObjectType>, createJavaClass<ObjectType>, sizeof(ObjectType));
     };
 
@@ -65,7 +65,7 @@ public:
     template<class ObjectType> static
     void registerJavaObject(const std::string &canonicalName, JNIV8ObjectType type = JNIV8ObjectType::kPersistent) {
         JNIWrapper::registerJavaObject<ObjectType>(canonicalName, type == JNIV8ObjectType::kAbstract ? JNIObjectType::kAbstract : JNIObjectType::kPersistent);
-        _registerObject(type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr, 0);
+        _registerObject(type, canonicalName, JNIBase::getCanonicalName<ObjectType>(), nullptr, nullptr, 0);
     };
     /**
      * this overload is primarily used for registering java classes directly from java where the template version above can not be used
@@ -113,7 +113,7 @@ public:
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> wrapObject(v8::Local<v8::Object> object) {
-        auto it = _objmap.find(JNIWrapper::getCanonicalName<ObjectType>());
+        auto it = _objmap.find(JNIBase::getCanonicalName<ObjectType>());
         if (it == _objmap.end()){
             return nullptr;
         }
@@ -138,7 +138,7 @@ public:
             } else {
                 // the private key was empty so we have to create a new object
                 v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
-                auto sharedPtr = info->creator(_getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent);
+                auto sharedPtr = info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent);
 
                 // store in private
                 object->SetPrivate(isolate->GetCurrentContext(), privateKey, v8::External::New(isolate, sharedPtr.get()));
@@ -150,7 +150,7 @@ public:
             v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
             JNIEnv *env = JNIWrapper::getEnvironment();
             jobjectArray arguments = env->NewObjectArray(0, _jniObject.clazz, nullptr);
-            auto sharedPtr = info->creator(_getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent, arguments);
+            auto sharedPtr = info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent, arguments);
             return std::static_pointer_cast<ObjectType>(sharedPtr);
         } else {
             if (object->InternalFieldCount() >= 1) {
@@ -173,7 +173,7 @@ public:
      */
     template <typename ObjectType> static
     v8::Local<v8::Function> getJSConstructor(BGJSV8Engine *engine) {
-        return _getV8ClassInfo(JNIWrapper::getCanonicalName<ObjectType>(), engine)->getConstructor();
+        return _getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), engine)->getConstructor();
     }
     static v8::Local<v8::Function> getJSConstructor(BGJSV8Engine *engine, const std::string &canonicalName) {
         return _getV8ClassInfo(canonicalName, engine)->getConstructor();
@@ -285,12 +285,5 @@ private:
 };
 
 template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object);
-
-/**
- * macro to register native class with JNI
- * specify the native class, and the full canonical name of the associated v8 enabled java class
- */
-#define BGJS_JNIV8OBJECT_LINK(type, canonicalName) BGJS_JNIOBJECT_LINK(type, canonicalName)
-#define BGJS_JNIV8OBJECT_DEF(type) template<> const std::string JNIWrapper::getCanonicalName<type>();
 
 #endif //__JNIV8WRAPPER_H

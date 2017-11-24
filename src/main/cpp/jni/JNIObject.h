@@ -64,5 +64,6 @@ private:
     std::weak_ptr<JNIObject> _weakPtr;
 };
 
+BGJS_JNI_LINK_DEF(JNIObject)
 
 #endif //__OBJECT_H

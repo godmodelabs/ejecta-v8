@@ -24,20 +24,11 @@ public:
     static bool isInitialized();
 
     /**
-     * returns the canonical name of the java class associated with the specified native object
-     */
-    template <typename T> static
-    const std::string getCanonicalName() {
-        JNI_ASSERT(0, "JNIWrapper::getCanonicalName called for unregistered class");
-        return "<unknown>";
-    }
-
-    /**
      * checks if the objects referenced java clas is an instance of the provided classname
      */
     static bool isObjectInstanceOf(JNIObject *obj, const std::string &canonicalName);
     template<class ObjectType> static bool isObjectInstanceOf(JNIObject *obj) {
-        return isObjectInstanceOf(obj, getCanonicalName<ObjectType>());
+        return isObjectInstanceOf(obj, JNIBase::getCanonicalName<ObjectType>());
     }
 
     /**
@@ -45,7 +36,7 @@ public:
      */
     template<class ObjectType> static
     const std::string getSignature() {
-        return "L" + JNIWrapper::getCanonicalName<ObjectType>() + ";";
+        return "L" + JNIBase::getCanonicalName<ObjectType>() + ";";
     };
 
     /**
@@ -55,7 +46,7 @@ public:
      */
     template<class ObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<JNIObject>(),
+        _registerObject(typeid(ObjectType).hash_code(), type, JNIBase::getCanonicalName<ObjectType>(), JNIBase::getCanonicalName<JNIObject>(),
                         initialize<ObjectType>, type != JNIObjectType::kTemporary ? instantiate<ObjectType> : nullptr);
     };
 
@@ -67,7 +58,7 @@ public:
      */
     template<class ObjectType, class BaseObjectType> static
     void registerObject(JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(typeid(ObjectType).hash_code(), type, JNIWrapper::getCanonicalName<ObjectType>(), JNIWrapper::getCanonicalName<BaseObjectType>(),
+        _registerObject(typeid(ObjectType).hash_code(), type, JNIBase::getCanonicalName<ObjectType>(), JNIBase::getCanonicalName<BaseObjectType>(),
                         initialize<ObjectType>, type != JNIObjectType::kTemporary ? instantiate<ObjectType> : nullptr);
     };
 
@@ -78,7 +69,7 @@ public:
      */
     template<class ObjectType> static
     void registerJavaObject(const std::string &canonicalName, JNIObjectType type = JNIObjectType::kPersistent) {
-        _registerObject(typeid(void).hash_code(), type, canonicalName, JNIWrapper::getCanonicalName<ObjectType>(), nullptr, nullptr);
+        _registerObject(typeid(void).hash_code(), type, canonicalName, JNIBase::getCanonicalName<ObjectType>(), nullptr, nullptr);
     };
     /**
      * this overload is primarily used for registering java classes directly from java where the template version above can not be used
@@ -99,14 +90,14 @@ public:
     std::shared_ptr<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
         va_list args;
         va_start(args, constructorAlias);
-        jobject obj = _createObject(JNIWrapper::getCanonicalName<ObjectType>(), constructorAlias, args);
+        jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
         va_end(args);
         return JNIWrapper::wrapObject<ObjectType>(obj);
     }
 
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> createObject(const char *constructorAlias, va_list args) {
-        jobject obj = _createObject(JNIWrapper::getCanonicalName<ObjectType>(), constructorAlias, args);
+        jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
         return JNIWrapper::wrapObject<ObjectType>(obj);
     }
 
@@ -140,7 +131,7 @@ public:
      */
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> wrapObject(jobject object) {
-        auto it = _objmap.find(JNIWrapper::getCanonicalName<ObjectType>());
+        auto it = _objmap.find(JNIBase::getCanonicalName<ObjectType>());
         if (it == _objmap.end()){
             return nullptr;
         } else {
@@ -181,7 +172,7 @@ public:
      */
     template <typename ObjectType> static
     std::shared_ptr<JNIClass> wrapClass() {
-        return _wrapClass(JNIWrapper::getCanonicalName<ObjectType>());
+        return _wrapClass(JNIBase::getCanonicalName<ObjectType>());
     }
 
 
@@ -231,12 +222,5 @@ private:
         ObjectType::initializeJNIBindings(info, isReload);
     }
 };
-
-/**
- * macro to register a native class with JNI
- * specify the native class, and the full canonical name of the associated java class
- */
-#define BGJS_JNIOBJECT_LINK(type, canonicalName) template<> const std::string JNIWrapper::getCanonicalName<type>() { return canonicalName; };
-#define BGJS_JNIOBJECT_DEF(type) template<> const std::string JNIWrapper::getCanonicalName<type>();
 
 #endif //__JNIWRAPPER_H

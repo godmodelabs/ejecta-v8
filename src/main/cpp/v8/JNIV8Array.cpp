@@ -6,7 +6,7 @@
 #include "JNIV8Wrapper.h"
 #include "../bgjs/BGJSV8Engine.h"
 
-BGJS_JNIV8OBJECT_LINK(JNIV8Array, "ag/boersego/bgjs/JNIV8Array");
+BGJS_JNI_LINK(JNIV8Array, "ag/boersego/bgjs/JNIV8Array");
 
 decltype(JNIV8Array::_jniObject) JNIV8Array::_jniObject = {0};
 

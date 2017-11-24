@@ -17,6 +17,6 @@ public:
     static jobject jniCreate(JNIEnv *env, jobject obj, jlong enginePtr);
 };
 
-BGJS_JNIV8OBJECT_DEF(JNIV8GenericObject)
+BGJS_JNI_LINK_DEF(JNIV8GenericObject)
 
 #endif //TRADINGLIB_SAMPLE_JNIV8GENERICOBJECT_H

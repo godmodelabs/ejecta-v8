@@ -7,7 +7,7 @@
 #include "JNIObject.h"
 #include "JNIWrapper.h"
 
-BGJS_JNIOBJECT_LINK(JNIObject, "ag/boersego/bgjs/JNIObject");
+BGJS_JNI_LINK(JNIObject, "ag/boersego/bgjs/JNIObject");
 
 JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
     JNIEnv* env = JNIWrapper::getEnvironment();

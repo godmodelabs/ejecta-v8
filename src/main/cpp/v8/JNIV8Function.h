@@ -29,6 +29,6 @@ private:
     static void v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
-BGJS_JNIV8OBJECT_DEF(JNIV8Function)
+BGJS_JNI_LINK_DEF(JNIV8Function)
 
 #endif //ANDROID_TRADINGLIB_SAMPLE_JNIV8FUNCTION_H

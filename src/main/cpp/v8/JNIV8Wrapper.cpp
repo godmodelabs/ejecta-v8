@@ -37,7 +37,7 @@ void JNIV8Wrapper::init() {
     pthread_mutex_init(&_mutexEnv, &Attr);
 
     JNIWrapper::registerObject<JNIV8Object>(JNIObjectType::kAbstract);
-    _registerObject(JNIV8ObjectType::kAbstract, JNIWrapper::getCanonicalName<JNIV8Object>(), "",
+    _registerObject(JNIV8ObjectType::kAbstract, JNIBase::getCanonicalName<JNIV8Object>(), "",
                     nullptr, createJavaClass<JNIV8Object>, sizeof(JNIV8Object));
 
     JNIV8Wrapper::registerObject<JNIV8Array>(JNIV8ObjectType::kWrapper);
@@ -315,7 +315,7 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
             return;
         }
         baseInfo = it->second;
-    } else if(canonicalName != JNIWrapper::getCanonicalName<JNIV8Object>()) {
+    } else if(canonicalName != JNIBase::getCanonicalName<JNIV8Object>()) {
         // an empty base class is only allowed here for internally registering JNIObject itself
         JNI_ASSERT(0, "Attempt to register an object without super class");
         return;

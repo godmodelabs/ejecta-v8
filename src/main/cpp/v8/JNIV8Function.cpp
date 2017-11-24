@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-BGJS_JNIV8OBJECT_LINK(JNIV8Function, "ag/boersego/bgjs/JNIV8Function");
+BGJS_JNI_LINK(JNIV8Function, "ag/boersego/bgjs/JNIV8Function");
 
 /**
  * internal struct for storing information for wrapped java functions

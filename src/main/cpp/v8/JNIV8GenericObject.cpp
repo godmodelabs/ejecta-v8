@@ -5,7 +5,7 @@
 #include "JNIV8Wrapper.h"
 #include "JNIV8GenericObject.h"
 
-BGJS_JNIV8OBJECT_LINK(JNIV8GenericObject, "ag/boersego/bgjs/JNIV8GenericObject");
+BGJS_JNI_LINK(JNIV8GenericObject, "ag/boersego/bgjs/JNIV8GenericObject");
 
 void JNIV8GenericObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("Create", "(J)Lag/boersego/bgjs/JNIV8GenericObject;", (void*)JNIV8GenericObject::jniCreate);

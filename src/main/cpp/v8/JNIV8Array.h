@@ -50,6 +50,6 @@ private:
     jobjectArray v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32_t from=1, uint32_t to=0);
 };
 
-BGJS_JNIV8OBJECT_DEF(JNIV8Array)
+BGJS_JNI_LINK_DEF(JNIV8Array)
 
 #endif //ANDROID_TRADINGLIB_SAMPLE_JNIV8ARRAY_H

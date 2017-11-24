@@ -12,7 +12,7 @@
 
 using namespace v8;
 
-BGJS_JNIV8OBJECT_LINK(JNIV8Object, "ag/boersego/bgjs/JNIV8Object");
+BGJS_JNI_LINK(JNIV8Object, "ag/boersego/bgjs/JNIV8Object");
 
 decltype(JNIV8Object::_jniString) JNIV8Object::_jniString = {0};
 decltype(JNIV8Object::_jniHashMap) JNIV8Object::_jniHashMap = {0};
