@@ -21,6 +21,7 @@ import ag.boersego.bgjs.data.AjaxRequest;
 import ag.boersego.bgjs.data.V8UrlCache;
 import ag.boersego.bgjs.modules.BGJSModuleAjax2;
 import ag.boersego.bgjs.modules.BGJSModuleLocalStorage;
+import ag.boersego.bgjs.modules.BGJSModuleWebSocket;
 import okhttp3.OkHttpClient;
 
 /**
@@ -491,6 +492,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 	public void setHttpClient(final OkHttpClient client) {
 		mHttpClient = client;
 		BGJSModuleAjax2.getInstance().setHttpClient(client);
+        registerModule(new BGJSModuleWebSocket(client));
 	}
 
 	public class V8AjaxRequest implements AjaxRequest.AjaxListener {
