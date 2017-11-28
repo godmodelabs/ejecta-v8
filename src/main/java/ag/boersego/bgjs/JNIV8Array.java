@@ -1,10 +1,12 @@
 package ag.boersego.bgjs;
 
+import android.support.annotation.NonNull;
+
 /**
  * Created by martin on 26.09.17.
  */
 
-final public class JNIV8Array extends JNIV8Object {
+final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
     public static JNIV8Array Create(V8Engine engine) {
         return Create(engine.getNativePtr());
     }
@@ -58,5 +60,27 @@ final public class JNIV8Array extends JNIV8Object {
 
     protected JNIV8Array(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
+    }
+
+    @NonNull
+    @Override
+    public Iterator iterator() {
+        return new Iterator();
+    }
+
+    public class Iterator implements java.util.Iterator<Object> {
+
+        private int index = 0;
+
+        @Override
+        public boolean hasNext() {
+            return index < getV8Length();
+        }
+
+        @Override
+        public Object next() {
+            index++;
+            return getV8Element(index);
+        }
     }
 }
