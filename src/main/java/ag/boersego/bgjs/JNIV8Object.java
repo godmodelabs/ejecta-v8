@@ -121,6 +121,11 @@ abstract public class JNIV8Object extends JNIObject {
         if (in instanceof JNIV8Undefined) {
             return false;
         }
+        // all java script objects are "true"
+        if(JNIV8Object.class.isAssignableFrom(in.getClass())) {
+            return true;
+        }
+        // other java-only types are "false"
         throw new ClassCastException("Cannot convert to boolean: " + in);
     }
 }
