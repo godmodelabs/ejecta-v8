@@ -43,6 +43,11 @@ import ag.boersego.v8annotations.V8Setter;
 @SupportedAnnotationTypes("ag.boersego.v8annotations.V8Function")
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public final class V8AnnotationProcessor extends AbstractProcessor {
+
+    private static TypeMirror sBooleanBox, sCharBox, sLongBox, sIntBox, sFloatBox, sDoubleBox, sShortBox, sByteBox;
+    private static TypeMirror sObjectType, sStringType;
+    private static TypeMirror sV8FunctionType, sV8GenericObjectType, sV8ObjectType, sV8ArrayType, sV8UndefinedType;
+
     private static class AccessorTuple {
         String property;
         Element getter;
@@ -337,8 +342,24 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
         Elements elems = processingEnv.getElementUtils();
         Types types = processingEnv.getTypeUtils();
-        TypeMirror objectType = elems.getTypeElement("java.lang.Object").asType();
-        ArrayType objectArrayType = types.getArrayType(objectType);
+
+        if (sBooleanBox == null) {
+            sObjectType = elems.getTypeElement("java.lang.Object").asType();
+            sStringType = elems.getTypeElement("java.lang.String").asType();
+            sBooleanBox = elems.getTypeElement("java.lang.Boolean").asType();
+            sByteBox = elems.getTypeElement("java.lang.Byte").asType();
+            sCharBox = elems.getTypeElement("java.lang.Character").asType();
+            sShortBox = elems.getTypeElement("java.lang.Short").asType();
+            sIntBox = elems.getTypeElement("java.lang.Integer").asType();
+            sLongBox = elems.getTypeElement("java.lang.Long").asType();
+            sFloatBox = elems.getTypeElement("java.lang.Float").asType();
+            sDoubleBox = elems.getTypeElement("java.lang.Double").asType();
+            sV8FunctionType = elems.getTypeElement("ag.boersego.bgjs.JNIV8Function").asType();
+            sV8ObjectType = elems.getTypeElement("ag.boersego.bgjs.JNIV8Object").asType();
+            sV8GenericObjectType = elems.getTypeElement("ag.boersego.bgjs.JNIV8GenericObject").asType();
+            sV8ArrayType = elems.getTypeElement("ag.boersego.bgjs.JNIV8Array").asType();
+        }
+        ArrayType objectArrayType = types.getArrayType(sObjectType);
 
         for (Element element : env.getElementsAnnotatedWith(V8Class.class)) {
             AnnotationHolder holder = getHolder(annotatedClasses, element);
@@ -347,7 +368,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         for (Element element : env.getElementsAnnotatedWith(V8Function.class)) {
             // validate signature
             ExecutableType emeth = (ExecutableType) element.asType();
-            if (!types.isSameType(emeth.getReturnType(), objectType)) {
+            if (!types.isSameType(emeth.getReturnType(), sObjectType)) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have return type Object", element);
             }
             if (emeth.getParameterTypes().size() != 1) {
@@ -387,7 +408,9 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must return same type as setter " + tuple.setterKind, element);
                 }
             }
-            tuple.kind = getterKind;
+            if (validateAccessorType(element, getterKind)) {
+                tuple.kind = getterKind;
+            }
         }
         for (Element element : env.getElementsAnnotatedWith(V8Setter.class)) {
             // determine property name
@@ -410,7 +433,10 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must accept exactly one parameter of type " + tuple.kind, element);
             }
             // store
-            tuple.setterKind = emeth.getParameterTypes().get(0);
+
+            if (validateAccessorType(element, emeth.getParameterTypes().get(0))) {
+                tuple.setterKind = emeth.getParameterTypes().get(0);
+            }
             tuple.setter = element;
         }
         for (String key : annotatedClasses.keySet()) {
@@ -419,6 +445,53 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         }
 
         return true;
+    }
+
+    private boolean validateAccessorType(final Element element, final TypeMirror mirror) {
+        final Types types = processingEnv.getTypeUtils();
+        switch (mirror.getKind()) {
+            case BOOLEAN:
+            case INT:
+            case BYTE:
+            case CHAR:
+            case SHORT:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+                return true;
+            case DECLARED:
+                // Check if it is an autoboxed type
+                if (types.isSameType(mirror, sBooleanBox)
+                        || types.isSameType(mirror, sCharBox)
+                        || types.isSameType(mirror, sByteBox)
+                        || types.isSameType(mirror, sShortBox)
+                        || types.isSameType(mirror, sIntBox)
+                        || types.isSameType(mirror, sLongBox)
+                        || types.isSameType(mirror, sFloatBox)
+                        || types.isSameType(mirror, sDoubleBox)) {
+                    return true;
+                }
+                // String, Object and our own V8 types are also allowed
+                if (types.isSameType(mirror, sObjectType)
+                        || types.isSameType(mirror, sStringType)
+                        || types.isSameType(mirror, sV8ArrayType)
+                        || types.isSameType(mirror, sV8GenericObjectType)
+                        || types.isSameType(mirror, sV8FunctionType)) {
+                    return true;
+                }
+
+                // Also accept subclasses of V8Object
+                if (types.isSubtype(mirror, sV8ObjectType)) {
+                    return true;
+                }
+
+                // We can't accept other types
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot call accessor with type " + mirror + "  which is neither primitive, boxed or JNIV8 specific", element);
+                return false;
+            default:
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot call accessor with type " + mirror, element);
+                return false;
+        }
     }
 
     /*-----------------------
