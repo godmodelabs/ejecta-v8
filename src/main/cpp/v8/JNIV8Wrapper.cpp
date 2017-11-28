@@ -138,7 +138,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
 
     // find class info container
     auto it = _objmap.find(canonicalName);
-    JNI_ASSERT(it != _objmap.end(), "Attempt to retrieve class info for unregistered class");
+    JNI_ASSERTF(it != _objmap.end(), "Attempt to retrieve class info for unregistered class: %s", canonicalName.c_str());
 
     // check if class info object already exists for this engine!
     for(auto &it2 : it->second->classInfos) {
