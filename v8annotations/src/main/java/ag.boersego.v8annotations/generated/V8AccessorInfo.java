@@ -10,12 +10,14 @@ public class V8AccessorInfo {
     public String getter;
     public String type;
     public boolean isStatic;
+    public boolean isNullable;
 
-    public V8AccessorInfo(String property, String type, String getter, String setter, boolean isStatic) {
+    public V8AccessorInfo(String property, String type, String getter, String setter, boolean isStatic, boolean isNullable) {
         this.property = property;
         this.getter = getter;
         this.setter = setter;
         this.type = type;
         this.isStatic = isStatic;
+        this.isNullable = isNullable;
     };
 };

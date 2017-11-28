@@ -97,7 +97,10 @@ void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const Pro
                     return;
             }
         }
-
+        if(env->ExceptionCheck()) {
+            BGJS_CURRENT_V8ENGINE(isolate)->forwardJNIExceptionToV8();
+            return;
+        }
         info.GetReturnValue().Set(value);
     }
 }
@@ -114,7 +117,7 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
 
     if (cb->javaSetterId) {
         jobject jobj = nullptr;
-        jvalue jvalue;
+        jvalue jvalue = {0};
         JNIEnv *env = JNIWrapper::getEnvironment();
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
@@ -125,13 +128,22 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
 
         // all non-scalar object types: simply use IsInstanceOf with the cached class
         if(cb->valueClass) {
+            // special case: undefined is treated as null, because we can't differentiate in java/kotlin
+            if(value->IsUndefined() && !env->IsSameObject(cb->valueClass, _jniObject.clazz)) {
+                jvalue.l = nullptr;
             // special case: strings are objects, but they also need coercion!
-            if(cb->valueClass == _jniString.clazz) {
+            } else if(env->IsSameObject(cb->valueClass, _jniString.clazz)) {
                 jvalue.l = JNIV8Wrapper::v8value2jobject(value->ToString());
             } else {
                 jvalue.l = JNIV8Wrapper::v8value2jobject(value);
             }
-            if(!env->IsInstanceOf(jvalue.l, cb->valueClass)) {
+            if(env->IsSameObject(jvalue.l, nullptr)) {
+                if(!cb->isNullable) {
+                    isolate->ThrowException(v8::Exception::TypeError(
+                            String::NewFromUtf8(isolate, "property is not nullable")));
+                    return;
+                }
+            } else if(!env->IsInstanceOf(jvalue.l, cb->valueClass)) {
                 isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid parameter passed to setter")));
                 return;
             }
@@ -171,6 +183,10 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
             env->CallVoidMethod(jobj, cb->javaSetterId, jvalue);
         } else {
             env->CallStaticVoidMethod(cb->javaClass, cb->javaSetterId, jvalue);
+        }
+        if(env->ExceptionCheck()) {
+            BGJS_CURRENT_V8ENGINE(isolate)->forwardJNIExceptionToV8();
+            return;
         }
     }
 }
@@ -221,6 +237,11 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
         result = env->CallObjectMethod(jobj, cb->javaMethodId, jargs);
     } else {
         result = env->CallStaticObjectMethod(cb->javaClass, cb->javaMethodId, jargs);
+    }
+
+    if(env->ExceptionCheck()) {
+        BGJS_CURRENT_V8ENGINE(isolate)->forwardJNIExceptionToV8();
+        return;
     }
 
     args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
@@ -374,17 +395,18 @@ void V8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmetho
     _registerJavaMethod(holder);
 }
 
-void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const std::string& typeName, jmethodID getterId, jmethodID setterId) {
+void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const std::string& typeName, bool isNullable, jmethodID getterId, jmethodID setterId) {
     JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder();
     holder->propertyName = propertyName;
     holder->typeName = typeName;
     holder->javaGetterId = getterId;
     holder->javaSetterId = setterId;
     holder->isStatic = false;
+    holder->isNullable = isNullable;
     _registerJavaAccessor(holder);
 }
 
-void V8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const std::string& typeName,  jmethodID getterId,
+void V8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const std::string& typeName, bool isNullable, jmethodID getterId,
                                              jmethodID setterId) {
     JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder();
     holder->propertyName = propertyName;
@@ -392,6 +414,7 @@ void V8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, co
     holder->javaGetterId = getterId;
     holder->javaSetterId = setterId;
     holder->isStatic = true;
+    holder->isNullable = isNullable;
     _registerJavaAccessor(holder);
 }
 

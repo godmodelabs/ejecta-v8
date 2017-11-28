@@ -255,6 +255,7 @@ private:
         jfieldID getterId;
         jfieldID setterId;
         jfieldID isStaticId;
+        jfieldID isNullableId;
         jfieldID typeId;
     } _jniV8AccessorInfo;
     static struct {

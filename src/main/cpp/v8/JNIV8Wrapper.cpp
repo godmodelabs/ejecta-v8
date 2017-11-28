@@ -63,6 +63,8 @@ void JNIV8Wrapper::init() {
     _jniV8AccessorInfo.setterId = env->GetFieldID(_jniV8AccessorInfo.clazz, "setter", "Ljava/lang/String;");
     _jniV8AccessorInfo.typeId = env->GetFieldID(_jniV8AccessorInfo.clazz, "type", "Ljava/lang/String;");
     _jniV8AccessorInfo.isStaticId = env->GetFieldID(_jniV8AccessorInfo.clazz, "isStatic", "Z");
+    _jniV8AccessorInfo.isNullableId = env->GetFieldID(_jniV8AccessorInfo.clazz, "isNullable", "Z");
+
 
     _jniDouble.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Double"));
     _jniDouble.valueOfId = env->GetStaticMethodID(_jniDouble.clazz, "valueOf","(D)Ljava/lang/Double;");
@@ -241,11 +243,11 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             if(env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isStaticId)) {
                 if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), ("()" + strTypeName).c_str()); }
                 if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), ("(" + strTypeName + ")V").c_str()); }
-                v8ClassInfo->registerStaticJavaAccessor(strPropertyName, strTypeName, javaGetterId, javaSetterId);
+                v8ClassInfo->registerStaticJavaAccessor(strPropertyName, strTypeName, env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId), javaGetterId, javaSetterId);
             } else {
                 if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), ("()" + strTypeName).c_str()); }
                 if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), ("(" + strTypeName + ")V").c_str()); }
-                v8ClassInfo->registerJavaAccessor(strPropertyName, strTypeName, javaGetterId, javaSetterId);
+                v8ClassInfo->registerJavaAccessor(strPropertyName, strTypeName, env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId), javaGetterId, javaSetterId);
             }
         }
     }

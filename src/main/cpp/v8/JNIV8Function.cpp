@@ -62,6 +62,12 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
     }
 
     jobject result = env->CallObjectMethod(holder->jFuncRef, holder->callbackMethodId, receiver, arguments);
+
+    if(env->ExceptionCheck()) {
+        BGJS_CURRENT_V8ENGINE(args.GetIsolate())->forwardJNIExceptionToV8();
+        return;
+    }
+
     args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
 }
 

@@ -1,5 +1,8 @@
 package ag.boersego.v8annotations.compiler;
 
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 
@@ -54,6 +57,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         Element setter;
         TypeMirror kind;
         TypeMirror setterKind;
+        public boolean nullable;
     }
 
     private static class AnnotationHolder {
@@ -163,24 +167,24 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                     .append(index++ == 0 ? "" : ",")
                     .append("new V8AccessorInfo(\"")
                     .append(tuple.property)
-                    .append("\",");
+                    .append("\", ");
             if (typeCode != null) {
-                builder.append("\"").append(typeCode).append("\",");
+                builder.append("\"").append(typeCode).append("\", ");
             } else {
-                builder.append("null,");
+                builder.append("null, ");
             }
             if (getterName != null) {
-                builder.append("\"").append(getterName).append("\",");
+                builder.append("\"").append(getterName).append("\", ");
             } else {
-                builder.append("null,");
+                builder.append("null, ");
             }
             if (setterName != null) {
-                builder.append("\"").append(setterName).append("\",");
+                builder.append("\"").append(setterName).append("\", ");
             } else {
-                builder.append("null,");
+                builder.append("null, ");
             }
 
-            builder.append(isGetterStatic ? "true" : "false").append(")\n");
+            builder.append(isGetterStatic ? "true, " : "false, ").append(tuple.nullable ? "true" : "false").append(")\n");
         }
 
         builder.append("\t\t};\n")
@@ -436,6 +440,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
             if (validateAccessorType(element, emeth.getParameterTypes().get(0))) {
                 tuple.setterKind = emeth.getParameterTypes().get(0);
+                tuple.nullable = isAccessorNullable(element, tuple.setterKind);
             }
             tuple.setter = element;
         }
@@ -444,6 +449,25 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             generateBinding(holder);
         }
 
+        return true;
+    }
+
+    private boolean isAccessorNullable(final Element element, final TypeMirror mirror) {
+        if (mirror.getKind().isPrimitive()) {
+            return false;
+        }
+        if (mirror.getAnnotation(Nullable.class) != null) {
+            return true;
+        }
+        if (mirror.getAnnotation(NonNull.class) != null) {
+            return false;
+        }
+        if (mirror.getAnnotation(org.jetbrains.annotations.NotNull.class) != null) {
+            return false;
+        }
+        if (mirror.getAnnotation(org.jetbrains.annotations.Nullable.class) != null) {
+            return true;
+        }
         return true;
     }
 

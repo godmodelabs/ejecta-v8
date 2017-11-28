@@ -31,7 +31,7 @@ struct JNIV8ObjectJavaAccessorHolder {
     jmethodID javaGetterId;
     jmethodID javaSetterId;
     jclass javaClass, valueClass;
-    bool isStatic;
+    bool isStatic, isNullable;
 };
 
 /**
@@ -135,8 +135,8 @@ private:
 
     void registerJavaMethod(const std::string& methodName, jmethodID methodId);
     void registerStaticJavaMethod(const std::string& methodName, jmethodID methodId);
-    void registerJavaAccessor(const std::string& propertyName, const std::string& typeName, jmethodID getterId, jmethodID setterId);
-    void registerStaticJavaAccessor(const std::string& propertyName, const std::string& typeName, jmethodID getterId, jmethodID setterId);
+    void registerJavaAccessor(const std::string& propertyName, const std::string& typeName, bool isNullable, jmethodID getterId, jmethodID setterId);
+    void registerStaticJavaAccessor(const std::string& propertyName, const std::string& typeName, bool isNullable, jmethodID getterId, jmethodID setterId);
 
     void _registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder);
     void _registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder);
