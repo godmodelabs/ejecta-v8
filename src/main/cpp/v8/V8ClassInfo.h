@@ -27,9 +27,10 @@ typedef void(*JNIV8ObjectStaticAccessorSetterCallback)(const std::string &proper
  */
 struct JNIV8ObjectJavaAccessorHolder {
     std::string propertyName;
+    std::string typeName;
     jmethodID javaGetterId;
     jmethodID javaSetterId;
-    jclass javaClass;
+    jclass javaClass, valueClass;
     bool isStatic;
 };
 
@@ -134,8 +135,8 @@ private:
 
     void registerJavaMethod(const std::string& methodName, jmethodID methodId);
     void registerStaticJavaMethod(const std::string& methodName, jmethodID methodId);
-    void registerJavaAccessor(const std::string& propertyName, jmethodID getterId, jmethodID setterId);
-    void registerStaticJavaAccessor(const std::string& propertyName, jmethodID getterId, jmethodID setterId);
+    void registerJavaAccessor(const std::string& propertyName, const std::string& typeName, jmethodID getterId, jmethodID setterId);
+    void registerStaticJavaAccessor(const std::string& propertyName, const std::string& typeName, jmethodID getterId, jmethodID setterId);
 
     void _registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder);
     void _registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder);
@@ -156,6 +157,10 @@ private:
     static struct {
         jclass clazz;
     } _jniObject;
+
+    static struct {
+        jclass clazz;
+    } _jniString;
 
     static void v8JavaAccessorGetterCallback(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value> &info);
     static void v8JavaAccessorSetterCallback(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);

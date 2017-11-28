@@ -9,6 +9,7 @@ using namespace v8;
 #include "JNIV8Array.h"
 #include "JNIV8GenericObject.h"
 #include "JNIV8Function.h"
+#include "v8.h"
 
 #include <string>
 #include <algorithm>
@@ -60,6 +61,7 @@ void JNIV8Wrapper::init() {
     _jniV8AccessorInfo.propertyId = env->GetFieldID(_jniV8AccessorInfo.clazz, "property", "Ljava/lang/String;");
     _jniV8AccessorInfo.getterId = env->GetFieldID(_jniV8AccessorInfo.clazz, "getter", "Ljava/lang/String;");
     _jniV8AccessorInfo.setterId = env->GetFieldID(_jniV8AccessorInfo.clazz, "setter", "Ljava/lang/String;");
+    _jniV8AccessorInfo.typeId = env->GetFieldID(_jniV8AccessorInfo.clazz, "type", "Ljava/lang/String;");
     _jniV8AccessorInfo.isStaticId = env->GetFieldID(_jniV8AccessorInfo.clazz, "isStatic", "Z");
 
     _jniDouble.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Double"));
@@ -234,15 +236,16 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.propertyId));
             const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.getterId));
             const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.setterId));
+            const std::string strTypeName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.typeId));
             jmethodID javaGetterId = NULL, javaSetterId = NULL;
             if(env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isStaticId)) {
-                if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;"); }
-                if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V"); }
-                v8ClassInfo->registerStaticJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
+                if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), ("()" + strTypeName).c_str()); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), ("(" + strTypeName + ")V").c_str()); }
+                v8ClassInfo->registerStaticJavaAccessor(strPropertyName, strTypeName, javaGetterId, javaSetterId);
             } else {
-                if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), "()Ljava/lang/Object;"); }
-                if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), "(Ljava/lang/Object;)V"); }
-                v8ClassInfo->registerJavaAccessor(strPropertyName, javaGetterId, javaSetterId);
+                if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), ("()" + strTypeName).c_str()); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), ("(" + strTypeName + ")V").c_str()); }
+                v8ClassInfo->registerJavaAccessor(strPropertyName, strTypeName, javaGetterId, javaSetterId);
             }
         }
     }
