@@ -1,9 +1,13 @@
 package ag.boersego.v8annotations.compiler;
 
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.TypeName;
+
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -12,13 +16,20 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.SimpleTypeVisitor6;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
@@ -33,21 +44,19 @@ import ag.boersego.v8annotations.V8Setter;
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public final class V8AnnotationProcessor extends AbstractProcessor {
     private static class AccessorTuple {
-        public String property;
-        public Element getter;
-        public Element setter;
+        String property;
+        Element getter;
+        Element setter;
+        TypeMirror kind;
+        TypeMirror setterKind;
     }
-
-    ;
 
     private static class AnnotationHolder {
-        public TypeElement classElement;
-        public ArrayList<Element> annotatedFunctions;
-        public ArrayList<AccessorTuple> annotatedAccessors;
-        public boolean createFromJavaOnly;
+        private TypeElement classElement;
+        private ArrayList<Element> annotatedFunctions;
+        private ArrayList<AccessorTuple> annotatedAccessors;
+        private boolean createFromJavaOnly;
     }
-
-    ;
 
     private AnnotationHolder getHolder(HashMap<String, AnnotationHolder> annotatedClasses, Element element) {
         TypeElement classElement;
@@ -62,8 +71,8 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         holder = annotatedClasses.get(name);
         if (holder == null) {
             holder = new AnnotationHolder();
-            holder.annotatedFunctions = new ArrayList<Element>();
-            holder.annotatedAccessors = new ArrayList<AccessorTuple>();
+            holder.annotatedFunctions = new ArrayList<>();
+            holder.annotatedAccessors = new ArrayList<>();
             holder.classElement = classElement;
             holder.createFromJavaOnly = false;
             annotatedClasses.put(name, holder);
@@ -96,92 +105,6 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         return new String(c);
     }
 
-    @Override
-    public boolean process(
-            Set<? extends TypeElement> annotations,
-            RoundEnvironment env) {
-
-        HashMap<String, AnnotationHolder> annotatedClasses = new HashMap<String, AnnotationHolder>();
-
-        Elements elems = processingEnv.getElementUtils();
-        Types types = processingEnv.getTypeUtils();
-        TypeMirror objectType = elems.getTypeElement("java.lang.Object").asType();
-        ArrayType objectArrayType = types.getArrayType(objectType);
-
-        for (Element element : env.getElementsAnnotatedWith(V8Class.class)) {
-            AnnotationHolder holder = getHolder(annotatedClasses, element);
-            holder.createFromJavaOnly = (element.getAnnotation(V8Class.class).creationPolicy() == V8ClassCreationPolicy.JAVA_ONLY);
-        }
-        for (Element element : env.getElementsAnnotatedWith(V8Function.class)) {
-            // validate signature
-            ExecutableType emeth = (ExecutableType) element.asType();
-            if (!types.isSameType(emeth.getReturnType(), objectType)) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have return type Object", element);
-            }
-            if (emeth.getParameterTypes().size() != 1) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have exactly one parameters", element);
-            } else {
-                TypeMirror param0 = emeth.getParameterTypes().get(0);
-                if (!types.isSameType(param0, objectArrayType)) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "parameter of annotated method must be of type Object[]", element);
-                }
-            }
-            // store
-            AnnotationHolder holder = getHolder(annotatedClasses, element);
-            holder.annotatedFunctions.add(element);
-        }
-        for (Element element : env.getElementsAnnotatedWith(V8Getter.class)) {
-            // determine property name
-            String property = element.getAnnotation(V8Getter.class).property();
-            if (property.isEmpty()) {
-                String name = element.getSimpleName().toString();
-                if (name.indexOf("get") != 0) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'get'", element);
-                }
-                property = lcfirst(name.substring(3));
-            }
-            // validate signature
-            ExecutableType emeth = (ExecutableType) element.asType();
-            if (!types.isSameType(emeth.getReturnType(), objectType)) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have return type Object", element);
-            }
-            if (emeth.getParameterTypes().size() != 0) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must not require parameters", element);
-            }
-            // store
-            AccessorTuple tuple = getAccessorTuple(annotatedClasses, element, property);
-            tuple.getter = element;
-        }
-        for (Element element : env.getElementsAnnotatedWith(V8Setter.class)) {
-            // determine property name
-            String property = element.getAnnotation(V8Setter.class).property();
-            if (property.isEmpty()) {
-                String name = element.getSimpleName().toString();
-                if (name.indexOf("set") != 0) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'set'", element);
-                }
-                property = lcfirst(name.substring(3));
-            }
-            // validate signature
-            ExecutableType emeth = (ExecutableType) element.asType();
-            if (!emeth.getReturnType().getKind().equals(TypeKind.VOID)) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have return type void", element);
-            }
-            if (emeth.getParameterTypes().size() != 1 || !types.isSameType(emeth.getParameterTypes().get(0), objectType)) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must accept exactly one parameter of type Object", element);
-            }
-            // store
-            AccessorTuple tuple = getAccessorTuple(annotatedClasses, element, property);
-            tuple.setter = element;
-        }
-        for (String key : annotatedClasses.keySet()) {
-            AnnotationHolder holder = annotatedClasses.get(key);
-            generateBinding(holder);
-        }
-
-        return true;
-    }
-
     private void generateBinding(AnnotationHolder holder) {
         String className = holder.classElement.getQualifiedName().toString();
         String generatedClassName = className + "$V8Binding";
@@ -195,7 +118,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 .append("package " + pkg + ";\n\n")
                 .append("import ag.boersego.v8annotations.generated.V8FunctionInfo;\n")
                 .append("import ag.boersego.v8annotations.generated.V8AccessorInfo;\n\n")
-                .append("public class " + name + " {\n\n") // open class
+                .append("public class ").append(name).append(" {\n\n") // open class
                 .append("\tpublic static boolean createFromJavaOnly = ").append(holder.createFromJavaOnly ? "true" : "false").append(";\n\n")
                 .append("\tpublic static V8FunctionInfo[] getV8Functions() {\n") // open method
                 .append("\t\tV8FunctionInfo[] res = {\n");
@@ -221,6 +144,11 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         for (AccessorTuple tuple : holder.annotatedAccessors) {
             String getterName = tuple.getter != null ? tuple.getter.getSimpleName().toString() : null;
             String setterName = tuple.setter != null ? tuple.setter.getSimpleName().toString() : null;
+            String typeCode = null;
+            if (tuple.kind != null) {
+                typeCode = getJniCodeForType(tuple.getter, tuple.kind);
+            }
+            String typeName = tuple.kind != null ? tuple.kind.toString() : null;
             boolean isGetterStatic = tuple.getter != null && tuple.getter.getModifiers().contains(Modifier.STATIC);
             boolean isSetterStatic = tuple.setter != null && tuple.setter.getModifiers().contains(Modifier.STATIC);
             if (tuple.getter != null && tuple.setter != null && isGetterStatic != isSetterStatic) {
@@ -231,6 +159,11 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                     .append("new V8AccessorInfo(\"")
                     .append(tuple.property)
                     .append("\",");
+            if (typeCode != null) {
+                builder.append("\"").append(typeCode).append("\",");
+            } else {
+                builder.append("null,");
+            }
             if (getterName != null) {
                 builder.append("\"").append(getterName).append("\",");
             } else {
@@ -260,6 +193,264 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         } catch (IOException e) {
             // Note: calling e.printStackTrace() will print IO errors
             // that occur from the file already existing after its first run, this is normal
+        }
+    }
+
+
+    /*---------------
+     * Helper methods borrowed from Dagger
+     */
+
+    /** Returns a string for the raw type of {@code type}. Primitive types are always boxed. */
+    public static String rawTypeToString(TypeMirror type, char innerClassSeparator) {
+        if (!(type instanceof DeclaredType)) {
+            throw new IllegalArgumentException("Unexpected type: " + type);
+        }
+        StringBuilder result = new StringBuilder();
+        DeclaredType declaredType = (DeclaredType) type;
+        rawTypeToString(result, (TypeElement) declaredType.asElement(), innerClassSeparator);
+        return result.toString();
+    }
+
+    private static void rawTypeToString(StringBuilder result, TypeElement type,
+                                        char innerClassSeparator) {
+        String packageName = getPackage(type).getQualifiedName().toString();
+        String qualifiedName = type.getQualifiedName().toString();
+        if (packageName.isEmpty()) {
+            result.append(qualifiedName.replace('.', innerClassSeparator));
+        } else {
+            result.append(packageName);
+            result.append('.');
+            result.append(
+                    qualifiedName.substring(packageName.length() + 1).replace('.', innerClassSeparator));
+        }
+    }
+
+    private static PackageElement getPackage(Element type) {
+        while (type.getKind() != ElementKind.PACKAGE) {
+            type = type.getEnclosingElement();
+        }
+        return (PackageElement) type;
+    }
+
+    private static TypeName box(PrimitiveType primitiveType) {
+        switch (primitiveType.getKind()) {
+            case BYTE:
+                return ClassName.get(Byte.class);
+            case SHORT:
+                return ClassName.get(Short.class);
+            case INT:
+                return ClassName.get(Integer.class);
+            case LONG:
+                return ClassName.get(Long.class);
+            case FLOAT:
+                return ClassName.get(Float.class);
+            case DOUBLE:
+                return ClassName.get(Double.class);
+            case BOOLEAN:
+                return ClassName.get(Boolean.class);
+            case CHAR:
+                return ClassName.get(Character.class);
+            case VOID:
+                return ClassName.get(Void.class);
+            default:
+                throw new AssertionError();
+        }
+    }
+
+    private static void typeToString(final TypeMirror type, final StringBuilder result, final char innerClassSeparator)  {
+        type.accept(new SimpleTypeVisitor6<Void, Void>()
+        {
+            @Override
+            public Void visitDeclared(DeclaredType declaredType, Void v)
+            {
+                TypeElement typeElement = (TypeElement) declaredType.asElement();
+
+                rawTypeToString(result, typeElement, innerClassSeparator);
+
+                List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
+                if (!typeArguments.isEmpty())
+                {
+                    result.append("<");
+                    for (int i = 0; i < typeArguments.size(); i++)
+                    {
+                        if (i != 0)
+                        {
+                            result.append(", ");
+                        }
+
+                        // NOTE: Recursively resolve the types
+                        typeToString(typeArguments.get(i), result, innerClassSeparator);
+                    }
+
+                    result.append(">");
+                }
+
+                return null;
+            }
+
+            @Override
+            public Void visitPrimitive(PrimitiveType primitiveType, Void v) {
+                result.append(box((PrimitiveType) type));
+                return null;
+            }
+
+            @Override
+            public Void visitArray(ArrayType arrayType, Void v) {
+                TypeMirror type = arrayType.getComponentType();
+                if (type instanceof PrimitiveType) {
+                    result.append(type.toString()); // Don't box, since this is an array.
+                } else {
+                    typeToString(arrayType.getComponentType(), result, innerClassSeparator);
+                }
+                result.append("[]");
+                return null;
+            }
+
+            @Override
+            public Void visitTypeVariable(TypeVariable typeVariable, Void v)
+            {
+                result.append(typeVariable.asElement().getSimpleName());
+                return null;
+            }
+
+            @Override
+            public Void visitError(ErrorType errorType, Void v) {
+                throw new UnsupportedOperationException(
+                        "Unexpected TypeKind " + errorType.getKind() + " for "  + type);
+            }
+
+            @Override
+            protected Void defaultAction(TypeMirror typeMirror, Void v) {
+                throw new UnsupportedOperationException(
+                        "Unexpected TypeKind " + typeMirror.getKind() + " for "  + typeMirror);
+            }
+        }, null);
+    }
+
+    @Override
+    public boolean process(
+            Set<? extends TypeElement> annotations,
+            RoundEnvironment env) {
+
+        HashMap<String, AnnotationHolder> annotatedClasses = new HashMap<>();
+
+        Elements elems = processingEnv.getElementUtils();
+        Types types = processingEnv.getTypeUtils();
+        TypeMirror objectType = elems.getTypeElement("java.lang.Object").asType();
+        ArrayType objectArrayType = types.getArrayType(objectType);
+
+        for (Element element : env.getElementsAnnotatedWith(V8Class.class)) {
+            AnnotationHolder holder = getHolder(annotatedClasses, element);
+            holder.createFromJavaOnly = (element.getAnnotation(V8Class.class).creationPolicy() == V8ClassCreationPolicy.JAVA_ONLY);
+        }
+        for (Element element : env.getElementsAnnotatedWith(V8Function.class)) {
+            // validate signature
+            ExecutableType emeth = (ExecutableType) element.asType();
+            if (!types.isSameType(emeth.getReturnType(), objectType)) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have return type Object", element);
+            }
+            if (emeth.getParameterTypes().size() != 1) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have exactly one parameters", element);
+            } else {
+                TypeMirror param0 = emeth.getParameterTypes().get(0);
+                if (!types.isSameType(param0, objectArrayType)) {
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "parameter of annotated method must be of type Object[]", element);
+                }
+            }
+            // store
+            AnnotationHolder holder = getHolder(annotatedClasses, element);
+            holder.annotatedFunctions.add(element);
+        }
+        TypeMirror getterKind;
+        for (Element element : env.getElementsAnnotatedWith(V8Getter.class)) {
+            // determine property name
+            String property = element.getAnnotation(V8Getter.class).property();
+            if (property.isEmpty()) {
+                String name = element.getSimpleName().toString();
+                if (name.indexOf("get") != 0 && name.indexOf("is") != 0) {
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'get' or 'is'", element);
+                }
+                property = lcfirst(name.indexOf("get") == 0 ? name.substring(3) : name.substring(2));
+            }
+            // validate signature
+            ExecutableType emeth = (ExecutableType) element.asType();
+            getterKind = emeth.getReturnType();
+            if (emeth.getParameterTypes().size() != 0) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must not require parameters", element);
+            }
+            // store
+            AccessorTuple tuple = getAccessorTuple(annotatedClasses, element, property);
+            tuple.getter = element;
+            if (tuple.setterKind != null) {
+                if (!types.isSameType(getterKind, tuple.setterKind)) {
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must return same type as setter " + tuple.setterKind, element);
+                }
+            }
+            tuple.kind = getterKind;
+        }
+        for (Element element : env.getElementsAnnotatedWith(V8Setter.class)) {
+            // determine property name
+            String property = element.getAnnotation(V8Setter.class).property();
+            if (property.isEmpty()) {
+                String name = element.getSimpleName().toString();
+                if (name.indexOf("set") != 0) {
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'set'", element);
+                }
+                property = lcfirst(name.substring(3));
+            }
+            AccessorTuple tuple = getAccessorTuple(annotatedClasses, element, property);
+
+            // validate signature
+            ExecutableType emeth = (ExecutableType) element.asType();
+            if (!emeth.getReturnType().getKind().equals(TypeKind.VOID)) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have return type void", element);
+            }
+            if (emeth.getParameterTypes().size() != 1 || tuple.kind != null && !types.isSameType(emeth.getParameterTypes().get(0), tuple.kind)) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must accept exactly one parameter of type " + tuple.kind, element);
+            }
+            // store
+            tuple.setterKind = emeth.getParameterTypes().get(0);
+            tuple.setter = element;
+        }
+        for (String key : annotatedClasses.keySet()) {
+            AnnotationHolder holder = annotatedClasses.get(key);
+            generateBinding(holder);
+        }
+
+        return true;
+    }
+
+    /*-----------------------
+     * Our own helper methods
+     */
+
+    private String getJniCodeForType(final Element element, final TypeMirror mirror) {
+        switch (mirror.getKind()) {
+            case BOOLEAN:
+                return "Z";
+            case INT:
+                return "I";
+            case BYTE:
+                return "B";
+            case CHAR:
+                return "C";
+            case SHORT:
+                return "S";
+            case LONG:
+                return "J";
+            case FLOAT:
+                return "F";
+            case DOUBLE:
+                return "D";
+            case DECLARED:
+                final StringBuilder sb = new StringBuilder("L");
+                typeToString(mirror, sb, '$');
+                sb.append(";");
+                return sb.toString().replace('.', '/');
+            default:
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot parse jni code for type " + mirror, element);
+                return null;
         }
     }
 }
