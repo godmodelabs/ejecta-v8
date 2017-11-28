@@ -51,12 +51,10 @@ class HttpResponseDetails : JNIV8Object {
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
 class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
-    private var _done: JNIV8Function? = null
-    private var _fail: JNIV8Function? = null
-    private var _always: JNIV8Function? = null
-
-    var done: Any?
-        @V8Getter
+    var done: JNIV8Function? = null
+    @V8Getter get
+    @V8Setter set
+        /* @V8Getter
         get() = _done
         @V8Setter
         set(input) {
@@ -65,33 +63,15 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
             } else {
                 throw IllegalArgumentException("done must be a function")
             }
-        }
+        } */
 
-    var fail: Any?
-        @V8Getter
-        get() = _fail
-        @V8Setter
-        set(input) {
-            if (input is JNIV8Function) {
-                _fail = input
+    var fail: JNIV8Function? = null
+        @V8Getter get
+        @V8Setter set
 
-            } else {
-                throw IllegalArgumentException("done must be a function")
-            }
-        }
-
-    var always: Any?
-        @V8Getter
-        get() = _always
-        @V8Setter
-        set(input) {
-            if (input is JNIV8Function) {
-                _always = input
-
-            } else {
-                throw IllegalArgumentException("done must be a function")
-            }
-        }
+    var always: JNIV8Function? = null
+        @V8Getter get
+        @V8Setter set
 
     constructor(engine: V8Engine) : super(engine)
 
@@ -106,11 +86,11 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
     fun abort(args: Array<Any>): Any? {
         // TODO: Why does this need a parameter?
         aborted = true
-        _fail?.callAsV8Function(null, "abort")
-        _fail?.dispose()
-        _done?.dispose()
-        _always?.callAsV8Function(null, 0, "abort")
-        _always?.dispose()
+        fail?.callAsV8Function(null, "abort")
+        fail?.dispose()
+        done?.dispose()
+        always?.callAsV8Function(null, 0, "abort")
+        always?.dispose()
         return true
     }
 
@@ -127,9 +107,9 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                     val details = HttpResponseDetails(v8Engine)
                     details.setReturnData(mSuccessCode, responseHeaders)
 
-                    _done?.callAsV8Function(mSuccessData, null, details)
+                    done?.callAsV8Function(mSuccessData, null, details)
 
-                    _always?.callAsV8Function(mSuccessData, mSuccessCode, null)
+                    always?.callAsV8Function(mSuccessData, mSuccessCode, null)
                 } else {
                     var info: String? = null
                     var details: HttpResponseDetails? = null
@@ -140,12 +120,12 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                         details.setReturnData(mErrorCode, responseHeaders)
                     }
 
-                    _fail?.callAsV8Function(mErrorData, info, details)
-                    _always?.callAsV8Function(mErrorData, mErrorCode, info)
+                    fail?.callAsV8Function(mErrorData, info, details)
+                    always?.callAsV8Function(mErrorData, mErrorCode, info)
                 }
-                _done?.dispose()
-                _fail?.dispose()
-                _always?.dispose()
+                done?.dispose()
+                fail?.dispose()
+                always?.dispose()
             }
         }
         request.setCacheInstance(cache)
