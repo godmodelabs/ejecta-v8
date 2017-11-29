@@ -1,8 +1,5 @@
 package ag.boersego.v8annotations.compiler;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 
@@ -18,11 +15,14 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ErrorType;
@@ -456,18 +456,20 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         if (mirror.getKind().isPrimitive()) {
             return false;
         }
-        if (mirror.getAnnotation(Nullable.class) != null) {
-            return true;
+
+        VariableElement param = ((ExecutableElement) element).getParameters().get(0);
+        List<? extends AnnotationMirror> mirrors = param.getAnnotationMirrors();
+        for (AnnotationMirror annotation : mirrors) {
+            final String annotationName = annotation.toString();
+            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "Annotationmirror is " + annotationName, element);
+            if (annotationName.endsWith(".NotNull")) {
+                return false;
+            }
+            if (annotationName.endsWith(".Nullable")) {
+                return true;
+            }
         }
-        if (mirror.getAnnotation(NonNull.class) != null) {
-            return false;
-        }
-        if (mirror.getAnnotation(org.jetbrains.annotations.NotNull.class) != null) {
-            return false;
-        }
-        if (mirror.getAnnotation(org.jetbrains.annotations.Nullable.class) != null) {
-            return true;
-        }
+
         return true;
     }
 
