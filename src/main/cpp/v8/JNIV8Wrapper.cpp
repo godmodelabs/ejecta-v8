@@ -261,7 +261,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
                         const std::string strArgumentType = JNIWrapper::jstring2string((jstring)env->GetObjectField(argumentInfo, _jniV8FunctionArgumentInfo.typeId));
 
                         JNI_ASSERT(strArgumentType[0] != '[', "array types are not supported");
-                        JNI_ASSERTF(strArgumentType.length()>1 || std::string("ZBCSIJFD").find(strReturnType) != std::string::npos,
+                        JNI_ASSERTF(strArgumentType.length()>1 || std::string("ZBCSIJFD").find(strArgumentType) != std::string::npos,
                                    "invalid argument type for argument #%d of method '%s' on '%s'", argIdx, strMethodName.c_str(), canonicalName.c_str());
 
                         arguments->push_back({
