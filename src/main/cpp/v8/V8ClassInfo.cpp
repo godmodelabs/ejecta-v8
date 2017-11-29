@@ -8,6 +8,7 @@
 #include "JNIV8Wrapper.h"
 
 #include <cassert>
+#include <stdlib.h>
 
 using namespace v8;
 
@@ -88,61 +89,61 @@ v8::Local<v8::Value> V8ClassInfo::_callJavaMethod(JNIEnv *env, JNIV8ObjectJavaAr
 
     if(returnType.clazz) {
         if(object) {
-            result = JNIV8Wrapper::jobject2v8value(env->CallObjectMethod(object, methodId, args));
+            result = JNIV8Wrapper::jobject2v8value(env->CallObjectMethodA(object, methodId, args));
         } else {
-            result = JNIV8Wrapper::jobject2v8value(env->CallStaticObjectMethod(clazz, methodId, args));
+            result = JNIV8Wrapper::jobject2v8value(env->CallStaticObjectMethodA(clazz, methodId, args));
         }
     } else {
         switch (returnType.type[0]) {
             case 'Z': // boolean
                 result = v8::Boolean::New(isolate,
-                                          object ? env->CallBooleanMethod(object, methodId, args) :
-                                          env->CallStaticBooleanMethod(clazz,
+                                          object ? env->CallBooleanMethodA(object, methodId, args) :
+                                          env->CallStaticBooleanMethodA(clazz,
                                                                        methodId, args));
                 break;
             case 'B': // byte
                 result = v8::Number::New(isolate,
-                                         object ? env->CallByteMethod(object, methodId, args) :
-                                         env->CallStaticByteMethod(clazz, methodId, args));
+                                         object ? env->CallByteMethodA(object, methodId, args) :
+                                         env->CallStaticByteMethodA(clazz, methodId, args));
                 break;
             case 'C': // char
                 result = v8::Number::New(isolate,
-                                         object ? env->CallCharMethod(object, methodId, args) :
-                                         env->CallStaticCharMethod(clazz, methodId, args));
+                                         object ? env->CallCharMethodA(object, methodId, args) :
+                                         env->CallStaticCharMethodA(clazz, methodId, args));
                 break;
             case 'S': // short
                 result = v8::Number::New(isolate,
-                                         object ? env->CallShortMethod(object, methodId, args) :
-                                         env->CallStaticShortMethod(clazz,
+                                         object ? env->CallShortMethodA(object, methodId, args) :
+                                         env->CallStaticShortMethodA(clazz,
                                                                     methodId, args));
                 break;
             case 'I': // integer
                 result = v8::Number::New(isolate,
-                                         object ? env->CallIntMethod(object, methodId, args) :
-                                         env->CallStaticIntMethod(clazz, methodId, args));
+                                         object ? env->CallIntMethodA(object, methodId, args) :
+                                         env->CallStaticIntMethodA(clazz, methodId, args));
                 break;
             case 'J': // long
                 result = v8::Number::New(isolate,
-                                         object ? env->CallLongMethod(object, methodId, args) :
-                                         env->CallStaticLongMethod(clazz, methodId, args));
+                                         object ? env->CallLongMethodA(object, methodId, args) :
+                                         env->CallStaticLongMethodA(clazz, methodId, args));
                 break;
             case 'F': // float
                 result = v8::Number::New(isolate,
-                                         object ? env->CallFloatMethod(object, methodId, args) :
-                                         env->CallStaticFloatMethod(clazz,
+                                         object ? env->CallFloatMethodA(object, methodId, args) :
+                                         env->CallStaticFloatMethodA(clazz,
                                                                     methodId, args));
                 break;
             case 'D': // double
                 result = v8::Number::New(isolate,
-                                         object ? env->CallDoubleMethod(object, methodId, args) :
-                                         env->CallStaticDoubleMethod(clazz,
+                                         object ? env->CallDoubleMethodA(object, methodId, args) :
+                                         env->CallStaticDoubleMethodA(clazz,
                                                                      methodId, args));
                 break;
             case 'V': // void
                 if(object) {
-                    env->CallVoidMethod(object, methodId, args);
+                    env->CallVoidMethodA(object, methodId, args);
                 } else {
-                    env->CallStaticVoidMethod(clazz, methodId, args);
+                    env->CallStaticVoidMethodA(clazz, methodId, args);
                 }
                 result = v8::Undefined(isolate);
                 break;
@@ -309,7 +310,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
                 JNIV8ObjectJavaArgument &arg = (*signature->arguments)[idx];
                 v8::Local<v8::Value> value = args[idx];
 
-                if(!_convertArgument(env, value, arg, &jargs[idx])) {
+                if(!_convertArgument(env, value, arg, &(jargs[idx]))) {
                     // conversion failed => a v8 exception was thrown, simply clean up & return
                     free(jargs);
                     return;
