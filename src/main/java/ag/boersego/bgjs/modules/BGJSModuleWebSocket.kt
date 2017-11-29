@@ -67,25 +67,19 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     }
 
     @V8Function
-    fun close(args: Array<Any>): Any? {
+    fun close(code: Int = 1000, @V8UndefinedIsNull reason: String?): Unit {
         if (socket != null) {
-            val code = if (args.isNotEmpty() && args[0] is Number) (args[0] as Number).toInt() else 1000
-            val reason = if (args.size > 1 && args[1] is String) (args[1] as String) else null
             socket?.close(code, reason)
         }
-        return JNIV8Undefined.GetInstance()
     }
 
     @V8Function
-    fun send(args: Array<Any>): Any? {
+    fun send(msg: String): Any? {
         if (_readyState != ReadyState.OPEN) {
             throw RuntimeException("INVALID_STATE_ERR")
         }
         if (socket != null) {
-            if (args.isEmpty() || args[0] !is String) {
-                throw IllegalArgumentException("send needs one argument of type string")
-            }
-            socket?.send(args[0] as String)
+            socket?.send(msg)
             return true
         }
         return false

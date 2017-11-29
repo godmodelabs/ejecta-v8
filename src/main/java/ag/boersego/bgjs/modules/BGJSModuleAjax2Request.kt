@@ -27,11 +27,8 @@ class HttpResponseDetails : JNIV8Object {
     private var headers: Headers? = null
 
     @V8Function
-    fun getResponseHeader(args: Array<Any>): Any? {
-        if (args.size < 1 || !(args[0] is String)) {
-            throw IllegalArgumentException("getResponseHeader wants one String argument")
-        }
-        return headers?.get(args[0] as String)
+    fun getResponseHeader(headerName: String): Any? {
+        return headers?.get(headerName)
     }
 
     internal fun setReturnData(statusCode: Int, headers: Headers?) {
@@ -67,7 +64,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
     private var aborted: Boolean = false
 
     @V8Function
-    fun abort(args: Array<Any>): Any? {
+    fun abort(): Boolean {
         // TODO: Why does this need a parameter?
         aborted = true
         fail?.callAsV8Function(null, "abort")
