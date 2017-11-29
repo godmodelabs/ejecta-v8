@@ -19,14 +19,8 @@ import java.util.concurrent.ThreadPoolExecutor
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
 class HttpResponseDetails : JNIV8Object {
-    var _statusCode: Int = 0
-    var statusCode: Any?
-        @V8Getter
-        get() = _statusCode
-        @V8Setter
-        set(input) {
-            return
-        }
+    var statusCode: Int = 0
+        @V8Getter get
 
     constructor(engine: V8Engine) : super(engine)
 
@@ -41,7 +35,7 @@ class HttpResponseDetails : JNIV8Object {
     }
 
     internal fun setReturnData(statusCode: Int, headers: Headers?) {
-        this._statusCode = statusCode
+        this.statusCode = statusCode
         this.headers = headers
     }
 
@@ -54,16 +48,6 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
     var done: JNIV8Function? = null
     @V8Getter get
     @V8Setter set
-        /* @V8Getter
-        get() = _done
-        @V8Setter
-        set(input) {
-            if (input is JNIV8Function) {
-                _done = input
-            } else {
-                throw IllegalArgumentException("done must be a function")
-            }
-        } */
 
     var fail: JNIV8Function? = null
         @V8Getter get
