@@ -13,12 +13,13 @@ public class V8AccessorInfo {
     public boolean isNullable;
     public boolean undefinedIsNull;
 
-    public V8AccessorInfo(String property, String type, String getter, String setter, boolean isStatic, boolean isNullable) {
+    public V8AccessorInfo(String property, String type, String getter, String setter, boolean isStatic, boolean isNullable, boolean undefinedIsNull) {
         this.property = property;
         this.getter = getter;
         this.setter = setter;
         this.type = type;
         this.isStatic = isStatic;
         this.isNullable = isNullable;
+        this.undefinedIsNull = undefinedIsNull;
     };
 };

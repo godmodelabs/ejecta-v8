@@ -32,6 +32,7 @@ import ag.boersego.v8annotations.V8ClassCreationPolicy;
 import ag.boersego.v8annotations.V8Function;
 import ag.boersego.v8annotations.V8Getter;
 import ag.boersego.v8annotations.V8Setter;
+import ag.boersego.v8annotations.V8UndefinedIsNull;
 
 @SupportedAnnotationTypes("ag.boersego.v8annotations.V8Function")
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
@@ -47,7 +48,8 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         Element setter;
         TypeMirror kind;
         TypeMirror setterKind;
-        public boolean nullable;
+        boolean nullable;
+        boolean undefinedIsNull;
     }
 
     private static class AnnotationHolder {
@@ -174,7 +176,10 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 builder.append("null, ");
             }
 
-            builder.append(isGetterStatic ? "true, " : "false, ").append(tuple.nullable ? "true" : "false").append(")\n");
+            builder.append(isGetterStatic ? "true, " : "false, ").
+                    append(tuple.nullable ? "true, " : "false, ").
+                    append(tuple.undefinedIsNull ? "true" : "false").
+                    append(")\n");
         }
 
         builder.append("\t\t};\n")
@@ -303,7 +308,10 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
             if (validateAccessorType(element, emeth.getParameterTypes().get(0))) {
                 tuple.setterKind = emeth.getParameterTypes().get(0);
-                tuple.nullable = isAccessorNullable(element, tuple.setterKind);
+                parseAccessorNullable(tuple, element, tuple.setterKind);
+                if (tuple.nullable) {
+
+                }
             }
             tuple.setter = element;
         }
@@ -315,10 +323,13 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         return true;
     }
 
-    private boolean isAccessorNullable(final Element element, final TypeMirror mirror) {
+    private boolean parseAccessorNullable(AccessorTuple tuple, final Element element, final TypeMirror mirror) {
         if (mirror.getKind().isPrimitive()) {
+            tuple.nullable = false;
             return false;
         }
+
+        boolean undefinedIsNull = false;
 
         VariableElement param = ((ExecutableElement) element).getParameters().get(0);
         List<? extends AnnotationMirror> mirrors = param.getAnnotationMirrors();
@@ -326,14 +337,21 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             final String annotationName = annotation.toString();
             // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "Annotationmirror is " + annotationName, element);
             if (annotationName.endsWith(".NotNull")) {
+                tuple.nullable = false;
                 return false;
             }
             if (annotationName.endsWith(".Nullable")) {
-                return true;
+                tuple.nullable = true;
             }
         }
 
-        return true;
+        tuple.nullable = true;
+
+        if (tuple.nullable) {
+            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "nullable annotation is " + element.getAnnotation(V8UndefinedIsNull.class), element);
+            tuple.undefinedIsNull = element.getAnnotation(V8UndefinedIsNull.class) != null;
+        }
+        return tuple.nullable;
     }
 
     private boolean validateAccessorType(final Element element, final TypeMirror mirror) {

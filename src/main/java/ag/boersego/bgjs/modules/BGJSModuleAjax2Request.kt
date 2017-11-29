@@ -47,15 +47,15 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
     var done: JNIV8Function? = null
     @V8Getter get
-    @V8Setter set
+    @V8Setter @V8UndefinedIsNull set
 
     var fail: JNIV8Function? = null
         @V8Getter get
-        @V8Setter set
+        @V8Setter @V8UndefinedIsNull set
 
     var always: JNIV8Function? = null
         @V8Getter get
-        @V8Setter set
+        @V8Setter @V8UndefinedIsNull set
 
     constructor(engine: V8Engine) : super(engine)
 
