@@ -42,21 +42,48 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
     private static TypeMirror sObjectType, sStringType;
     private static TypeMirror sV8FunctionType, sV8GenericObjectType, sV8ObjectType, sV8ArrayType, sV8UndefinedType;
 
-    private static class AccessorTuple {
+    private static class V8Nullable {
+        boolean nullable;
+        boolean undefinedIsNull;
+    }
+
+    private static class AccessorTuple extends V8Nullable {
         String property;
         Element getter;
         Element setter;
         TypeMirror kind;
         TypeMirror setterKind;
-        boolean nullable;
-        boolean undefinedIsNull;
     }
 
     private static class AnnotationHolder {
         private TypeElement classElement;
-        private ArrayList<Element> annotatedFunctions;
+        private ArrayList<AnnotatedFunctionHolder> annotatedFunctions;
         private ArrayList<AccessorTuple> annotatedAccessors;
         private boolean createFromJavaOnly;
+    }
+
+    private static class AnnotatedFunctionHolder {
+        private final String returnType;
+        private ArrayList<AnnotatedFunctionParamHolder> params = new ArrayList<>();
+        private final Element element;
+
+        public AnnotatedFunctionHolder(final Element element, String returnType) {
+            this.element = element;
+            this.returnType = returnType;
+        }
+
+        public void addParameter(final AnnotatedFunctionParamHolder holder) {
+            params.add(holder);
+        }
+    }
+
+    private static class AnnotatedFunctionParamHolder extends V8Nullable {
+
+        private String type;
+
+        public AnnotatedFunctionParamHolder(String paramType) {
+            type = paramType;
+        }
     }
 
     private AnnotationHolder getHolder(HashMap<String, AnnotationHolder> annotatedClasses, Element element) {
@@ -125,14 +152,43 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 .append("\t\tV8FunctionInfo[] res = {\n");
 
         index = 0;
-        for (Element e : holder.annotatedFunctions) {
+        for (final AnnotatedFunctionHolder functionHolder : holder.annotatedFunctions) {
+            final Element e = functionHolder.element;
             String methodName = e.getSimpleName().toString();
             String property = e.getAnnotation(V8Function.class).property();
             if (property.isEmpty()) {
                 property = methodName;
             }
             boolean isStatic = e.getModifiers().contains(Modifier.STATIC);
-            builder.append("\t\t\t").append(index++ == 0 ? "" : ",").append("new V8FunctionInfo(\"").append(property).append("\",\"").append(methodName).append("\",").append(isStatic ? "true" : "false").append(")\n");
+            builder.append("\t\t\t").append(index++ == 0 ? "" : ",")
+                    .append("new V8FunctionInfo(\"")
+                    .append(property)
+                    .append("\", \"")
+                    .append(methodName)
+                    .append("\", \"")
+                    .append(functionHolder.returnType)
+                    .append("\", ")
+                    .append(isStatic ? "true" : "false")
+                    .append(", new V8FunctionInfo.V8FunctionArgumentInfo[] {");
+
+            int paramIndex = 0;
+            for (final AnnotatedFunctionParamHolder paramHolder : functionHolder.params) {
+                if (paramIndex++ != 0) { builder.append(","); }
+                builder.append("\n\t\t\t\tnew V8FunctionInfo.V8FunctionArgumentInfo(\"")
+                        .append(paramHolder.type)
+                        .append("\", ")
+                        .append(paramHolder.nullable)
+                        .append(", ")
+                        .append(paramHolder.undefinedIsNull)
+                        .append(")");
+            }
+
+            if (paramIndex != 0) {
+                builder.append("\n\t\t\t");
+            }
+
+
+            builder.append("}").append(")\n");
         }
 
         builder.append("\t\t};\n")
@@ -147,7 +203,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             String setterName = tuple.setter != null ? tuple.setter.getSimpleName().toString() : null;
             String typeCode = null;
             if (tuple.kind != null) {
-                typeCode = getJniCodeForType(tuple.getter, tuple.kind);
+                typeCode = getJniCodeForType(tuple.getter, tuple.kind, false);
             }
             String typeName = tuple.kind != null ? tuple.kind.toString() : null;
             boolean isGetterStatic = tuple.getter != null && tuple.getter.getModifiers().contains(Modifier.STATIC);
@@ -240,20 +296,23 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         for (Element element : env.getElementsAnnotatedWith(V8Function.class)) {
             // validate signature
             ExecutableType emeth = (ExecutableType) element.asType();
-            if (!types.isSameType(emeth.getReturnType(), sObjectType)) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have return type Object", element);
-            }
-            if (emeth.getParameterTypes().size() != 1) {
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must have exactly one parameters", element);
-            } else {
-                TypeMirror param0 = emeth.getParameterTypes().get(0);
-                if (!types.isSameType(param0, objectArrayType)) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "parameter of annotated method must be of type Object[]", element);
+
+            final String returnType = getJniCodeForType(element, emeth.getReturnType(), true);
+            final AnnotatedFunctionHolder functionHolder = new AnnotatedFunctionHolder(element, returnType);
+
+            List<? extends TypeMirror> functionParams = emeth.getParameterTypes();
+            for (final TypeMirror param : functionParams) {
+                if (validateAccessorType(element, param)) {
+                    final String paramType = getJniCodeForType(element, param, false);
+                    final AnnotatedFunctionParamHolder holder = new AnnotatedFunctionParamHolder(paramType);
+                    parseAccessorNullable(holder, element, param);
+                    functionHolder.addParameter(holder);
                 }
             }
             // store
             AnnotationHolder holder = getHolder(annotatedClasses, element);
-            holder.annotatedFunctions.add(element);
+
+            holder.annotatedFunctions.add(functionHolder);
         }
         TypeMirror getterKind;
         for (Element element : env.getElementsAnnotatedWith(V8Getter.class)) {
@@ -323,7 +382,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         return true;
     }
 
-    private boolean parseAccessorNullable(AccessorTuple tuple, final Element element, final TypeMirror mirror) {
+    private boolean parseAccessorNullable(final V8Nullable tuple, final Element element, final TypeMirror mirror) {
         if (mirror.getKind().isPrimitive()) {
             tuple.nullable = false;
             return false;
@@ -405,7 +464,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
      * Our own helper methods
      */
 
-    private String getJniCodeForType(final Element element, final TypeMirror mirror) {
+    private String getJniCodeForType(final Element element, final TypeMirror mirror, final boolean voidIsAllowed) {
         switch (mirror.getKind()) {
             case BOOLEAN:
                 return "Z";
@@ -429,6 +488,9 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 sb.append(";");
                 return sb.toString().replace('.', '/');
             default:
+                if (mirror.getKind() == TypeKind.VOID && voidIsAllowed) {
+                    return "V";
+                }
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot parse jni code for type " + mirror, element);
                 return null;
         }
