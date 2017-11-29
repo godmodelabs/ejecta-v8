@@ -111,6 +111,13 @@ enum class JNIV8ClassCreationPolicy {
     NATIVE_ONLY = 1
 };
 
+enum class JNIV8ObjectJavaArgumentError {
+    OK = 0,
+    NOT_NULLABLE = 1,
+    UNDEFINED = 2,
+    WRONG_TYPE = 3
+};
+
 struct V8ClassInfo {
     friend class JNIV8Object;
     friend class JNIV8Wrapper;
@@ -158,7 +165,7 @@ private:
     void _registerMethod(JNIV8ObjectCallbackHolder *holder);
     void _registerAccessor(JNIV8ObjectAccessorHolder *holder);
 
-    static bool _convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8ObjectJavaArgument arg, jvalue *target);
+    static JNIV8ObjectJavaArgumentError _convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8ObjectJavaArgument arg, jvalue *target);
     static v8::Local<v8::Value> _callJavaMethod(JNIEnv *env, JNIV8ObjectJavaArgument returnType, jclass clazz, jmethodID methodId, jobject object, jvalue *args);
 
     std::vector<JNIV8ObjectJavaCallbackHolder*> javaCallbackHolders;

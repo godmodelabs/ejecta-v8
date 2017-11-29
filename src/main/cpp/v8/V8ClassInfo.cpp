@@ -24,7 +24,7 @@ void V8ClassInfo::initJNICache() {
     _jniString.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/String"));
 }
 
-bool V8ClassInfo::_convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8ObjectJavaArgument arg, jvalue *target) {
+JNIV8ObjectJavaArgumentError V8ClassInfo::_convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8ObjectJavaArgument arg, jvalue *target) {
     if(arg.clazz) {
         // special case: undefined is treated as null, because we can't differentiate in java/kotlin
         if(v8Value->IsUndefined() && arg.undefinedIsNull) {
@@ -37,13 +37,13 @@ bool V8ClassInfo::_convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JN
         }
         if(env->IsSameObject(target->l, nullptr)) {
             if(!arg.isNullable) {
-                v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(
-                        String::NewFromUtf8(v8::Isolate::GetCurrent(), "argument is not nullable")));
-                return false;
+                return JNIV8ObjectJavaArgumentError::NOT_NULLABLE;
             }
         } else if(!env->IsInstanceOf(target->l, arg.clazz)) {
-            v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(v8::Isolate::GetCurrent(), "invalid argument type")));
-            return false;
+            if(v8Value->IsUndefined()) {
+                return JNIV8ObjectJavaArgumentError::UNDEFINED;
+            }
+            return JNIV8ObjectJavaArgumentError::WRONG_TYPE;
         }
     } else {
         switch (arg.type[0]) {
@@ -72,13 +72,10 @@ bool V8ClassInfo::_convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JN
                 target->d = (jdouble) v8Value->ToNumber()->Value();
                 break;
             default:
-                v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(
-                        String::NewFromUtf8(v8::Isolate::GetCurrent(),
-                                            "invalid argument type")));
-                return false;
+                return JNIV8ObjectJavaArgumentError::WRONG_TYPE;
         }
     }
-    return true;
+    return JNIV8ObjectJavaArgumentError::OK;
 }
 
 v8::Local<v8::Value> V8ClassInfo::_callJavaMethod(JNIEnv *env, JNIV8ObjectJavaArgument returnType, jclass clazz, jmethodID methodId, jobject object, jvalue *args) {
@@ -148,6 +145,7 @@ v8::Local<v8::Value> V8ClassInfo::_callJavaMethod(JNIEnv *env, JNIV8ObjectJavaAr
                 result = v8::Undefined(isolate);
                 break;
             default:
+                // this should never happen; types are validated upon registration
                 isolate->ThrowException(v8::Exception::TypeError(
                         String::NewFromUtf8(isolate, "return type unknown")));
                 return v8::Undefined(isolate);
@@ -210,8 +208,25 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
             jobj = v8Object->getJObject();
         }
 
-        if(!_convertArgument(env, value, cb->propertyType, &jvalue)) {
-            // conversion failed => a v8 exception was thrown, simply clean up & return
+        JNIV8ObjectJavaArgumentError res;
+        res = _convertArgument(env, value, cb->propertyType, &jvalue);
+        if(res != JNIV8ObjectJavaArgumentError::OK) {
+            std::string errorMessage;
+            switch(res) {
+                default:
+                case JNIV8ObjectJavaArgumentError::WRONG_TYPE:
+                    errorMessage = "property '" + cb->propertyName + "' is not nullable";
+                    break;
+                case JNIV8ObjectJavaArgumentError::UNDEFINED:
+                    errorMessage = "property '" + cb->propertyName + "' must not be undefined";
+                    break;
+                case JNIV8ObjectJavaArgumentError::NOT_NULLABLE:
+                    errorMessage = "wrong type for property '" + cb->propertyName;
+                    break;
+            }
+            v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(
+                    String::NewFromUtf8(v8::Isolate::GetCurrent(), errorMessage.c_str()))
+            );
             return;
         }
 
@@ -280,7 +295,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
     }
 
     if(!signature) {
-        isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid arguments")));
+        isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, ("invalid number of arguments (" + std::to_string(args.Length()) + ") supplied to "+cb->methodName).c_str())));
         return;
     }
 
@@ -310,8 +325,26 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
                 JNIV8ObjectJavaArgument &arg = (*signature->arguments)[idx];
                 v8::Local<v8::Value> value = args[idx];
 
-                if(!_convertArgument(env, value, arg, &(jargs[idx]))) {
-                    // conversion failed => a v8 exception was thrown, simply clean up & return
+                JNIV8ObjectJavaArgumentError res = _convertArgument(env, value, arg, &(jargs[idx]));
+                if(res != JNIV8ObjectJavaArgumentError::OK) {
+                    // conversion failed => simply clean up & throw an exception
+                    std::string errorMessage;
+                    switch(res) {
+                        default:
+                        case JNIV8ObjectJavaArgumentError::WRONG_TYPE:
+                            errorMessage = "argument #" + std::to_string(idx) + " of '" + cb->methodName + "' is not nullable";
+                            break;
+                        case JNIV8ObjectJavaArgumentError::UNDEFINED:
+                            errorMessage = "argument #" + std::to_string(idx) + " of '" + cb->methodName + "' does not accept undefined";
+                            break;
+                        case JNIV8ObjectJavaArgumentError::NOT_NULLABLE:
+                            errorMessage = "wrong type for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'";
+                            break;
+                    }
+                    v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(
+                            String::NewFromUtf8(v8::Isolate::GetCurrent(), errorMessage.c_str()))
+                    );
+
                     free(jargs);
                     return;
                 }
