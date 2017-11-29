@@ -389,12 +389,16 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         }
 
         boolean undefinedIsNull = false;
-
         VariableElement param = ((ExecutableElement) element).getParameters().get(0);
         List<? extends AnnotationMirror> mirrors = param.getAnnotationMirrors();
         for (AnnotationMirror annotation : mirrors) {
             final String annotationName = annotation.toString();
-            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "Annotationmirror is " + annotationName, element);
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "Annotationmirror is " + annotationName, element);
+            if (annotationName.equals("@ag.boersego.v8annotations.V8UndefinedIsNull")) {
+                undefinedIsNull = true;
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "undefined is null", element);
+                continue;
+            }
             if (annotationName.endsWith(".NotNull")) {
                 tuple.nullable = false;
                 return false;
@@ -406,9 +410,15 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
         tuple.nullable = true;
 
-        if (tuple.nullable) {
-            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "nullable annotation is " + element.getAnnotation(V8UndefinedIsNull.class), element);
-            tuple.undefinedIsNull = element.getAnnotation(V8UndefinedIsNull.class) != null;
+        if (!undefinedIsNull) {
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "nullable annotation is " + element.getAnnotation(V8UndefinedIsNull.class), element);
+            undefinedIsNull = element.getAnnotation(V8UndefinedIsNull.class) != null;
+        }
+
+        tuple.undefinedIsNull = undefinedIsNull;
+
+        if (!tuple.nullable && tuple.undefinedIsNull) {
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "item not nullable but can be set to undefined", element);
         }
         return tuple.nullable;
     }
