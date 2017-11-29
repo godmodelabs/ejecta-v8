@@ -27,6 +27,7 @@ decltype(JNIV8Wrapper::_jniCharacter) JNIV8Wrapper::_jniCharacter = {0};
 decltype(JNIV8Wrapper::_jniNumber) JNIV8Wrapper::_jniNumber = {0};
 decltype(JNIV8Wrapper::_jniV8Object) JNIV8Wrapper::_jniV8Object = {0};
 decltype(JNIV8Wrapper::_jniObject) JNIV8Wrapper::_jniObject = {0};
+decltype(JNIV8Wrapper::_jniV8FunctionArgumentInfo) JNIV8Wrapper::_jniV8FunctionArgumentInfo = {0};
 jobject JNIV8Wrapper::_undefined = nullptr;
 
 pthread_mutex_t JNIV8Wrapper::_mutexEnv;
@@ -56,6 +57,13 @@ void JNIV8Wrapper::init() {
     _jniV8FunctionInfo.propertyId = env->GetFieldID(_jniV8FunctionInfo.clazz, "property", "Ljava/lang/String;");
     _jniV8FunctionInfo.methodId = env->GetFieldID(_jniV8FunctionInfo.clazz, "method", "Ljava/lang/String;");
     _jniV8FunctionInfo.isStaticId = env->GetFieldID(_jniV8FunctionInfo.clazz, "isStatic", "Z");
+    _jniV8FunctionInfo.returnTypeId = env->GetFieldID(_jniV8FunctionInfo.clazz, "returnType", "Ljava/lang/String;");
+    _jniV8FunctionInfo.argumentsId = env->GetFieldID(_jniV8FunctionInfo.clazz, "arguments", "[Lag/boersego/v8annotations/generated/V8FunctionInfo$V8FunctionArgumentInfo;");
+
+    _jniV8FunctionArgumentInfo.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/v8annotations/generated/V8FunctionInfo$V8FunctionArgumentInfo"));
+    _jniV8FunctionArgumentInfo.typeId = env->GetFieldID(_jniV8FunctionArgumentInfo.clazz, "type", "Ljava/lang/String;");
+    _jniV8FunctionArgumentInfo.isNullableId = env->GetFieldID(_jniV8FunctionArgumentInfo.clazz, "isNullable", "Z");
+    _jniV8FunctionArgumentInfo.undefinedIsNullId = env->GetFieldID(_jniV8FunctionArgumentInfo.clazz, "undefinedIsNull", "Z");
 
     _jniV8AccessorInfo.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/v8annotations/generated/V8AccessorInfo"));
     _jniV8AccessorInfo.propertyId = env->GetFieldID(_jniV8AccessorInfo.clazz, "property", "Ljava/lang/String;");
@@ -64,7 +72,7 @@ void JNIV8Wrapper::init() {
     _jniV8AccessorInfo.typeId = env->GetFieldID(_jniV8AccessorInfo.clazz, "type", "Ljava/lang/String;");
     _jniV8AccessorInfo.isStaticId = env->GetFieldID(_jniV8AccessorInfo.clazz, "isStatic", "Z");
     _jniV8AccessorInfo.isNullableId = env->GetFieldID(_jniV8AccessorInfo.clazz, "isNullable", "Z");
-
+    _jniV8AccessorInfo.undefinedIsNullId = env->GetFieldID(_jniV8AccessorInfo.clazz, "undefinedIsNull", "Z");
 
     _jniDouble.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Double"));
     _jniDouble.valueOfId = env->GetStaticMethodID(_jniDouble.clazz, "valueOf","(D)Ljava/lang/Double;");
@@ -213,24 +221,79 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
         jmethodID getAccessorsMethodId = env->GetStaticMethodID(clsBinding, "getV8Accessors",
                                                                 "()[Lag/boersego/v8annotations/generated/V8AccessorInfo;");
 
+        // first register functions
         jobjectArray functionInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
                                                                                 getFunctionsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(functionInfos);idx<n;idx++) {
             jobject functionInfo = env->GetObjectArrayElement(functionInfos, idx);
             const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.propertyId));
             const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.methodId));
+            const std::string strReturnType = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.returnTypeId));
+            jobjectArray argumentInfos = (jobjectArray)env->GetObjectField(functionInfo, _jniV8FunctionInfo.argumentsId);
+            std::vector<JNIV8ObjectJavaArgument>* arguments = nullptr;
+
+            JNI_ASSERT(strReturnType[0] != '[', "array types are not supported");
+            JNI_ASSERTF(strReturnType.length()>1 || std::string("ZBCSIJFDV").find(strReturnType) != std::string::npos,
+                        "invalid return type for method '%s' on '%s'", strMethodName.c_str(), canonicalName.c_str());
+
+            // return type information
+            const JNIV8ObjectJavaArgument returnType = {
+                    strReturnType,
+                    false,
+                    false,
+                    strReturnType.length() > 1 ? (jclass)env->NewGlobalRef(env->FindClass(strReturnType.substr(1, strReturnType.length()-2).c_str())) : nullptr
+            };
+
+            JNI_ASSERTF(strReturnType.length() == 1 || returnType.clazz != nullptr, "failed to resolve type of an argument in method '%s' on '%s'", strMethodName.c_str(), canonicalName.c_str());
+
+            // build signature string and collect argument information
+            std::string strSignature = "(";
+            if(env->IsSameObject(argumentInfos, nullptr)) {
+                strSignature = "(Ljava/lang/Object;)" + returnType.type;
+            } else {
+                jsize numArguments = env->GetArrayLength(argumentInfos);
+                // collect arguments
+                // ownership of malloc'ed memory is implicitly transferred to V8ClassInfo!
+                if(numArguments>0) {
+                    arguments = new std::vector<JNIV8ObjectJavaArgument>();
+                    for(jsize argIdx=0; argIdx<numArguments; argIdx++) {
+                        const jobject argumentInfo = env->GetObjectArrayElement(argumentInfos, argIdx);
+                        const std::string strArgumentType = JNIWrapper::jstring2string((jstring)env->GetObjectField(argumentInfo, _jniV8FunctionArgumentInfo.typeId));
+
+                        JNI_ASSERT(strArgumentType[0] != '[', "array types are not supported");
+                        JNI_ASSERTF(strArgumentType.length()>1 || std::string("ZBCSIJFD").find(strReturnType) != std::string::npos,
+                                   "invalid argument type for argument #%d of method '%s' on '%s'", argIdx, strMethodName.c_str(), canonicalName.c_str());
+
+                        arguments->push_back({
+                                                     strArgumentType,
+                                                     (bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.isNullableId),
+                                                     (bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.undefinedIsNullId),
+                                                     strArgumentType.length() > 1 ? (jclass)env->NewGlobalRef(env->FindClass(strArgumentType.substr(1, strArgumentType.length()-2).c_str())) : nullptr
+                                             });
+                        strSignature += strArgumentType;
+                    }
+                }
+                strSignature += ")" + returnType.type;
+            }
+
+            // finally register the method
             jmethodID javaMethodId;
             if(env->GetBooleanField(functionInfo, _jniV8FunctionInfo.isStaticId)) {
                 javaMethodId = env->GetStaticMethodID(clsObject, strMethodName.c_str(),
-                                                "([Ljava/lang/Object;)Ljava/lang/Object;");
-                v8ClassInfo->registerStaticJavaMethod(strFunctionName, javaMethodId);
+                                                strSignature.c_str());
+                v8ClassInfo->registerStaticJavaMethod(strFunctionName, javaMethodId,
+                                                      returnType,
+                                                      arguments);
             } else {
                 javaMethodId = env->GetMethodID(clsObject, strMethodName.c_str(),
-                                                "([Ljava/lang/Object;)Ljava/lang/Object;");
-                v8ClassInfo->registerJavaMethod(strFunctionName, javaMethodId);
+                                                strSignature.c_str());
+                v8ClassInfo->registerJavaMethod(strFunctionName, javaMethodId,
+                                                returnType,
+                                                arguments);
             }
         }
 
+        // now register all property accessors
         jobjectArray accessorInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
                                                                                 getAccessorsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(accessorInfos);idx<n;idx++) {
@@ -238,16 +301,27 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.propertyId));
             const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.getterId));
             const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.setterId));
-            const std::string strTypeName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.typeId));
+            const std::string strType = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.typeId));
+            const JNIV8ObjectJavaArgument property = {
+                    strType,
+                    (bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId),
+                    (bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.undefinedIsNullId),
+                    strType.length() > 1 ? (jclass)env->NewGlobalRef(env->FindClass(strType.substr(1, strType.length()-2).c_str())) : nullptr
+            };
+
+            JNI_ASSERTF(strType.length() == 1 || property.clazz != nullptr, "failed to resolve type of property '%s' on '%s'", strPropertyName.c_str(), canonicalName.c_str());
+            JNI_ASSERTF(strType.length()>1 || std::string("ZBCSIJFD").find(strType) != std::string::npos,
+                        "invalid argument type for property '%s' on '%s'", strPropertyName.c_str(), canonicalName.c_str());
+
             jmethodID javaGetterId = NULL, javaSetterId = NULL;
             if(env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isStaticId)) {
-                if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), ("()" + strTypeName).c_str()); }
-                if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), ("(" + strTypeName + ")V").c_str()); }
-                v8ClassInfo->registerStaticJavaAccessor(strPropertyName, strTypeName, env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId), javaGetterId, javaSetterId);
+                if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), ("()" + strType).c_str()); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), ("(" + strType + ")V").c_str()); }
+                v8ClassInfo->registerStaticJavaAccessor(strPropertyName, property, javaGetterId, javaSetterId);
             } else {
-                if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), ("()" + strTypeName).c_str()); }
-                if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), ("(" + strTypeName + ")V").c_str()); }
-                v8ClassInfo->registerJavaAccessor(strPropertyName, strTypeName, env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId), javaGetterId, javaSetterId);
+                if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), ("()" + strType).c_str()); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), ("(" + strType + ")V").c_str()); }
+                v8ClassInfo->registerJavaAccessor(strPropertyName, property, javaGetterId, javaSetterId);
             }
         }
     }

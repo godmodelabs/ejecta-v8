@@ -248,7 +248,15 @@ private:
         jfieldID propertyId;
         jfieldID methodId;
         jfieldID isStaticId;
+        jfieldID returnTypeId;
+        jfieldID argumentsId;
     } _jniV8FunctionInfo;
+    static struct {
+        jclass clazz;
+        jfieldID typeId;
+        jfieldID isNullableId;
+        jfieldID undefinedIsNullId;
+    } _jniV8FunctionArgumentInfo;
     static struct {
         jclass clazz;
         jfieldID propertyId;
@@ -256,6 +264,7 @@ private:
         jfieldID setterId;
         jfieldID isStaticId;
         jfieldID isNullableId;
+        jfieldID undefinedIsNullId;
         jfieldID typeId;
     } _jniV8AccessorInfo;
     static struct {
