@@ -11,6 +11,7 @@ public class V8AccessorInfo {
     public String type;
     public boolean isStatic;
     public boolean isNullable;
+    public boolean undefinedIsNull;
 
     public V8AccessorInfo(String property, String type, String getter, String setter, boolean isStatic, boolean isNullable) {
         this.property = property;
