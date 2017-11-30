@@ -52,7 +52,6 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         Element getter;
         Element setter;
         TypeMirror kind;
-        TypeMirror setterKind;
     }
 
     private static class AnnotationHolder {
@@ -64,7 +63,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
     private static class AnnotatedFunctionHolder {
         private final String returnType;
-        private ArrayList<AnnotatedFunctionParamHolder> params = null;
+        private ArrayList<AnnotatedFunctionParamHolder> params;
         private final Element element;
 
         public AnnotatedFunctionHolder(final Element element, String returnType) {
@@ -194,11 +193,12 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 if (paramIndex != 0) {
                     builder.append("\n\t\t\t");
                 }
+                builder.append("}");
             } else {
                 builder.append(", null");
             }
 
-            builder.append("}").append(")\n");
+            builder.append(")\n");
         }
 
         builder.append("\t\t};\n")
@@ -353,15 +353,11 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             // store
             AccessorTuple tuple = getAccessorTuple(annotatedClasses, element, property);
             tuple.getter = element;
-            if (tuple.setterKind != null) {
-                if (!types.isSameType(getterKind, tuple.setterKind)) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must return same type as setter " + tuple.setterKind, element);
-                }
-            }
             if (validateAccessorType(element, getterKind)) {
                 tuple.kind = getterKind;
             }
         }
+        TypeMirror setterKind;
         for (Element element : env.getElementsAnnotatedWith(V8Setter.class)) {
             // determine property name
             String property = element.getAnnotation(V8Setter.class).property();
@@ -382,14 +378,17 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             if (emeth.getParameterTypes().size() != 1 || tuple.kind != null && !types.isSameType(emeth.getParameterTypes().get(0), tuple.kind)) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must accept exactly one parameter of type " + tuple.kind, element);
             }
+            setterKind = emeth.getParameterTypes().get(0);
+
             // store
-
-            if (validateAccessorType(element, emeth.getParameterTypes().get(0))) {
-                tuple.setterKind = emeth.getParameterTypes().get(0);
-                parseAccessorNullable(tuple, element, tuple.setterKind);
+            if (validateAccessorType(element, setterKind)) {
+                parseAccessorNullable(tuple, element, setterKind);
                 if (tuple.nullable) {
-
+                    // @TODO: something missing here?
                 }
+            }
+            if(tuple.kind == null) {
+                tuple.kind = setterKind;
             }
             tuple.setter = element;
         }

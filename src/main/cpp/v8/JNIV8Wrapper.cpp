@@ -210,7 +210,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             // build signature string and collect argument information
             std::string strSignature = "(";
             if(env->IsSameObject(argumentInfos, nullptr)) {
-                strSignature = "(Ljava/lang/Object;)" + returnType.type;
+                strSignature = "([Ljava/lang/Object;)" + returnType.type;
             } else {
                 jsize numArguments = env->GetArrayLength(argumentInfos);
                 // collect arguments
