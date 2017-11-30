@@ -11,7 +11,7 @@ void JNIV8GenericObject::initializeJNIBindings(JNIClassInfo *info, bool isReload
     info->registerNativeMethod("Create", "(J)Lag/boersego/bgjs/JNIV8GenericObject;", (void*)JNIV8GenericObject::jniCreate);
 }
 
-void JNIV8GenericObject::initializeV8Bindings(V8ClassInfo *info) {
+void JNIV8GenericObject::initializeV8Bindings(JNIV8ClassInfo *info) {
 
 }
 

@@ -8,8 +8,8 @@
 #include "../bgjs/BGJSV8Engine.h"
 #include "JNIV8Marshalling.h"
 
-class V8ClassInfo;
-class V8ClassInfoContainer;
+class JNIV8ClassInfo;
+class JNIV8ClassInfoContainer;
 class JNIV8Object;
 
 // these declarations use JNIV8Object, but the type is valid for methods on all subclasses, see:
@@ -102,7 +102,7 @@ enum class JNIV8ClassCreationPolicy {
     NATIVE_ONLY = 1
 };
 
-struct V8ClassInfo {
+struct JNIV8ClassInfo {
     friend class JNIV8Object;
     friend class JNIV8Wrapper;
 public:
@@ -136,8 +136,8 @@ public:
      */
     static void initJNICache();
 private:
-    V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine);
-    ~V8ClassInfo();
+    JNIV8ClassInfo(JNIV8ClassInfoContainer *container, BGJSV8Engine *engine);
+    ~JNIV8ClassInfo();
 
     void registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments);
     void registerStaticJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments);
@@ -155,7 +155,7 @@ private:
     std::vector<JNIV8ObjectAccessorHolder*> accessorHolders;
 
     BGJSV8Engine *engine;
-    V8ClassInfoContainer *container;
+    JNIV8ClassInfoContainer *container;
     v8::Persistent<v8::FunctionTemplate> functionTemplate;
     JNIV8ObjectConstructorCallback constructorCallback;
     bool createFromJavaOnly;
@@ -174,26 +174,26 @@ private:
 };
 
 // internal helper methods for creating and initializing objects
-typedef void(*JNIV8ObjectInitializer)(V8ClassInfo *info);
-typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments);
+typedef void(*JNIV8ObjectInitializer)(JNIV8ClassInfo *info);
+typedef std::shared_ptr<JNIV8Object>(*JNIV8ObjectCreator)(JNIV8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments);
 
 /**
  * internal container object for managing all class info instances (one for each v8 engine) of an object
  */
-struct V8ClassInfoContainer {
+struct JNIV8ClassInfoContainer {
     friend class JNIV8Object;
     friend class JNIV8Wrapper;
-    friend class V8ClassInfo;
+    friend class JNIV8ClassInfo;
 private:
-    V8ClassInfoContainer(JNIV8ObjectType type, const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size, V8ClassInfoContainer *baseClassInfo);
+    JNIV8ClassInfoContainer(JNIV8ObjectType type, const std::string& canonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size, JNIV8ClassInfoContainer *baseClassInfo);
 
     JNIV8ObjectType type;
-    V8ClassInfoContainer *baseClassInfo;
+    JNIV8ClassInfoContainer *baseClassInfo;
     size_t size;
     std::string canonicalName;
     JNIV8ObjectInitializer initializer;
     JNIV8ObjectCreator creator;
-    std::vector<V8ClassInfo*> classInfos;
+    std::vector<JNIV8ClassInfo*> classInfos;
 
     jclass clsObject, clsBinding;
 };

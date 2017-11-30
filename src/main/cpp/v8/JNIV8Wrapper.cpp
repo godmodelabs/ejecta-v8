@@ -14,7 +14,7 @@ using namespace v8;
 #include <string>
 #include <algorithm>
 
-std::map<std::string, V8ClassInfoContainer*> JNIV8Wrapper::_objmap;
+std::map<std::string, JNIV8ClassInfoContainer*> JNIV8Wrapper::_objmap;
 
 //const char* JNIV8Wrapper::_v8PrivateKey = "JNIV8WrapperPrivate";
 
@@ -67,14 +67,14 @@ void JNIV8Wrapper::init() {
     JNIV8Object::initJNICache();
     JNIV8Function::initJNICache();
     JNIV8Array::initJNICache();
-    V8ClassInfo::initJNICache();
+    JNIV8ClassInfo::initJNICache();
     JNIV8Marshalling::initJNICache();
     BGJSV8Engine::initJNICache();
 }
 
 void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     v8::Local<v8::External> ext = args.Data().As<v8::External>();
-    V8ClassInfo* info = static_cast<V8ClassInfo*>(ext->Value());
+    JNIV8ClassInfo* info = static_cast<JNIV8ClassInfo*>(ext->Value());
 
     v8::Isolate* isolate = info->engine->getIsolate();
     HandleScope scope(isolate);
@@ -117,7 +117,7 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     }
 }
 
-V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine) {
+JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine) {
     pthread_mutex_lock(&_mutexEnv);
 
     // find class info container
@@ -132,7 +132,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
         }
     }
     // if it was not found we have to create it now & link it with the container
-    auto v8ClassInfo = new V8ClassInfo(it->second, engine);
+    auto v8ClassInfo = new JNIV8ClassInfo(it->second, engine);
     it->second->classInfos.push_back(v8ClassInfo);
 
     // initialize class info: template with constructor and general setup created here
@@ -154,7 +154,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
 
     // inherit from baseclass
     if(v8ClassInfo->container->baseClassInfo) {
-        V8ClassInfo *baseInfo = nullptr;
+        JNIV8ClassInfo *baseInfo = nullptr;
         // base classinfo might not have been initialized yet => do so now!
         _getV8ClassInfo(v8ClassInfo->container->baseClassInfo->canonicalName, engine);
         for(auto &it2 : v8ClassInfo->container->baseClassInfo->classInfos) {
@@ -214,7 +214,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
             } else {
                 jsize numArguments = env->GetArrayLength(argumentInfos);
                 // collect arguments
-                // ownership of malloc'ed memory is implicitly transferred to V8ClassInfo!
+                // ownership of malloc'ed memory is implicitly transferred to JNIV8ClassInfo!
                 if(numArguments>0) {
                     arguments = new std::vector<JNIV8JavaArgument>();
                     for(jsize argIdx=0; argIdx<numArguments; argIdx++) {
@@ -301,7 +301,7 @@ V8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, BGJ
 void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlong jsObjPtr) {
     auto v8Object = JNIWrapper::wrapObject<JNIV8Object>(obj);
     BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
-    V8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine);
+    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine);
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -336,7 +336,7 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
     }
 
     // base class has to be registered if it is not JNIV8Object (which is only registered with JNIWrapper, because it provides no JS functionality on its own)
-    V8ClassInfoContainer *baseInfo = nullptr;
+    JNIV8ClassInfoContainer *baseInfo = nullptr;
     if (!baseCanonicalName.empty()) {
         auto it = _objmap.find(baseCanonicalName);
         if (it == _objmap.end()) {
@@ -352,7 +352,7 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
     if(baseInfo) {
         if (type == JNIV8ObjectType::kWrapper) {
             // wrapper classes can only extend other wrapper classes (or JNIV8Object directly)
-            V8ClassInfoContainer *baseInfo2 = baseInfo;
+            JNIV8ClassInfoContainer *baseInfo2 = baseInfo;
             do {
                 if (baseInfo2->type != JNIV8ObjectType::kWrapper && baseInfo2->baseClassInfo) {
                     return;
@@ -366,7 +366,7 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
         }
     }
 
-    V8ClassInfoContainer *info = new V8ClassInfoContainer(type, canonicalName, i, c, size, baseInfo);
+    JNIV8ClassInfoContainer *info = new JNIV8ClassInfoContainer(type, canonicalName, i, c, size, baseInfo);
     _objmap[canonicalName] = info;
 }
 

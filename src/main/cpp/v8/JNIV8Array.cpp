@@ -57,7 +57,7 @@ void JNIV8Array::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("getV8Element", "(I)Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8Element);
 }
 
-void JNIV8Array::initializeV8Bindings(V8ClassInfo *info) {
+void JNIV8Array::initializeV8Bindings(JNIV8ClassInfo *info) {
 
 }
 

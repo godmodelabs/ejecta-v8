@@ -12,7 +12,7 @@ public:
     JNIV8GenericObject(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
-    static void initializeV8Bindings(V8ClassInfo *info);
+    static void initializeV8Bindings(JNIV8ClassInfo *info);
 
     static jobject jniCreate(JNIEnv *env, jobject obj, jlong enginePtr);
 };

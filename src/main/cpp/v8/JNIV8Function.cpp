@@ -76,7 +76,7 @@ void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("_callAsV8Function", "(ZLjava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
 }
 
-void JNIV8Function::initializeV8Bindings(V8ClassInfo *info) {
+void JNIV8Function::initializeV8Bindings(JNIV8ClassInfo *info) {
 
 }
 

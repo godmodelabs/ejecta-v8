@@ -5,7 +5,7 @@
 #ifndef TRADINGLIB_SAMPLE_JNIV8Object_H
 #define TRADINGLIB_SAMPLE_JNIV8Object_H
 
-#include "V8ClassInfo.h"
+#include "JNIV8ClassInfo.h"
 #include <jni.h>
 #include "../jni/jni.h"
 
@@ -64,10 +64,10 @@ private:
     void linkJSObject(v8::Handle<v8::Object> jsObject);
 
     // initialization; called from JNIV8Wrapper
-    void setJSObject(BGJSV8Engine *engine, V8ClassInfo *cls, v8::Handle<v8::Object> jsObject);
+    void setJSObject(BGJSV8Engine *engine, JNIV8ClassInfo *cls, v8::Handle<v8::Object> jsObject);
 
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
-    static void initializeV8Bindings(V8ClassInfo *info);
+    static void initializeV8Bindings(JNIV8ClassInfo *info);
 
     // jni callbacks
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
@@ -95,7 +95,7 @@ private:
     } _jniHashMap;
     // private properties
     int64_t _externalMemory;
-    V8ClassInfo *_v8ClassInfo;
+    JNIV8ClassInfo *_v8ClassInfo;
     BGJSV8Engine *_bgjsEngine;
     v8::Persistent<v8::Object> _jsObject;
 };

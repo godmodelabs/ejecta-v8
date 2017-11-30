@@ -2,7 +2,7 @@
 // Created by Martin Kleinhans on 18.08.17.
 //
 
-#include "V8ClassInfo.h"
+#include "JNIV8ClassInfo.h"
 #include "../bgjs/BGJSV8Engine.h"
 #include "JNIV8Object.h"
 #include "JNIV8Wrapper.h"
@@ -23,17 +23,17 @@ String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
 );
 
 
-decltype(V8ClassInfo::_jniObject) V8ClassInfo::_jniObject = {0};
+decltype(JNIV8ClassInfo::_jniObject) JNIV8ClassInfo::_jniObject = {0};
 
 /**
  * cache JNI class references
  */
-void V8ClassInfo::initJNICache() {
+void JNIV8ClassInfo::initJNICache() {
     JNIEnv *env = JNIWrapper::getEnvironment();
     _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
 }
 
-void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
     Isolate *isolate = info.GetIsolate();
     HandleScope scope(isolate);
 
@@ -66,7 +66,7 @@ void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const Pro
 }
 
 
-void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
     Isolate *isolate = info.GetIsolate();
     HandleScope scope(isolate);
 
@@ -128,7 +128,7 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
     }
 }
 
-void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     HandleScope scope(args.GetIsolate());
     Isolate *isolate = args.GetIsolate();
 
@@ -245,7 +245,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
     args.GetReturnValue().Set(result);
 }
 
-void V8ClassInfo::v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+void JNIV8ClassInfo::v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -264,7 +264,7 @@ void V8ClassInfo::v8AccessorGetterCallback(Local<String> property, const Propert
 }
 
 
-void V8ClassInfo::v8AccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+void JNIV8ClassInfo::v8AccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -282,7 +282,7 @@ void V8ClassInfo::v8AccessorSetterCallback(Local<String> property, Local<Value> 
     }
 }
 
-void V8ClassInfo::v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void JNIV8ClassInfo::v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     HandleScope scope(args.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -301,8 +301,8 @@ void V8ClassInfo::v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& ar
     }
 }
 
-V8ClassInfoContainer::V8ClassInfoContainer(JNIV8ObjectType type, const std::string& canonicalName, JNIV8ObjectInitializer i,
-                                           JNIV8ObjectCreator c, size_t s, V8ClassInfoContainer *baseClassInfo) :
+JNIV8ClassInfoContainer::JNIV8ClassInfoContainer(JNIV8ObjectType type, const std::string& canonicalName, JNIV8ObjectInitializer i,
+                                           JNIV8ObjectCreator c, size_t s, JNIV8ClassInfoContainer *baseClassInfo) :
         type(type), canonicalName(canonicalName), initializer(i), creator(c), size(s), baseClassInfo(baseClassInfo) {
     if(baseClassInfo) {
         if (!creator) {
@@ -330,11 +330,11 @@ V8ClassInfoContainer::V8ClassInfoContainer(JNIV8ObjectType type, const std::stri
     }
 }
 
-V8ClassInfo::V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine) :
+JNIV8ClassInfo::JNIV8ClassInfo(JNIV8ClassInfoContainer *container, BGJSV8Engine *engine) :
         container(container), engine(engine), constructorCallback(0), createFromJavaOnly(false) {
 }
 
-V8ClassInfo::~V8ClassInfo() {
+JNIV8ClassInfo::~JNIV8ClassInfo() {
     for(auto &it : callbackHolders) {
         delete it;
     }
@@ -364,16 +364,16 @@ V8ClassInfo::~V8ClassInfo() {
     }
 }
 
-void V8ClassInfo::setCreationPolicy(JNIV8ClassCreationPolicy policy) {
+void JNIV8ClassInfo::setCreationPolicy(JNIV8ClassCreationPolicy policy) {
     createFromJavaOnly = policy == JNIV8ClassCreationPolicy::NATIVE_ONLY;
 }
 
-void V8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback) {
+void JNIV8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback) {
     assert(container->type == JNIV8ObjectType::kPersistent);
     constructorCallback = callback;
 }
 
-void V8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMethodCallback callback) {
+void JNIV8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMethodCallback callback) {
     JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder();
     holder->isStatic = false;
     holder->callback.i = callback;
@@ -381,7 +381,7 @@ void V8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMetho
     _registerMethod(holder);
 }
 
-void V8ClassInfo::registerStaticMethod(const std::string& methodName, JNIV8ObjectStaticMethodCallback callback) {
+void JNIV8ClassInfo::registerStaticMethod(const std::string& methodName, JNIV8ObjectStaticMethodCallback callback) {
     JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder();
     holder->isStatic = true;
     holder->callback.s = callback;
@@ -389,7 +389,7 @@ void V8ClassInfo::registerStaticMethod(const std::string& methodName, JNIV8Objec
     _registerMethod(holder);
 }
 
-void V8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
+void JNIV8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
     // check if this is an overload for a method that is already registered
     for(auto &it : javaCallbackHolders) {
         if(it->methodName == methodName) {
@@ -409,7 +409,7 @@ void V8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID me
     _registerJavaMethod(holder);
 }
 
-void V8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
+void JNIV8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
     // check if this is an overload for a method that is already registered
     for(auto &it : javaCallbackHolders) {
         if(it->methodName == methodName) {
@@ -429,7 +429,7 @@ void V8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmetho
     _registerJavaMethod(holder);
 }
 
-void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId, jmethodID setterId) {
+void JNIV8ClassInfo::registerJavaAccessor(const std::string& propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId, jmethodID setterId) {
     JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;
     holder->javaGetterId = getterId;
@@ -438,7 +438,7 @@ void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const JN
     _registerJavaAccessor(holder);
 }
 
-void V8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId,
+void JNIV8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId,
                                              jmethodID setterId) {
     JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;
@@ -449,7 +449,7 @@ void V8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, co
     _registerJavaAccessor(holder);
 }
 
-void V8ClassInfo::registerAccessor(const std::string& propertyName,
+void JNIV8ClassInfo::registerAccessor(const std::string& propertyName,
                       JNIV8ObjectAccessorGetterCallback getter,
                       JNIV8ObjectAccessorSetterCallback setter) {
     JNIV8ObjectAccessorHolder* holder = new JNIV8ObjectAccessorHolder();
@@ -460,7 +460,7 @@ void V8ClassInfo::registerAccessor(const std::string& propertyName,
     _registerAccessor(holder);
 }
 
-void V8ClassInfo::registerStaticAccessor(const std::string &propertyName,
+void JNIV8ClassInfo::registerStaticAccessor(const std::string &propertyName,
                                          JNIV8ObjectStaticAccessorGetterCallback getter,
                                          JNIV8ObjectStaticAccessorSetterCallback setter) {
     JNIV8ObjectAccessorHolder* holder = new JNIV8ObjectAccessorHolder();
@@ -472,7 +472,7 @@ void V8ClassInfo::registerStaticAccessor(const std::string &propertyName,
     _registerAccessor(holder);
 }
 
-void V8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) {
+void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
 
@@ -500,7 +500,7 @@ void V8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) {
     }
 }
 
-void V8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder) {
+void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
 
@@ -533,7 +533,7 @@ void V8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder) {
     }
 }
 
-void V8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
+void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
 
@@ -558,7 +558,7 @@ void V8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     }
 }
 
-void V8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
+void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
 
@@ -588,7 +588,7 @@ void V8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
     }
 }
 
-v8::Local<v8::Object> V8ClassInfo::newInstance() const {
+v8::Local<v8::Object> JNIV8ClassInfo::newInstance() const {
     assert(container->type == JNIV8ObjectType::kPersistent);
 
     Isolate* isolate = engine->getIsolate();
@@ -601,7 +601,7 @@ v8::Local<v8::Object> V8ClassInfo::newInstance() const {
     return handleScope.Escape(ft->InstanceTemplate()->NewInstance());
 }
 
-v8::Local<v8::Function> V8ClassInfo::getConstructor() const {
+v8::Local<v8::Function> JNIV8ClassInfo::getConstructor() const {
     assert(container->type == JNIV8ObjectType::kPersistent);
     Isolate* isolate = engine->getIsolate();
     EscapableHandleScope scope(isolate);

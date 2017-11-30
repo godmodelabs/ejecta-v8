@@ -5,7 +5,7 @@
 #ifndef __JNIV8WRAPPER_H
 #define __JNIV8WRAPPER_H
 
-#include "V8ClassInfo.h"
+#include "JNIV8ClassInfo.h"
 #include "../bgjs/BGJSV8Engine.h"
 
 #include "../jni/jni.h"
@@ -126,7 +126,7 @@ public:
         // we still need a handle scope however...
         v8::HandleScope scope(isolate);
 
-        V8ClassInfoContainer *info = it->second;
+        JNIV8ClassInfoContainer *info = it->second;
 
         if(info->type == JNIV8ObjectType::kWrapper) {
             /*
@@ -169,7 +169,7 @@ public:
     };
 
     /**
-     * retrieves the V8ClassInfo for a native class in the specified engine
+     * retrieves the JNIV8ClassInfo for a native class in the specified engine
      */
     template <typename ObjectType> static
     v8::Local<v8::Function> getJSConstructor(BGJSV8Engine *engine) {
@@ -199,19 +199,19 @@ private:
     //static const char* _v8PrivateKey;
 
     static void _registerObject(JNIV8ObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size);
-    static V8ClassInfo* _getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine);
+    static JNIV8ClassInfo* _getV8ClassInfo(const std::string& canonicalName, BGJSV8Engine *engine);
 
-    static std::map<std::string, V8ClassInfoContainer*> _objmap;
+    static std::map<std::string, JNIV8ClassInfoContainer*> _objmap;
 
     static pthread_mutex_t _mutexEnv;
 
     template<class ObjectType>
-    static void initialize(V8ClassInfo *info) {
+    static void initialize(JNIV8ClassInfo *info) {
         ObjectType::initializeV8Bindings(info);
     }
 
     template<class ObjectType>
-    static std::shared_ptr<JNIV8Object> createJavaClass(V8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments) {
+    static std::shared_ptr<JNIV8Object> createJavaClass(JNIV8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments) {
         std::shared_ptr<ObjectType> ptr = JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj, arguments);
         return ptr;
     }

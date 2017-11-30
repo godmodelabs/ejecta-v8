@@ -120,7 +120,7 @@ v8::Local<v8::Object> JNIV8Object::getJSObject() {
     return handleScope.Escape(localRef);
 }
 
-void JNIV8Object::setJSObject(BGJSV8Engine *engine, V8ClassInfo *cls,
+void JNIV8Object::setJSObject(BGJSV8Engine *engine, JNIV8ClassInfo *cls,
                               Handle<Object> jsObject) {
 
     Isolate *isolate = engine->getIsolate();
@@ -142,7 +142,7 @@ BGJSV8Engine* JNIV8Object::getEngine() const {
     return _bgjsEngine;
 }
 
-void JNIV8Object::initializeV8Bindings(V8ClassInfo *info) {
+void JNIV8Object::initializeV8Bindings(JNIV8ClassInfo *info) {
 
 }
 

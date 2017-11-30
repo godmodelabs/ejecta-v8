@@ -50,7 +50,7 @@ add_library( # Sets the name of the library.
              src/main/cpp/ejecta/EJCanvas/EJCanvasContextScreen.cpp
              src/main/cpp/lodepng/lodepng.cpp
              src/main/cpp/v8/JNIV8Marshalling.cpp
-             src/main/cpp/v8/V8ClassInfo.cpp
+             src/main/cpp/v8/JNIV8ClassInfo.cpp
              src/main/cpp/v8/JNIV8Wrapper.cpp
              src/main/cpp/v8/JNIV8Object.cpp
              src/main/cpp/v8/JNIV8GenericObject.cpp
