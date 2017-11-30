@@ -6,6 +6,7 @@
 #define TRADINGLIB_SAMPLE_V8CLASSINFO_H
 
 #include "../bgjs/BGJSV8Engine.h"
+#include "JNIV8Marshalling.h"
 
 class V8ClassInfo;
 class V8ClassInfoContainer;
@@ -23,20 +24,6 @@ typedef void(*JNIV8ObjectStaticAccessorGetterCallback)(const std::string &proper
 typedef void(*JNIV8ObjectStaticAccessorSetterCallback)(const std::string &propertyName, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
 
 /**
- * struct for describing java method arguments
- */
-struct JNIV8ObjectJavaArgument {
-    std::string type;
-    bool isNullable, undefinedIsNull;
-    jclass clazz;
-};
-
-struct JNIV8ObjectJavaSignatureInfo {
-    jmethodID javaMethodId;
-    std::vector<JNIV8ObjectJavaArgument>* arguments;
-};
-
-/**
  * internal struct for storing information for property accessor bound to java methods
  */
 struct JNIV8ObjectJavaAccessorHolder {
@@ -44,8 +31,10 @@ struct JNIV8ObjectJavaAccessorHolder {
     jmethodID javaGetterId;
     jmethodID javaSetterId;
     jclass javaClass;
-    JNIV8ObjectJavaArgument propertyType;
+    JNIV8JavaArgument propertyType;
     bool isStatic;
+
+    JNIV8ObjectJavaAccessorHolder(JNIV8JavaArgument propertyType) : propertyType(propertyType) {};
 };
 
 /**
@@ -53,10 +42,12 @@ struct JNIV8ObjectJavaAccessorHolder {
  */
 struct JNIV8ObjectJavaCallbackHolder {
     std::string methodName;
-    JNIV8ObjectJavaArgument returnType;
+    JNIV8JavaValue returnType;
     std::vector<JNIV8ObjectJavaSignatureInfo> signatures;
     jclass javaClass;
     bool isStatic;
+
+    JNIV8ObjectJavaCallbackHolder(JNIV8JavaValue returnType) : returnType(returnType) {};
 };
 
 /**
@@ -111,13 +102,6 @@ enum class JNIV8ClassCreationPolicy {
     NATIVE_ONLY = 1
 };
 
-enum class JNIV8ObjectJavaArgumentError {
-    OK = 0,
-    NOT_NULLABLE = 1,
-    UNDEFINED = 2,
-    WRONG_TYPE = 3
-};
-
 struct V8ClassInfo {
     friend class JNIV8Object;
     friend class JNIV8Wrapper;
@@ -155,18 +139,15 @@ private:
     V8ClassInfo(V8ClassInfoContainer *container, BGJSV8Engine *engine);
     ~V8ClassInfo();
 
-    void registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8ObjectJavaArgument& returnType, std::vector<JNIV8ObjectJavaArgument> *arguments);
-    void registerStaticJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8ObjectJavaArgument& returnType, std::vector<JNIV8ObjectJavaArgument> *arguments);
-    void registerJavaAccessor(const std::string& propertyName, const JNIV8ObjectJavaArgument& propertyType, jmethodID getterId, jmethodID setterId);
-    void registerStaticJavaAccessor(const std::string& propertyName, const JNIV8ObjectJavaArgument& propertyType, jmethodID getterId, jmethodID setterId);
+    void registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments);
+    void registerStaticJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments);
+    void registerJavaAccessor(const std::string& propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId, jmethodID setterId);
+    void registerStaticJavaAccessor(const std::string& propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId, jmethodID setterId);
 
     void _registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder);
     void _registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder);
     void _registerMethod(JNIV8ObjectCallbackHolder *holder);
     void _registerAccessor(JNIV8ObjectAccessorHolder *holder);
-
-    static JNIV8ObjectJavaArgumentError _convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8ObjectJavaArgument arg, jvalue *target);
-    static v8::Local<v8::Value> _callJavaMethod(JNIEnv *env, JNIV8ObjectJavaArgument returnType, jclass clazz, jmethodID methodId, jobject object, jvalue *args);
 
     std::vector<JNIV8ObjectJavaCallbackHolder*> javaCallbackHolders;
     std::vector<JNIV8ObjectJavaAccessorHolder*> javaAccessorHolders;
@@ -182,10 +163,6 @@ private:
     static struct {
         jclass clazz;
     } _jniObject;
-
-    static struct {
-        jclass clazz;
-    } _jniString;
 
     static void v8JavaAccessorGetterCallback(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value> &info);
     static void v8JavaAccessorSetterCallback(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);

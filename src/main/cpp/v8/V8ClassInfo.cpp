@@ -12,8 +12,18 @@
 
 using namespace v8;
 
+#define ThrowV8RangeError(msg)\
+v8::Isolate::GetCurrent()->ThrowException(v8::Exception::RangeError(\
+String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
+);
+
+#define ThrowV8TypeError(msg)\
+v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(\
+String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
+);
+
+
 decltype(V8ClassInfo::_jniObject) V8ClassInfo::_jniObject = {0};
-decltype(V8ClassInfo::_jniString) V8ClassInfo::_jniString = {0};
 
 /**
  * cache JNI class references
@@ -21,138 +31,6 @@ decltype(V8ClassInfo::_jniString) V8ClassInfo::_jniString = {0};
 void V8ClassInfo::initJNICache() {
     JNIEnv *env = JNIWrapper::getEnvironment();
     _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
-    _jniString.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/String"));
-}
-
-JNIV8ObjectJavaArgumentError V8ClassInfo::_convertArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8ObjectJavaArgument arg, jvalue *target) {
-    if(arg.clazz) {
-        // special case: undefined is treated as null, because we can't differentiate in java/kotlin
-        if(v8Value->IsUndefined() && arg.undefinedIsNull) {
-            target->l = nullptr;
-            // special case: strings are objects, but they also need coercion!
-        } else if(env->IsSameObject(arg.clazz, _jniString.clazz)) {
-            target->l = JNIV8Wrapper::v8value2jobject(v8Value->ToString());
-        } else {
-            target->l = JNIV8Wrapper::v8value2jobject(v8Value);
-        }
-        if(env->IsSameObject(target->l, nullptr)) {
-            if(!arg.isNullable) {
-                return JNIV8ObjectJavaArgumentError::NOT_NULLABLE;
-            }
-        } else if(!env->IsInstanceOf(target->l, arg.clazz)) {
-            if(v8Value->IsUndefined()) {
-                return JNIV8ObjectJavaArgumentError::UNDEFINED;
-            }
-            return JNIV8ObjectJavaArgumentError::WRONG_TYPE;
-        }
-    } else {
-        switch (arg.type[0]) {
-            case 'Z': // boolean
-                target->z = (jboolean) v8Value->ToBoolean()->BooleanValue();
-                break;
-            case 'B': // byte
-                target->b = (jbyte) v8Value->ToNumber()->Int32Value();
-                break;
-            case 'C': // char
-                target->c = (jchar) BGJS_STRING_FROM_V8VALUE(v8Value)[0];
-                break;
-            case 'S': // short
-                target->s = (jshort) v8Value->ToNumber()->Int32Value();
-                break;
-            case 'I': // integer
-                target->i = (jint) v8Value->ToNumber()->Int32Value();
-                break;
-            case 'J': // long
-                target->j = (jlong) v8Value->ToNumber()->Int32Value();
-                break;
-            case 'F': // float
-                target->f = (jfloat) v8Value->ToNumber()->Value();
-                break;
-            case 'D': // double
-                target->d = (jdouble) v8Value->ToNumber()->Value();
-                break;
-            default:
-                return JNIV8ObjectJavaArgumentError::WRONG_TYPE;
-        }
-    }
-    return JNIV8ObjectJavaArgumentError::OK;
-}
-
-v8::Local<v8::Value> V8ClassInfo::_callJavaMethod(JNIEnv *env, JNIV8ObjectJavaArgument returnType, jclass clazz, jmethodID methodId, jobject object, jvalue *args) {
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    v8::EscapableHandleScope handleScope(isolate);
-
-    v8::Local<v8::Value> result;
-
-    if(returnType.clazz) {
-        if(object) {
-            result = JNIV8Wrapper::jobject2v8value(env->CallObjectMethodA(object, methodId, args));
-        } else {
-            result = JNIV8Wrapper::jobject2v8value(env->CallStaticObjectMethodA(clazz, methodId, args));
-        }
-    } else {
-        switch (returnType.type[0]) {
-            case 'Z': // boolean
-                result = v8::Boolean::New(isolate,
-                                          object ? env->CallBooleanMethodA(object, methodId, args) :
-                                          env->CallStaticBooleanMethodA(clazz,
-                                                                       methodId, args));
-                break;
-            case 'B': // byte
-                result = v8::Number::New(isolate,
-                                         object ? env->CallByteMethodA(object, methodId, args) :
-                                         env->CallStaticByteMethodA(clazz, methodId, args));
-                break;
-            case 'C': // char
-                result = v8::Number::New(isolate,
-                                         object ? env->CallCharMethodA(object, methodId, args) :
-                                         env->CallStaticCharMethodA(clazz, methodId, args));
-                break;
-            case 'S': // short
-                result = v8::Number::New(isolate,
-                                         object ? env->CallShortMethodA(object, methodId, args) :
-                                         env->CallStaticShortMethodA(clazz,
-                                                                    methodId, args));
-                break;
-            case 'I': // integer
-                result = v8::Number::New(isolate,
-                                         object ? env->CallIntMethodA(object, methodId, args) :
-                                         env->CallStaticIntMethodA(clazz, methodId, args));
-                break;
-            case 'J': // long
-                result = v8::Number::New(isolate,
-                                         object ? env->CallLongMethodA(object, methodId, args) :
-                                         env->CallStaticLongMethodA(clazz, methodId, args));
-                break;
-            case 'F': // float
-                result = v8::Number::New(isolate,
-                                         object ? env->CallFloatMethodA(object, methodId, args) :
-                                         env->CallStaticFloatMethodA(clazz,
-                                                                    methodId, args));
-                break;
-            case 'D': // double
-                result = v8::Number::New(isolate,
-                                         object ? env->CallDoubleMethodA(object, methodId, args) :
-                                         env->CallStaticDoubleMethodA(clazz,
-                                                                     methodId, args));
-                break;
-            case 'V': // void
-                if(object) {
-                    env->CallVoidMethodA(object, methodId, args);
-                } else {
-                    env->CallStaticVoidMethodA(clazz, methodId, args);
-                }
-                result = v8::Undefined(isolate);
-                break;
-            default:
-                // this should never happen; types are validated upon registration
-                isolate->ThrowException(v8::Exception::TypeError(
-                        String::NewFromUtf8(isolate, "return type unknown")));
-                return v8::Undefined(isolate);
-        }
-    }
-
-    return handleScope.Escape(result);
 }
 
 void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
@@ -175,11 +53,11 @@ void V8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const Pro
 
         v8::Local<v8::Value> value;
 
-        value = _callJavaMethod(env, cb->propertyType, cb->javaClass, cb->javaGetterId, jobj, nullptr);
+        value = JNIV8Marshalling::callJavaMethod(env, cb->propertyType, cb->javaClass, cb->javaGetterId, jobj, nullptr);
 
         // java method could have thrown an exception; if so forward it to v8
         if(env->ExceptionCheck()) {
-            BGJS_CURRENT_V8ENGINE(isolate)->forwardJNIExceptionToV8();
+            BGJSV8Engine::GetInstance(isolate)->forwardJNIExceptionToV8();
             return;
         }
 
@@ -199,7 +77,8 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
 
     if (cb->javaSetterId) {
         jobject jobj = nullptr;
-        jvalue jvalue = {0};
+        jvalue jval;
+        memset(&jval, 0, sizeof(jvalue));
         JNIEnv *env = JNIWrapper::getEnvironment();
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
@@ -208,37 +87,42 @@ void V8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Val
             jobj = v8Object->getJObject();
         }
 
-        JNIV8ObjectJavaArgumentError res;
-        res = _convertArgument(env, value, cb->propertyType, &jvalue);
-        if(res != JNIV8ObjectJavaArgumentError::OK) {
-            std::string errorMessage;
+        JNIV8MarshallingError res;
+        res = JNIV8Marshalling::convertV8ValueToJavaArgument(env, value, cb->propertyType, &jval);
+        if(res != JNIV8MarshallingError::kOk) {
             switch(res) {
                 default:
-                case JNIV8ObjectJavaArgumentError::WRONG_TYPE:
-                    errorMessage = "property '" + cb->propertyName + "' is not nullable";
+                case JNIV8MarshallingError::kWrongType:
+                    ThrowV8TypeError("property '" + cb->propertyName + "' is not nullable");
                     break;
-                case JNIV8ObjectJavaArgumentError::UNDEFINED:
-                    errorMessage = "property '" + cb->propertyName + "' must not be undefined";
+                case JNIV8MarshallingError::kUndefined:
+                    ThrowV8TypeError("property '" + cb->propertyName + "' must not be undefined");
                     break;
-                case JNIV8ObjectJavaArgumentError::NOT_NULLABLE:
-                    errorMessage = "wrong type for property '" + cb->propertyName;
+                case JNIV8MarshallingError::kNotNullable:
+                    ThrowV8TypeError("wrong type for property '" + cb->propertyName);
+                    break;
+                case JNIV8MarshallingError::kNoNaN:
+                    ThrowV8TypeError("property '" + cb->propertyName + "' must not be NaN");
+                    break;
+                case JNIV8MarshallingError::kVoidNotNull:
+                    ThrowV8TypeError("property '" + cb->propertyName + "' can only be null");
+                    break;
+                case JNIV8MarshallingError::kOutOfRange:
+                    ThrowV8RangeError("assigned value '"+JNIV8Marshalling::v8value2string(value)+"' is out of range for property '" + cb->propertyName + "'");
                     break;
             }
-            v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(
-                    String::NewFromUtf8(v8::Isolate::GetCurrent(), errorMessage.c_str()))
-            );
             return;
         }
 
         if (jobj) {
-            env->CallVoidMethod(jobj, cb->javaSetterId, jvalue);
+            env->CallVoidMethodA(jobj, cb->javaSetterId, &jval);
         } else {
-            env->CallStaticVoidMethod(cb->javaClass, cb->javaSetterId, jvalue);
+            env->CallStaticVoidMethodA(cb->javaClass, cb->javaSetterId, &jval);
         }
 
         // java method could have thrown an exception; if so forward it to v8
         if(env->ExceptionCheck()) {
-            BGJS_CURRENT_V8ENGINE(isolate)->forwardJNIExceptionToV8();
+            BGJSV8Engine::GetInstance(isolate)->forwardJNIExceptionToV8();
             return;
         }
     }
@@ -259,25 +143,11 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
     // otherwise "this" can be anything, we do not care..
     if(!cb->isStatic) {
         v8::Local<v8::Object> thisArg = args.This();
-        if (!thisArg->InternalFieldCount()) {
-            isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid invocation")));
-            return;
-        }
         v8::Local<v8::Value> internalField = thisArg->GetInternalField(0);
-        if (!internalField->IsExternal()) {
-            isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid invocation")));
-            return;
-        }
-
         // this is not really "safe".. but how could it be? another part of the program could store arbitrary stuff in internal fields
         ext = internalField.As<v8::External>();
         JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
         jobj = v8Object->getJObject();
-
-        if (!env->IsInstanceOf(jobj, cb->javaClass)) {
-            isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "invalid invocation")));
-            return;
-        }
     }
 
     // try to find a matching signature
@@ -295,7 +165,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
     }
 
     if(!signature) {
-        isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, ("invalid number of arguments (" + std::to_string(args.Length()) + ") supplied to "+cb->methodName).c_str())));
+        isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, ("invalid number of arguments (" + std::to_string(args.Length()) + ") supplied to " + cb->methodName).c_str())));
         return;
     }
 
@@ -310,7 +180,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
         memset(jargs, 0, sizeof(jvalue)*numJArgs);
         jobjectArray jArray = env->NewObjectArray(args.Length(), _jniObject.clazz, nullptr);
         for (int idx = 0, n = args.Length(); idx < n; idx++) {
-            env->SetObjectArrayElement(jArray, idx, JNIV8Wrapper::v8value2jobject(args[idx]));
+            env->SetObjectArrayElement(jArray, idx, JNIV8Marshalling::v8value2jobject(args[idx]));
         }
         jargs[0].l = jArray;
     } else {
@@ -322,30 +192,34 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
             memset(jargs, 0, sizeof(jvalue) * numJArgs);
 
             for(int idx = 0, n = args.Length(); idx < n; idx++) {
-                JNIV8ObjectJavaArgument &arg = (*signature->arguments)[idx];
+                JNIV8JavaArgument &arg = (*signature->arguments)[idx];
                 v8::Local<v8::Value> value = args[idx];
 
-                JNIV8ObjectJavaArgumentError res = _convertArgument(env, value, arg, &(jargs[idx]));
-                if(res != JNIV8ObjectJavaArgumentError::OK) {
+                JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaArgument(env, value, arg, &(jargs[idx]));
+                if(res != JNIV8MarshallingError::kOk) {
                     // conversion failed => simply clean up & throw an exception
-                    std::string errorMessage;
+                    free(jargs);
                     switch(res) {
                         default:
-                        case JNIV8ObjectJavaArgumentError::WRONG_TYPE:
-                            errorMessage = "argument #" + std::to_string(idx) + " of '" + cb->methodName + "' is not nullable";
+                        case JNIV8MarshallingError::kWrongType:
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' is not nullable");
                             break;
-                        case JNIV8ObjectJavaArgumentError::UNDEFINED:
-                            errorMessage = "argument #" + std::to_string(idx) + " of '" + cb->methodName + "' does not accept undefined";
+                        case JNIV8MarshallingError::kUndefined:
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' does not accept undefined");
                             break;
-                        case JNIV8ObjectJavaArgumentError::NOT_NULLABLE:
-                            errorMessage = "wrong type for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'";
+                        case JNIV8MarshallingError::kNotNullable:
+                            ThrowV8TypeError("wrong type for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
+                            break;
+                        case JNIV8MarshallingError::kNoNaN:
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must not be NaN");
+                            break;
+                        case JNIV8MarshallingError::kVoidNotNull:
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must be null");
+                            break;
+                        case JNIV8MarshallingError::kOutOfRange:
+                            ThrowV8RangeError("value '"+JNIV8Marshalling::v8value2string(value)+"' is out of range for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
                             break;
                     }
-                    v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(
-                            String::NewFromUtf8(v8::Isolate::GetCurrent(), errorMessage.c_str()))
-                    );
-
-                    free(jargs);
                     return;
                 }
             }
@@ -356,7 +230,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
 
     v8::Local<v8::Value> result;
 
-    result = _callJavaMethod(env, cb->returnType, cb->javaClass, signature->javaMethodId, jobj, jargs);
+    result = JNIV8Marshalling::callJavaMethod(env, cb->returnType, cb->javaClass, signature->javaMethodId, jobj, jargs);
 
     if(jargs) {
         free(jargs);
@@ -364,7 +238,7 @@ void V8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>
 
     // java method could have thrown an exception; if so forward it to v8
     if(env->ExceptionCheck()) {
-        BGJS_CURRENT_V8ENGINE(isolate)->forwardJNIExceptionToV8();
+        BGJSV8Engine::GetInstance(isolate)->forwardJNIExceptionToV8();
         return;
     }
 
@@ -515,7 +389,7 @@ void V8ClassInfo::registerStaticMethod(const std::string& methodName, JNIV8Objec
     _registerMethod(holder);
 }
 
-void V8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8ObjectJavaArgument& returnType, std::vector<JNIV8ObjectJavaArgument> *arguments) {
+void V8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
     // check if this is an overload for a method that is already registered
     for(auto &it : javaCallbackHolders) {
         if(it->methodName == methodName) {
@@ -528,16 +402,14 @@ void V8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID me
     }
 
     // otherwise register a new method
-    JNIV8ObjectJavaCallbackHolder* holder = new JNIV8ObjectJavaCallbackHolder();
+    JNIV8ObjectJavaCallbackHolder *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
     holder->methodName = methodName;
     holder->isStatic = false;
-    holder->returnType = returnType;
     holder->signatures.push_back({methodId, arguments});
-
     _registerJavaMethod(holder);
 }
 
-void V8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmethodID methodId, const JNIV8ObjectJavaArgument& returnType, std::vector<JNIV8ObjectJavaArgument> *arguments) {
+void V8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
     // check if this is an overload for a method that is already registered
     for(auto &it : javaCallbackHolders) {
         if(it->methodName == methodName) {
@@ -550,27 +422,25 @@ void V8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmetho
     }
 
     // otherwise register a new method
-    JNIV8ObjectJavaCallbackHolder* holder = new JNIV8ObjectJavaCallbackHolder();
+    JNIV8ObjectJavaCallbackHolder *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
     holder->methodName = methodName;
     holder->isStatic = true;
-    holder->returnType = returnType;
     holder->signatures.push_back({methodId, arguments});
     _registerJavaMethod(holder);
 }
 
-void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const JNIV8ObjectJavaArgument& propertyType, jmethodID getterId, jmethodID setterId) {
-    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder();
+void V8ClassInfo::registerJavaAccessor(const std::string& propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId, jmethodID setterId) {
+    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;
     holder->javaGetterId = getterId;
     holder->javaSetterId = setterId;
     holder->isStatic = false;
-    holder->propertyType = propertyType;
     _registerJavaAccessor(holder);
 }
 
-void V8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8ObjectJavaArgument& propertyType, jmethodID getterId,
+void V8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId,
                                              jmethodID setterId) {
-    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder();
+    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;
     holder->javaGetterId = getterId;
     holder->javaSetterId = setterId;
@@ -626,7 +496,7 @@ void V8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) {
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
         instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()),
-                         FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow));
+                         FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
     }
 }
 
@@ -684,7 +554,7 @@ void V8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
         // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
-        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow));
+        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
     }
 }
 

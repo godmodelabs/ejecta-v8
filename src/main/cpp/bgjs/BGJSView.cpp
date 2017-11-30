@@ -172,7 +172,7 @@ Handle<Value> BGJSView::startJS(const char* fnName,
 	Handle<Value> argv[5] = { uiObj, objInstance, config, Number::New(isolate, configId),
 	    Number::New(isolate, hasIntradayQuotes) };
 
-	BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(isolate);
+	BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
 	Local<Value> res = engine->callFunction(isolate, context->Global(),
 	        fnName, 5, argv);
 	if (res->IsNumber()) {

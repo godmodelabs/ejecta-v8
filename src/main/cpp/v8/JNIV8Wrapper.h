@@ -138,7 +138,7 @@ public:
             } else {
                 // the private key was empty so we have to create a new object
                 v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
-                auto sharedPtr = info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent);
+                auto sharedPtr = info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent);
 
                 // store in private
                 object->SetPrivate(isolate->GetCurrentContext(), privateKey, v8::External::New(isolate, sharedPtr.get()));
@@ -150,7 +150,7 @@ public:
             v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
             JNIEnv *env = JNIWrapper::getEnvironment();
             jobjectArray arguments = env->NewObjectArray(0, _jniObject.clazz, nullptr);
-            auto sharedPtr = info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJS_CURRENT_V8ENGINE(isolate)), persistent, arguments);
+            auto sharedPtr = info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments);
             return std::static_pointer_cast<ObjectType>(sharedPtr);
         } else {
             if (object->InternalFieldCount() >= 1) {
@@ -180,30 +180,6 @@ public:
     }
 
     /**
-     * convert a v8 value to an instance of Object
-     */
-    static jobject v8value2jobject(v8::Local<v8::Value> valueRef);
-
-    /**
-     * convert an instance of Object to a v8value
-     */
-    static v8::Local<v8::Value> jobject2v8value(jobject object);
-
-    /**
-     * convert a jstring to a std::string
-     */
-    static v8::Local<v8::String> jstring2v8string(jstring string);
-    /**
-     * convert a std::string to a jstring
-     */
-    static jstring v8string2jstring(v8::Local<v8::String> string);
-
-    /**
-     * return an object representing undefined in java
-     */
-    static jobject undefinedInJava();
-
-    /**
      * internal utility method; should not be called manually!
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new V8 enabled Java+Native object tuple
@@ -227,8 +203,6 @@ private:
 
     static std::map<std::string, V8ClassInfoContainer*> _objmap;
 
-    static jobject _undefined;
-
     static pthread_mutex_t _mutexEnv;
 
     template<class ObjectType>
@@ -243,6 +217,9 @@ private:
     }
     
     // cache of classes + ids
+    static struct {
+        jclass clazz;
+    } _jniObject;
     static struct {
         jclass clazz;
         jfieldID propertyId;
@@ -267,32 +244,6 @@ private:
         jfieldID undefinedIsNullId;
         jfieldID typeId;
     } _jniV8AccessorInfo;
-    static struct {
-        jclass clazz;
-        jmethodID valueOfId;
-    } _jniDouble;
-    static struct {
-        jclass clazz;
-        jmethodID valueOfId;
-        jmethodID booleanValueId;
-    } _jniBoolean;
-    static struct {
-        jclass clazz;
-    } _jniString;
-    static struct {
-        jclass clazz;
-        jmethodID charValueId;
-    } _jniCharacter;
-    static struct {
-        jclass clazz;
-        jmethodID doubleValueId;
-    } _jniNumber;
-    static struct {
-        jclass clazz;
-    } _jniV8Object;
-    static struct {
-        jclass clazz;
-    } _jniObject;
 };
 
 template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object);

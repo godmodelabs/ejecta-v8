@@ -51,24 +51,24 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
 
     JNIV8FunctionCallbackHolder *holder = static_cast<JNIV8FunctionCallbackHolder*>(ext->Value());
 
-    jobject receiver = JNIV8Wrapper::v8value2jobject(args.This());
+    jobject receiver = JNIV8Marshalling::v8value2jobject(args.This());
     jobjectArray arguments = nullptr;
     jobject value;
 
     arguments = env->NewObjectArray(numArgs - 1, _jniObject.clazz, nullptr);
     for (int i = 1, n = numArgs; i < n; i++) {
-        value = JNIV8Wrapper::v8value2jobject(args[i]);
+        value = JNIV8Marshalling::v8value2jobject(args[i]);
         env->SetObjectArrayElement(arguments, i - 1, value);
     }
 
     jobject result = env->CallObjectMethod(holder->jFuncRef, holder->callbackMethodId, receiver, arguments);
 
     if(env->ExceptionCheck()) {
-        BGJS_CURRENT_V8ENGINE(args.GetIsolate())->forwardJNIExceptionToV8();
+        BGJSV8Engine::GetInstance(args.GetIsolate())->forwardJNIExceptionToV8();
         return;
     }
 
-    args.GetReturnValue().Set(JNIV8Wrapper::jobject2v8value(result));
+    args.GetReturnValue().Set(JNIV8Marshalling::jobject2v8value(result));
 }
 
 void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
@@ -104,7 +104,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     if (numArgs) {
         args = (v8::Local<v8::Value>*)malloc(sizeof(v8::Local<v8::Value>)*numArgs);
         for(jsize i=0; i<numArgs; i++) {
-            args[i] = JNIV8Wrapper::jobject2v8value(env->GetObjectArrayElement(arguments, i));
+            args[i] = JNIV8Marshalling::jobject2v8value(env->GetObjectArrayElement(arguments, i));
         }
     } else {
         args = nullptr;
@@ -121,7 +121,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     } else {
         v8::MaybeLocal<v8::Value> maybeLocal;
         maybeLocal = ptr->getJSObject()->CallAsFunction(context,
-                                                        JNIV8Wrapper::jobject2v8value(receiver),
+                                                        JNIV8Marshalling::jobject2v8value(receiver),
                                                         numArgs, args);
         if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
@@ -132,7 +132,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     if(args) {
         free(args);
     }
-    return JNIV8Wrapper::v8value2jobject(v8::Undefined(isolate));
+    return JNIV8Marshalling::v8value2jobject(v8::Undefined(isolate));
 }
 
 v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {

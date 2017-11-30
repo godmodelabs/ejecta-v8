@@ -3,23 +3,14 @@
 
 #include <v8.h>
 #include <jni.h>
-
-#include "os-android.h"
-
-#ifdef ANDROID
-#include <jni.h>
-#include <string.h>
-#include <sys/types.h>
-#endif
-
-
-#include "BGJSModule.h"
-
 #include <map>
 #include <string>
 #include <set>
-
 #include <mallocdebug.h>
+
+#include "os-android.h"
+#include "BGJSModule.h"
+
 /**
  * BGJSV8Engine
  * Manages a v8 context and exposes script load and execute functions
@@ -27,12 +18,6 @@
  * Copyright 2014 Kevin Read <me@kevin-read.com> and BörseGo AG (https://github.com/godmodelabs/ejecta-v8/)
  * Licensed under the MIT license.
  */
-
-#define BGJS_CURRENT_V8ENGINE(isolate) \
-	reinterpret_cast<BGJSV8Engine*>(isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext))
-
-#define BGJS_STRING_FROM_V8VALUE(value) \
-	(value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(value->ToString())))
 
 class BGJSGLView;
 
@@ -57,6 +42,11 @@ class BGJSV8Engine {
 public:
     BGJSV8Engine(jobject javaObject, jobject javaAssetManager);
 	virtual ~BGJSV8Engine();
+
+	/**
+	 * returns the engine instance for the specified isolate
+	 */
+	static BGJSV8Engine* GetInstance(v8::Isolate* isolate);
 
     v8::MaybeLocal<v8::Value> require(std::string baseNameStr);
     uint8_t requestEmbedderDataIndex();

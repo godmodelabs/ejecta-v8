@@ -174,19 +174,19 @@ void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong chan
 jobject JNIV8Object::jniGetV8Field(JNIEnv *env, jobject obj, jstring name) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
-    MaybeLocal<Value> valueRef = localRef->Get(context, JNIV8Wrapper::jstring2v8string(name));
+    MaybeLocal<Value> valueRef = localRef->Get(context, JNIV8Marshalling::jstring2v8string(name));
     if(valueRef.IsEmpty()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
 
-    return JNIV8Wrapper::v8value2jobject(valueRef.ToLocalChecked());
+    return JNIV8Marshalling::v8value2jobject(valueRef.ToLocalChecked());
 }
 
 void JNIV8Object::jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, void());
 
-    Maybe<bool> res = localRef->Set(context, JNIV8Wrapper::jstring2v8string(name), JNIV8Wrapper::jobject2v8value(value));
+    Maybe<bool> res = localRef->Set(context, JNIV8Marshalling::jstring2v8string(name), JNIV8Marshalling::jobject2v8value(value));
     if(res.IsNothing()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
     }
@@ -197,7 +197,7 @@ jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, job
 
     MaybeLocal<Value> maybeLocal;
     Local<Value> funcRef;
-    maybeLocal = localRef->Get(context, JNIV8Wrapper::jstring2v8string(name));
+    maybeLocal = localRef->Get(context, JNIV8Marshalling::jstring2v8string(name));
     if (!maybeLocal.ToLocal<Value>(&funcRef)) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -216,7 +216,7 @@ jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, job
     if (numArgs) {
         args = (Local<Value>*)malloc(sizeof(Local<Value>)*numArgs);
         for(jsize i=0; i<numArgs; i++) {
-            args[i] = JNIV8Wrapper::jobject2v8value(env->GetObjectArrayElement(arguments, i));
+            args[i] = JNIV8Marshalling::jobject2v8value(env->GetObjectArrayElement(arguments, i));
         }
     } else {
         args = nullptr;
@@ -232,13 +232,13 @@ jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, job
     if(args) {
         free(args);
     }
-    return JNIV8Wrapper::v8value2jobject(resultRef);
+    return JNIV8Marshalling::v8value2jobject(resultRef);
 }
 
 jboolean JNIV8Object::jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, false);
 
-    Local<String> keyRef = JNIV8Wrapper::jstring2v8string(name);
+    Local<String> keyRef = JNIV8Marshalling::jstring2v8string(name);
     Maybe<bool> res = ownOnly ? localRef->HasOwnProperty(context, keyRef) : localRef->Has(context, keyRef);
     if(res.IsNothing()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
@@ -268,7 +268,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        string = JNIV8Wrapper::v8string2jstring(Local<String>::Cast(valueRef));
+        string = JNIV8Marshalling::v8string2jstring(Local<String>::Cast(valueRef));
         if(!result) {
             result = env->NewObjectArray(n, _jniString.clazz, string);
         } else {
@@ -309,8 +309,8 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
 
         env->CallObjectMethod(result,
                               _jniHashMap.putId,
-                              JNIV8Wrapper::v8string2jstring(keyRef),
-                              JNIV8Wrapper::v8value2jobject(valueRef)
+                              JNIV8Marshalling::v8string2jstring(keyRef),
+                              JNIV8Marshalling::v8value2jobject(valueRef)
         );
     }
 
@@ -324,7 +324,7 @@ jstring JNIV8Object::jniToJSON(JNIEnv *env, jobject obj) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
-    return JNIV8Wrapper::v8string2jstring(stringValue.As<v8::String>());
+    return JNIV8Marshalling::v8string2jstring(stringValue.As<v8::String>());
 }
 
 jstring JNIV8Object::jniToString(JNIEnv *env, jobject obj) {
@@ -334,7 +334,7 @@ jstring JNIV8Object::jniToString(JNIEnv *env, jobject obj) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
-    return JNIV8Wrapper::v8string2jstring(maybeLocal.ToLocalChecked());
+    return JNIV8Marshalling::v8string2jstring(maybeLocal.ToLocalChecked());
 }
 
 void JNIV8Object::jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass) {

@@ -64,12 +64,16 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
     private static class AnnotatedFunctionHolder {
         private final String returnType;
-        private ArrayList<AnnotatedFunctionParamHolder> params = new ArrayList<>();
+        private ArrayList<AnnotatedFunctionParamHolder> params = null;
         private final Element element;
 
         public AnnotatedFunctionHolder(final Element element, String returnType) {
             this.element = element;
             this.returnType = returnType;
+        }
+
+        public void makeParameters() {
+            params = new ArrayList<>();
         }
 
         public void addParameter(final AnnotatedFunctionParamHolder holder) {
@@ -168,25 +172,31 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                     .append("\", \"")
                     .append(functionHolder.returnType)
                     .append("\", ")
-                    .append(isStatic ? "true" : "false")
-                    .append(", new V8FunctionInfo.V8FunctionArgumentInfo[] {");
+                    .append(isStatic ? "true" : "false");
 
-            int paramIndex = 0;
-            for (final AnnotatedFunctionParamHolder paramHolder : functionHolder.params) {
-                if (paramIndex++ != 0) { builder.append(","); }
-                builder.append("\n\t\t\t\tnew V8FunctionInfo.V8FunctionArgumentInfo(\"")
-                        .append(paramHolder.type)
-                        .append("\", ")
-                        .append(paramHolder.nullable)
-                        .append(", ")
-                        .append(paramHolder.undefinedIsNull)
-                        .append(")");
+            if(functionHolder.params != null) {
+                builder.append(", new V8FunctionInfo.V8FunctionArgumentInfo[] {");
+
+                int paramIndex = 0;
+                for (final AnnotatedFunctionParamHolder paramHolder : functionHolder.params) {
+                    if (paramIndex++ != 0) {
+                        builder.append(",");
+                    }
+                    builder.append("\n\t\t\t\tnew V8FunctionInfo.V8FunctionArgumentInfo(\"")
+                            .append(paramHolder.type)
+                            .append("\", ")
+                            .append(paramHolder.nullable)
+                            .append(", ")
+                            .append(paramHolder.undefinedIsNull)
+                            .append(")");
+                }
+
+                if (paramIndex != 0) {
+                    builder.append("\n\t\t\t");
+                }
+            } else {
+                builder.append(", null");
             }
-
-            if (paramIndex != 0) {
-                builder.append("\n\t\t\t");
-            }
-
 
             builder.append("}").append(")\n");
         }
@@ -301,14 +311,23 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             final AnnotatedFunctionHolder functionHolder = new AnnotatedFunctionHolder(element, returnType);
 
             List<? extends TypeMirror> functionParams = emeth.getParameterTypes();
-            for (final TypeMirror param : functionParams) {
-                if (validateAccessorType(element, param)) {
-                    final String paramType = getJniCodeForType(element, param, false);
-                    final AnnotatedFunctionParamHolder holder = new AnnotatedFunctionParamHolder(paramType);
-                    parseAccessorNullable(holder, element, param);
-                    functionHolder.addParameter(holder);
+
+            boolean isGenericMethod = functionParams.size() == 1 &&
+                    types.isSameType(functionParams.get(0), objectArrayType) &&
+                    types.isSameType(emeth.getReturnType(), sObjectType);
+
+            if(!isGenericMethod) {
+                functionHolder.makeParameters();
+                for (final TypeMirror param : functionParams) {
+                    if (validateAccessorType(element, param)) {
+                        final String paramType = getJniCodeForType(element, param, false);
+                        final AnnotatedFunctionParamHolder holder = new AnnotatedFunctionParamHolder(paramType);
+                        parseAccessorNullable(holder, element, param);
+                        functionHolder.addParameter(holder);
+                    }
                 }
             }
+
             // store
             AnnotationHolder holder = getHolder(annotatedClasses, element);
 

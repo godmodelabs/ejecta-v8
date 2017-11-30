@@ -39,7 +39,7 @@ AjaxModule::~AjaxModule() {
 void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = args.GetIsolate();
     Isolate::Scope isolateScope(isolate);
-    BGJSV8Engine *engine = BGJS_CURRENT_V8ENGINE(isolate);
+    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
 	HandleScope scope(isolate);
 
 

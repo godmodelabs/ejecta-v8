@@ -42,7 +42,7 @@ jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32
         } else {
             value = maybeValue.ToLocalChecked();
         }
-        env->SetObjectArrayElement(elements, i-from, JNIV8Wrapper::v8value2jobject(value));
+        env->SetObjectArrayElement(elements, i-from, JNIV8Marshalling::v8value2jobject(value));
     }
     return elements;
 }
@@ -90,14 +90,14 @@ jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint 
  * if index is out of bounds, returns JNIV8Undefined
  */
 jobject JNIV8Array::jniGetV8Element(JNIEnv *env, jobject obj, jint index) {
-    JNIV8Object_PrepareJNICall(JNIV8Array, v8::Array, JNIV8Wrapper::undefinedInJava());
+    JNIV8Object_PrepareJNICall(JNIV8Array, v8::Array, JNIV8Marshalling::undefinedInJava());
 
     v8::MaybeLocal<v8::Value> maybeValue;
 
     maybeValue = localRef->Get(context, (uint32_t)index);
-    if(maybeValue.IsEmpty()) return JNIV8Wrapper::undefinedInJava();
+    if(maybeValue.IsEmpty()) return JNIV8Marshalling::undefinedInJava();
 
-    return JNIV8Wrapper::v8value2jobject(maybeValue.ToLocalChecked());
+    return JNIV8Marshalling::v8value2jobject(maybeValue.ToLocalChecked());
 }
 
 jobject JNIV8Array::jniCreate(JNIEnv *env, jobject obj, jlong enginePtr) {
@@ -131,7 +131,7 @@ jobject JNIV8Array::jniCreateWithArray(JNIEnv *env, jobject obj, jlong enginePtr
     v8::Local<v8::Object> objRef = v8::Array::New(isolate, numArgs);
     if (numArgs) {
         for(jsize i=0; i<numArgs; i++) {
-            objRef->Set(i, JNIV8Wrapper::jobject2v8value(env->GetObjectArrayElement(elements, i)));
+            objRef->Set(i, JNIV8Marshalling::jobject2v8value(env->GetObjectArrayElement(elements, i)));
         }
     }
 
