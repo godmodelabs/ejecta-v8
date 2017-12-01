@@ -26,6 +26,7 @@ abstract public class JNIV8Object extends JNIObject {
 
     static private native void RegisterV8Class(String derivedClass, String baseClass);
 
+    public native double toNumber();
     public native String toString();
     public native String toJSON();
 

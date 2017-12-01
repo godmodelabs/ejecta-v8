@@ -77,6 +77,7 @@ private:
     static jboolean jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly);
     static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);
     static jobject jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly);
+    static jdouble jniToNumber(JNIEnv *env, jobject obj);
     static jstring jniToString(JNIEnv *env, jobject obj);
     static jstring jniToJSON(JNIEnv *env, jobject obj);
     static void jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);

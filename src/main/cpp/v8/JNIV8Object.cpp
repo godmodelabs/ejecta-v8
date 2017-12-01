@@ -160,6 +160,7 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("getV8Keys", "(Z)[Ljava/lang/String;", (void*)JNIV8Object::jniGetV8Keys);
     info->registerNativeMethod("getV8Fields", "(Z)Ljava/util/Map;", (void*)JNIV8Object::jniGetV8Fields);
 
+    info->registerNativeMethod("toNumber", "()D", (void*)JNIV8Object::jniToNumber);
     info->registerNativeMethod("toString", "()Ljava/lang/String;", (void*)JNIV8Object::jniToString);
     info->registerNativeMethod("toJSON", "()Ljava/lang/String;", (void*)JNIV8Object::jniToJSON);
 
@@ -315,6 +316,16 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
     }
 
     return result;
+}
+
+jdouble JNIV8Object::jniToNumber(JNIEnv *env, jobject obj) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
+    v8::Maybe<double> numberValue = localRef->NumberValue(context);
+    if(numberValue.IsNothing()) {
+        engine->forwardV8ExceptionToJNI(&try_catch);
+        return nullptr;
+    }
+    return numberValue.ToChecked();
 }
 
 jstring JNIV8Object::jniToJSON(JNIEnv *env, jobject obj) {
