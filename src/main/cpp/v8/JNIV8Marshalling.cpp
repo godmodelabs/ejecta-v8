@@ -13,7 +13,7 @@
 #include "JNIV8GenericObject.h"
 
 JNIV8JavaValueType getArgumentType(const std::string& type) {
-    if(type == "Z" || type == "Ljava/lang/Boolean") {
+    if(type == "Z" || type == "Ljava/lang/Boolean;") {
         return JNIV8JavaValueType::kBoolean;
     } else if(type == "B" || type == "Ljava/lang/Byte;") {
         return JNIV8JavaValueType::kByte;

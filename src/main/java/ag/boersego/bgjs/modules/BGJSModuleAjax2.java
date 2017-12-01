@@ -5,6 +5,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import ag.boersego.bgjs.JNIV8Function;
 import ag.boersego.bgjs.JNIV8GenericObject;
 import ag.boersego.bgjs.JNIV8Module;
+import ag.boersego.bgjs.JNIV8Undefined;
 import ag.boersego.bgjs.V8Engine;
 import ag.boersego.bgjs.data.V8UrlCache;
 import okhttp3.OkHttpClient;
@@ -46,27 +47,38 @@ public class BGJSModuleAjax2 extends JNIV8Module {
             }
             final String url = (String) arguments[0];
 
-            if (!(arguments[1] instanceof String)) {
-                throw new RuntimeException("request: second argument is method and must be a String of the form [GET|POST|DELETE|HEAD|PUT]");
+            final String method;
+            if (arguments[1] == null || arguments[1] instanceof JNIV8Undefined) {
+                method = "GET";
+            } else {
+                if (!(arguments[1] instanceof String)) {
+                    throw new RuntimeException("request: second argument is method and must be a String of the form [GET|POST|DELETE|HEAD|PUT]");
+                }
+            method = (String) arguments[1];
             }
-            final String method = (String) arguments[1];
             final JNIV8GenericObject headers;
 
             if (arguments.length >= 3) {
-                if (!(arguments[2] instanceof JNIV8GenericObject)) {
-                    throw new RuntimeException("request: third argument must be undefined or an object");
+                if (arguments[2] instanceof JNIV8GenericObject ) {
+                    headers = (JNIV8GenericObject) arguments[2];
+                } else if (arguments[2] != null && !(arguments[2] instanceof JNIV8Undefined)) {
+                    throw new RuntimeException("request: third argument must be undefined or an object and not " + arguments[2]);
+                } else {
+                    headers = null;
                 }
-                headers = (JNIV8GenericObject) arguments[2];
             } else {
                 headers = null;
             }
 
             final String body;
             if (arguments.length >= 4) {
-                if (!(arguments[3] instanceof String)) {
+                if (arguments[3] == null || arguments[3] instanceof String) {
+                    body = (String) arguments[3];
+                } else if (!(arguments[3] instanceof JNIV8Undefined)) {
                     throw new RuntimeException("request: fourth argument is body and must be undefined or a String");
+                } else {
+                    body = null;
                 }
-                body = (String) arguments[4];
             } else {
                 body = null;
             }
