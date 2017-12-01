@@ -319,7 +319,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly) 
 }
 
 jdouble JNIV8Object::jniToNumber(JNIEnv *env, jobject obj) {
-    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, 0);
     v8::Maybe<double> numberValue = localRef->NumberValue(context);
     if(numberValue.IsNothing()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
