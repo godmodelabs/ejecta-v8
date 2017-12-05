@@ -20,6 +20,10 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
         return Create(engine.getNativePtr(), elements);
     }
 
+    public boolean isEmpty() {
+        return getV8Length() == 0;
+    }
+
     /**
      * returns the length of the array
      */
