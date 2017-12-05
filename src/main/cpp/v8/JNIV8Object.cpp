@@ -323,7 +323,7 @@ jdouble JNIV8Object::jniToNumber(JNIEnv *env, jobject obj) {
     v8::Maybe<double> numberValue = localRef->NumberValue(context);
     if(numberValue.IsNothing()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
-        return nullptr;
+        return 0;
     }
     return numberValue.ToChecked();
 }
