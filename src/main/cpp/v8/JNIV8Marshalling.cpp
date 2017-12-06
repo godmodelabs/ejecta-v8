@@ -166,7 +166,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 break;
             }
             case JNIV8JavaValueType::kCharacter: {
-                jchar value = (jchar) JNIV8Marshalling::v8value2string(v8Value)[0];
+                jchar value = (jchar) JNIV8Marshalling::v8string2string(v8Value->ToString())[0];
                 AutoboxArgument(Character, c);
                 break;
             }
@@ -331,7 +331,7 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
 
     // string pointers can also be null
     if(env->IsSameObject(string, NULL)) {
-        return scope.Escape(v8::Null(isolate).As<v8::String>());
+        return scope.Escape(v8::Null(isolate)->ToString());
     }
 
     len = env->GetStringLength(string);
@@ -447,6 +447,6 @@ jobject JNIV8Marshalling::undefinedInJava() {
 /**
  * convert a v8::String to a std::string
  */
-std::string JNIV8Marshalling::v8value2string(v8::Local<v8::Value> value) {
+std::string JNIV8Marshalling::v8string2string(v8::Local<v8::Value> value) {
     return (value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(value->ToString())));
 }

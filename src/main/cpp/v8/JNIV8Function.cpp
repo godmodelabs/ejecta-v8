@@ -120,7 +120,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
         }
     } else {
         v8::MaybeLocal<v8::Value> maybeLocal;
-        maybeLocal = ptr->getJSObject()->CallAsFunction(context,
+        maybeLocal = ptr->getJSObject().As<v8::Function>()->Call(context,
                                                         JNIV8Marshalling::jobject2v8value(receiver),
                                                         numArgs, args);
         if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
@@ -174,7 +174,7 @@ v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     );
 
     maybeLocalRef = funcRef->Call(context, context->Global(), 1, (v8::Local<v8::Value>*)&baseFuncRef);
-    if (!maybeLocalRef.ToLocal(&localRef) || !localRef->IsObject()) {
+    if (!maybeLocalRef.ToLocal(&localRef) || !localRef->IsFunction()) {
         return v8::MaybeLocal<v8::Function>();
     }
     funcRef = localRef.As<v8::Function>();

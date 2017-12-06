@@ -92,7 +92,7 @@ public:
     /**
      * convert a v8::Value to a std::string
      */
-    static std::string v8value2string(v8::Local<v8::Value> value);
+    static std::string v8string2string(v8::Local<v8::Value> value);
 
     /**
      * return an object representing undefined in java

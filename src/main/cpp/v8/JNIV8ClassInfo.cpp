@@ -108,7 +108,8 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<
                     ThrowV8TypeError("property '" + cb->propertyName + "' can only be null");
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
-                    ThrowV8RangeError("assigned value '"+JNIV8Marshalling::v8value2string(value)+"' is out of range for property '" + cb->propertyName + "'");
+                    ThrowV8RangeError("assigned value '"+
+                                      JNIV8Marshalling::v8string2string(value->ToString())+"' is out of range for property '" + cb->propertyName + "'");
                     break;
             }
             return;
@@ -217,7 +218,8 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
                             ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must be null");
                             break;
                         case JNIV8MarshallingError::kOutOfRange:
-                            ThrowV8RangeError("value '"+JNIV8Marshalling::v8value2string(value)+"' is out of range for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
+                            ThrowV8RangeError("value '"+
+                                              JNIV8Marshalling::v8string2string(value->ToString())+"' is out of range for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
                             break;
                     }
                     return;

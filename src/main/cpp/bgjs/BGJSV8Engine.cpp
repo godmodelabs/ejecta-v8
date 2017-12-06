@@ -150,7 +150,8 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 	BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
 
-	MaybeLocal<Value> result = engine->require(JNIV8Marshalling::v8value2string(args[0]));
+	MaybeLocal<Value> result = engine->require(
+            JNIV8Marshalling::v8string2string(args[0]->ToString()));
     if(!result.IsEmpty()) {
         args.GetReturnValue().Set(scope.Escape(result.ToLocalChecked()));
     }
@@ -287,14 +288,16 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
         std::string strExceptionMessage;
         maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "message"));
         if(maybeValue.ToLocal(&value) && value->IsString()) {
-            strExceptionMessage = JNIV8Marshalling::v8value2string(maybeValue.ToLocalChecked());
+            strExceptionMessage = JNIV8Marshalling::v8string2string(
+                    maybeValue.ToLocalChecked()->ToString());
         }
 
         // retrieve error name (e.g. "SyntaxError")
         std::string strErrorName;
         maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "name"));
         if(maybeValue.ToLocal(&value) && value->IsString()) {
-            strErrorName = JNIV8Marshalling::v8value2string(maybeValue.ToLocalChecked());
+            strErrorName = JNIV8Marshalling::v8string2string(
+                    maybeValue.ToLocalChecked()->ToString());
         }
 
         // the stack trace for syntax errors does not contain the location of the actual error
@@ -309,7 +312,8 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
             }
             Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
             if(jsScriptResourceName->IsString()) {
-                strExceptionMessage = JNIV8Marshalling::v8value2string(jsScriptResourceName) +
+                strExceptionMessage =
+                        JNIV8Marshalling::v8string2string(jsScriptResourceName.As<String>()) +
                                       (lineNumber > 0 ? ":" + std::to_string(lineNumber) : "") +
                                       " - " + strExceptionMessage;
             }
@@ -426,7 +430,8 @@ void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8
 	if(maybeLocal.IsEmpty()) {
 		return;
 	}
-	std::string moduleId = JNIV8Marshalling::v8value2string(maybeLocal.ToLocalChecked());
+	std::string moduleId = JNIV8Marshalling::v8string2string(
+            maybeLocal.ToLocalChecked()->ToString());
 
 	jobject module = engine->_javaModules.at(moduleId);
 
@@ -1166,7 +1171,7 @@ void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>
 	std::stringstream str;
 	int l = args.Length();
 	for (int i = 0; i < l; i++) {
-		str << " " << JNIV8Marshalling::v8value2string(args[i]).c_str();
+		str << " " << JNIV8Marshalling::v8string2string(args[i]->ToString()).c_str();
 	}
 
 	LOG(debugLevel, "%s", str.str().c_str());
