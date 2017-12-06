@@ -233,7 +233,9 @@ V = JNIV8Marshalling::v8string2jstring(value.As<String>());\
 }
 
 bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
-    if(!try_catch->HasCaught()) return false;
+    if(!try_catch->HasCaught()) {
+        return false;
+    }
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 
@@ -298,6 +300,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
         // the stack trace for syntax errors does not contain the location of the actual error
         // and neither does the message
         // so we have to append that manually
+        // for errors thrown from native code it might not be available though
         if(strErrorName == "SyntaxError") {
             int lineNumber = -1;
             Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
@@ -370,13 +373,22 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
             lineNumber = maybeLineNumber.ToChecked();
         }
 
+        // script resource might not be set if the exception came from native code
+        jstring fileName;
+        Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
+        if(jsScriptResourceName->IsString()) {
+            fileName = JNIV8Marshalling::v8string2jstring(jsScriptResourceName.As<String>());
+        } else {
+            fileName = nullptr;
+        }
+
         // dummy trace entry
         stackTrace = env->NewObjectArray(1, _jniStackTraceElement.clazz,
                                          env->NewObject(_jniStackTraceElement.clazz, _jniStackTraceElement.initId,
                                                         JNIWrapper::string2jstring("<unknown>"),
                                                         JNIWrapper::string2jstring("<unknown>"),
-                                                        JNIV8Marshalling::v8string2jstring(try_catch->Message()->GetScriptResourceName().As<String>()),
-                                                        lineNumber));
+                                                        fileName,
+                                                        fileName ? (lineNumber >= 1 ? lineNumber : -1) : -2));
     }
 
     // if exception was not an Error object, or if .message is not set for some reason => use toString()
@@ -612,7 +624,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 
     if (!buf) {
         _isolate->ThrowException(v8::Exception::Error(String::NewFromUtf8(_isolate, (const char*)("Cannot find module '"+baseNameStr+"'").c_str())));
-        //log(LOG_ERROR, args);
         return maybeLocal;
     }
 
