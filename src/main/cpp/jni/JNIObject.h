@@ -56,7 +56,7 @@ private:
     pthread_mutex_t _mutex;
     jobject _jniObject;
     jweak _jniObjectWeak;
-    uint8_t _jniObjectRefCount;
+    std::atomic<uint8_t> _atomicJniObjectRefCount;
     std::weak_ptr<JNIObject> _weakPtr;
 };
 

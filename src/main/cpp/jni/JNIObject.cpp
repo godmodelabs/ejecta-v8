@@ -11,10 +11,12 @@ BGJS_JNI_LINK(JNIObject, "ag/boersego/bgjs/JNIObject");
 
 JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
     // handling of shared_ptr/weak_ptr as well as the jobject references has to be threadsafe
+    // we do NOT need a recursive mutex, we prefer the possible small performance advantage
+    // this is not a problem, because a deadlock is impossible the way the mutex is used
     _mutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutexattr_t Attr;
     pthread_mutexattr_init(&Attr);
-    pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_NORMAL);
     pthread_mutex_init(&_mutex, &Attr);
 
     JNIEnv* env = JNIWrapper::getEnvironment();
@@ -30,7 +32,7 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
         _jniObject = env->NewGlobalRef(obj);
         _jniObjectWeak = nullptr;
     }
-    _jniObjectRefCount = 0;
+    _atomicJniObjectRefCount = 0;
 
     // store pointer to native instance in "nativeHandle" field
     // actually type will never be kAbstract here, because JNIClassInfo will be provided for the subclass!
@@ -44,7 +46,7 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
 }
 
 JNIObject::~JNIObject() {
-    JNI_ASSERT(_jniObjectRefCount==0, "JNIObject was deleted while retaining java object");
+    JNI_ASSERT(_atomicJniObjectRefCount==0, "JNIObject was deleted while retaining java object");
     if(_jniObject) {
         // this should/can never happen for persistent objects
         // if there is a strong ref to the JObject, then the native object must not be deleted!
@@ -114,7 +116,14 @@ std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {
                 // ownership of persistent objects is held by the java side
                 // object is only deleted if the java object is garbage collected
                 // when there are no more references from C we make the reference to the java object weak again!
+
+                // we are using a mutex here so that the release call does not interfere with possible
+                // parallel creation of a new shared_ptr
+                // it does NOT matter if we release before we retain in this case, because either way in the end the counter
+                // will be one (1 -> 0 -> 1; 1 -> 2 -> 1)
+                pthread_mutex_lock(&cls->_mutex);
                 cls->releaseJObject();
+                pthread_mutex_unlock(&cls->_mutex);
             }
         });
         _weakPtr = ptr;
@@ -126,23 +135,22 @@ std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {
 }
 
 void JNIObject::retainJObject() {
-    pthread_mutex_lock(&_mutex);
-
+    // this is always called from a shared_ptr, which ensures that the ref count is at least 1
+    // except for the initial incrementation which is protected via mutex in getSharedPtr
+    // additional calls are made thread-safe by the atomic counter
     JNI_ASSERT(isPersistent(), "Attempt to retain non-persistent native object");
-    if(_jniObjectRefCount==0) {
+    if(_atomicJniObjectRefCount++ == 0) {
         JNIEnv *env = JNIWrapper::getEnvironment();
         _jniObject = env->NewGlobalRef(_jniObjectWeak);
     }
-    _jniObjectRefCount++;
-
-    pthread_mutex_unlock(&_mutex);
 }
 
 void JNIObject::releaseJObject() {
-    pthread_mutex_lock(&_mutex);
-
+    // this is always called from a shared_ptr, which ensures that the ref count is at least 1
+    // except for the final decrementation which is protected via mutex in getSharedPtr
+    // additional calls are made thread-safe by the atomic counter
     JNI_ASSERT(isPersistent(), "Attempt to release non-persistent native object");
-    if(_jniObjectRefCount==1) {
+    if(--_atomicJniObjectRefCount == 0) {
         JNIEnv *env = JNIWrapper::getEnvironment();
 
         // this method might be executed automatically if a shared_ptr falls of the stack
@@ -164,9 +172,6 @@ void JNIObject::releaseJObject() {
 
         if(exc) env->Throw(exc);
     }
-    _jniObjectRefCount--;
-
-    pthread_mutex_unlock(&_mutex);
 }
 
 //--------------------------------------------------------------------------------------------------
