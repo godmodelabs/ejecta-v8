@@ -48,9 +48,9 @@ jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32
 }
 
 void JNIV8Array::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-    info->registerNativeMethod("Create", "(J)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreate);
-    info->registerNativeMethod("Create", "(JI)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreateWithLength);
-    info->registerNativeMethod("Create", "(J[Ljava/lang/Object;)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreateWithArray);
+    info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreate);
+    info->registerNativeMethod("CreateWithLength", "(Lag/boersego/bgjs/V8Engine;I)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreateWithLength);
+    info->registerNativeMethod("CreateWithArray", "(Lag/boersego/bgjs/V8Engine;[Ljava/lang/Object;)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreateWithArray);
     info->registerNativeMethod("getV8Length", "()I", (void*)JNIV8Array::jniGetV8Length);
     info->registerNativeMethod("getV8Elements", "()[Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8Elements);
     info->registerNativeMethod("getV8Elements", "(II)[Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8ElementsInRange);
@@ -100,12 +100,12 @@ jobject JNIV8Array::jniGetV8Element(JNIEnv *env, jobject obj, jint index) {
     return JNIV8Marshalling::v8value2jobject(maybeValue.ToLocalChecked());
 }
 
-jobject JNIV8Array::jniCreate(JNIEnv *env, jobject obj, jlong enginePtr) {
-    return jniCreateWithLength(env, obj, enginePtr, 0);
+jobject JNIV8Array::jniCreate(JNIEnv *env, jobject obj, jobject engineObj) {
+    return jniCreateWithLength(env, obj, engineObj, 0);
 }
 
-jobject JNIV8Array::jniCreateWithLength(JNIEnv *env, jobject obj, jlong enginePtr, jint length) {
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
+jobject JNIV8Array::jniCreateWithLength(JNIEnv *env, jobject obj, jobject engineObj, jint length) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -118,8 +118,8 @@ jobject JNIV8Array::jniCreateWithLength(JNIEnv *env, jobject obj, jlong enginePt
     return JNIV8Wrapper::wrapObject<JNIV8Array>(objRef)->getJObject();
 }
 
-jobject JNIV8Array::jniCreateWithArray(JNIEnv *env, jobject obj, jlong enginePtr, jobjectArray elements) {
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
+jobject JNIV8Array::jniCreateWithArray(JNIEnv *env, jobject obj, jobject engineObj, jobjectArray elements) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);

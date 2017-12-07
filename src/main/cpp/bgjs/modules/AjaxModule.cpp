@@ -124,22 +124,18 @@ void AjaxModule::ajax(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 #ifdef ANDROID
 extern "C" {
-JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
-		JNIEnv * env, jobject obj, jlong ctxPtr, jstring data, jint responseCode, jlong cbPtr,
-		jlong thisPtr, jlong errorCb, jboolean success, jboolean processData);
-};
 
 JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
-		JNIEnv * env, jobject obj, jlong ctxPtr, jstring dataStr, jint responseCode,
+		JNIEnv *env, jobject obj, jobject engine, jstring dataStr, jint responseCode,
 		jlong jsCbPtr, jlong thisPtr, jlong errorCb, jboolean success, jboolean processData) {
-	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
+	auto context = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
 
-	Isolate* isolate = context->getIsolate();
+	Isolate *isolate = context->getIsolate();
 	v8::Locker l(isolate);
 	Isolate::Scope isolateScope(isolate);
 
-    HandleScope scope(isolate);
-    Local<Context> v8Context = context->getContext();
+	HandleScope scope(isolate);
+	Local<Context> v8Context = context->getContext();
 
 	Context::Scope context_scope(v8Context);
 
@@ -147,13 +143,13 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 
 	TryCatch trycatch;
 
-	Persistent<Object>* thisObj = static_cast<Persistent<Object>*>((void*)thisPtr);
+	Persistent<Object> *thisObj = static_cast<Persistent<Object> *>((void *) thisPtr);
 	Local<Object> thisObjLocal = Local<Object>::New(isolate, *thisObj);
-	Persistent<Function>* errorP;
+	Persistent<Function> *errorP;
 	if (errorCb) {
-		errorP = static_cast<Persistent<Function>*>((void*)errorCb);
+		errorP = static_cast<Persistent<Function> *>((void *) errorCb);
 	}
-	Persistent<Function>* callbackP = static_cast<Persistent<Function>*>((void*)jsCbPtr);
+	Persistent<Function> *callbackP = static_cast<Persistent<Function> *>((void *) jsCbPtr);
 
 	Handle<Value> argarray[1];
 	int argcount = 1;
@@ -164,7 +160,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		nativeString = env->GetStringUTFChars(dataStr, 0);
 		Handle<Value> resultObj;
 		if (processData) {
-			resultObj = context->parseJSON(String::NewFromUtf8(isolate,nativeString));
+			resultObj = context->parseJSON(String::NewFromUtf8(isolate, nativeString));
 		} else {
 			resultObj = String::NewFromUtf8(isolate, nativeString);
 		}
@@ -179,7 +175,8 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		result = Local<Function>::New(isolate, *callbackP)->Call(thisObjLocal, argcount, argarray);
 	} else {
 		if (!errorP->IsEmpty()) {
-			result = (*reinterpret_cast<Local<Function>*>(errorP))->Call(thisObjLocal, argcount, argarray);
+			result = (*reinterpret_cast<Local<Function> *>(errorP))->Call(thisObjLocal, argcount,
+																		  argarray);
 		} else {
 			LOGI("Error signaled by java code but no error callback set");
 			result = v8::Undefined(isolate);
@@ -196,6 +193,7 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 	BGJS_CLEAR_PERSISTENT_PTR(errorP);
 
 	return true;
+}
 }
 
 #endif

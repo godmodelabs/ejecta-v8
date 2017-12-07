@@ -132,7 +132,7 @@ public:
     template <typename ObjectType> static
     std::shared_ptr<ObjectType> wrapObject(jobject object) {
         auto it = _objmap.find(JNIBase::getCanonicalName<ObjectType>());
-        if (it == _objmap.end()){
+        if (!object || it == _objmap.end()){
             return nullptr;
         } else {
             JNIClassInfo *info = it->second;

@@ -174,7 +174,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 					return false;
 				}
 				// And pass the touch event to JS
-				ClientAndroid.setTouchPosition(engine.getNativePtr(), mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
+				ClientAndroid.setTouchPosition(engine, mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
 			}
 
 			sendTouchEvent("touchstart");
@@ -208,7 +208,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 					}
 					
 					if (touchDirty) {
-						ClientAndroid.setTouchPosition(V8Engine.getInstance().getNativePtr(), mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
+						ClientAndroid.setTouchPosition(V8Engine.getInstance(), mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
 					}
 				}
 			}
@@ -288,7 +288,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 					+ scale);
 		}
 		// Call JNI function that calls V8
-		ClientAndroid.sendTouchEvent(V8Engine.getInstance().getNativePtr(), mRenderThread.mJSId, type, x, y,
+		ClientAndroid.sendTouchEvent(V8Engine.getInstance(), mRenderThread.mJSId, type, x, y,
 				(float) scale);
 	}
 
@@ -550,7 +550,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * @return pointer to JNI object
      */
     protected long createGL () {
-        return ClientAndroid.createGL(V8Engine.getInstance().getNativePtr(), this, mScaling, false, getMeasuredWidth(), getMeasuredHeight());
+        return ClientAndroid.createGL(V8Engine.getInstance(), this, mScaling, false, getMeasuredWidth(), getMeasuredHeight());
     }
 
 	/**
@@ -734,7 +734,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
                 }
 
-				final boolean didDraw = ClientAndroid.step(V8Engine.getInstance().getNativePtr(), mJSId);
+				final boolean didDraw = ClientAndroid.step(V8Engine.getInstance(), mJSId);
 
                 /* if (DEBUG) {
                     Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
@@ -803,7 +803,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 
 			if (mJSId != 0) {
-				ClientAndroid.close(V8Engine.getInstance().getNativePtr(), mJSId);
+				ClientAndroid.close(V8Engine.getInstance(), mJSId);
 			}
 
 			finishGL();

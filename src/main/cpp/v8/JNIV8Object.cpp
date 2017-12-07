@@ -40,15 +40,15 @@ JNIV8Object::~JNIV8Object() {
     // __android_log_print(ANDROID_LOG_INFO, "JNIV8Object", "deleted v8 object: %s", getCanonicalName().c_str());
     if(!_jsObject.IsEmpty()) {
         // adjust external memory counter if required
-        if (_jsObject.IsWeak()) {
-            _bgjsEngine->getIsolate()->AdjustAmountOfExternalAllocatedMemory(_externalMemory);
-        }
+        JNI_ASSERT(!_jsObject.IsWeak(), "JNIV8Object deleted while still referenced by JavaScript");
         _jsObject.Reset();
     }
 }
 
 void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
-    auto jniV8Object = reinterpret_cast<JNIV8Object*>(data.GetParameter());
+    // never use the raw pointer directly; this way we are retaining the object until this method finishes!
+    auto ptr = reinterpret_cast<JNIV8Object*>(data.GetParameter());
+    auto jniV8Object = std::static_pointer_cast<JNIV8Object>(ptr->getSharedPtr());
 
     // the js object is no longer being used => release the strong reference to the java object
     jniV8Object->releaseJObject();
@@ -364,10 +364,10 @@ void JNIV8Object::jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedCl
 extern "C" {
 
 JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_JNIV8Object_initNativeJNIV8Object(JNIEnv *env, jobject obj, jstring canonicalName, jlong enginePtr,
+Java_ag_boersego_bgjs_JNIV8Object_initNativeJNIV8Object(JNIEnv *env, jobject obj, jstring canonicalName, jobject engine,
                                                         jlong jsObjPtr) {
     JNIWrapper::initializeNativeObject(obj, canonicalName);
-    JNIV8Wrapper::initializeNativeJNIV8Object(obj, enginePtr, jsObjPtr);
+    JNIV8Wrapper::initializeNativeJNIV8Object(obj, engine, jsObjPtr);
 }
 
 }

@@ -11,6 +11,8 @@
 #include "os-android.h"
 #include "BGJSModule.h"
 
+#include "../jni/jni.h"
+
 /**
  * BGJSV8Engine
  * Manages a v8 context and exposes script load and execute functions
@@ -38,10 +40,13 @@ typedef enum EBGJSV8EngineEmbedderData {
     FIRST_UNUSED = 2
 } EBGJSV8EngineEmbedderData;
 
-class BGJSV8Engine {
+class BGJSV8Engine : public JNIObject {
+	friend class JNIWrapper;
 public:
-    BGJSV8Engine(jobject javaObject, jobject javaAssetManager);
+	BGJSV8Engine(jobject obj, JNIClassInfo *info);
 	virtual ~BGJSV8Engine();
+
+	void setAssetManager(jobject jAssetManager);
 
 	/**
 	 * returns the engine instance for the specified isolate
@@ -63,8 +68,6 @@ public:
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
 
 	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
-
-	jobject getJObject() const;
 
 	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
 	void setDensity(float density);
@@ -105,6 +108,9 @@ public:
     static void initJNICache();
 
 private:
+	// called by JNIWrapper
+	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
+
 	static void JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target);
 	static struct {
 		jclass clazz;
@@ -166,5 +172,6 @@ private:
 	int _nextTimerId;
 };
 
+BGJS_JNI_LINK_DEF(BGJSV8Engine)
 
 #endif

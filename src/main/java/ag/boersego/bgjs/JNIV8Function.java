@@ -9,9 +9,7 @@ final public class JNIV8Function extends JNIV8Object {
         Object Callback(Object receiver, Object[] arguments);
     }
 
-    public static JNIV8Function Create(V8Engine engine, JNIV8Function.Handler handler) {
-        return Create(engine.getNativePtr(), handler);
-    }
+    public static native JNIV8Function Create(V8Engine engine, JNIV8Function.Handler handler);
 
     public Object callAsV8Function(Object... arguments) {
         return _callAsV8Function(false, null, arguments);
@@ -40,8 +38,6 @@ final public class JNIV8Function extends JNIV8Object {
     //------------------------------------------------------------------------
     // internal fields & methods
     private native Object _callAsV8Function(boolean asConstructor, Object receiver, Object... arguments);
-
-    private static native JNIV8Function Create(long nativePtr, JNIV8Function.Handler handler);
 
     protected JNIV8Function(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);

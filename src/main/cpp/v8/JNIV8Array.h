@@ -14,9 +14,9 @@ public:
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void initializeV8Bindings(JNIV8ClassInfo *info);
 
-    static jobject jniCreate(JNIEnv *env, jobject obj, jlong enginePtr);
-    static jobject jniCreateWithLength(JNIEnv *env, jobject obj, jlong enginePtr, jint length);
-    static jobject jniCreateWithArray(JNIEnv *env, jobject obj, jlong enginePtr, jobjectArray elements);
+    static jobject jniCreate(JNIEnv *env, jobject obj, jobject engineObj);
+    static jobject jniCreateWithLength(JNIEnv *env, jobject obj, jobject engineObj, jint length);
+    static jobject jniCreateWithArray(JNIEnv *env, jobject obj, jobject engineObj, jobjectArray elements);
 
     /**
      * returns the length of the array

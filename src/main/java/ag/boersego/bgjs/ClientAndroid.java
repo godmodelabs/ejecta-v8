@@ -12,28 +12,28 @@ import android.content.res.AssetManager;
 
 public class ClientAndroid {
 	// BGJSV8Engine
-	public static native void timeoutCB(long ctxPtr, long jsCb, long thisObj, boolean cleanup, boolean runCallback);
+	public static native void timeoutCB(V8Engine engine, long jsCb, long thisObj, boolean cleanup, boolean runCallback);
 
-	public static native void initialize(AssetManager am, long engine, String locale, String lang, String timezone, float density, final String deviceClass);
+	public static native void initialize(AssetManager am, V8Engine engine, String locale, String lang, String timezone, float density, final String deviceClass);
 
-    public static native void runCBBoolean (long ctxPtr, long cbPtr, long thisPtr, boolean b);
+    public static native void runCBBoolean (V8Engine engine, long cbPtr, long thisPtr, boolean b);
 	
     // AjaxModule
-	public static native boolean ajaxDone(long ctxPtr, String data, int responseCode, long jsCbPtr, long thisObj,
+	public static native boolean ajaxDone(V8Engine engine, String data, int responseCode, long jsCbPtr, long thisObj,
                                           long errorCb, boolean success, boolean processData);
 	
 	// BGJSGLModule
     public static native int cssColorToInt(String color);
-    public static native long createGL(long ctxPtr, V8TextureView gl2jniView, float pixelRatio, boolean noClearOnFlip, int width, int height);
-    public static native int init(long ctxPtr, long objPtr, int width, int height, String callbackName);
-    public static native boolean step(long ctxPtr, long jsPtr);
-    public static native void setTouchPosition(long ctxPtr, long jsPtr, int x, int y);
-    public static native void sendTouchEvent(long ctxPtr, long objPtr, String typeStr,
+    public static native long createGL(V8Engine engine, V8TextureView gl2jniView, float pixelRatio, boolean noClearOnFlip, int width, int height);
+    public static native int init(V8Engine engine, long objPtr, int width, int height, String callbackName);
+    public static native boolean step(V8Engine engine, long jsPtr);
+    public static native void setTouchPosition(V8Engine engine, long jsPtr, int x, int y);
+    public static native void sendTouchEvent(V8Engine engine, long objPtr, String typeStr,
 			float[] xArr, float[] yArr, float scale);
-    public static native void redraw (long ctxPtr, long jsPtr);
-	public static native void close(long ctxPtr, long jsPtr);
+    public static native void redraw (V8Engine engine, long jsPtr);
+	public static native void close(V8Engine engine, long jsPtr);
 
     // BGJSModule
-    public static native void cleanupNativeFnPtr (long ctxPtr, long nativePtr);
-    public static native void cleanupPersistentFunction (long ctxPtr, long nativePtr);
+    public static native void cleanupNativeFnPtr (V8Engine engine, long nativePtr);
+    public static native void cleanupPersistentFunction (V8Engine engine, long nativePtr);
 }

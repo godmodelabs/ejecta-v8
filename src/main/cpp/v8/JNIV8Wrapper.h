@@ -184,7 +184,7 @@ public:
      * instead you should use:
      * - createObject<NativeType>() if you want to create a new V8 enabled Java+Native object tuple
      */
-    static void initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlong jsObjPtr);
+    static void initializeNativeJNIV8Object(jobject obj, jobject engineObj, jlong jsObjPtr);
 
     /**
      * internal constructor callback for objects created from javascript

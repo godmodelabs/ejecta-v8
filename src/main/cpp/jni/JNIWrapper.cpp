@@ -170,7 +170,7 @@ void JNIWrapper::initializeNativeObject(jobject object, jstring className) {
     auto it = _objmap.find(canonicalName);
 
     // if nothing was found, the class was not registered
-    JNI_ASSERT(it != _objmap.end(), "Encountered unknown class during initialization");
+    JNI_ASSERTF(it != _objmap.end(), "Encountered unknown class '%s' during initialization", canonicalName.c_str());
 
     JNIClassInfo *info = it->second;
     info->constructor(object, info);

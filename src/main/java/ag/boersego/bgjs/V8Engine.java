@@ -32,8 +32,8 @@ import okhttp3.OkHttpClient;
  *
  **/
 
-public class V8Engine extends Thread implements Handler.Callback {
-	{
+public class V8Engine extends JNIObject implements Handler.Callback {
+	static {
 		System.loadLibrary("bgjs");
 	}
 
@@ -45,7 +45,6 @@ public class V8Engine extends Thread implements Handler.Callback {
 	private boolean mReady;
 	private ArrayList<V8EngineHandler> mHandlers = null;
 	private final SparseArray<V8Timeout> mTimeouts = new SparseArray<V8Timeout>(50);
-	protected long mNativePtr;
 	private int mLastTimeoutId = 1;
 	private final HashSet<V8Timeout> mTimeoutsToGC = new HashSet<V8Timeout>();
 	private V8Timeout mRunningTO;
@@ -64,7 +63,7 @@ public class V8Engine extends Thread implements Handler.Callback {
     private final Runnable mQueueWaitRunnable = new Runnable() {
         @Override
         public void run() {
-            final long v8Locker = lock(mNativePtr);
+            final long v8Locker = lock();
 
             synchronized (mNextTickQueue) {
                 for (final Runnable r : mNextTickQueue) {
@@ -108,7 +107,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		    mNextTickQueue.add(runnable);
         }
         if (startBusyWaiting) {
-            if (Thread.currentThread() == V8Engine.this) {
+            if (Thread.currentThread() == V8Engine.this.jsThread) {
                 // We cannot really enqueue on our own thread!!
                 new Thread(mQueueWaitRunnable).start();
                 // throw new RuntimeException("Don't call enqueueOnNextTick from v8 thread!");
@@ -177,7 +176,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 			}
 			if (DEBUG) { Log.d (TAG, "timeout ready (id " + id + ") to " + timeout + ", now calling cb " + jsCbPtr); }
 			// synchronized(BGJSPushHelper.getInstance(null)) {
-				ClientAndroid.timeoutCB(mNativePtr, jsCbPtr, thisObjPtr, false, true);
+				ClientAndroid.timeoutCB(V8Engine.this, jsCbPtr, thisObjPtr, false, true);
 			// }
 			synchronized (mTimeouts) {
 				if (this.dead) {
@@ -203,10 +202,8 @@ public class V8Engine extends Thread implements Handler.Callback {
 		}
 	}
 
-	private native long createNative(AssetManager assetManager);
-
 	protected V8Engine(Application application, String path) {
-        if (path != null) {
+		if (path != null) {
             scriptPath = path;
         }
         if (application != null) {
@@ -231,11 +228,14 @@ public class V8Engine extends Thread implements Handler.Callback {
 		mLang = locale.getLanguage();
 		mTimeZone = TimeZone.getDefault().getID();
 
-		mNativePtr = createNative(assetManager);
-
 		// Register bundled Java-bridged JS modules
 		registerModule(BGJSModuleAjax2.getInstance());
         registerModule(new BGJSModuleLocalStorage(application.getApplicationContext()));
+
+        // start thread
+		jsThread = new Thread(new V8EngineRunnable());
+		jsThread.setName("EjectaV8JavaScriptContext");
+		jsThread.start();
 	}
 
     public void setUrlCache (V8UrlCache cache) {
@@ -248,11 +248,7 @@ public class V8Engine extends Thread implements Handler.Callback {
         BGJSModuleAjax2.getInstance().setExecutor(executor);
 	}
 
-    public long getNativePtr() {
-		return mNativePtr;
-	}
-	
-	public static boolean isReady () {
+    public static boolean isReady () {
 		return getInstance().mReady;
 	}
 
@@ -262,8 +258,6 @@ public class V8Engine extends Thread implements Handler.Callback {
                 throw new RuntimeException("V8Engine hasn't been initialized");
             }
 			mInstance = new V8Engine(app, path);
-
-			mInstance.start();
 		}
 		return mInstance;
 	}
@@ -283,50 +277,44 @@ public class V8Engine extends Thread implements Handler.Callback {
 			e.printStackTrace();
 		}
 		Log.d(TAG, "Initializing V8Engine");
-		ClientAndroid.initialize(assetManager, mNativePtr, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
+		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
     }
 
-    public void registerModule(JNIV8Module module) {
-		registerModule(getNativePtr(), module);
-	}
-	private native void registerModule(long enginePtr, JNIV8Module module);
+    public native void registerModule(JNIV8Module module);
 
 	public JNIV8Function getConstructor(Class<? extends JNIV8Object> jniv8class) {
-		return getConstructor(getNativePtr(), jniv8class.getCanonicalName());
+		return getConstructor(jniv8class.getCanonicalName());
 	}
-	private native JNIV8Function getConstructor(long enginePtr, String canonicalName);
+	private native JNIV8Function getConstructor(String canonicalName);
 
-	public Object parseJSON(String json) {
-		return parseJSON(getNativePtr(), json);
-	}
-	public Object runScript(String script, String name) {
-		return runScript(getNativePtr(), script, name);
-	}
-	public Object require(String file) {
-		return require(getNativePtr(), file);
-	}
+	public native Object parseJSON(String json);
+	public native Object runScript(String script, String name);
+	public native Object require(String file);
 
-	private native Object parseJSON(long enginePtr, String json);
-	private native Object runScript(long enginePtr, String script, String name);
-	private native Object require(long enginePtr, String file);
-	private native long lock(long enginePtr);
+	private native long lock();
     private native void unlock(long lockerPtr);
 
-	@Override
-	public void run() {
-		this.setName("V8Engine");
+	private Thread jsThread = null;
 
-		Looper.prepare();
-		mHandler = new Handler (this);
-        initializeV8(assetManager);
+	class V8EngineRunnable implements Runnable {
+		V8EngineRunnable() {
+		}
 
-		assetManager = null;
+		@Override
+		public void run() {
 
-		require(scriptPath);
+			Looper.prepare();
+			mHandler = new Handler(V8Engine.this);
+			initializeV8(assetManager);
 
-		mHandler.sendMessageAtFrontOfQueue(mHandler.obtainMessage(MSG_READY));
-		mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
-		Looper.loop();
+			assetManager = null;
+
+			require(scriptPath);
+
+			mHandler.sendMessageAtFrontOfQueue(mHandler.obtainMessage(MSG_READY));
+			mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
+			Looper.loop();
+		}
 	}
 
     protected void onFromJsInstance (String event, long cbPtr, long thisPtr) {
@@ -363,7 +351,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 				if (DEBUG) {
 					Log.d (TAG, "Calling on " + event + ", " + cb.cbPtr);
 				}
-				ClientAndroid.runCBBoolean(mNativePtr, cb.cbPtr, cb.thisPtr, b);
+				ClientAndroid.runCBBoolean(this, cb.cbPtr, cb.thisPtr, b);
 			}
 		}
 	}
@@ -428,7 +416,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 		try {
 			final int count = mTimeoutsToGC.size();
 			for (V8Timeout to : timeOutCopy) {
-				ClientAndroid.timeoutCB(mNativePtr, to.jsCbPtr, to.thisObjPtr, true, false);
+				ClientAndroid.timeoutCB(this, to.jsCbPtr, to.thisObjPtr, true, false);
 			}
 			if (DEBUG) {
 				Log.d (TAG, "Cleaned up " + count + " timeouts");
@@ -516,7 +504,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 				mReq = new AjaxRequest(url, data, this, method);
 			} catch (URISyntaxException e) {
 				Log.e(TAG, "Cannot create URL", e);
-				ClientAndroid.ajaxDone(mNativePtr, null, 500, mCbPtr, mThisObj, mErrorCb, false, mProcessData);
+				ClientAndroid.ajaxDone(V8Engine.this, null, 500, mCbPtr, mThisObj, mErrorCb, false, mProcessData);
                 return;
 			}
 			mReq.setCacheInstance(mCache);
@@ -551,7 +539,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 						+ mThisObj + " for code " + mCode + ", thread "
 						+ Thread.currentThread().getId());
 			}
-			ClientAndroid.ajaxDone(mNativePtr, mData, mCode, mCbPtr, mThisObj, mErrorCb, mSuccess, mProcessData);
+			ClientAndroid.ajaxDone(V8Engine.this, mData, mCode, mCbPtr, mThisObj, mErrorCb, mSuccess, mProcessData);
 		}
 
 		public void success(String data, int code, AjaxRequest r) {

@@ -29,7 +29,7 @@ public:
     /**
      * returns the referenced java object
      */
-    const jobject getJObject() const;
+    const jobject getJObject();
 
     /**
      * calls the specified java object method
@@ -45,11 +45,6 @@ public:
     jshort callJavaShortMethod(const char* name, ...);
     jobject callJavaObjectMethod(const char* name, ...);
 
-    /**
-     * checks if the native object is currently retaining
-     * a strong reference to the java object (keeping it from being gcd)
-     */
-    bool retainsJObject() const;
 protected:
     void retainJObject();
     void releaseJObject();
@@ -58,6 +53,7 @@ private:
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void jniRegisterClass(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
 
+    pthread_mutex_t _mutex;
     jobject _jniObject;
     jweak _jniObjectWeak;
     uint8_t _jniObjectRefCount;

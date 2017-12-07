@@ -7,17 +7,11 @@ import android.support.annotation.NonNull;
  */
 
 final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
-    public static JNIV8Array Create(V8Engine engine) {
-        return Create(engine.getNativePtr());
-    }
-    public static JNIV8Array CreateWithLength(V8Engine engine, int length) {
-        return Create(engine.getNativePtr(), length);
-    }
-    public static JNIV8Array CreateWithArray(V8Engine engine, Object[] elements) {
-        return Create(engine.getNativePtr(), elements);
-    }
+    public static native JNIV8Array Create(V8Engine engine);
+    public static native JNIV8Array CreateWithLength(V8Engine engine, int length);
+    public static native JNIV8Array CreateWithArray(V8Engine engine, Object[] elements);
     public static JNIV8Array CreateWithElements(V8Engine engine, Object... elements) {
-        return Create(engine.getNativePtr(), elements);
+        return CreateWithArray(engine, elements);
     }
 
     public boolean isEmpty() {
@@ -58,10 +52,6 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
 
     //------------------------------------------------------------------------
     // internal fields & methods
-    private static native JNIV8Array Create(long nativePtr);
-    private static native JNIV8Array Create(long nativePtr, int length);
-    private static native JNIV8Array Create(long nativePtr, Object[] elements);
-
     protected JNIV8Array(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
     }
