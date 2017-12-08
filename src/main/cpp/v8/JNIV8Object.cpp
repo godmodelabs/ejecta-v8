@@ -47,12 +47,8 @@ JNIV8Object::~JNIV8Object() {
 
 void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // never use the raw pointer directly; this way we are retaining the object until this method finishes!
-    auto ptr = reinterpret_cast<JNIV8Object*>(data.GetParameter());
-    auto jniV8Object = std::static_pointer_cast<JNIV8Object>(ptr->getSharedPtr());
-
-    // the js object is no longer being used => release the strong reference to the java object
-    jniV8Object->releaseJObject();
-
+    auto jniV8Object = reinterpret_cast<JNIV8Object*>(data.GetParameter());
+    
     // "resurrect" the JS object, because we might need it later in some native or java function
     // IF we do, we have to make a strong reference to the java object again and also register this callback for
     // the provided JS object reference!
@@ -61,6 +57,10 @@ void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // we are only holding the object because java/native is still alive, v8 can not gc it anymore
     // => adjust external memory counter
     jniV8Object->_bgjsEngine->getIsolate()->AdjustAmountOfExternalAllocatedMemory(-jniV8Object->_externalMemory);
+
+    // finally: the js object is no longer being used => release the strong reference to the java object
+    // NOTE: object might be deleted by another thread after calling this
+    jniV8Object->releaseJObject();
 }
 
 void JNIV8Object::makeWeak() {
