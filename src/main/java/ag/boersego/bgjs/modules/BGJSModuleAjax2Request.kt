@@ -10,6 +10,7 @@ import ag.boersego.v8annotations.V8Class
 import ag.boersego.v8annotations.V8ClassCreationPolicy
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
+import android.util.Log
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import java.net.SocketTimeoutException
@@ -114,8 +115,16 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                         } catch (e: Exception) {
                             // Call fail callback with parse errors
                             var details = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
-                            fail?.callV8Method(mSuccessData, "parseerror", details)
-                            always?.callAsV8Function(mErrorData, mErrorCode, "parseerror")
+                            try {
+                                fail?.callAsV8Function(mSuccessData, "parseerror", details)
+                            } catch (failEx: IllegalArgumentException) {
+                                Log.e(TAG, "Cannot execute fail callback: " + fail, failEx)
+                            }
+                            try {
+                                always?.callAsV8Function(mErrorData, mErrorCode, "parseerror")
+                            } catch (alwaysEx: IllegalArgumentException) {
+                                Log.e(TAG, "Cannot execute always callback: " + always, alwaysEx)
+                            }
                         }
 
                     } else {
@@ -181,6 +190,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
     companion object {
         private var httpAdditionalHeaders: HashMap<String, String>
+        val TAG = BGJSModuleAjax2Request::class.java.simpleName
 
         init {
             JNIV8Object.RegisterV8Class(BGJSModuleAjax2Request::class.java)

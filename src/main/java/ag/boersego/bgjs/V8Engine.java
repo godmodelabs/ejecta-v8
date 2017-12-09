@@ -61,12 +61,15 @@ public class V8Engine extends Thread implements Handler.Callback {
 	private ThreadPoolExecutor mTPExecutor;
     private OkHttpClient mHttpClient;
     private final ArrayList<Runnable> mNextTickQueue = new ArrayList<>();
+    private boolean mJobQueueActive = false;
     private final Runnable mQueueWaitRunnable = new Runnable() {
         @Override
         public void run() {
             while (true) {
                 synchronized (mNextTickQueue) {
+                    mJobQueueActive = true;
                     if (mNextTickQueue.isEmpty()) {
+                        mJobQueueActive = false;
                         return;
                     }
                 }
@@ -114,7 +117,7 @@ public class V8Engine extends Thread implements Handler.Callback {
 	public boolean enqueueOnNextTick(final Runnable runnable) {
 	    final boolean startBusyWaiting;
 		synchronized (mNextTickQueue) {
-		    startBusyWaiting = mNextTickQueue.isEmpty();
+		    startBusyWaiting = mNextTickQueue.isEmpty() && !mJobQueueActive;
 		    mNextTickQueue.add(runnable);
         }
         if (startBusyWaiting) {
