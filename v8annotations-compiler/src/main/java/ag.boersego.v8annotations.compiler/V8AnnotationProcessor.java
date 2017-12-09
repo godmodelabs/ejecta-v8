@@ -411,10 +411,10 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         List<? extends AnnotationMirror> mirrors = param.getAnnotationMirrors();
         for (AnnotationMirror annotation : mirrors) {
             final String annotationName = annotation.toString();
-            processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "Annotationmirror is " + annotationName, element);
+            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "Annotationmirror is " + annotationName, element);
             if (annotationName.equals("@ag.boersego.v8annotations.V8UndefinedIsNull")) {
                 undefinedIsNull = true;
-                processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "undefined is null", element);
+                // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "undefined is null", element);
                 continue;
             }
             if (annotationName.endsWith(".NotNull")) {
@@ -429,7 +429,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         tuple.nullable = true;
 
         if (!undefinedIsNull) {
-            processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "nullable annotation is " + element.getAnnotation(V8UndefinedIsNull.class), element);
+            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "nullable annotation is " + element.getAnnotation(V8UndefinedIsNull.class), element);
             undefinedIsNull = element.getAnnotation(V8UndefinedIsNull.class) != null;
         }
 

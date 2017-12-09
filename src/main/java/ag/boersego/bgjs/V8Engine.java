@@ -64,16 +64,26 @@ public class V8Engine extends Thread implements Handler.Callback {
     private final Runnable mQueueWaitRunnable = new Runnable() {
         @Override
         public void run() {
-            final long v8Locker = lock(mNativePtr);
+            while (true) {
+                synchronized (mNextTickQueue) {
+                    if (mNextTickQueue.isEmpty()) {
+                        return;
+                    }
+                }
+                final long v8Locker = lock(mNativePtr);
+                final ArrayList<Runnable> jobsToRun;
 
-            synchronized (mNextTickQueue) {
-                for (final Runnable r : mNextTickQueue) {
+                synchronized (mNextTickQueue) {
+                    jobsToRun = new ArrayList<>(mNextTickQueue);
+                    mNextTickQueue.clear();
+                }
+
+                for (final Runnable r : jobsToRun) {
                     r.run();
                 }
-                mNextTickQueue.clear();
-            }
 
-            unlock(v8Locker);
+                unlock(v8Locker);
+            }
         }
     };
 	private boolean mPaused;
@@ -111,7 +121,6 @@ public class V8Engine extends Thread implements Handler.Callback {
             if (Thread.currentThread() == V8Engine.this) {
                 // We cannot really enqueue on our own thread!!
                 new Thread(mQueueWaitRunnable).start();
-                // throw new RuntimeException("Don't call enqueueOnNextTick from v8 thread!");
             } else {
                 mHandler.postAtFrontOfQueue(mQueueWaitRunnable);
             }
