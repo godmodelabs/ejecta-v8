@@ -67,7 +67,8 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     }
 
     @V8Function
-    fun close(code: Int = 1000, @V8UndefinedIsNull reason: String?): Unit {
+    @JvmOverloads
+    fun close(code: Int = 1000, @V8UndefinedIsNull reason: String? = null): Unit {
         if (socket != null) {
             socket?.close(code, reason)
         }
