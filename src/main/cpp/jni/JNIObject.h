@@ -7,7 +7,10 @@
 
 #import <string>
 #include <jni.h>
+#include <mutex>
 #include "JNIBase.h"
+
+class JNIObjectRef;
 
 /**
  * Base class for all native classes associated with a java object
@@ -16,6 +19,7 @@
  */
 class JNIObject : public JNIBase {
     friend class JNIWrapper;
+    friend class JNIObjectRef;
 public:
     JNIObject(jobject obj, JNIClassInfo *info);
     virtual ~JNIObject();
@@ -29,7 +33,7 @@ public:
     /**
      * returns the referenced java object
      */
-    const jobject getJObject() const;
+    const jobject getJObject();
 
     /**
      * calls the specified java object method
@@ -45,11 +49,6 @@ public:
     jshort callJavaShortMethod(const char* name, ...);
     jobject callJavaObjectMethod(const char* name, ...);
 
-    /**
-     * checks if the native object is currently retaining
-     * a strong reference to the java object (keeping it from being gcd)
-     */
-    bool retainsJObject() const;
 protected:
     void retainJObject();
     void releaseJObject();
@@ -58,12 +57,72 @@ private:
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
     static void jniRegisterClass(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
 
+    std::mutex _mutex;
+    //pthread_mutex_t _mutex;
     jobject _jniObject;
     jweak _jniObjectWeak;
-    uint8_t _jniObjectRefCount;
+    std::atomic<uint8_t> _atomicJniObjectRefCount;
     std::weak_ptr<JNIObject> _weakPtr;
 };
 
 BGJS_JNI_LINK_DEF(JNIObject)
+
+template<typename T>
+class JNIObjectRef {
+private:
+    struct Counter {
+        std::atomic<uint8_t> num;
+    };
+    T *_obj;
+    Counter *_cnt;
+    bool _retaining;
+public:
+    JNIObjectRef(const JNIObjectRef &ref)
+    {
+        _retaining = true;
+        if(ref._retaining) {
+            _cnt = ref._cnt;
+        } else {
+            _cnt = new Counter();
+            _cnt->num = 0;
+            if (_obj->isPersistent()) {
+                _obj->retainJObject();
+            }
+        }
+        _obj = ref._obj;
+        _cnt->num++;
+    }
+    JNIObjectRef(JNIObjectRef &ref) : JNIObjectRef((const JNIObjectRef&)ref) {}
+
+    JNIObjectRef(T *obj) {
+        _cnt = new Counter();
+        _cnt->num = 0;
+        _obj = obj;
+        _retaining = !obj->isPersistent();
+    }
+    ~JNIObjectRef() {
+        uint8_t refs = --_cnt->num;
+        if(refs > 0) return;
+
+        delete _cnt;
+
+        if(_retaining) {
+            if (_obj->isPersistent()) {
+                _obj->releaseJObject();
+            } else {
+                delete _obj;
+            }
+        }
+    }
+    T& operator*() const {
+        return &_obj;
+    }
+    T* operator->() const {
+        return _obj;
+    }
+    T* get() const {
+        return _obj;
+    }
+};
 
 #endif //__OBJECT_H

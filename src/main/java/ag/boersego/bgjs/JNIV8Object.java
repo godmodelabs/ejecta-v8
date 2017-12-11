@@ -82,21 +82,21 @@ abstract public class JNIV8Object extends JNIObject {
     public JNIV8Object(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(true);
         _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine.getNativePtr(), jsObjPtr);
+        initNativeJNIV8Object(getClass().getCanonicalName(), engine, jsObjPtr);
         initAutomaticDisposure();
     }
 
     public JNIV8Object(V8Engine engine) {
         super(true);
         _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine.getNativePtr(), 0);
+        initNativeJNIV8Object(getClass().getCanonicalName(), engine, 0);
         initAutomaticDisposure();
     }
 
     private native boolean hasV8Field(String name, boolean ownOnly);
     private native String[] getV8Keys(boolean ownOnly);
     private native Map<String,Object> getV8Fields(boolean ownOnly);
-    private native void initNativeJNIV8Object(String canonicalName, long enginePtr, long jsObjPtr);
+    private native void initNativeJNIV8Object(String canonicalName, V8Engine engine, long jsObjPtr);
 
     /**
      * Check if a wrapped object is truthy (see https://developer.mozilla.org/en-US/docs/Glossary/Falsy)

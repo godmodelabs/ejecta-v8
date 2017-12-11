@@ -13,7 +13,7 @@ abstract public class JNIObject {
 
     private JNIObjectReference reference;
     private long nativeHandle;
-    native void initNative(String canonicalName);
+    private native void initNative(String canonicalName);
 
     static {
         referenceQueue = new ReferenceQueue<>();

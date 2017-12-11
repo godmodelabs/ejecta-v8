@@ -298,10 +298,12 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
     return v8ClassInfo;
 }
 
-void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlong jsObjPtr) {
+void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, jlong jsObjPtr) {
     auto v8Object = JNIWrapper::wrapObject<JNIV8Object>(obj);
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
-    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine);
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
+    JNI_ASSERT(v8Object && engine, "Invalid parameters");
+
+    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -325,7 +327,7 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jlong enginePtr, jlo
     v8Object->adjustJSExternalMemory(classInfo->container->size + 8);
 
     // associate js object with native c++ object
-    v8Object->setJSObject(engine, classInfo, jsObj);
+    v8Object->setJSObject(engine.get(), classInfo, jsObj);
 }
 
 void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size) {

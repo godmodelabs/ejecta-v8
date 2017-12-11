@@ -6,7 +6,7 @@ import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 
 /**
- * Running in the FinalizingDaemon thread (managed by JNIV8Object) to free native objects.
+ * Running in the FinalizingDaemon thread (managed by JNIObject) to free native objects.
  */
 final class JNIObjectFinalizerRunnable implements Runnable {
     private ReferenceQueue<JNIObject> referenceQueue;

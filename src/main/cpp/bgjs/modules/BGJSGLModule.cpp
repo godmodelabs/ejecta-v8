@@ -1167,9 +1167,9 @@ JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_cssColorToInt(JNIEnv 
 }
 
 JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jobject javaGlView, jfloat pixelRatio, jboolean noClearOnFlip, jint width, jint height) {
+		jobject obj, jobject engine, jobject javaGlView, jfloat pixelRatio, jboolean noClearOnFlip, jint width, jint height) {
     LOGD("createGL started");
-	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
+	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
 	Isolate* isolate = ct->getIsolate();
     LOGD("createGL: isolate is %p", isolate);
     v8::Locker l(isolate);
@@ -1177,7 +1177,7 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * en
     HandleScope scope(isolate);
     Context::Scope context_scope(ct->getContext());
 
-	BGJSGLView *view = new BGJSGLView(ct, pixelRatio, noClearOnFlip, width, height);
+	BGJSGLView *view = new BGJSGLView(ct.get(), pixelRatio, noClearOnFlip, width, height);
 	view->setJavaGl(env, env->NewGlobalRef(javaGlView));
 
 	// Register GLView with context so that cancelAnimationRequest works.
@@ -1187,8 +1187,8 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * en
 }
 
 JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jlong objPtr, jint width, jint height, jstring callbackName) {
-	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
+		jobject obj, jobject engine, jlong objPtr, jint width, jint height, jstring callbackName) {
+	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
 	Isolate* isolate = ct->getIsolate();
 	v8::Locker l(isolate);
 	Isolate::Scope isolateScope(isolate);
@@ -1235,8 +1235,8 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jlong objPtr) {
-	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
+		jobject obj, jobject engine, jlong objPtr) {
+	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
 	Isolate* isolate = ct->getIsolate();
 	v8::Locker l(isolate);
 	Isolate::Scope isolateScope(isolate);
@@ -1255,24 +1255,24 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
 const GLfloat gTriangleVertices[] = { 0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
 
 JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_step(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jlong jsPtr) {
-	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
+		jobject obj, jobject engine, jlong jsPtr) {
+	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
 	BGJSGLView *view = (BGJSGLView*) jsPtr;
 	return ct->runAnimationRequests(view);
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,
-		jobject obj, jlong ctxPtr, jlong jsPtr) {
-	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
+		jobject obj, jobject engine, jlong jsPtr) {
+	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
 	BGJSGLView *view = (BGJSGLView*) jsPtr;
 	return view->call(view->_cbRedraw);
 }
 
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
-		JNIEnv * env, jobject obj, jlong ctxPtr, jlong objPtr, jstring typeStr,
+		JNIEnv * env, jobject obj, jobject engine, jlong objPtr, jstring typeStr,
 		jfloatArray xArr, jfloatArray yArr, jfloat scale) {
-	BGJSV8Engine* ct = (BGJSV8Engine*) ctxPtr;
+	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
 	Isolate* isolate = ct->getIsolate();
 	v8::Locker l(isolate);
 	Isolate::Scope isolateScope(isolate);

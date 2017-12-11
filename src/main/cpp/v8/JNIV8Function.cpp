@@ -72,7 +72,7 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
 }
 
 void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-    info->registerNativeMethod("Create", "(JLag/boersego/bgjs/JNIV8Function$Handler;)Lag/boersego/bgjs/JNIV8Function;", (void*)JNIV8Function::jniCreate);
+    info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8Function$Handler;)Lag/boersego/bgjs/JNIV8Function;", (void*)JNIV8Function::jniCreate);
     info->registerNativeMethod("_callAsV8Function", "(ZLjava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
 }
 
@@ -185,8 +185,8 @@ v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     return scope.Escape(funcRef);
 }
 
-jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jlong enginePtr, jobject handler) {
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine*>(enginePtr);
+jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jobject handler) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);

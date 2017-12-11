@@ -23,7 +23,7 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
         _jniObject = env->NewGlobalRef(obj);
         _jniObjectWeak = nullptr;
     }
-    _jniObjectRefCount = 0;
+    _atomicJniObjectRefCount = 0;
 
     // store pointer to native instance in "nativeHandle" field
     // actually type will never be kAbstract here, because JNIClassInfo will be provided for the subclass!
@@ -37,6 +37,7 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
 }
 
 JNIObject::~JNIObject() {
+    JNI_ASSERT(_atomicJniObjectRefCount==0, "JNIObject was deleted while retaining java object");
     if(_jniObject) {
         // this should/can never happen for persistent objects
         // if there is a strong ref to the JObject, then the native object must not be deleted!
@@ -52,62 +53,73 @@ void JNIObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("RegisterClass", "(Ljava/lang/String;Ljava/lang/String;)V", (void*)JNIObject::jniRegisterClass);
 }
 
-const jobject JNIObject::getJObject() const {
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    // we always need to convert the object reference to local (both weak and global)
-    // because the global reference could be deleted when the last shared ptr to this instance is released
-    // e.g. "return instance->getJObject();" would then yield an invalid global ref!
-    if(_jniObject) {
-        return env->NewLocalRef(_jniObject);
+const jobject JNIObject::getJObject() {
+    // persistents always have a weak reference to the jobject
+    // the strong reference only exists if they are retained by native code
+    // to avoid having to synchronize read/write, we simply ALWAYS use the weak ref if we can
+    if(isPersistent()) {
+        return _jniObjectWeak;
     }
-    return env->NewLocalRef(_jniObjectWeak);
+    // non persistents always have a strong reference as long as they exist
+    return _jniObject;
 }
 
 std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {
-    // a private internal weak ptr is used as a basis for "synchronizing" creation of shared_ptr
-    // all shared_ptr created from the weak_ptr use the same counter and deallocator!
-    // theoretically we could use multiple separate instance with the retain/release logic, but this way we stay more flexible
-    if(_weakPtr.use_count()) {
-        return std::shared_ptr<JNIObject>(_weakPtr);
-    }
     if(isPersistent()) {
-        // we are handing out a reference to the native object here
-        // as long as that reference is alive, the java object must not be gargabe collected
         retainJObject();
     }
-    auto ptr = std::shared_ptr<JNIObject>(this,[=](JNIObject* cls) {
-        if(!cls->isPersistent()) {
+    return std::shared_ptr<JNIObject>(this, [=](JNIObject *cls) {
+        if (!cls->isPersistent()) {
             // non persistent objects need to be deleted once they are not referenced anymore
             // wrapping an object again will return a new native instance!
             delete cls;
         } else {
             // ownership of persistent objects is held by the java side
             // object is only deleted if the java object is garbage collected
-            // when there are no more references from C we make the reference to the java object weak again!
+            // when there are no more references from C we need to make the reference to the java object weak again!
             cls->releaseJObject();
         }
     });
-    _weakPtr = ptr;
-    return ptr;
 }
 
 void JNIObject::retainJObject() {
+    // optimized for the case where an object is likely to be retained for longer times
+    // => just update the atomic counter, no locking
+    // if retain counter never rises above one it could be faster to always use a mutex and non-atomic counters
+
     JNI_ASSERT(isPersistent(), "Attempt to retain non-persistent native object");
-    if(_jniObjectRefCount==0) {
+    if(++_atomicJniObjectRefCount == 1) {
+        std::lock_guard<std::mutex> guard(_mutex);
+
+        // while this thread A was waiting for the mutex, the counter might have changed
+        // or another thread B could possible even already have created the object
+        // e.g. (0->1(A)->0->1(B), executed as 1->0->1 (B)(A)
+        // => check state here, guarded by mutex, and possibly do nothing
+        if(_atomicJniObjectRefCount==0 || _jniObject) return;
+
         JNIEnv *env = JNIWrapper::getEnvironment();
         _jniObject = env->NewGlobalRef(_jniObjectWeak);
-        env->DeleteWeakGlobalRef(_jniObjectWeak);
-        _jniObjectWeak = nullptr;
     }
-    _jniObjectRefCount++;
 }
 
 void JNIObject::releaseJObject() {
+    // optimized for the case where an object is likely to be retained for longer times
+    // => just update the atomic counter, no locking
+    // if retain counter never rises above one it could be faster to always use a mutex and non-atomic counters
+
     JNI_ASSERT(isPersistent(), "Attempt to release non-persistent native object");
-    if(_jniObjectRefCount==1) {
+    if(--_atomicJniObjectRefCount == 0) {
+        std::lock_guard<std::mutex> guard(_mutex);
+
+        // while this thread A was waiting for the mutex, the counter might have changed
+        // or another thread B could possible even already have released the object
+        // e.g. (1->0(A)->1->0(B), executed as 1->0->1 (B)(A)
+        // => check state here, guarded by mutex, and possibly do nothing
+        if(_atomicJniObjectRefCount > 0 || !_jniObject) return;
+
         JNIEnv *env = JNIWrapper::getEnvironment();
 
-        // this method might be executed automatically if a shared_ptr falls of the stack
+        // this method is executed automatically if a shared_ptr falls of the stack
         // if an exception was thrown after the shared_ptr was created, we can
         // not call any JNI functions without clearing the exception first and then rethrowing it
         // In most cases this could be done in the method itself, but it is tedious and likely to be forgotten
@@ -121,17 +133,11 @@ void JNIObject::releaseJObject() {
             env->ExceptionClear();
         }
 
-        _jniObjectWeak = env->NewWeakGlobalRef(_jniObject);
         env->DeleteGlobalRef(_jniObject);
         _jniObject = nullptr;
 
         if(exc) env->Throw(exc);
     }
-    _jniObjectRefCount--;
-}
-
-bool JNIObject::retainsJObject() const {
-    return _jniObjectRefCount > 0;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -192,9 +198,6 @@ extern "C" {
 
     JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_JNIObjectReference_disposeNative(JNIEnv *env, jobject obj, jlong nativeHandle) {
         JNIObject *jniObject = reinterpret_cast<JNIObject*>(nativeHandle);
-        if(jniObject->retainsJObject()) {
-            return false;
-        }
         delete jniObject;
         return true;
     }

@@ -12,31 +12,31 @@
 extern "C" {
 	// ClientAndroid
 	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
-			JNIEnv * env, jobject obj, jobject assetManager, jlong v8Engine, jstring locale, jstring lang, jstring timezone, float density, jstring deviceClass);
-	JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxSuccess(
-			JNIEnv * env, jobject obj, jlong ctxPtr, jstring data,
-			jint responseCode, jlong cbPtr, jlong thisPtr);
+			JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang, jstring timezone, float density, jstring deviceClass);
+	JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
+		JNIEnv * env, jobject obj, jobject engine, jstring dataStr, jint responseCode,
+		jlong jsCbPtr, jlong thisPtr, jlong errorCb, jboolean success, jboolean processData);
 	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
-			JNIEnv * env, jobject obj, jlong ctxPtr, jlong jsCbPtr, jlong thisPtr, jboolean cleanup, jboolean runCb);
-	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv * env, jobject obj, jlong ctxPtr, jlong cbPtr, jlong thisPtr, jboolean b);
+			JNIEnv * env, jobject obj, jobject engine, jlong jsCbPtr, jlong thisPtr, jboolean cleanup, jboolean runCb);
+	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv * env, jobject obj, jobject engine, jlong cbPtr, jlong thisPtr, jboolean b);
 
 	// BGJSGLModule
     JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_cssColorToInt(JNIEnv * env, jobject obj, jstring color);
 	JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env,
-			jobject obj, jlong ctxPtr, jobject javaGlView, jfloat pixelRatio, jboolean noClearOnFlip, jint width, jint height);
+			jobject obj, jobject engine, jobject javaGlView, jfloat pixelRatio, jboolean noClearOnFlip, jint width, jint height);
 	JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_step(JNIEnv * env,
-			jobject obj, jlong ctxPtr, jlong jsPtr);
+			jobject obj, jobject engine, jlong jsPtr);
 	JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
-            jobject obj, jlong ctxPtr, jlong objPtr, jint width, jint height, jstring callbackName);
+            jobject obj, jobject engine, jlong objPtr, jint width, jint height, jstring callbackName);
 	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_setTouchPosition(JNIEnv * env,
-			jobject obj, jlong ctxPtr, jlong jsPtr, jint x, jint y);
+			jobject obj, jobject engine, jlong jsPtr, jint x, jint y);
 	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
-			JNIEnv * env, jobject obj, jlong ctxPtr, jlong objPtr, jstring typeStr,
+			JNIEnv * env, jobject obj, jobject engine, jlong objPtr, jstring typeStr,
 			jfloatArray xArr, jfloatArray yArr, jfloat scale);
 	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
-			jobject obj, jlong ctxPtr, jlong jsPtr);
+			jobject obj, jobject engine, jlong jsPtr);
 	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,
-			jobject obj, jlong ctxPtr, jlong jsPtr);
+			jobject obj, jobject engine, jlong jsPtr);
 };
 
 #endif

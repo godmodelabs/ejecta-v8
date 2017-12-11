@@ -26,6 +26,8 @@
 
 using namespace v8;
 
+BGJS_JNI_LINK(BGJSV8Engine, "ag/boersego/bgjs/V8Engine")
+
 //-----------------------------------------------------------
 // Utility functions
 //-----------------------------------------------------------
@@ -991,20 +993,21 @@ void BGJSV8Engine::initJNICache() {
                                                           "(I)V");
 }
 
-BGJSV8Engine::BGJSV8Engine(jobject javaObject, jobject javaAssetManager) {
+BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
 	_nextTimerId = 1;
 	_locale = NULL;
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
-
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    _javaObject = env->NewWeakGlobalRef(javaObject);
-    _javaAssetManager = env->NewGlobalRef(javaAssetManager);
-
+    _javaAssetManager = nullptr;
     _isolate = NULL;
 }
 
-jobject BGJSV8Engine::getJObject() const {
-	return _javaObject;
+void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
+
+}
+
+void BGJSV8Engine::setAssetManager(jobject jAssetManager) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    _javaAssetManager = env->NewGlobalRef(jAssetManager);
 }
 
 void BGJSV8Engine::createContext() {
@@ -1224,7 +1227,6 @@ BGJSV8Engine::~BGJSV8Engine() {
 	LOGI("Cleaning up");
 
     JNIEnv* env = JNIWrapper::getEnvironment();
-    env->DeleteWeakGlobalRef(_javaObject);
     env->DeleteGlobalRef(_javaAssetManager);
 
 	// clear persistent references
@@ -1252,21 +1254,14 @@ void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>& ar
     HandleScope scope(args.GetIsolate());
     const shared_ptr<JNIV8Function> &wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
     JNIEnv* env = JNIWrapper::getEnvironment();
-    env->CallBooleanMethod(_javaObject, _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
+    env->CallBooleanMethod(getJObject(), _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
 }
 
 extern "C" {
 
-JNIEXPORT jlong JNICALL
-Java_ag_boersego_bgjs_V8Engine_createNative(
-        JNIEnv * env, jobject obj, jobject assetManager) {
-    return (jlong) new BGJSV8Engine(obj, assetManager);
-};
-
 JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jlong enginePtr,
-                                              jstring json) {
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1285,9 +1280,8 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jlong engineP
 }
 
 JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jlong enginePtr,
-                                         jstring file) {
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1308,8 +1302,8 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jlong enginePtr
 }
 
 JNIEXPORT jlong JNICALL
-Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj, jlong enginePtr) {
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker *locker = new Locker(isolate);
@@ -1324,9 +1318,8 @@ Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr)
 }
 
 JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jlong enginePtr,
-                                              jstring script, jstring name) {
-    BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring script, jstring name) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1351,16 +1344,14 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jlong engineP
 }
 
 JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_registerModule(JNIEnv *env, jobject obj, jlong enginePtr,
-											  jobject module) {
-	BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+Java_ag_boersego_bgjs_V8Engine_registerModule(JNIEnv *env, jobject obj, jobject module) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 	engine->registerJavaModule(module);
 }
 
 JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jlong enginePtr,
-											  jstring canonicalName) {
-	BGJSV8Engine *engine = reinterpret_cast<BGJSV8Engine *>(enginePtr);
+Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jstring canonicalName) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
 	v8::Isolate* isolate = engine->getIsolate();
 	v8::Locker l(isolate);
@@ -1372,6 +1363,6 @@ Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jlong en
     std::string strCanonicalName = JNIWrapper::jstring2string(canonicalName);
     std::replace(strCanonicalName.begin(), strCanonicalName.end(), '.', '/');
 
-	return JNIV8Wrapper::wrapObject<JNIV8Function>(JNIV8Wrapper::getJSConstructor(engine, strCanonicalName))->getJObject();
+	return JNIV8Wrapper::wrapObject<JNIV8Function>(JNIV8Wrapper::getJSConstructor(engine.get(), strCanonicalName))->getJObject();
 }
 }

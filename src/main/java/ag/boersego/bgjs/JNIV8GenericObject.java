@@ -5,9 +5,7 @@ package ag.boersego.bgjs;
  */
 
 final public class JNIV8GenericObject extends JNIV8Object {
-    public static JNIV8GenericObject Create(V8Engine engine) {
-        return Create(engine.getNativePtr());
-    }
+    public static native JNIV8GenericObject Create(V8Engine engine);
 
     public void dispose() throws RuntimeException {
         super.dispose();
@@ -15,7 +13,6 @@ final public class JNIV8GenericObject extends JNIV8Object {
 
     //------------------------------------------------------------------------
     // internal fields & methods
-    private static native JNIV8GenericObject Create(long nativePtr);
 
     protected JNIV8GenericObject(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);

@@ -44,15 +44,19 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
     if(!JNIWrapper::isInitialized()) {
         JNIWrapper::init(vm);
 		JNIV8Wrapper::init();
+
+		JNIWrapper::registerObject<BGJSV8Engine>();
     }
 
     return JNI_VERSION_1_6;
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
-		JNIEnv * env, jobject obj, jobject assetManager, jlong v8Engine, jstring locale, jstring lang,
+		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang,
         jstring timezone, jfloat density, jstring deviceClass) {
-	BGJSV8Engine* ct = reinterpret_cast<BGJSV8Engine*>(v8Engine);
+
+	auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
+	ct->setAssetManager(assetManager);
 
 	const char* localeStr = env->GetStringUTFChars(locale, NULL);
 	const char* langStr = env->GetStringUTFChars(lang, NULL);
@@ -73,8 +77,8 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 }
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
-		JNIEnv * env, jobject obj, jlong ctxPtr, jlong jsCbPtr, jlong thisPtr, jboolean cleanup, jboolean runCb) {
-	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
+		JNIEnv * env, jobject obj, jobject engine, jlong jsCbPtr, jlong thisPtr, jboolean cleanup, jboolean runCb) {
+	auto context = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
     v8::Isolate* isolate = context->getIsolate();
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
@@ -117,8 +121,8 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 	}
 }
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv * env, jobject obj, jlong ctxPtr, jlong cbPtr, jlong thisPtr, jboolean b) {
-	BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
+JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv * env, jobject obj, jobject engine, jlong cbPtr, jlong thisPtr, jboolean b) {
+	auto context = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
     v8::Isolate* isolate = context->getIsolate();
     v8::Locker l (isolate);
 	Isolate::Scope isolateScope(isolate);
@@ -131,8 +135,6 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv 
 	Persistent<Object>* thisObjPersist = static_cast<Persistent<Object>*>((void*)thisPtr);
 	Local<Function> fn = (*reinterpret_cast<Local<Function>*>(fnPersist));
 	Local<Object> thisObj = (*reinterpret_cast<Local<Object>*>(thisObjPersist));
-
-	LOGD("runOn %llu %llu", cbPtr, thisPtr);
 
 	int argcount = 1;
 	Handle<Value> argarray[] = { Boolean::New(isolate, b ? true : false)};

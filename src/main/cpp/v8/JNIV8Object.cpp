@@ -40,19 +40,15 @@ JNIV8Object::~JNIV8Object() {
     // __android_log_print(ANDROID_LOG_INFO, "JNIV8Object", "deleted v8 object: %s", getCanonicalName().c_str());
     if(!_jsObject.IsEmpty()) {
         // adjust external memory counter if required
-        if (_jsObject.IsWeak()) {
-            _bgjsEngine->getIsolate()->AdjustAmountOfExternalAllocatedMemory(_externalMemory);
-        }
+        JNI_ASSERT(!_jsObject.IsWeak(), "JNIV8Object deleted while still referenced by JavaScript");
         _jsObject.Reset();
     }
 }
 
 void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
+    // never use the raw pointer directly; this way we are retaining the object until this method finishes!
     auto jniV8Object = reinterpret_cast<JNIV8Object*>(data.GetParameter());
-
-    // the js object is no longer being used => release the strong reference to the java object
-    jniV8Object->releaseJObject();
-
+    
     // "resurrect" the JS object, because we might need it later in some native or java function
     // IF we do, we have to make a strong reference to the java object again and also register this callback for
     // the provided JS object reference!
@@ -61,6 +57,10 @@ void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // we are only holding the object because java/native is still alive, v8 can not gc it anymore
     // => adjust external memory counter
     jniV8Object->_bgjsEngine->getIsolate()->AdjustAmountOfExternalAllocatedMemory(-jniV8Object->_externalMemory);
+
+    // finally: the js object is no longer being used => release the strong reference to the java object
+    // NOTE: object might be deleted by another thread after calling this
+    jniV8Object->releaseJObject();
 }
 
 void JNIV8Object::makeWeak() {
@@ -364,10 +364,10 @@ void JNIV8Object::jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedCl
 extern "C" {
 
 JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_JNIV8Object_initNativeJNIV8Object(JNIEnv *env, jobject obj, jstring canonicalName, jlong enginePtr,
+Java_ag_boersego_bgjs_JNIV8Object_initNativeJNIV8Object(JNIEnv *env, jobject obj, jstring canonicalName, jobject engine,
                                                         jlong jsObjPtr) {
     JNIWrapper::initializeNativeObject(obj, canonicalName);
-    JNIV8Wrapper::initializeNativeJNIV8Object(obj, enginePtr, jsObjPtr);
+    JNIV8Wrapper::initializeNativeJNIV8Object(obj, engine, jsObjPtr);
 }
 
 }

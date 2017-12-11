@@ -70,26 +70,31 @@ void BGJSModule::javaToJsField (v8::Isolate* isolate, const char* fieldName,
 }
 
 extern "C" {
-	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_cleanupNativeFnPtr (JNIEnv * env, jobject obj, jlong ctxPtr, jlong nativePtr);
-	JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_cleanupPersistentFunction (JNIEnv * env, jobject obj, jlong ctxPtr, jlong nativePtr);
-}
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_cleanupNativeFnPtr (JNIEnv * env, jobject obj, jlong ctxPtr, jlong nativePtr) {
-	if (nativePtr) {
-		BGJSV8Engine* context = (BGJSV8Engine*)ctxPtr;
-	    v8::Isolate* isolate = context->getIsolate();
-	    v8::Locker l (isolate);
-		Isolate::Scope isolateScope(isolate);
-		BGJSJavaWrapper* wrapper = (BGJSJavaWrapper*)nativePtr;
-		// wrapper->cleanUp(env);
-		delete (wrapper);
+	JNIEXPORT void JNICALL
+	Java_ag_boersego_bgjs_ClientAndroid_cleanupNativeFnPtr(JNIEnv *env, jobject obj, jobject engine,
+														   jlong nativePtr) {
+		if (nativePtr) {
+			auto context = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
+			v8::Isolate *isolate = context->getIsolate();
+			v8::Locker l(isolate);
+			Isolate::Scope isolateScope(isolate);
+			BGJSJavaWrapper *wrapper = (BGJSJavaWrapper *) nativePtr;
+			// wrapper->cleanUp(env);
+			delete (wrapper);
+		}
 	}
-}
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_cleanupPersistentFunction (JNIEnv * env, jobject obj, jlong ctxPtr, jlong nativePtr) {
-	if (nativePtr) {
-		Persistent<Function, v8::CopyablePersistentTraits<v8::Function> > func = *(((Persistent<Function, v8::CopyablePersistentTraits<v8::Function> >*)nativePtr));
-		BGJS_CLEAR_PERSISTENT(func);
+	JNIEXPORT void JNICALL
+	Java_ag_boersego_bgjs_ClientAndroid_cleanupPersistentFunction(JNIEnv *env, jobject obj,
+																  jobject engine, jlong nativePtr) {
+		if (nativePtr) {
+			auto context = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
+			v8::Isolate *isolate = context->getIsolate();
+			v8::Locker l(isolate);
+			Persistent<Function, v8::CopyablePersistentTraits<v8::Function> > func = *(((Persistent<Function, v8::CopyablePersistentTraits<v8::Function> > *) nativePtr));
+			BGJS_CLEAR_PERSISTENT(func);
+		}
 	}
 }
 
