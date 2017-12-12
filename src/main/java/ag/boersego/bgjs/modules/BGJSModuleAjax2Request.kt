@@ -117,6 +117,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                             var details = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
                             try {
                                 fail?.callAsV8Function(mSuccessData, "parseerror", details)
+                                Log.e(TAG, "Exception thrown when calling ajax callback", e)
                             } catch (failEx: IllegalArgumentException) {
                                 Log.e(TAG, "Cannot execute fail callback: " + fail, failEx)
                             }

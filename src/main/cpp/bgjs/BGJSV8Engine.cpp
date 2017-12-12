@@ -107,6 +107,16 @@ static void LogCallback(const v8::FunctionCallbackInfo<Value>& args) {
 	ctx->log(LOG_INFO, args);
 }
 
+static void TraceCallback(const v8::FunctionCallbackInfo<Value>& args) {
+    if (args.Length() < 1) {
+        return;
+    }
+
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+
+    ctx->trace(args);
+}
+
 static void DebugCallback(const v8::FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().SetUndefined();
 	if (args.Length() < 1) {
@@ -1049,6 +1059,8 @@ void BGJSV8Engine::createContext() {
 				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	console->Set(String::NewFromUtf8(_isolate, "warn"),
 				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    console->Set(String::NewFromUtf8(_isolate, "trace"),
+                 v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
 
 	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
@@ -1174,7 +1186,7 @@ void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>
 	std::stringstream str;
 	int l = args.Length();
 	for (int i = 0; i < l; i++) {
-		str << " " << JNIV8Marshalling::v8string2string(args[i]->ToString()).c_str();
+		str << " " << JNIV8Marshalling::v8string2string(args[i]->ToString());
 	}
 
 	LOG(debugLevel, "%s", str.str().c_str());
@@ -1255,6 +1267,23 @@ void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>& ar
     const shared_ptr<JNIV8Function> &wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
     JNIEnv* env = JNIWrapper::getEnvironment();
     env->CallBooleanMethod(getJObject(), _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
+}
+
+void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
+    v8::Locker locker(args.GetIsolate());
+    HandleScope scope(args.GetIsolate());
+
+    std::stringstream str;
+    str << " " << JNIV8Marshalling::v8string2string(args[0]->ToString()) << "\n";
+
+    Local<StackTrace> stackTrace = StackTrace::CurrentStackTrace(args.GetIsolate(), 15);
+    int l = stackTrace->GetFrameCount();
+    for (int i = 0; i < l; i++) {
+        const Local<StackFrame> &frame = stackTrace->GetFrame(i);
+        str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " (" << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber() << ")\n";
+    }
+
+    LOG(LOG_INFO, "%s", str.str().c_str());
 }
 
 extern "C" {

@@ -107,6 +107,8 @@ public:
      */
     static void initJNICache();
 
+    void trace(const v8::FunctionCallbackInfo<v8::Value> &info);
+
 private:
 	// called by JNIWrapper
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
