@@ -48,7 +48,7 @@ JNIV8Object::~JNIV8Object() {
 void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // never use the raw pointer directly; this way we are retaining the object until this method finishes!
     auto jniV8Object = reinterpret_cast<JNIV8Object*>(data.GetParameter());
-    
+
     // "resurrect" the JS object, because we might need it later in some native or java function
     // IF we do, we have to make a strong reference to the java object again and also register this callback for
     // the provided JS object reference!

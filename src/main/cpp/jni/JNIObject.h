@@ -10,8 +10,6 @@
 #include <mutex>
 #include "JNIBase.h"
 
-class JNIObjectRef;
-
 /**
  * Base class for all native classes associated with a java object
  * constructor should never be called manually; if you want to create a new instance
@@ -19,16 +17,15 @@ class JNIObjectRef;
  */
 class JNIObject : public JNIBase {
     friend class JNIWrapper;
-    friend class JNIObjectRef;
+    template <typename> friend class JNIRef;
 public:
     JNIObject(jobject obj, JNIClassInfo *info);
     virtual ~JNIObject();
 
     /**
-     * returns the shared_ptr for this instance
-     * usage of direct pointers to this object should be avoided at all cost
+     * checks if the java object is currently
      */
-    std::shared_ptr<JNIObject> getSharedPtr();
+    bool isRetained() const;
 
     /**
      * returns the referenced java object
@@ -66,63 +63,5 @@ private:
 };
 
 BGJS_JNI_LINK_DEF(JNIObject)
-
-template<typename T>
-class JNIObjectRef {
-private:
-    struct Counter {
-        std::atomic<uint8_t> num;
-    };
-    T *_obj;
-    Counter *_cnt;
-    bool _retaining;
-public:
-    JNIObjectRef(const JNIObjectRef &ref)
-    {
-        _retaining = true;
-        if(ref._retaining) {
-            _cnt = ref._cnt;
-        } else {
-            _cnt = new Counter();
-            _cnt->num = 0;
-            if (_obj->isPersistent()) {
-                _obj->retainJObject();
-            }
-        }
-        _obj = ref._obj;
-        _cnt->num++;
-    }
-    JNIObjectRef(JNIObjectRef &ref) : JNIObjectRef((const JNIObjectRef&)ref) {}
-
-    JNIObjectRef(T *obj) {
-        _cnt = new Counter();
-        _cnt->num = 0;
-        _obj = obj;
-        _retaining = !obj->isPersistent();
-    }
-    ~JNIObjectRef() {
-        uint8_t refs = --_cnt->num;
-        if(refs > 0) return;
-
-        delete _cnt;
-
-        if(_retaining) {
-            if (_obj->isPersistent()) {
-                _obj->releaseJObject();
-            } else {
-                delete _obj;
-            }
-        }
-    }
-    T& operator*() const {
-        return &_obj;
-    }
-    T* operator->() const {
-        return _obj;
-    }
-    T* get() const {
-        return _obj;
-    }
-};
 
 #endif //__OBJECT_H

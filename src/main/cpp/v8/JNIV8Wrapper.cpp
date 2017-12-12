@@ -373,7 +373,7 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
 }
 
 // persistent classes can also be accessed as JNIV8Object directly!
-template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object) {
+template<> JNILocalRef<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object) {
     v8::Local<v8::External> ext;
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     // because this method takes a local, we can be sure that the correct v8 scopes are active around it already
@@ -386,7 +386,7 @@ template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v
     } else {
         return nullptr;
     }
-    return std::static_pointer_cast<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value())->getSharedPtr());
+    return JNILocalRef<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value()));
 };
 
 /**
