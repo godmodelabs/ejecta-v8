@@ -232,7 +232,13 @@ v8::Local<v8::Value> JNIV8Marshalling::callJavaMethod(JNIEnv *env, JNIV8JavaValu
     v8::EscapableHandleScope handleScope(isolate);
     v8::Local<v8::Value> result;
 
-    switch(returnType.valueType) {
+    // Do not expect boxed return types as primitives
+    JNIV8JavaValueType valueType = returnType.valueType;
+    if (returnType.clazz) {
+        valueType = JNIV8JavaValueType::kObject;
+    }
+
+    switch(valueType) {
         case JNIV8JavaValueType::kString:
         case JNIV8JavaValueType::kObject: {
             if (object) {
