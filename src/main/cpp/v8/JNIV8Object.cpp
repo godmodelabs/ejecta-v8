@@ -16,6 +16,10 @@ BGJS_JNI_LINK(JNIV8Object, "ag/boersego/bgjs/JNIV8Object");
 
 decltype(JNIV8Object::_jniString) JNIV8Object::_jniString = {0};
 decltype(JNIV8Object::_jniHashMap) JNIV8Object::_jniHashMap = {0};
+decltype(JNIV8Object::_jniMap) JNIV8Object::_jniMap = {0};
+decltype(JNIV8Object::_jniMapEntry) JNIV8Object::_jniMapEntry = {0};
+decltype(JNIV8Object::_jniIterator) JNIV8Object::_jniIterator = {0};
+decltype(JNIV8Object::_jniSet) JNIV8Object::_jniSet = {0};
 
 /**
  * cache JNI class references
@@ -29,6 +33,20 @@ void JNIV8Object::initJNICache() {
     _jniHashMap.initId = env->GetMethodID(_jniHashMap.clazz, "<init>", "()V");
     _jniHashMap.putId = env->GetMethodID(_jniHashMap.clazz, "put",
                                          "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+
+    _jniMap.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/util/Map"));
+    _jniMap.entrySetId = env->GetMethodID(_jniMap.clazz, "entrySet", "()Ljava/util/Set;");
+
+    _jniMapEntry.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/util/Map$Entry"));
+    _jniMapEntry.getKeyId = env->GetMethodID(_jniMapEntry.clazz, "getKey", "()Ljava/lang/Object;");
+    _jniMapEntry.getValueId = env->GetMethodID(_jniMapEntry.clazz, "getValue", "()Ljava/lang/Object;");
+
+    _jniIterator.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/util/Iterator"));
+    _jniIterator.hasNextId = env->GetMethodID(_jniIterator.clazz, "hasNext", "()Z");
+    _jniIterator.nextId = env->GetMethodID(_jniIterator.clazz, "next", "()Ljava/lang/Object;");
+
+    _jniSet.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/util/Set"));
+    _jniSet.iteratorId = env->GetMethodID(_jniSet.clazz, "iterator", "()Ljava/util/Iterator;");
 }
 
 JNIV8Object::JNIV8Object(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
@@ -155,6 +173,7 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("callV8Method", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Object::jniCallV8Method);
     info->registerNativeMethod("getV8Field", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)JNIV8Object::jniGetV8Field);
     info->registerNativeMethod("setV8Field", "(Ljava/lang/String;Ljava/lang/Object;)V", (void*)JNIV8Object::jniSetV8Field);
+    info->registerNativeMethod("setV8Field", "(Ljava/util/Map;)V", (void*)JNIV8Object::jniSetV8Fields);
 
     info->registerNativeMethod("hasV8Field", "(Ljava/lang/String;Z)Z", (void*)JNIV8Object::jniHasV8Field);
     info->registerNativeMethod("getV8Keys", "(Z)[Ljava/lang/String;", (void*)JNIV8Object::jniGetV8Keys);
@@ -190,6 +209,36 @@ void JNIV8Object::jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject 
     Maybe<bool> res = localRef->Set(context, JNIV8Marshalling::jstring2v8string(name), JNIV8Marshalling::jobject2v8value(value));
     if(res.IsNothing()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
+    }
+}
+
+void JNIV8Object::jniSetV8Fields(JNIEnv *env, jobject obj, jobject map) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, void());
+
+    jobject set = env->CallObjectMethod(map, _jniMap.entrySetId);
+    if (set == nullptr) {
+        return;
+    }
+
+    jobject iter = env->CallObjectMethod(set, _jniSet.iteratorId);
+    if (iter == nullptr) {
+        return;
+    }
+
+    while (env->CallBooleanMethod(iter, _jniIterator.hasNextId)) {
+        jobject entry = env->CallObjectMethod(iter, _jniIterator.nextId);
+        jstring key = (jstring) env->CallObjectMethod(entry, _jniMapEntry.getKeyId);
+        jobject value = env->CallObjectMethod(entry, _jniMapEntry.getValueId);
+
+        Maybe<bool> res = localRef->Set(context, JNIV8Marshalling::jstring2v8string(key), JNIV8Marshalling::jobject2v8value(value));
+        if(res.IsNothing()) {
+            ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
+            break;
+        }
+
+        env->DeleteLocalRef(entry);
+        env->DeleteLocalRef(key);
+        env->DeleteLocalRef(value);
     }
 }
 

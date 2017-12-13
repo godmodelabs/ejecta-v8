@@ -36,19 +36,8 @@ abstract public class JNIV8Object extends JNIObject {
 
     public native Object applyV8Method(String name, Object[] arguments);
     public native Object callV8Method(String name, Object... arguments);
-    /*
-    Question: Do we need these? (coercion on JS side or in Java?)
-    public native Object callV8MethodAsNumber(String name, Object... arguments);
-    public native Object callV8MethodAsString(String name, Object... arguments);
-    public native Object callV8MethodAsBoolean(String name, Object... arguments);
-    */
+
     public native Object getV8Field(String name);
-    /*
-    Question: Do we need these? (coercion on JS side or in Java?)
-    public native double getV8FieldAsNumber(String name);
-    public native String getV8FieldAsString(String name);
-    public native boolean getV8FieldAsBoolean(String name);
-    */
 
     public boolean hasV8Field(String name) {
         return hasV8Field(name, false);
@@ -72,6 +61,7 @@ abstract public class JNIV8Object extends JNIObject {
     }
 
     public native void setV8Field(String name, Object value);
+    public native void setV8Fields(Map<String, Object> fields);
 
     protected native void adjustJSExternalMemory(long change);
 

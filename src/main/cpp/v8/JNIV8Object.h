@@ -73,6 +73,7 @@ private:
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
     static jobject jniGetV8Field(JNIEnv *env, jobject obj, jstring name);
     static void jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value);
+    static void jniSetV8Fields(JNIEnv *env, jobject obj, jobject map);
     static jobject jniCallV8Method(JNIEnv *env, jobject obj, jstring name, jobjectArray arguments);
     static jboolean jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly);
     static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);
@@ -89,6 +90,24 @@ private:
     static struct {
         jclass clazz;
     } _jniString;
+    static struct {
+        jclass clazz;
+        jmethodID iteratorId;
+    } _jniSet;
+    static struct {
+        jclass clazz;
+        jmethodID hasNextId;
+        jmethodID nextId;
+    } _jniIterator;
+    static struct {
+        jclass clazz;
+        jmethodID getKeyId;
+        jmethodID getValueId;
+    } _jniMapEntry;
+    static struct {
+        jclass clazz;
+        jmethodID entrySetId;
+    } _jniMap;
     static struct {
         jclass clazz;
         jmethodID initId;
