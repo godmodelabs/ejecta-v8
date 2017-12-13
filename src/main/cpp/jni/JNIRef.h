@@ -5,72 +5,62 @@
 #ifndef ANDROID_GUIDANTS_JNIREF_H
 #define ANDROID_GUIDANTS_JNIREF_H
 
-struct JNIRefData {
-    std::atomic<uint32_t> num;
-    bool retained;
-};
-
+/**
+ * base class for global and local smart pointers
+ * should not be used directly
+ * Use JNILocalRef or JNIGlobalRef instead
+ */
 template<typename T>
 class JNIRef  {
-    template<typename> friend class JNIRef;
+    template<typename>
+    friend class JNIRef;
 private:
-    JNIRefData *_cnt;
+    std::atomic<uint32_t> *_cnt;
     T *_obj;
 protected:
+    // cast & copy ctor
     template<typename U>
-    JNIRef(const JNIRef<U>& ref, T* ptr) {
-        _cnt = ref._cnt;
-        _cnt->num++;
-        _obj = ptr;
+    JNIRef(const JNIRef<U>& ref, T* ptr) : _cnt(ref._cnt), _obj(ptr) {
+        if(_cnt) (*_cnt)++;
     }
 
-    JNIRef(T *obj, bool retained) {
-        _cnt = new JNIRefData();
-        _cnt->num = 1;
-        _cnt->retained = false;
-
-        _obj = obj;
-
-        retain(retained);
+    // cast & move ctor
+    template<typename U>
+    JNIRef(const JNIRef<U>&& ref, T* ptr) : _cnt(ref._cnt), _obj(ptr) {
     }
 
-    void retain(bool retain = true) {
-        bool isPersistent;
+    // default ctor
+    JNIRef(T *obj, bool retained) : _cnt(nullptr), _obj(obj) {
+        if(_obj && (!_obj->isPersistent() || retained)) {
+            retain();
+        }
+    }
 
+    // make ref retaining (initializes counter)
+    void retain() {
         // null pointers can not be retained...
         // also make sure we are not already retaining
-        if(!_obj || _cnt->retained) return;
+        if(!_obj || _cnt) return;
 
-        // non-persistent objects are always retained!
-        isPersistent = _obj->isPersistent();
-        if(!retain && isPersistent) return;
+        _cnt = new std::atomic<uint32_t>();
+        (*_cnt) = 1;
 
-        if(isPersistent) {
+        if(_obj->isPersistent()) {
             _obj->retainJObject();
         }
-        _cnt->retained = true;
     }
 
-public:
-    JNIRef (JNIRef<T>&& ref) : _cnt(ref._cnt), _obj(ref._obj)
-    {
-        ref._cnt = nullptr;
-        __android_log_print(ANDROID_LOG_WARN, "JNIRef", "called move constructor");
-    }
-
-    JNIRef(const JNIRef<T> &ref) : _cnt(ref._cnt), _obj(ref._obj) {
-        _cnt->num++;
-    }
-
-    ~JNIRef() {
-        // if values where moved, _cnt will be null
+    // stop retaining
+    void release() {
+        // if values where moved, or nothing was retained in the first place
+        // => _cnt will be null
         if(!_cnt) return;
 
-        uint32_t refs = --_cnt->num;
+        uint32_t refs = --(*_cnt);
         JNI_ASSERT(refs >= 0, "Invalid negative ref count");
         if(refs > 0) return;
 
-        if(_obj && _cnt->retained) {
+        if(_obj) {
             if (_obj->isPersistent()) {
                 _obj->releaseJObject();
             } else {
@@ -80,21 +70,40 @@ public:
 
         delete _cnt;
     }
+public:
+    // move ctor
+    JNIRef(JNIRef<T>&& ref) : _cnt(ref._cnt), _obj(ref._obj)  {
+        ref._cnt = nullptr;
+    }
+    // copy ctor
+    JNIRef(const JNIRef<T> &ref) : _cnt(ref._cnt), _obj(ref._obj) {
+        if(_cnt) (*_cnt)++;
+    }
 
+    ~JNIRef() {
+        release();
+    }
+
+    // move assignment
     JNIRef<T>& operator=(JNIRef<T>&& other) {
-        __android_log_print(ANDROID_LOG_WARN, "JNIRef", "called move assignment operator");
-        _cnt = other._cnt;
-        _obj = other._obj;
-        other._cnt = nullptr;
+        if (other._obj != _obj || other._cnt != _cnt) {
+            release();
+            _cnt = other._cnt;
+            _obj = other._obj;
+            other._cnt = nullptr;
+        }
         return *this;
     }
 
+    // copy assignment
     JNIRef<T>& operator=(JNIRef<T>& other) {
-        return operator=(std::move(other));
-    }
-
-    bool isRetained() const {
-        return _cnt->retained;
+        if (other._obj != _obj || other._cnt != _cnt) {
+            release();
+            _cnt = other._cnt;
+            if (_cnt) (*_cnt)++;
+            _obj = other._obj;
+        }
+        return *this;
     }
 
     operator bool() const {
@@ -111,20 +120,26 @@ public:
     }
 };
 
+template <typename T> class JNILocalRef;
+template <typename T> class JNIGlobalRef;
+
+/**
+ * non-retained local reference to a JNIObject
+ * this pointer is only valid until the scope were it was created is left
+ */
 template <typename T>
 class JNILocalRef : public JNIRef<T> {
-    template<typename> friend class JNILocalRef;
+    template<typename>
+    friend class JNILocalRef;
 private:
-    template<typename U> JNILocalRef(const JNILocalRef<U> &ref, T* ptr) : JNIRef<T>(ref, ptr) {}
+    template<typename U>
+    JNILocalRef(const JNILocalRef<U> &ref, T* ptr) : JNIRef<T>(ref, ptr) {}
+    template<typename U>
+    JNILocalRef(const JNILocalRef<U> &&ref, T* ptr) : JNIRef<T>(std::move(ref), ptr) {}
 public:
     JNILocalRef(JNILocalRef<T>&& ref) : JNIRef<T>(std::move(ref)) {}
-    JNILocalRef(const JNIRef<T> &ref) : JNIRef<T>(ref) {}
     JNILocalRef(const JNILocalRef<T> &ref) : JNIRef<T>(ref) {}
     JNILocalRef(T *obj) : JNIRef<T>(obj, false) {}
-
-    template<typename U> JNILocalRef<U> As() {
-        return JNILocalRef<U>(*this, dynamic_cast<U*>(this->get()));
-    }
 
     JNILocalRef<T>& operator=(JNILocalRef<T>&& other) {
         JNIRef<T>::operator=(std::move(other));
@@ -135,24 +150,41 @@ public:
         JNIRef<T>::operator=(other);
         return *this;
     }
+
+    // create a global ref from a local ref
+    static JNILocalRef<T> New(JNIGlobalRef<T>& ref) {
+        return JNILocalRef<T>(ref.get());
+    }
+
+    // cast between different types
+    template<typename U>
+    static JNILocalRef<T> Cast(JNILocalRef<U>& ref) {
+        return JNILocalRef<T>(ref, dynamic_cast<T*>(ref.get()));
+    }
+
+    template<typename U>
+    static JNILocalRef<T> Cast(JNILocalRef<U>&& ref) {
+        return JNILocalRef<T>(std::move(ref), dynamic_cast<T*>(ref.get()));
+    }
 };
 
+/**
+ * retained global reference to a JNIObject
+ * this pointer keeps the referenced object from being deleted
+ */
 template <typename T>
 class JNIGlobalRef : public JNIRef<T> {
-    template<typename> friend class JNIGlobalRef;
+    template<typename>
+    friend class JNIGlobalRef;
 private:
-    template<typename U> JNIGlobalRef(const JNIGlobalRef<U> &ref, T* ptr) : JNIRef<T>(ref, ptr) {}
+    template<typename U>
+    JNIGlobalRef(const JNIGlobalRef<U> &ref, T* ptr) : JNIRef<T>(ref, ptr) {}
+    template<typename U>
+    JNIGlobalRef(const JNIGlobalRef<U> &&ref, T* ptr) : JNIRef<T>(std::move(ref), ptr) {}
 public:
     JNIGlobalRef(JNIGlobalRef<T>&& ref) : JNIRef<T>(std::move(ref)) {}
     JNIGlobalRef(const JNIGlobalRef<T> &ref) : JNIRef<T>(ref) {}
-    JNIGlobalRef(const JNIRef<T> &ref) : JNIRef<T>(ref) {
-        this->retain();
-    }
     JNIGlobalRef(T *obj) : JNIRef<T>(obj, true) {}
-
-    template<typename U> JNIGlobalRef<U> As() {
-        return JNIGlobalRef<U>(*this, dynamic_cast<U*>(this->get()));
-    }
 
     JNIGlobalRef<T>& operator=(JNIGlobalRef<T>&& other) {
         JNIRef<T>::operator=(std::move(other));
@@ -162,6 +194,22 @@ public:
     JNIGlobalRef<T>& operator=(JNIGlobalRef<T>& other) {
         JNIRef<T>::operator=(other);
         return *this;
+    }
+
+    // create a local ref from a global ref
+    static JNIGlobalRef<T> New(JNILocalRef<T>& ref) {
+        return JNIGlobalRef<T>(ref.get());
+    }
+
+    // cast between different types
+    template<typename U>
+    static JNIGlobalRef<T> Cast(JNIGlobalRef<U>& ref) {
+        return JNIGlobalRef<T>(ref, dynamic_cast<T*>(ref.get()));
+    }
+
+    template<typename U>
+    static JNIGlobalRef<T> Cast(JNIGlobalRef<U>&& ref) {
+        return JNIGlobalRef<T>(std::move(ref), dynamic_cast<T*>(ref.get()));
     }
 };
 

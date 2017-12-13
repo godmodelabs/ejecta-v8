@@ -151,7 +151,7 @@ public:
             JNIEnv *env = JNIWrapper::getEnvironment();
             jobjectArray arguments = env->NewObjectArray(0, _jniObject.clazz, nullptr);
             __android_log_print(ANDROID_LOG_WARN, "JNIV8Wrapper", "Creating %s", JNIBase::getCanonicalName<ObjectType>().c_str());
-            return info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments).template As<ObjectType>();
+            return JNILocalRef<ObjectType>::Cast(info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments));
         } else {
             if (object->InternalFieldCount() >= 1) {
                 // does the object have internal fields? if so use it!
@@ -212,7 +212,7 @@ private:
 
     template<class ObjectType>
     static JNILocalRef<JNIV8Object> createJavaClass(JNIV8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments) {
-        return JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj, arguments).template As<JNIV8Object>();
+        return JNILocalRef<JNIV8Object>::Cast(JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj, arguments));
     }
     
     // cache of classes + ids
