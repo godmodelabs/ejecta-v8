@@ -24,17 +24,17 @@ enum class JNIV8MarshallingError {
 };
 
 enum class JNIV8JavaValueType {
-    kObject,
-    kBoolean,
-    kByte,
-    kCharacter,
-    kShort,
-    kInteger,
-    kLong,
-    kFloat,
-    kDouble,
-    kString,
-    kVoid
+    kObject = 0,
+    kBoolean = 1,
+    kByte = 2,
+    kCharacter = 3,
+    kShort = 4,
+    kInteger = 5,
+    kLong = 6,
+    kFloat = 7,
+    kDouble = 8,
+    kString = 9,
+    kVoid = 10
 };
 
 struct JNIV8JavaValue {
@@ -57,6 +57,11 @@ struct JNIV8ObjectJavaSignatureInfo {
 
 class JNIV8Marshalling {
 public:
+    /**
+     * create a JNIV8JavaArgument struct for the specified type
+     */
+    static JNIV8JavaArgument argumentWithBoxedType(JNIV8JavaValueType type);
+
     /**
      * converts a v8 value to a java value based on the provided type information
      * if conversion was successful method will return kOk and target will contain a valid jvalue

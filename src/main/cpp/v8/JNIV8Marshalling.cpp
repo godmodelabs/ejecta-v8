@@ -37,6 +37,75 @@ JNIV8JavaValueType getArgumentType(const std::string& type) {
     return JNIV8JavaValueType::kObject;
 }
 
+JNIV8JavaArgument JNIV8Marshalling::argumentWithBoxedType(JNIV8JavaValueType type) {
+    switch(type) {
+        case JNIV8JavaValueType::kBoolean: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Boolean;");
+            arg.valueType = type;
+            arg.clazz = _jniBoolean.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kByte: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Byte;");
+            arg.valueType = type;
+            arg.clazz = _jniByte.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kCharacter: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Character;");
+            arg.valueType = type;
+            arg.clazz = _jniCharacter.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kShort: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Short;");
+            arg.valueType = type;
+            arg.clazz = _jniShort.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kInteger: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Integer;");
+            arg.valueType = type;
+            arg.clazz = _jniInteger.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kLong: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Long;");
+            arg.valueType = type;
+            arg.clazz = _jniLong.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kFloat: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Float;");
+            arg.valueType = type;
+            arg.clazz = _jniFloat.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kDouble: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Double;");
+            arg.valueType = type;
+            arg.clazz = _jniDouble.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kVoid: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Void;");
+            arg.valueType = type;
+            return arg;
+        }
+        case JNIV8JavaValueType::kString: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/String;");
+            arg.valueType = type;
+            arg.clazz = _jniString.clazz;
+            return arg;
+        }
+        case JNIV8JavaValueType::kObject: {
+            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Object;");
+            arg.clazz = _jniObject.clazz;
+            return arg;
+        }
+    }
+}
+
 JNIV8JavaValue::JNIV8JavaValue(const std::string& type, bool isNullable, bool undefinedIsNull) :
         type(type), isNullable(isNullable), undefinedIsNull(undefinedIsNull) {
     valueType = getArgumentType(type);
@@ -212,7 +281,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 break;
             }
             case JNIV8JavaValueType::kVoid: {
-                if (!v8Value->IsNull()) {
+                if (!v8Value->IsNull() && !v8Value->IsUndefined()) {
                     return JNIV8MarshallingError::kVoidNotNull;
                 }
                 target->l = nullptr;

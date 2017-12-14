@@ -172,8 +172,10 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("applyV8Method", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Object::jniCallV8Method);
     info->registerNativeMethod("callV8Method", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Object::jniCallV8Method);
     info->registerNativeMethod("getV8Field", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)JNIV8Object::jniGetV8Field);
+    info->registerNativeMethod("applyV8Method", "(Ljava/lang/String;B[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Object::jniCallV8MethodWithReturnType);
+    info->registerNativeMethod("getV8Field", "(Ljava/lang/String;B)Ljava/lang/Object;", (void*)JNIV8Object::jniGetV8FieldWithReturnType);
     info->registerNativeMethod("setV8Field", "(Ljava/lang/String;Ljava/lang/Object;)V", (void*)JNIV8Object::jniSetV8Field);
-    info->registerNativeMethod("setV8Field", "(Ljava/util/Map;)V", (void*)JNIV8Object::jniSetV8Fields);
+    info->registerNativeMethod("setV8Fields", "(Ljava/util/Map;)V", (void*)JNIV8Object::jniSetV8Fields);
 
     info->registerNativeMethod("hasV8Field", "(Ljava/lang/String;Z)Z", (void*)JNIV8Object::jniHasV8Field);
     info->registerNativeMethod("getV8Keys", "(Z)[Ljava/lang/String;", (void*)JNIV8Object::jniGetV8Keys);
@@ -189,6 +191,52 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change) {
     auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
     ptr->adjustJSExternalMemory(change);
+}
+
+jobject JNIV8Object::jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstring name, jbyte returnType) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
+
+    JNIV8JavaArgument arg = JNIV8Marshalling::argumentWithBoxedType((JNIV8JavaValueType)returnType);
+    arg.isNullable = true;
+    arg.undefinedIsNull = false;
+
+    MaybeLocal<Value> valueRef = localRef->Get(context, JNIV8Marshalling::jstring2v8string(name));
+    if(valueRef.IsEmpty()) {
+        ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
+        return nullptr;
+    }
+
+    jvalue jval;
+    memset(&jval, 0, sizeof(jvalue));
+    JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaArgument(env, valueRef.ToLocalChecked(), arg, &jval);
+    if(res != JNIV8MarshallingError::kOk) {
+        std::string strFieldName = JNIWrapper::jstring2string(name);
+        switch(res) {
+            default:
+            case JNIV8MarshallingError::kWrongType:
+                ThrowV8TypeError("wrong type for field '" + strFieldName + "'");
+                break;
+            case JNIV8MarshallingError::kUndefined:
+                ThrowV8TypeError("field '" + strFieldName + "' must not be undefined");
+                break;
+            case JNIV8MarshallingError::kNotNullable:
+                ThrowV8TypeError("field '" + strFieldName + "' is not nullable");
+                break;
+            case JNIV8MarshallingError::kNoNaN:
+                ThrowV8TypeError("field '" + strFieldName + "' must not be NaN");
+                break;
+            case JNIV8MarshallingError::kVoidNotNull:
+                ThrowV8TypeError("field '" + strFieldName + "' can only be null or undefined");
+                break;
+            case JNIV8MarshallingError::kOutOfRange:
+                ThrowV8RangeError("assigned value '"+
+                                  JNIV8Marshalling::v8string2string(valueRef.ToLocalChecked()->ToString())+"' is out of range for field '" + strFieldName + "'");
+                break;
+        }
+        return nullptr;
+    }
+
+    return jval.l;
 }
 
 jobject JNIV8Object::jniGetV8Field(JNIEnv *env, jobject obj, jstring name) {
@@ -242,8 +290,12 @@ void JNIV8Object::jniSetV8Fields(JNIEnv *env, jobject obj, jobject map) {
     }
 }
 
-jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, jobjectArray arguments) {
+jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jstring name, jbyte returnType, jobjectArray arguments) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
+
+    JNIV8JavaArgument arg = JNIV8Marshalling::argumentWithBoxedType((JNIV8JavaValueType)returnType);
+    arg.isNullable = true;
+    arg.undefinedIsNull = false;
 
     MaybeLocal<Value> maybeLocal;
     Local<Value> funcRef;
@@ -282,7 +334,42 @@ jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, job
     if(args) {
         free(args);
     }
-    return JNIV8Marshalling::v8value2jobject(resultRef);
+
+    jvalue jval;
+    memset(&jval, 0, sizeof(jvalue));
+    JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaArgument(env, resultRef, arg, &jval);
+    if(res != JNIV8MarshallingError::kOk) {
+        std::string strMethodName = JNIWrapper::jstring2string(name);
+        switch(res) {
+            default:
+            case JNIV8MarshallingError::kWrongType:
+                ThrowV8TypeError("wrong type for return value of '" + strMethodName + "'");
+                break;
+            case JNIV8MarshallingError::kUndefined:
+                ThrowV8TypeError("return value of '" + strMethodName + "' must not be undefined");
+                break;
+            case JNIV8MarshallingError::kNotNullable:
+                ThrowV8TypeError("return value of '" + strMethodName + "' is not nullable");
+                break;
+            case JNIV8MarshallingError::kNoNaN:
+                ThrowV8TypeError("return value of '" + strMethodName + "' must not be NaN");
+                break;
+            case JNIV8MarshallingError::kVoidNotNull:
+                ThrowV8TypeError("return value of '" + strMethodName + "' can only be null or undefined");
+                break;
+            case JNIV8MarshallingError::kOutOfRange:
+                ThrowV8RangeError("return value '"+
+                                  JNIV8Marshalling::v8string2string(resultRef->ToString())+"' is out of range for method '" + strMethodName + "'");
+                break;
+        }
+        return nullptr;
+    }
+
+    return jval.l;
+}
+
+jobject JNIV8Object::jniCallV8Method(JNIEnv *env, jobject obj, jstring name, jobjectArray arguments) {
+    return jniCallV8MethodWithReturnType(env, obj, name, 0, arguments);
 }
 
 jboolean JNIV8Object::jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly) {

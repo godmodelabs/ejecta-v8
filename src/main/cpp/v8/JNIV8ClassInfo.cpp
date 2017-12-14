@@ -12,17 +12,6 @@
 
 using namespace v8;
 
-#define ThrowV8RangeError(msg)\
-v8::Isolate::GetCurrent()->ThrowException(v8::Exception::RangeError(\
-String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
-);
-
-#define ThrowV8TypeError(msg)\
-v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(\
-String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
-);
-
-
 decltype(JNIV8ClassInfo::_jniObject) JNIV8ClassInfo::_jniObject = {0};
 
 /**
@@ -93,19 +82,19 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<
             switch(res) {
                 default:
                 case JNIV8MarshallingError::kWrongType:
-                    ThrowV8TypeError("property '" + cb->propertyName + "' is not nullable");
+                    ThrowV8TypeError("wrong type for property '" + cb->propertyName);
                     break;
                 case JNIV8MarshallingError::kUndefined:
                     ThrowV8TypeError("property '" + cb->propertyName + "' must not be undefined");
                     break;
                 case JNIV8MarshallingError::kNotNullable:
-                    ThrowV8TypeError("wrong type for property '" + cb->propertyName);
+                    ThrowV8TypeError("property '" + cb->propertyName + "' is not nullable");
                     break;
                 case JNIV8MarshallingError::kNoNaN:
                     ThrowV8TypeError("property '" + cb->propertyName + "' must not be NaN");
                     break;
                 case JNIV8MarshallingError::kVoidNotNull:
-                    ThrowV8TypeError("property '" + cb->propertyName + "' can only be null");
+                    ThrowV8TypeError("property '" + cb->propertyName + "' can only be null or undefined");
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
                     ThrowV8RangeError("assigned value '"+
@@ -203,19 +192,19 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
                     switch(res) {
                         default:
                         case JNIV8MarshallingError::kWrongType:
-                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' is not nullable");
+                            ThrowV8TypeError("wrong type for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
                             break;
                         case JNIV8MarshallingError::kUndefined:
                             ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' does not accept undefined");
                             break;
                         case JNIV8MarshallingError::kNotNullable:
-                            ThrowV8TypeError("wrong type for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' is not nullable");
                             break;
                         case JNIV8MarshallingError::kNoNaN:
                             ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must not be NaN");
                             break;
                         case JNIV8MarshallingError::kVoidNotNull:
-                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must be null");
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must be null or undefined");
                             break;
                         case JNIV8MarshallingError::kOutOfRange:
                             ThrowV8RangeError("value '"+
