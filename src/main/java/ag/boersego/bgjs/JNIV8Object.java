@@ -8,37 +8,6 @@ import java.util.Map;
  */
 
 abstract public class JNIV8Object extends JNIObject {
-    class ReturnType {
-        static final byte
-                Object = 0,
-                Boolean = 1,
-                Byte = 2,
-                Character = 3,
-                Short = 4,
-                Integer = 5,
-                Long = 6,
-                Float = 7,
-                Double = 8,
-                String = 9,
-                Void = 10;
-    };
-
-    static protected HashMap<Class, Byte> typeMap;
-    static {
-        typeMap = new HashMap<>();
-        typeMap.put(Object.class, ReturnType.Object);
-        typeMap.put(Boolean.class, ReturnType.Boolean);
-        typeMap.put(Byte.class, ReturnType.Byte);
-        typeMap.put(Character.class, ReturnType.Character);
-        typeMap.put(Short.class, ReturnType.Short);
-        typeMap.put(Integer.class, ReturnType.Integer);
-        typeMap.put(Long.class, ReturnType.Long);
-        typeMap.put(Float.class, ReturnType.Float);
-        typeMap.put(Double.class, ReturnType.Double);
-        typeMap.put(String.class, ReturnType.String);
-        typeMap.put(Void.class, ReturnType.Void);
-    }
-
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
         if(Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
@@ -121,31 +90,6 @@ abstract public class JNIV8Object extends JNIObject {
     public native void setV8Field(String name, Object value);
     public native void setV8Fields(Map<String, Object> fields);
 
-    protected native void adjustJSExternalMemory(long change);
-
-    //------------------------------------------------------------------------
-    // internal fields & methods
-    private V8Engine _engine;
-
-    public JNIV8Object(V8Engine engine, long jsObjPtr, Object[] arguments) {
-        super(true);
-        _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine, jsObjPtr);
-        initAutomaticDisposure();
-    }
-
-    public JNIV8Object(V8Engine engine) {
-        super(true);
-        _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine, 0);
-        initAutomaticDisposure();
-    }
-
-    private native boolean hasV8Field(String name, boolean ownOnly);
-    private native String[] getV8Keys(boolean ownOnly);
-    private native Map<String,Object> getV8Fields(boolean ownOnly);
-    private native void initNativeJNIV8Object(String canonicalName, V8Engine engine, long jsObjPtr);
-
     /**
      * convert a wrapped object to a number using the javascript coercion rules
      * @param obj
@@ -221,5 +165,61 @@ abstract public class JNIV8Object extends JNIObject {
         }
         // other java-only types are "false"
         throw new ClassCastException("Cannot convert to String: " + obj);
+    }
+
+    protected native void adjustJSExternalMemory(long change);
+
+    //------------------------------------------------------------------------
+    // internal fields & methods
+    private V8Engine _engine;
+
+    public JNIV8Object(V8Engine engine, long jsObjPtr, Object[] arguments) {
+        super(true);
+        _engine = engine;
+        initNativeJNIV8Object(getClass().getCanonicalName(), engine, jsObjPtr);
+        initAutomaticDisposure();
+    }
+
+    public JNIV8Object(V8Engine engine) {
+        super(true);
+        _engine = engine;
+        initNativeJNIV8Object(getClass().getCanonicalName(), engine, 0);
+        initAutomaticDisposure();
+    }
+
+    private native boolean hasV8Field(String name, boolean ownOnly);
+    private native String[] getV8Keys(boolean ownOnly);
+    private native Map<String,Object> getV8Fields(boolean ownOnly);
+    private native void initNativeJNIV8Object(String canonicalName, V8Engine engine, long jsObjPtr);
+
+    class ReturnType {
+        static final byte
+                Object = 0,
+                Boolean = 1,
+                Byte = 2,
+                Character = 3,
+                Short = 4,
+                Integer = 5,
+                Long = 6,
+                Float = 7,
+                Double = 8,
+                String = 9,
+                Void = 10;
+    };
+
+    static protected HashMap<Class, Byte> typeMap;
+    static {
+        typeMap = new HashMap<>();
+        typeMap.put(Object.class, ReturnType.Object);
+        typeMap.put(Boolean.class, ReturnType.Boolean);
+        typeMap.put(Byte.class, ReturnType.Byte);
+        typeMap.put(Character.class, ReturnType.Character);
+        typeMap.put(Short.class, ReturnType.Short);
+        typeMap.put(Integer.class, ReturnType.Integer);
+        typeMap.put(Long.class, ReturnType.Long);
+        typeMap.put(Float.class, ReturnType.Float);
+        typeMap.put(Double.class, ReturnType.Double);
+        typeMap.put(String.class, ReturnType.String);
+        typeMap.put(Void.class, ReturnType.Void);
     }
 }
