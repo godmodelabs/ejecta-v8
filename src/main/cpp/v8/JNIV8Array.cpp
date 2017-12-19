@@ -18,7 +18,7 @@ void JNIV8Array::initJNICache() {
     _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
 }
 
-jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32_t from, uint32_t to) {
+jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, int32_t from, int32_t to) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     BGJSV8Engine *engine = getEngine();
     v8::Isolate* isolate = engine->getIsolate();
@@ -27,14 +27,14 @@ jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32
     uint32_t len = array->Length();
     uint32_t size = len;
     if(from >= 0 && to >= 0 && from < len && to < len && from<=to) {
-        size = (to-from)+1;
+        size = (uint32_t)((to-from)+1);
     } else {
         from = 0;
         to = len-1;
     }
 
     jobjectArray elements = env->NewObjectArray(size, _jniObject.clazz, nullptr);
-    for(uint32_t i=from; i<=to; i++) {
+    for(uint32_t i=(uint32_t)from; i<=to; i++) {
         v8::MaybeLocal<v8::Value> maybeValue = array->Get(context, i);
         v8::Local<v8::Value> value;
         if(maybeValue.IsEmpty()) {
@@ -82,7 +82,7 @@ jobjectArray JNIV8Array::jniGetV8Elements(JNIEnv *env, jobject obj) {
  */
 jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint from, jint to) {
     JNIV8Object_PrepareJNICall(JNIV8Array, v8::Array, nullptr);
-    return ptr->v8ArrayToObjectArray(localRef, (uint32_t)from, (uint32_t)to);
+    return ptr->v8ArrayToObjectArray(localRef, (int32_t)from, (int32_t)to);
 }
 
 /**
