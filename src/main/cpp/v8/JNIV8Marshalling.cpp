@@ -37,81 +37,64 @@ JNIV8JavaValueType getArgumentType(const std::string& type) {
     return JNIV8JavaValueType::kObject;
 }
 
-JNIV8JavaArgument JNIV8Marshalling::argumentWithBoxedType(JNIV8JavaValueType type) {
+JNIV8JavaValue JNIV8Marshalling::valueWithType(JNIV8JavaValueType type, bool boxed, JNIV8MarshallingFlags flags) {
     switch(type) {
         case JNIV8JavaValueType::kBoolean: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Boolean;");
-            arg.valueType = type;
-            arg.clazz = _jniBoolean.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniBoolean.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kByte: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Byte;");
-            arg.valueType = type;
-            arg.clazz = _jniByte.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniByte.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kCharacter: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Character;");
-            arg.valueType = type;
-            arg.clazz = _jniCharacter.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniCharacter.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kShort: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Short;");
-            arg.valueType = type;
-            arg.clazz = _jniShort.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniShort.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kInteger: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Integer;");
-            arg.valueType = type;
-            arg.clazz = _jniInteger.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniInteger.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kLong: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Long;");
-            arg.valueType = type;
-            arg.clazz = _jniLong.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniLong.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kFloat: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Float;");
-            arg.valueType = type;
-            arg.clazz = _jniFloat.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniFloat.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kDouble: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Double;");
-            arg.valueType = type;
-            arg.clazz = _jniDouble.clazz;
-            return arg;
+            return JNIV8JavaValue(type, boxed ? _jniDouble.clazz : nullptr, flags);
         }
         case JNIV8JavaValueType::kVoid: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Void;");
-            arg.valueType = type;
-            return arg;
+            return JNIV8JavaValue(type, nullptr, flags);
         }
         case JNIV8JavaValueType::kString: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/String;");
-            arg.valueType = type;
-            arg.clazz = _jniString.clazz;
-            return arg;
+            return JNIV8JavaValue(type, _jniString.clazz, flags);
         }
         case JNIV8JavaValueType::kObject: {
-            JNIV8JavaArgument arg = JNIV8JavaArgument("Ljava/lang/Object;");
-            arg.clazz = _jniObject.clazz;
-            return arg;
+            return JNIV8JavaValue(type, _jniObject.clazz, flags);
         }
     }
 }
 
-JNIV8JavaValue::JNIV8JavaValue(const std::string& type, bool isNullable, bool undefinedIsNull) :
-        type(type), isNullable(isNullable), undefinedIsNull(undefinedIsNull) {
-    valueType = getArgumentType(type);
-    if(type.length() > 1) {
+JNIV8JavaValue JNIV8Marshalling::valueWithClass(jint type, jclass clazz, JNIV8MarshallingFlags flags) {
+    auto it = _typeMap.find(type);
+    if(it == _typeMap.end()) {
+        return JNIV8JavaValue(JNIV8JavaValueType::kObject, clazz, flags);
+    }
+    return JNIV8JavaValue((*it).second, clazz, flags);
+}
+
+JNIV8JavaValue JNIV8Marshalling::persistentValueWithTypeSignature(const std::string &type, JNIV8MarshallingFlags flags) {
+    JNIV8JavaValueType valueType = getArgumentType(type);
+    jclass clazz;
+    if (type.length() > 1) {
         JNIEnv *env = JNIWrapper::getEnvironment();
-        clazz = (jclass)env->NewGlobalRef(env->FindClass(type.substr(1, type.length() - 2).c_str()));
+
+        if(valueType != JNIV8JavaValueType::kObject || type == "Ljava/lang/Object;") {
+            return JNIV8Marshalling::valueWithType(valueType, true, flags);
+        }
+
+        clazz = (jclass) env->NewGlobalRef(
+                env->FindClass(type.substr(1, type.length() - 2).c_str()));
     } else {
         clazz = nullptr;
     }
@@ -126,19 +109,26 @@ JNIV8JavaValue::JNIV8JavaValue(const std::string& type, bool isNullable, bool un
     JNI_ASSERT(type[0] != '[', "array types are not supported");
     JNI_ASSERTF((type.length()>1 && clazz) || std::string("ZBCSIJFDV").find(type) != std::string::npos, "invalid argument type '%s'", type.c_str());
     JNI_ASSERTF(valueType != JNIV8JavaValueType::kObject || (env->IsSameObject(clazz, _jniObjectClazz) || env->IsAssignableFrom(clazz, _jniJNIV8ObjectClazz)), "invalid argument type '%s'", type.c_str())
-    JNI_ASSERT(!isNullable || type.length() > 1, "primitive types must not be nullable")
-    JNI_ASSERT(valueType != JNIV8JavaValueType::kVoid || (!clazz || isNullable), "Void property must nullable");
+    JNI_ASSERT((flags & JNIV8MarshallingFlags::kNonNull) || type.length() > 1, "primitive types must not be nullable")
+    JNI_ASSERT(valueType != JNIV8JavaValueType::kVoid || (!clazz || !(flags & JNIV8MarshallingFlags::kNonNull)), "Void property must nullable");
 #endif
+
+    return JNIV8JavaValue(valueType, clazz, flags);
 }
 
-JNIV8JavaArgument::JNIV8JavaArgument(const std::string& type, bool isNullable, bool undefinedIsNull) :
-        JNIV8JavaValue(type, isNullable, undefinedIsNull) {
+JNIV8JavaValue JNIV8Marshalling::persistentArgumentWithTypeSignature(const std::string &type, JNIV8MarshallingFlags flags) {
     JNI_ASSERT(type[0] != 'V', "'void' is not a valid argument type");
+    return persistentValueWithTypeSignature(type, flags);
+}
+
+JNIV8JavaValue::JNIV8JavaValue(JNIV8JavaValueType type, jclass clazz, JNIV8MarshallingFlags flags) :
+            valueType(type), clazz(clazz), flags(flags) {
 }
 
 #define InitBoxedType(type, mnemonic)\
 _jni##type.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/"#type));\
-_jni##type.valueOfId = env->GetStaticMethodID(_jni##type.clazz, "valueOf","("#mnemonic")Ljava/lang/"#type";");
+_jni##type.valueOfId = env->GetStaticMethodID(_jni##type.clazz, "valueOf","("#mnemonic")Ljava/lang/"#type";");\
+_typeMap[env->CallIntMethod(_jni##type.clazz, hashCodeId)] = JNIV8JavaValueType::k##type;
 
 #define AutoboxArgument(cls, key)\
 if(arg.clazz) {\
@@ -159,13 +149,18 @@ decltype(JNIV8Marshalling::_jniNumber) JNIV8Marshalling::_jniNumber = {0};
 decltype(JNIV8Marshalling::_jniV8Object) JNIV8Marshalling::_jniV8Object = {0};
 decltype(JNIV8Marshalling::_jniObject) JNIV8Marshalling::_jniObject = {0};
 decltype(JNIV8Marshalling::_jniString) JNIV8Marshalling::_jniString = {0};
+decltype(JNIV8Marshalling::_jniVoid) JNIV8Marshalling::_jniVoid = {0};
 jobject JNIV8Marshalling::_undefined = nullptr;
+std::unordered_map<int, JNIV8JavaValueType> JNIV8Marshalling::_typeMap;
 
 /**
  * cache JNI class references
  */
 void JNIV8Marshalling::initJNICache() {
     JNIEnv *env = JNIWrapper::getEnvironment();
+
+    _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
+    jmethodID hashCodeId = env->GetMethodID(_jniObject.clazz, "hashCode", "()I");
 
     // all classes that support auto-boxing; we need the jclass and the valueOf method for boxing
     InitBoxedType(Boolean, Z);
@@ -187,30 +182,32 @@ void JNIV8Marshalling::initJNICache() {
     _jniNumber.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Number"));
     _jniNumber.doubleValueId = env->GetMethodID(_jniNumber.clazz, "doubleValue","()D");
     _jniV8Object.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Object"));
-    _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
     _jniString.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/String"));
+    _typeMap[env->CallIntMethod(_jniString.clazz, hashCodeId)] = JNIV8JavaValueType::kString;
+    _jniVoid.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Void"));
+    _typeMap[env->CallIntMethod(_jniVoid.clazz, hashCodeId)] = JNIV8JavaValueType::kVoid;
 }
 
 /**
  * converts a v8 value to a java value based on the provided type information
  * if conversion was successful method will return kOk and target will contain a valid jvalue
  */
-JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8JavaArgument arg, jvalue *target) {
+JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8JavaValue arg, jvalue *target) {
     double numberValue;
     // non-primitive types can handle null; and undefined if it is configured to be mapped to null!
-    if(arg.clazz && (v8Value->IsNull() || (v8Value->IsUndefined() && arg.undefinedIsNull))) {
+    if(!(arg.flags & JNIV8MarshallingFlags::kCoerceNull) && arg.clazz &&
+            (v8Value->IsNull() || (v8Value->IsUndefined() && (arg.flags & JNIV8MarshallingFlags::kUndefinedIsNull)))) {
         target->l = nullptr;
-        if (!arg.isNullable) {
+        if ((arg.flags & JNIV8MarshallingFlags::kNonNull)) {
             return JNIV8MarshallingError::kNotNullable;
         }
     } else {
         switch (arg.valueType) {
             case JNIV8JavaValueType::kObject:
                 target->l = JNIV8Marshalling::v8value2jobject(v8Value);
-                // validation: nullptr should only occur if something is wrong
                 if (!target->l) {
                     // check nullability
-                    if (!arg.isNullable) {
+                    if ((arg.flags & JNIV8MarshallingFlags::kNonNull)) {
                         return JNIV8MarshallingError::kNotNullable;
                     }
                 } else if (!env->IsInstanceOf(target->l, arg.clazz)) {
@@ -222,11 +219,15 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 }
                 break;
             case JNIV8JavaValueType::kBoolean: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsBoolean())
+                    return JNIV8MarshallingError::kWrongType;
                 jboolean value = (jboolean) v8Value->ToBoolean()->BooleanValue();
                 AutoboxArgument(Boolean, z);
                 break;
             }
             case JNIV8JavaValueType::kByte: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
+                    return JNIV8MarshallingError::kWrongType;
                 numberValue = v8Value->NumberValue();
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jbyte value = (jbyte) numberValue;
@@ -235,11 +236,15 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 break;
             }
             case JNIV8JavaValueType::kCharacter: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsString())
+                    return JNIV8MarshallingError::kWrongType;
                 jchar value = (jchar) JNIV8Marshalling::v8string2string(v8Value->ToString())[0];
                 AutoboxArgument(Character, c);
                 break;
             }
             case JNIV8JavaValueType::kShort: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
+                    return JNIV8MarshallingError::kWrongType;
                 numberValue = v8Value->NumberValue();
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jshort value = (jshort) numberValue;
@@ -248,6 +253,8 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 break;
             }
             case JNIV8JavaValueType::kInteger: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
+                    return JNIV8MarshallingError::kWrongType;
                 numberValue = v8Value->NumberValue();
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jint value = (jint) numberValue;
@@ -256,6 +263,8 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 break;
             }
             case JNIV8JavaValueType::kLong: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
+                    return JNIV8MarshallingError::kWrongType;
                 numberValue = v8Value->NumberValue();
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jlong value = (jlong) numberValue;
@@ -264,6 +273,8 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 break;
             }
             case JNIV8JavaValueType::kFloat: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
+                    return JNIV8MarshallingError::kWrongType;
                 numberValue = v8Value->NumberValue();
                 jfloat value = (jfloat) numberValue;
                 if (value != numberValue) return JNIV8MarshallingError::kOutOfRange;
@@ -271,17 +282,21 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaArgument(JNIEnv *env
                 break;
             }
             case JNIV8JavaValueType::kDouble: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
+                    return JNIV8MarshallingError::kWrongType;
                 numberValue = v8Value->NumberValue();
                 jdouble value = (jdouble) numberValue;
                 AutoboxArgument(Double, d);
                 break;
             }
             case JNIV8JavaValueType::kString: {
+                if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsString())
+                    return JNIV8MarshallingError::kWrongType;
                 target->l = JNIV8Marshalling::v8value2jobject(v8Value->ToString());
                 break;
             }
             case JNIV8JavaValueType::kVoid: {
-                if (!v8Value->IsNull() && !v8Value->IsUndefined()) {
+                if (!(arg.flags & JNIV8MarshallingFlags::kDiscard) && !v8Value->IsNull() && !v8Value->IsUndefined()) {
                     return JNIV8MarshallingError::kVoidNotNull;
                 }
                 target->l = nullptr;

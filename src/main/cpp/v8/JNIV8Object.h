@@ -27,12 +27,12 @@ v8::Local<L> localRef = v8::Local<v8::Object>::New(isolate, ptr->getJSObject()).
 
 #define ThrowV8RangeError(msg)\
 v8::Isolate::GetCurrent()->ThrowException(v8::Exception::RangeError(\
-String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
+v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
 );
 
 #define ThrowV8TypeError(msg)\
 v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(\
-String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
+v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
 );
 
 /**
@@ -81,15 +81,13 @@ private:
 
     // jni callbacks
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
-    static jobject jniGetV8Field(JNIEnv *env, jobject obj, jstring name);
-    static jobject jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstring name, jbyte returnType);
+    static jobject jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType);
     static void jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value);
     static void jniSetV8Fields(JNIEnv *env, jobject obj, jobject map);
-    static jobject jniCallV8Method(JNIEnv *env, jobject obj, jstring name, jobjectArray arguments);
-    static jobject jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jstring name, jbyte returnType, jobjectArray arguments);
+    static jobject jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType, jobjectArray arguments);
     static jboolean jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly);
     static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);
-    static jobject jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly);
+    static jobject jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, jint flags, jint type, jclass returnType);
     static jdouble jniToNumber(JNIEnv *env, jobject obj);
     static jstring jniToString(JNIEnv *env, jobject obj);
     static jstring jniToJSON(JNIEnv *env, jobject obj);
@@ -102,6 +100,9 @@ private:
     static struct {
         jclass clazz;
     } _jniString;
+    static struct {
+        jclass clazz;
+    } _jniObject;
     static struct {
         jclass clazz;
         jmethodID iteratorId;

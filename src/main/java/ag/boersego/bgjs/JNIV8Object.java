@@ -1,7 +1,15 @@
 package ag.boersego.bgjs;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+
+import org.jetbrains.annotations.NotNull;
+
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
+
+import ag.boersego.v8annotations.V8Flags;
+import kotlin.reflect.KClass;
 
 /**
  * Created by martin on 18.08.17.
@@ -33,62 +41,63 @@ abstract public class JNIV8Object extends JNIObject {
         return _engine;
     }
 
-    public native Object applyV8Method(String name, Object[] arguments);
-    @SuppressWarnings({"unchecked"})
-    public <T> T applyV8Method(String name, Class<T> returnType, Object[] arguments) {
-        byte type = 0;
-        if(typeMap.containsKey(returnType)) {
-            type = typeMap.get(returnType);
-        }
-        return (T) applyV8Method(name, type, arguments);
+    public @Nullable Object applyV8Method(String name, Object[] arguments) {
+        return _applyV8Method(name, 0, 0, Object.class, arguments);
     }
-    private native Object applyV8Method(String name, byte returnType, Object[] arguments);
-
-    public native Object callV8Method(String name, Object... arguments);
     @SuppressWarnings({"unchecked"})
-    public <T> T callV8Method(String name, Class<T> returnType, Object... arguments) {
-        byte type = 0;
-        if(typeMap.containsKey(returnType)) {
-            type = typeMap.get(returnType);
-        }
-        return (T) applyV8Method(name, type, arguments);
+    public @Nullable <T> T applyV8Method(@NonNull String name, int flags, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
+        return (T) _applyV8Method(name, flags, returnType.hashCode(), returnType, arguments);
+    }
+    private native Object _applyV8Method(@NonNull String name, int flags, int type, Class returnType, Object[] arguments);
+
+    public @Nullable Object callV8Method(@NonNull String name, Object... arguments) {
+        return _applyV8Method(name, 0, 0, Object.class, arguments);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T callV8Method(@NonNull String name,  int flags, @NonNull Class<T> returnType, @Nullable Object... arguments) {
+        return (T) _applyV8Method(name, flags, returnType.hashCode(), returnType, arguments);
     }
 
-    public native Object getV8Field(String name);
-    @SuppressWarnings({"unchecked"})
-    public <T> T getV8Field(String name, Class<T> returnType) {
-        byte type = 0;
-        if(typeMap.containsKey(returnType)) {
-            type = typeMap.get(returnType);
-        }
-        return (T) getV8Field(name, type);
+    public @Nullable Object getV8Field(@NonNull String name) {
+        return _getV8Field(name, 0, 0, Object.class);
     }
-    private native Object getV8Field(String name, byte returnType);
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T getV8Field(@NonNull String name, int flags, @NonNull Class<T> returnType) {
+        return (T) _getV8Field(name, flags, returnType.hashCode(), returnType);
+    }
+    private native Object _getV8Field(String name, int flags, int type, Class returnType);
 
-
-    public boolean hasV8Field(String name) {
+    public boolean hasV8Field(@NonNull String name) {
         return hasV8Field(name, false);
     }
-    public boolean hasV8OwnField(String name) {
+    public boolean hasV8OwnField(@NonNull String name) {
         return hasV8Field(name, true);
     }
 
-    public String[] getV8Keys() {
+    public @NonNull String[] getV8Keys() {
         return getV8Keys(false);
     }
-    public Map<String,Object> getV8Fields()  {
-        return getV8Fields(false);
+    public @NonNull Map<String,Object> getV8Fields()  {
+        return getV8Fields(false, 0, 0, null);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8Fields(int flags, Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(false, flags, returnType.hashCode(), returnType);
     }
 
-    public String[] getV8OwnKeys() {
+    public @NonNull String[] getV8OwnKeys() {
         return getV8Keys(true);
     }
-    public Map<String,Object> getV8OwnFields() {
-        return getV8Fields(true);
+    public @NonNull Map<String,Object> getV8OwnFields() {
+        return getV8Fields(true, 0, 0, null);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8OwnFields(int flags, Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(true, flags, returnType.hashCode(), returnType);
     }
 
-    public native void setV8Field(String name, Object value);
-    public native void setV8Fields(Map<String, Object> fields);
+    public native void setV8Field(@NonNull String name, @Nullable Object value);
+    public native void setV8Fields(@NonNull Map< String, Object> fields);
 
     /**
      * convert a wrapped object to a number using the javascript coercion rules
@@ -189,37 +198,6 @@ abstract public class JNIV8Object extends JNIObject {
 
     private native boolean hasV8Field(String name, boolean ownOnly);
     private native String[] getV8Keys(boolean ownOnly);
-    private native Map<String,Object> getV8Fields(boolean ownOnly);
+    private native Map<String,Object> getV8Fields(boolean ownOnly, int flags, int type, Class returnType);
     private native void initNativeJNIV8Object(String canonicalName, V8Engine engine, long jsObjPtr);
-
-    class ReturnType {
-        static final byte
-                Object = 0,
-                Boolean = 1,
-                Byte = 2,
-                Character = 3,
-                Short = 4,
-                Integer = 5,
-                Long = 6,
-                Float = 7,
-                Double = 8,
-                String = 9,
-                Void = 10;
-    };
-
-    static protected HashMap<Class, Byte> typeMap;
-    static {
-        typeMap = new HashMap<>();
-        typeMap.put(Object.class, ReturnType.Object);
-        typeMap.put(Boolean.class, ReturnType.Boolean);
-        typeMap.put(Byte.class, ReturnType.Byte);
-        typeMap.put(Character.class, ReturnType.Character);
-        typeMap.put(Short.class, ReturnType.Short);
-        typeMap.put(Integer.class, ReturnType.Integer);
-        typeMap.put(Long.class, ReturnType.Long);
-        typeMap.put(Float.class, ReturnType.Float);
-        typeMap.put(Double.class, ReturnType.Double);
-        typeMap.put(String.class, ReturnType.String);
-        typeMap.put(Void.class, ReturnType.Void);
-    }
 }

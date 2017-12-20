@@ -18,43 +18,13 @@ void JNIV8Array::initJNICache() {
     _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
 }
 
-jobjectArray JNIV8Array::v8ArrayToObjectArray(v8::Local<v8::Array> array, int32_t from, int32_t to) {
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    BGJSV8Engine *engine = getEngine();
-    v8::Isolate* isolate = engine->getIsolate();
-    v8::Local<v8::Context> context = engine->getContext();
-
-    uint32_t len = array->Length();
-    uint32_t size = len;
-    if(from >= 0 && to >= 0 && from < len && to < len && from<=to) {
-        size = (uint32_t)((to-from)+1);
-    } else {
-        from = 0;
-        to = len-1;
-    }
-
-    jobjectArray elements = env->NewObjectArray(size, _jniObject.clazz, nullptr);
-    for(uint32_t i=(uint32_t)from; i<=to; i++) {
-        v8::MaybeLocal<v8::Value> maybeValue = array->Get(context, i);
-        v8::Local<v8::Value> value;
-        if(maybeValue.IsEmpty()) {
-            value = v8::Undefined(isolate);
-        } else {
-            value = maybeValue.ToLocalChecked();
-        }
-        env->SetObjectArrayElement(elements, i-from, JNIV8Marshalling::v8value2jobject(value));
-    }
-    return elements;
-}
-
 void JNIV8Array::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreate);
     info->registerNativeMethod("CreateWithLength", "(Lag/boersego/bgjs/V8Engine;I)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreateWithLength);
     info->registerNativeMethod("CreateWithArray", "(Lag/boersego/bgjs/V8Engine;[Ljava/lang/Object;)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreateWithArray);
     info->registerNativeMethod("getV8Length", "()I", (void*)JNIV8Array::jniGetV8Length);
-    info->registerNativeMethod("getV8Elements", "()[Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8Elements);
-    info->registerNativeMethod("getV8Elements", "(II)[Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8ElementsInRange);
-    info->registerNativeMethod("getV8Element", "(I)Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8Element);
+    info->registerNativeMethod("_getV8Elements", "(IILjava/lang/Class;II)[Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8ElementsInRange);
+    info->registerNativeMethod("_getV8Element", "(IILjava/lang/Class;I)Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8Element);
 }
 
 void JNIV8Array::initializeV8Bindings(JNIV8ClassInfo *info) {
@@ -70,34 +40,119 @@ jint JNIV8Array::jniGetV8Length(JNIEnv *env, jobject obj) {
 }
 
 /**
- * Returns all objects inside of the array
- */
-jobjectArray JNIV8Array::jniGetV8Elements(JNIEnv *env, jobject obj) {
-    JNIV8Object_PrepareJNICall(JNIV8Array, v8::Array, nullptr);
-    return ptr->v8ArrayToObjectArray(localRef);
-}
-
-/**
  * Returns all objects from a specified range inside of the array
  */
-jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint from, jint to) {
+jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint flags, jint type, jclass returnType, jint from, jint to) {
     JNIV8Object_PrepareJNICall(JNIV8Array, v8::Array, nullptr);
-    return ptr->v8ArrayToObjectArray(localRef, (int32_t)from, (int32_t)to);
+
+    JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
+
+    uint32_t len = localRef->Length();
+    uint32_t size;
+
+    // clamp range
+    if(to>=len) to = len - 1;
+    if(from<0) from = 0;
+
+    // now determine size of slice
+    if(from < len && from <= to) {
+        size = (uint32_t)((to-from)+1);
+    } else {
+        size = 0;
+    }
+
+    jobjectArray elements = env->NewObjectArray(size, _jniObject.clazz, nullptr);
+    if(!size) return elements;
+
+    for(uint32_t i=(uint32_t)from; i<=to; i++) {
+        v8::MaybeLocal<v8::Value> maybeValue = localRef->Get(context, i);
+        v8::Local<v8::Value> value;
+        if(maybeValue.IsEmpty()) {
+            value = v8::Undefined(isolate);
+        } else {
+            value = maybeValue.ToLocalChecked();
+        }
+
+        jvalue jval = {0};
+        memset(&jval, 0, sizeof(jvalue));
+        JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, value, arg, &jval);
+        if(res != JNIV8MarshallingError::kOk) {
+            switch(res) {
+                default:
+                case JNIV8MarshallingError::kWrongType:
+                    ThrowV8TypeError("wrong type for value of element #" + std::to_string(i));
+                    break;
+                case JNIV8MarshallingError::kUndefined:
+                    ThrowV8TypeError("value of element #" + std::to_string(i) + " must not be undefined");
+                    break;
+                case JNIV8MarshallingError::kNotNullable:
+                    ThrowV8TypeError("value of element #" + std::to_string(i) + " is not nullable");
+                    break;
+                case JNIV8MarshallingError::kNoNaN:
+                    ThrowV8TypeError("value of element #" + std::to_string(i) + " must not be NaN");
+                    break;
+                case JNIV8MarshallingError::kVoidNotNull:
+                    ThrowV8TypeError("value of element #" + std::to_string(i) + " can only be null or undefined");
+                    break;
+                case JNIV8MarshallingError::kOutOfRange:
+                    ThrowV8RangeError("value '"+
+                                      JNIV8Marshalling::v8string2string(value->ToString())+"' is out of range for element element #" + std::to_string(i));
+                    break;
+            }
+            return nullptr;
+        }
+
+        env->SetObjectArrayElement(elements, i-from, jval.l);
+    }
+    return elements;
 }
 
 /**
  * Returns the object at the specified index
  * if index is out of bounds, returns JNIV8Undefined
  */
-jobject JNIV8Array::jniGetV8Element(JNIEnv *env, jobject obj, jint index) {
+jobject JNIV8Array::jniGetV8Element(JNIEnv *env, jobject obj, jint flags, jint type, jclass returnType, jint index) {
     JNIV8Object_PrepareJNICall(JNIV8Array, v8::Array, JNIV8Marshalling::undefinedInJava());
+
+    JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
 
     v8::MaybeLocal<v8::Value> maybeValue;
 
     maybeValue = localRef->Get(context, (uint32_t)index);
     if(maybeValue.IsEmpty()) return JNIV8Marshalling::undefinedInJava();
 
-    return JNIV8Marshalling::v8value2jobject(maybeValue.ToLocalChecked());
+    v8::Local<v8::Value> value = maybeValue.ToLocalChecked();
+
+    jvalue jval = {0};
+    memset(&jval, 0, sizeof(jvalue));
+    JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, value, arg, &jval);
+    if(res != JNIV8MarshallingError::kOk) {
+        switch(res) {
+            default:
+            case JNIV8MarshallingError::kWrongType:
+                ThrowV8TypeError("wrong type for value of element #" + std::to_string(index));
+                break;
+            case JNIV8MarshallingError::kUndefined:
+                ThrowV8TypeError("value of element #" + std::to_string(index) + " must not be undefined");
+                break;
+            case JNIV8MarshallingError::kNotNullable:
+                ThrowV8TypeError("value of element #" + std::to_string(index) + " is not nullable");
+                break;
+            case JNIV8MarshallingError::kNoNaN:
+                ThrowV8TypeError("value of element #" + std::to_string(index) + " must not be NaN");
+                break;
+            case JNIV8MarshallingError::kVoidNotNull:
+                ThrowV8TypeError("value of element #" + std::to_string(index) + " can only be null or undefined");
+                break;
+            case JNIV8MarshallingError::kOutOfRange:
+                ThrowV8RangeError("value '"+
+                                  JNIV8Marshalling::v8string2string(value->ToString())+"' is out of range for element element #" + std::to_string(index));
+                break;
+        }
+        return nullptr;
+    }
+
+    return jval.l;
 }
 
 jobject JNIV8Array::jniCreate(JNIEnv *env, jobject obj, jobject engineObj) {

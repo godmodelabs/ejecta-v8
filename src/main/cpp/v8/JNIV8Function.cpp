@@ -73,20 +73,22 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
 
 void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8Function$Handler;)Lag/boersego/bgjs/JNIV8Function;", (void*)JNIV8Function::jniCreate);
-    info->registerNativeMethod("_callAsV8Function", "(ZLjava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
+    info->registerNativeMethod("_callAsV8Function", "(ZIILjava/lang/Class;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
 }
 
 void JNIV8Function::initializeV8Bindings(JNIV8ClassInfo *info) {
 
 }
 
-jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jobject receiver, jobjectArray arguments) {
+jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jobjectArray arguments) {
     auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
     if(!ptr) {
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "Attempt to call method on disposed object");
         return nullptr;
     }
+
+    JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
 
     v8::Isolate* isolate = ptr->getEngine()->getIsolate();
     v8::Locker l(isolate);
@@ -132,7 +134,38 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     if(args) {
         free(args);
     }
-    return JNIV8Marshalling::v8value2jobject(v8::Undefined(isolate));
+
+    jvalue jval;
+    memset(&jval, 0, sizeof(jvalue));
+    JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, resultRef, arg, &jval);
+    if(res != JNIV8MarshallingError::kOk) {
+        std::string strMethodName = JNIV8Marshalling::v8string2string(ptr->getJSObject().As<v8::Function>()->GetDebugName()->ToString());
+        switch(res) {
+            default:
+            case JNIV8MarshallingError::kWrongType:
+                ThrowV8TypeError("wrong type for return value of function'" + strMethodName + "'");
+                break;
+            case JNIV8MarshallingError::kUndefined:
+                ThrowV8TypeError("return value of '" + strMethodName + "' must not be undefined");
+                break;
+            case JNIV8MarshallingError::kNotNullable:
+                ThrowV8TypeError("return value of '" + strMethodName + "' is not nullable");
+                break;
+            case JNIV8MarshallingError::kNoNaN:
+                ThrowV8TypeError("return value of '" + strMethodName + "' must not be NaN");
+                break;
+            case JNIV8MarshallingError::kVoidNotNull:
+                ThrowV8TypeError("return value of '" + strMethodName + "' can only be null or undefined");
+                break;
+            case JNIV8MarshallingError::kOutOfRange:
+                ThrowV8RangeError("return value '"+
+                                  JNIV8Marshalling::v8string2string(resultRef->ToString())+"' is out of range for method '" + strMethodName + "'");
+                break;
+        }
+        return nullptr;
+    }
+
+    return jval.l;
 }
 
 v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
