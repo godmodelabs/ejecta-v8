@@ -150,7 +150,7 @@ public:
             v8::Persistent<v8::Object>* persistent = new v8::Persistent<v8::Object>(isolate, object);
             JNIEnv *env = JNIWrapper::getEnvironment();
             jobjectArray arguments = env->NewObjectArray(0, _jniObject.clazz, nullptr);
-            __android_log_print(ANDROID_LOG_WARN, "JNIV8Wrapper", "Creating %s", JNIBase::getCanonicalName<ObjectType>().c_str());
+            // __android_log_print(ANDROID_LOG_WARN, "JNIV8Wrapper", "Creating %s", JNIBase::getCanonicalName<ObjectType>().c_str());
             return JNILocalRef<ObjectType>::Cast(info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments));
         } else {
             if (object->InternalFieldCount() >= 1) {
