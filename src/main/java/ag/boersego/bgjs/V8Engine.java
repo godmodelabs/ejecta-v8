@@ -291,6 +291,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	public native Object runScript(String script, String name);
 	public native Object require(String file);
 
+	public native JNIV8GenericObject getGlobalObject();
+
 	private native long lock();
     private native void unlock(long lockerPtr);
 

@@ -3,6 +3,8 @@ package ag.boersego.bgjs;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import ag.boersego.v8annotations.V8Flags;
+
 /**
  * Created by martin on 26.09.17.
  */
@@ -31,8 +33,13 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
         return _getV8Elements(0, 0, Object.class,0, Integer.MAX_VALUE);
     }
     @SuppressWarnings({"unchecked"})
-    public @NonNull <T> T[] getV8Elements(int flags, @NonNull Class<T> returnType) {
+    public @NonNull <T> T[] getV8ElementsTyped(int flags, @NonNull Class<T> returnType) {
         return (T[]) _getV8Elements(flags, returnType.hashCode(), returnType, 0, Integer.MAX_VALUE);
+    }
+
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> T[] getV8ElementsTyped(@NonNull Class<T> returnType) {
+        return (T[]) _getV8Elements(V8Flags.Default, returnType.hashCode(), returnType, 0, Integer.MAX_VALUE);
     }
 
     /**
@@ -42,8 +49,13 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
         return _getV8Elements( 0, 0, Object.class, from, to);
     }
     @SuppressWarnings({"unchecked"})
-    public @NonNull <T> T[] getV8Elements(int flags, @NonNull Class<T> returnType, int from, int to) {
+    public @NonNull <T> T[] getV8ElementsTyped(int flags, @NonNull Class<T> returnType, int from, int to) {
         return (T[]) _getV8Elements(flags, returnType.hashCode(), returnType, from, to);
+    }
+
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> T[] getV8ElementsTyped(@NonNull Class<T> returnType, int from, int to) {
+        return (T[]) _getV8Elements(V8Flags.Default, returnType.hashCode(), returnType, from, to);
     }
 
     /**
@@ -54,8 +66,13 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
         return _getV8Element(0, 0, Object.class, index);
     }
     @SuppressWarnings({"unchecked"})
-    public @Nullable <T> T getV8Element(int flags, @NonNull Class<T> returnType, int index) {
+    public @Nullable <T> T getV8ElementTyped(int flags, @NonNull Class<T> returnType, int index) {
         return (T) _getV8Element(flags, returnType.hashCode(), returnType, index);
+    }
+
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T getV8ElementTyped(@NonNull Class<T> returnType, int index) {
+        return (T) _getV8Element(V8Flags.Default, returnType.hashCode(), returnType, index);
     }
 
     /**

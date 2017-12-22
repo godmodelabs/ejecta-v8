@@ -9,6 +9,7 @@ import ag.boersego.v8annotations.V8Flags;
  * Created by martin on 26.09.17.
  */
 
+@SuppressWarnings("unused")
 final public class JNIV8Function extends JNIV8Object {
     public interface Handler {
         Object Callback(Object receiver, Object[] arguments);
@@ -43,23 +44,43 @@ final public class JNIV8Function extends JNIV8Object {
 
 
     @SuppressWarnings("unchecked")
-    public @Nullable <T> T callAsV8Function(int flags, @NonNull Class<T> returnType, @Nullable Object... arguments) {
+    public @Nullable <T> T callAsV8FunctionTyped(int flags, @NonNull Class<T> returnType, @Nullable Object... arguments) {
         return (T)_callAsV8Function(false, flags, returnType.hashCode(), returnType, null, arguments);
     }
 
     @SuppressWarnings("unchecked")
-    public @Nullable <T> T callAsV8FunctionWithReceiver(int flags, @NonNull Class<T> returnType, @NonNull Object receiver, @Nullable Object... arguments) {
+    public @Nullable <T> T callAsV8FunctionTyped(@NonNull Class<T> returnType, @Nullable Object... arguments) {
+        return (T)_callAsV8Function(false, V8Flags.Default, returnType.hashCode(), returnType, null, arguments);
+    }
+
+    @SuppressWarnings("unchecked")
+    public @Nullable <T> T callAsV8FunctionWithReceiverTyped(int flags, @NonNull Class<T> returnType, @NonNull Object receiver, @Nullable Object... arguments) {
         return (T)_callAsV8Function(false, flags, returnType.hashCode(), returnType, receiver, arguments);
     }
 
     @SuppressWarnings("unchecked")
-    public @Nullable <T> T applyAsV8Function(int flags, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
+    public @Nullable <T> T callAsV8FunctionWithReceiverTyped(@NonNull Class<T> returnType, @NonNull Object receiver, @Nullable Object... arguments) {
+        return (T)_callAsV8Function(false, V8Flags.Default, returnType.hashCode(), returnType, receiver, arguments);
+    }
+
+    @SuppressWarnings("unchecked")
+    public @Nullable <T> T applyAsV8FunctionTyped(int flags, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
         return (T)_callAsV8Function(false, flags, returnType.hashCode(), returnType,null, arguments);
     }
 
     @SuppressWarnings("unchecked")
-    public @Nullable <T> T applyAsV8FunctionWithReceiver(int flags, @NonNull Class<T> returnType, @NonNull Object receiver, @NonNull Object[] arguments) {
+    public @Nullable <T> T applyAsV8FunctionTyped(@NonNull Class<T> returnType, @NonNull Object[] arguments) {
+        return (T)_callAsV8Function(false, V8Flags.Default, returnType.hashCode(), returnType,null, arguments);
+    }
+
+    @SuppressWarnings("unchecked")
+    public @Nullable <T> T applyAsV8FunctionWithReceiverTyped(int flags, @NonNull Class<T> returnType, @NonNull Object receiver, @NonNull Object[] arguments) {
         return (T)_callAsV8Function(false, flags, returnType.hashCode(), returnType, receiver, arguments);
+    }
+
+    @SuppressWarnings("unchecked")
+    public @Nullable <T> T applyAsV8FunctionWithReceiverTyped(@NonNull Class<T> returnType, @NonNull Object receiver, @NonNull Object[] arguments) {
+        return (T)_callAsV8Function(false, V8Flags.Default, returnType.hashCode(), returnType, receiver, arguments);
     }
 
     public void dispose() throws RuntimeException {

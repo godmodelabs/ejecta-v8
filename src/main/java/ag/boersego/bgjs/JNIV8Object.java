@@ -2,19 +2,16 @@ package ag.boersego.bgjs;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.reflect.Modifier;
-import java.util.HashMap;
 import java.util.Map;
 
 import ag.boersego.v8annotations.V8Flags;
-import kotlin.reflect.KClass;
 
 /**
  * Created by martin on 18.08.17.
  */
 
+@SuppressWarnings("unused")
 abstract public class JNIV8Object extends JNIObject {
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
         if(Modifier.isAbstract(derivedClass.getModifiers())) {
@@ -45,25 +42,38 @@ abstract public class JNIV8Object extends JNIObject {
         return _applyV8Method(name, 0, 0, Object.class, arguments);
     }
     @SuppressWarnings({"unchecked"})
-    public @Nullable <T> T applyV8Method(@NonNull String name, int flags, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
+    public @Nullable <T> T applyV8MethodTyped(@NonNull String name, int flags, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
         return (T) _applyV8Method(name, flags, returnType.hashCode(), returnType, arguments);
     }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T applyV8MethodTyped(@NonNull String name, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
+        return (T) _applyV8Method(name, V8Flags.Default, returnType.hashCode(), returnType, arguments);
+    }
+
     private native Object _applyV8Method(@NonNull String name, int flags, int type, Class returnType, Object[] arguments);
 
     public @Nullable Object callV8Method(@NonNull String name, Object... arguments) {
         return _applyV8Method(name, 0, 0, Object.class, arguments);
     }
     @SuppressWarnings({"unchecked"})
-    public @Nullable <T> T callV8Method(@NonNull String name,  int flags, @NonNull Class<T> returnType, @Nullable Object... arguments) {
+    public @Nullable <T> T callV8MethodTyped(@NonNull String name,  int flags, @NonNull Class<T> returnType, @Nullable Object... arguments) {
         return (T) _applyV8Method(name, flags, returnType.hashCode(), returnType, arguments);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T callV8MethodTyped(@NonNull String name, @NonNull Class<T> returnType, @Nullable Object... arguments) {
+        return (T) _applyV8Method(name, V8Flags.Default, returnType.hashCode(), returnType, arguments);
     }
 
     public @Nullable Object getV8Field(@NonNull String name) {
         return _getV8Field(name, 0, 0, Object.class);
     }
     @SuppressWarnings({"unchecked"})
-    public @Nullable <T> T getV8Field(@NonNull String name, int flags, @NonNull Class<T> returnType) {
+    public @Nullable <T> T getV8FieldTyped(@NonNull String name, int flags, @NonNull Class<T> returnType) {
         return (T) _getV8Field(name, flags, returnType.hashCode(), returnType);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T getV8FieldTyped(@NonNull String name, @NonNull Class<T> returnType) {
+        return (T) _getV8Field(name, V8Flags.Default, returnType.hashCode(), returnType);
     }
     private native Object _getV8Field(String name, int flags, int type, Class returnType);
 
@@ -81,8 +91,12 @@ abstract public class JNIV8Object extends JNIObject {
         return getV8Fields(false, 0, 0, null);
     }
     @SuppressWarnings({"unchecked"})
-    public @NonNull <T> Map<String, T> getV8Fields(int flags, Class<T> returnType) {
+    public @NonNull <T> Map<String, T> getV8FieldsTyped(int flags, Class<T> returnType) {
         return (Map<String, T>)getV8Fields(false, flags, returnType.hashCode(), returnType);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8FieldsTyped(Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(false, V8Flags.Default, returnType.hashCode(), returnType);
     }
 
     public @NonNull String[] getV8OwnKeys() {
@@ -91,9 +105,14 @@ abstract public class JNIV8Object extends JNIObject {
     public @NonNull Map<String,Object> getV8OwnFields() {
         return getV8Fields(true, 0, 0, null);
     }
+
     @SuppressWarnings({"unchecked"})
-    public @NonNull <T> Map<String, T> getV8OwnFields(int flags, Class<T> returnType) {
+    public @NonNull <T> Map<String, T> getV8OwnFieldsTyped(int flags, Class<T> returnType) {
         return (Map<String, T>)getV8Fields(true, flags, returnType.hashCode(), returnType);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8OwnFieldsTyped(Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(true, V8Flags.Default, returnType.hashCode(), returnType);
     }
 
     public native void setV8Field(@NonNull String name, @Nullable Object value);

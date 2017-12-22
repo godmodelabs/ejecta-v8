@@ -1311,6 +1311,20 @@ Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
     return (jlong)locker;
 }
 
+JNIEXPORT jobject JNICALL
+Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    return JNIV8Marshalling::v8value2jobject(context->Global());
+}
+
 JNIEXPORT void JNICALL
 Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
     v8::Locker *locker = reinterpret_cast<Locker *>(lockerPtr);
