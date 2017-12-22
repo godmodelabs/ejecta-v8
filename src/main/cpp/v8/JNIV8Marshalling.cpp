@@ -99,6 +99,11 @@ JNIV8JavaValue JNIV8Marshalling::persistentValueWithTypeSignature(const std::str
         clazz = nullptr;
     }
 
+    // primitives are never nullable
+    if(type.length() == 1) {
+        flags = (JNIV8MarshallingFlags)(flags|JNIV8MarshallingFlags::kNonNull);
+    }
+
 #ifdef ENABLE_JNI_ASSERT
     static jclass _jniObjectClazz = nullptr, _jniJNIV8ObjectClazz = nullptr;
     JNIEnv *env = JNIWrapper::getEnvironment();

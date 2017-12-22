@@ -220,7 +220,7 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
                     for(jsize argIdx=0; argIdx<numArguments; argIdx++) {
                         const jobject argumentInfo = env->GetObjectArrayElement(argumentInfos, argIdx);
                         const std::string strArgumentType = JNIWrapper::jstring2string((jstring)env->GetObjectField(argumentInfo, _jniV8FunctionArgumentInfo.typeId));
-                        JNIV8MarshallingFlags flags;
+                        JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault;
                         if(!(bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.isNullableId)) flags = JNIV8MarshallingFlags::kNonNull;
                         if((bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.undefinedIsNullId)) flags = (JNIV8MarshallingFlags)(flags|JNIV8MarshallingFlags::kUndefinedIsNull);
                         JNIV8JavaValue argument = JNIV8Marshalling::persistentArgumentWithTypeSignature(strArgumentType, flags);
@@ -254,9 +254,9 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
         for(jsize idx=0,n=env->GetArrayLength(accessorInfos);idx<n;idx++) {
             jobject accessorInfo = env->GetObjectArrayElement(accessorInfos, idx);
             const std::string strPropertyType = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.typeId));
-            JNIV8MarshallingFlags flags;
-            if(!(bool)env->GetBooleanField(accessorInfo, _jniV8FunctionArgumentInfo.isNullableId)) flags = JNIV8MarshallingFlags::kNonNull;
-            if((bool)env->GetBooleanField(accessorInfo, _jniV8FunctionArgumentInfo.undefinedIsNullId)) flags = (JNIV8MarshallingFlags)(flags|JNIV8MarshallingFlags::kUndefinedIsNull);
+            JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault;
+            if(!(bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId)) flags = JNIV8MarshallingFlags::kNonNull;
+            if((bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.undefinedIsNullId)) flags = (JNIV8MarshallingFlags)(flags|JNIV8MarshallingFlags::kUndefinedIsNull);
             const JNIV8JavaValue property = JNIV8Marshalling::persistentArgumentWithTypeSignature(strPropertyType, flags);
 
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.propertyId));
