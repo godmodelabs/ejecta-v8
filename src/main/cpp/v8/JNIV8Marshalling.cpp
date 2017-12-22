@@ -441,9 +441,9 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
  * convert a v8 string to a jstring
  */
 jstring JNIV8Marshalling::v8string2jstring(v8::Local<v8::String> string) {
-    const jchar *chars = *v8::String::Value(string); // returns NULL if not a string
     JNIEnv *env = JNIWrapper::getEnvironment();
-    return env->NewString(chars, string->Length()); // returns "" when called with NULL,0
+    return env->NewString(*v8::String::Value(string), string->Length()); // returns "" when called with NULL,0
+
 }
 
 /**
