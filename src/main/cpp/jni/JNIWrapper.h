@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "JNIRef.h"
 #include "JNIClassInfo.h"
 #include "JNIClass.h"
 #include "JNIObject.h"
@@ -111,7 +112,7 @@ public:
      * - derived class must have been registed with JNIWrapper::registerJavaObject<ObjectType>(canonicalName) (or another overload)
      */
     template <typename ObjectType> static
-    std::shared_ptr<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
+    JNILocalRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
         va_list args;
         va_start(args, constructorAlias);
         jobject obj = _createObject(canonicalName, constructorAlias, args);
@@ -120,7 +121,7 @@ public:
     }
 
     template <typename ObjectType> static
-    std::shared_ptr<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias, va_list args) {
+    JNILocalRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias, va_list args) {
         jobject obj = _createObject(canonicalName, constructorAlias, args);
         return JNIWrapper::wrapObject<ObjectType>(obj);
     }
@@ -130,7 +131,7 @@ public:
      * NOTE: returns nullptr for invalid/unknown objects!
      */
     template <typename ObjectType> static
-    std::shared_ptr<ObjectType> wrapObject(jobject object) {
+    JNILocalRef<ObjectType> wrapObject(jobject object) {
         auto it = _objmap.find(JNIBase::getCanonicalName<ObjectType>());
         if (!object || it == _objmap.end()){
             return nullptr;
@@ -163,7 +164,7 @@ public:
             }
             // obtained casted shared pointer will share the reference count and deallocator method
             // with the original!
-            return std::static_pointer_cast<ObjectType>(jniObject->getSharedPtr());
+            return JNILocalRef<ObjectType>(reinterpret_cast<ObjectType*>(jniObject));
         }
     };
 

@@ -1264,7 +1264,7 @@ BGJSV8Engine::~BGJSV8Engine() {
 
 void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>& args) {
     HandleScope scope(args.GetIsolate());
-    const shared_ptr<JNIV8Function> &wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
+    const auto wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
     JNIEnv* env = JNIWrapper::getEnvironment();
     env->CallBooleanMethod(getJObject(), _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
 }
@@ -1340,6 +1340,20 @@ Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
     return (jlong)locker;
 }
 
+JNIEXPORT jobject JNICALL
+Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    return JNIV8Marshalling::v8value2jobject(context->Global());
+}
+
 JNIEXPORT void JNICALL
 Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
     v8::Locker *locker = reinterpret_cast<Locker *>(lockerPtr);
@@ -1375,7 +1389,7 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
 JNIEXPORT void JNICALL
 Java_ag_boersego_bgjs_V8Engine_registerModule(JNIEnv *env, jobject obj, jobject module) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
-	engine->registerJavaModule(module);
+    engine->registerJavaModule(module);
 }
 
 JNIEXPORT jobject JNICALL

@@ -1,14 +1,18 @@
 package ag.boersego.bgjs;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+
 import java.lang.reflect.Modifier;
 import java.util.Map;
+
+import ag.boersego.v8annotations.V8Flags;
 
 /**
  * Created by martin on 18.08.17.
  */
 
-
+@SuppressWarnings("unused")
 abstract public class JNIV8Object extends JNIObject {
-
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
         if(Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
@@ -34,44 +38,162 @@ abstract public class JNIV8Object extends JNIObject {
         return _engine;
     }
 
-    public native Object applyV8Method(String name, Object[] arguments);
-    public native Object callV8Method(String name, Object... arguments);
-    /*
-    Question: Do we need these? (coercion on JS side or in Java?)
-    public native Object callV8MethodAsNumber(String name, Object... arguments);
-    public native Object callV8MethodAsString(String name, Object... arguments);
-    public native Object callV8MethodAsBoolean(String name, Object... arguments);
-    */
-    public native Object getV8Field(String name);
-    /*
-    Question: Do we need these? (coercion on JS side or in Java?)
-    public native double getV8FieldAsNumber(String name);
-    public native String getV8FieldAsString(String name);
-    public native boolean getV8FieldAsBoolean(String name);
-    */
+    public @Nullable Object applyV8Method(String name, Object[] arguments) {
+        return _applyV8Method(name, 0, 0, Object.class, arguments);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T applyV8MethodTyped(@NonNull String name, int flags, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
+        return (T) _applyV8Method(name, flags, returnType.hashCode(), returnType, arguments);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T applyV8MethodTyped(@NonNull String name, @NonNull Class<T> returnType, @NonNull Object[] arguments) {
+        return (T) _applyV8Method(name, V8Flags.Default, returnType.hashCode(), returnType, arguments);
+    }
 
-    public boolean hasV8Field(String name) {
+    private native Object _applyV8Method(@NonNull String name, int flags, int type, Class returnType, Object[] arguments);
+
+    public @Nullable Object callV8Method(@NonNull String name, Object... arguments) {
+        return _applyV8Method(name, 0, 0, Object.class, arguments);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T callV8MethodTyped(@NonNull String name,  int flags, @NonNull Class<T> returnType, @Nullable Object... arguments) {
+        return (T) _applyV8Method(name, flags, returnType.hashCode(), returnType, arguments);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T callV8MethodTyped(@NonNull String name, @NonNull Class<T> returnType, @Nullable Object... arguments) {
+        return (T) _applyV8Method(name, V8Flags.Default, returnType.hashCode(), returnType, arguments);
+    }
+
+    public @Nullable Object getV8Field(@NonNull String name) {
+        return _getV8Field(name, 0, 0, Object.class);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T getV8FieldTyped(@NonNull String name, int flags, @NonNull Class<T> returnType) {
+        return (T) _getV8Field(name, flags, returnType.hashCode(), returnType);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @Nullable <T> T getV8FieldTyped(@NonNull String name, @NonNull Class<T> returnType) {
+        return (T) _getV8Field(name, V8Flags.Default, returnType.hashCode(), returnType);
+    }
+    private native Object _getV8Field(String name, int flags, int type, Class returnType);
+
+    public boolean hasV8Field(@NonNull String name) {
         return hasV8Field(name, false);
     }
-    public boolean hasV8OwnField(String name) {
+    public boolean hasV8OwnField(@NonNull String name) {
         return hasV8Field(name, true);
     }
 
-    public String[] getV8Keys() {
+    public @NonNull String[] getV8Keys() {
         return getV8Keys(false);
     }
-    public Map<String,Object> getV8Fields()  {
-        return getV8Fields(false);
+    public @NonNull Map<String,Object> getV8Fields()  {
+        return getV8Fields(false, 0, 0, null);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8FieldsTyped(int flags, Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(false, flags, returnType.hashCode(), returnType);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8FieldsTyped(Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(false, V8Flags.Default, returnType.hashCode(), returnType);
     }
 
-    public String[] getV8OwnKeys() {
+    public @NonNull String[] getV8OwnKeys() {
         return getV8Keys(true);
     }
-    public Map<String,Object> getV8OwnFields() {
-        return getV8Fields(true);
+    public @NonNull Map<String,Object> getV8OwnFields() {
+        return getV8Fields(true, 0, 0, null);
     }
 
-    public native void setV8Field(String name, Object value);
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8OwnFieldsTyped(int flags, Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(true, flags, returnType.hashCode(), returnType);
+    }
+    @SuppressWarnings({"unchecked"})
+    public @NonNull <T> Map<String, T> getV8OwnFieldsTyped(Class<T> returnType) {
+        return (Map<String, T>)getV8Fields(true, V8Flags.Default, returnType.hashCode(), returnType);
+    }
+
+    public native void setV8Field(@NonNull String name, @Nullable Object value);
+    public native void setV8Fields(@NonNull Map< String, Object> fields);
+
+    /**
+     * convert a wrapped object to a number using the javascript coercion rules
+     * @param obj
+     * @return double
+     */
+    public static double asNumber(Object obj) {
+        if(obj == null) {
+            return 0;
+        } else if(obj instanceof JNIV8Object) {
+            return ((JNIV8Object) obj).toNumber();
+        } else if(obj instanceof Number) {
+            // handles Byte, Short, Integer, Long, Float, Double
+            return ((Number)obj).doubleValue();
+        } else if(obj instanceof String) {
+            return Double.valueOf((String)obj);
+        } else if(obj instanceof Boolean) {
+            return ((Boolean) obj ? 1 : 0);
+        } else if(obj instanceof JNIV8Undefined) {
+            return Double.NaN;
+        } else if(obj instanceof Character) {
+            return Character.getNumericValue((Character) obj);
+        }
+        // other java-only types are "false"
+        throw new ClassCastException("Cannot convert to number: " + obj);
+    }
+
+    /**
+     * Check if a wrapped object is truthy (see https://developer.mozilla.org/en-US/docs/Glossary/Falsy)
+     * @param obj
+     * @return true if truthy
+     */
+    public static boolean asBoolean(Object obj) {
+        if (obj == null) {
+            return false;
+        } else if(obj instanceof JNIV8Object) {
+            return true;
+        } else if (obj instanceof Number) {
+            return ((Number)obj).intValue() > 0;
+        } else if (obj instanceof String) {
+            return !((String)obj).isEmpty();
+        } else if (obj instanceof Boolean) {
+            return ((Boolean)obj);
+        } else if (obj instanceof JNIV8Undefined) {
+            return false;
+        } else if(obj instanceof Character) {
+            return (Character) obj > 0;
+        }
+        // other java-only types are "false"
+        throw new ClassCastException("Cannot convert to boolean: " + obj);
+    }
+
+    /**
+     * convert a wrapped object to a String using the javascript "toString" method
+     * @param obj
+     * @return String
+     */
+    public static String asString(Object obj) {
+        if(obj == null) {
+            return "";
+        } else if(obj instanceof JNIV8Object) {
+            return obj.toString();
+        } else if(obj instanceof Number) {
+            // handles Byte, Short, Integer, Long, Float, Double
+            return String.valueOf(obj);
+        } else if(obj instanceof String) {
+            return String.valueOf(obj);
+        } else if(obj instanceof Boolean) {
+            return String.valueOf(obj);
+        } else if(obj instanceof JNIV8Undefined) {
+            return "undefined";
+        } else if(obj instanceof Character) {
+            return String.valueOf(obj);
+        }
+        // other java-only types are "false"
+        throw new ClassCastException("Cannot convert to String: " + obj);
+    }
 
     protected native void adjustJSExternalMemory(long change);
 
@@ -95,38 +217,6 @@ abstract public class JNIV8Object extends JNIObject {
 
     private native boolean hasV8Field(String name, boolean ownOnly);
     private native String[] getV8Keys(boolean ownOnly);
-    private native Map<String,Object> getV8Fields(boolean ownOnly);
+    private native Map<String,Object> getV8Fields(boolean ownOnly, int flags, int type, Class returnType);
     private native void initNativeJNIV8Object(String canonicalName, V8Engine engine, long jsObjPtr);
-
-    /**
-     * Check if a wrapped object is truthy (see https://developer.mozilla.org/en-US/docs/Glossary/Falsy)
-     * @param in
-     * @return true if truthy
-     */
-    public static boolean getV8ObjectAsBoolean(final Object in) {
-        if (in == null) {
-            return false;
-        }
-        if (in instanceof Boolean) {
-            return ((Boolean)in);
-        }
-        if (in instanceof Number) {
-            return ((Number)in).intValue() > 0;
-        }
-        if (in instanceof String) {
-            return !((String)in).isEmpty();
-        }
-        if (in instanceof JNIV8Array) {
-            return true;
-        }
-        if (in instanceof JNIV8Undefined) {
-            return false;
-        }
-        // all java script objects are "true"
-        if(JNIV8Object.class.isAssignableFrom(in.getClass())) {
-            return true;
-        }
-        // other java-only types are "false"
-        throw new ClassCastException("Cannot convert to boolean: " + in);
-    }
 }

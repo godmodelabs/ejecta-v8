@@ -202,33 +202,33 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
             const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.methodId));
             const std::string strReturnType = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.returnTypeId));
             jobjectArray argumentInfos = (jobjectArray)env->GetObjectField(functionInfo, _jniV8FunctionInfo.argumentsId);
-            std::vector<JNIV8JavaArgument>* arguments = nullptr;
+            std::vector<JNIV8JavaValue>* arguments = nullptr;
 
             // return type information
-            const JNIV8JavaValue returnType = JNIV8JavaValue(strReturnType);
+            const JNIV8JavaValue returnType = JNIV8Marshalling::persistentValueWithTypeSignature(strReturnType);
 
             // build signature string and collect argument information
             std::string strSignature = "(";
             if(env->IsSameObject(argumentInfos, nullptr)) {
-                strSignature = "([Ljava/lang/Object;)" + returnType.type;
+                strSignature = "([Ljava/lang/Object;)" + strReturnType;
             } else {
                 jsize numArguments = env->GetArrayLength(argumentInfos);
                 // collect arguments
                 // ownership of malloc'ed memory is implicitly transferred to JNIV8ClassInfo!
                 if(numArguments>0) {
-                    arguments = new std::vector<JNIV8JavaArgument>();
+                    arguments = new std::vector<JNIV8JavaValue>();
                     for(jsize argIdx=0; argIdx<numArguments; argIdx++) {
                         const jobject argumentInfo = env->GetObjectArrayElement(argumentInfos, argIdx);
-                        JNIV8JavaArgument argument = JNIV8JavaArgument(
-                                JNIWrapper::jstring2string((jstring)env->GetObjectField(argumentInfo, _jniV8FunctionArgumentInfo.typeId)),
-                                (bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.isNullableId),
-                                (bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.undefinedIsNullId)
-                        );
+                        const std::string strArgumentType = JNIWrapper::jstring2string((jstring)env->GetObjectField(argumentInfo, _jniV8FunctionArgumentInfo.typeId));
+                        JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault;
+                        if(!(bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.isNullableId)) flags = JNIV8MarshallingFlags::kNonNull;
+                        if((bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.undefinedIsNullId)) flags = (JNIV8MarshallingFlags)(flags|JNIV8MarshallingFlags::kUndefinedIsNull);
+                        JNIV8JavaValue argument = JNIV8Marshalling::persistentArgumentWithTypeSignature(strArgumentType, flags);
                         arguments->push_back(argument);
-                        strSignature += argument.type;
+                        strSignature += strArgumentType;
                     }
                 }
-                strSignature += ")" + returnType.type;
+                strSignature += ")" + strReturnType;
             }
 
             // finally register the method
@@ -253,23 +253,23 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
                                                                                 getAccessorsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(accessorInfos);idx<n;idx++) {
             jobject accessorInfo = env->GetObjectArrayElement(accessorInfos, idx);
-            const JNIV8JavaArgument property = JNIV8JavaArgument(
-                    JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.typeId)),
-                    (bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId),
-                    (bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.undefinedIsNullId)
-            );
+            const std::string strPropertyType = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.typeId));
+            JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault;
+            if(!(bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isNullableId)) flags = JNIV8MarshallingFlags::kNonNull;
+            if((bool)env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.undefinedIsNullId)) flags = (JNIV8MarshallingFlags)(flags|JNIV8MarshallingFlags::kUndefinedIsNull);
+            const JNIV8JavaValue property = JNIV8Marshalling::persistentArgumentWithTypeSignature(strPropertyType, flags);
 
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.propertyId));
             const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.getterId));
             const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.setterId));
             jmethodID javaGetterId = NULL, javaSetterId = NULL;
             if(env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isStaticId)) {
-                if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), ("()" + property.type).c_str()); }
-                if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), ("(" + property.type + ")V").c_str()); }
+                if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), ("()" + strPropertyType).c_str()); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), ("(" + strPropertyType + ")V").c_str()); }
                 v8ClassInfo->registerStaticJavaAccessor(strPropertyName, property, javaGetterId, javaSetterId);
             } else {
-                if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), ("()" + property.type).c_str()); }
-                if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), ("(" + property.type + ")V").c_str()); }
+                if (!strGetterName.empty()) { javaGetterId = env->GetMethodID(clsObject, strGetterName.c_str(), ("()" + strPropertyType).c_str()); }
+                if (!strSetterName.empty()) { javaSetterId = env->GetMethodID(clsObject, strSetterName.c_str(), ("(" + strPropertyType + ")V").c_str()); }
                 v8ClassInfo->registerJavaAccessor(strPropertyName, property, javaGetterId, javaSetterId);
             }
         }
@@ -373,7 +373,7 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
 }
 
 // persistent classes can also be accessed as JNIV8Object directly!
-template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object) {
+template<> JNILocalRef<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object) {
     v8::Local<v8::External> ext;
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     // because this method takes a local, we can be sure that the correct v8 scopes are active around it already
@@ -386,7 +386,7 @@ template <> std::shared_ptr<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v
     } else {
         return nullptr;
     }
-    return std::static_pointer_cast<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value())->getSharedPtr());
+    return JNILocalRef<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value()));
 };
 
 /**

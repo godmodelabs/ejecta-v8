@@ -8,6 +8,7 @@
 #include <v8.h>
 #include <jni.h>
 #include <string>
+#include <unordered_map>
 
 /**
  * structs for describing java method signatures and arguments
@@ -24,44 +25,84 @@ enum class JNIV8MarshallingError {
 };
 
 enum class JNIV8JavaValueType {
-    kObject,
-    kBoolean,
-    kByte,
-    kCharacter,
-    kShort,
-    kInteger,
-    kLong,
-    kFloat,
-    kDouble,
-    kString,
-    kVoid
+    kObject = 0,
+    kBoolean = 1,
+    kByte = 2,
+    kCharacter = 3,
+    kShort = 4,
+    kInteger = 5,
+    kLong = 6,
+    kFloat = 7,
+    kDouble = 8,
+    kString = 9,
+    kVoid = 10
+};
+
+enum JNIV8MarshallingFlags {
+    kDefault = 0,
+    /*
+     * throw exception instead of returning null
+     * has no effect if CoerceNull is set or requested type can not handle null (e.g. double)
+     * combined with UndefinedIsNull will also make undefined throw
+     */
+    kNonNull = 1,
+    /*
+     * treat undefined as null
+     * has no effect if requested type can not handle null (e.g. double)
+     */
+    kUndefinedIsNull = 1<<1,
+    /*
+     * throw exception when encountering values of different type
+     * instead of coercing them
+     * null is allowed if requested type can handle it (e.g. Double, but not double)!
+     */
+    kStrict = 1<<2,
+    /*
+     * coerce null even if requested type can handle it (e.g. Double)
+     */
+    kCoerceNull = 1<<3,
+    /*
+     * discard result value; can only be used with type Void
+     */
+    kDiscard = 1<<4
 };
 
 struct JNIV8JavaValue {
-    std::string type;
-    bool isNullable, undefinedIsNull;
+    JNIV8MarshallingFlags flags;
     jclass clazz;
     JNIV8JavaValueType valueType;
 
-    JNIV8JavaValue(const std::string& type, bool isNullable = false, bool undefinedIsNull = false);
-};
-
-struct JNIV8JavaArgument : JNIV8JavaValue {
-    JNIV8JavaArgument(const std::string& type, bool isNullable = false, bool undefinedIsNull = false);
+    JNIV8JavaValue(JNIV8JavaValueType type, jclass clazz, JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault);
 };
 
 struct JNIV8ObjectJavaSignatureInfo {
     jmethodID javaMethodId;
-    std::vector<JNIV8JavaArgument>* arguments;
+    std::vector<JNIV8JavaValue>* arguments;
 };
 
 class JNIV8Marshalling {
 public:
     /**
+     * create a JNIV8JavaValue struct for the specified type
+     */
+    static JNIV8JavaValue valueWithType(JNIV8JavaValueType type, bool boxed = false, JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault);
+    static JNIV8JavaValue valueWithClass(jint type, jclass clazz, JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault);
+
+    /**
+     * create a JNIV8JavaValue struct for the specified canonical name
+     *
+     * WARNING: returned struct will hold a global ref for custom classes
+     * Releasing this ref is the responsibility of the caller.
+     * for classes inside of java.lang the ref will be local and must not be released!
+     */
+    static JNIV8JavaValue persistentValueWithTypeSignature(const std::string &type, JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault);
+    static JNIV8JavaValue persistentArgumentWithTypeSignature(const std::string &type, JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault);
+
+    /**
      * converts a v8 value to a java value based on the provided type information
      * if conversion was successful method will return kOk and target will contain a valid jvalue
      */
-    static JNIV8MarshallingError convertV8ValueToJavaArgument(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8JavaArgument arg, jvalue *target);
+    static JNIV8MarshallingError convertV8ValueToJavaValue(JNIEnv *env, v8::Local<v8::Value> v8Value, JNIV8JavaValue arg, jvalue *target);
 
     /**
      * calls a java method with the provided arguments
@@ -105,6 +146,7 @@ public:
     static void initJNICache();
 private:
     static jobject _undefined;
+    static std::unordered_map<int, JNIV8JavaValueType> _typeMap;
 
     static struct {
         jclass clazz;
@@ -126,7 +168,7 @@ private:
     } _jniNumber;
     static struct {
         jclass clazz;
-    } _jniV8Object, _jniObject, _jniString;
+    } _jniObject, _jniV8Object, _jniString, _jniVoid;
 };
 
 

@@ -12,17 +12,6 @@
 
 using namespace v8;
 
-#define ThrowV8RangeError(msg)\
-v8::Isolate::GetCurrent()->ThrowException(v8::Exception::RangeError(\
-String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
-);
-
-#define ThrowV8TypeError(msg)\
-v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(\
-String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
-);
-
-
 decltype(JNIV8ClassInfo::_jniObject) JNIV8ClassInfo::_jniObject = {0};
 
 /**
@@ -88,24 +77,24 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<
         }
 
         JNIV8MarshallingError res;
-        res = JNIV8Marshalling::convertV8ValueToJavaArgument(env, value, cb->propertyType, &jval);
+        res = JNIV8Marshalling::convertV8ValueToJavaValue(env, value, cb->propertyType, &jval);
         if(res != JNIV8MarshallingError::kOk) {
             switch(res) {
                 default:
                 case JNIV8MarshallingError::kWrongType:
-                    ThrowV8TypeError("property '" + cb->propertyName + "' is not nullable");
+                    ThrowV8TypeError("wrong type for property '" + cb->propertyName);
                     break;
                 case JNIV8MarshallingError::kUndefined:
                     ThrowV8TypeError("property '" + cb->propertyName + "' must not be undefined");
                     break;
                 case JNIV8MarshallingError::kNotNullable:
-                    ThrowV8TypeError("wrong type for property '" + cb->propertyName);
+                    ThrowV8TypeError("property '" + cb->propertyName + "' is not nullable");
                     break;
                 case JNIV8MarshallingError::kNoNaN:
                     ThrowV8TypeError("property '" + cb->propertyName + "' must not be NaN");
                     break;
                 case JNIV8MarshallingError::kVoidNotNull:
-                    ThrowV8TypeError("property '" + cb->propertyName + "' can only be null");
+                    ThrowV8TypeError("property '" + cb->propertyName + "' can only be null or undefined");
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
                     ThrowV8RangeError("assigned value '"+
@@ -193,29 +182,29 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
             memset(jargs, 0, sizeof(jvalue) * numJArgs);
 
             for(int idx = 0, n = args.Length(); idx < n; idx++) {
-                JNIV8JavaArgument &arg = (*signature->arguments)[idx];
+                JNIV8JavaValue &arg = (*signature->arguments)[idx];
                 v8::Local<v8::Value> value = args[idx];
 
-                JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaArgument(env, value, arg, &(jargs[idx]));
+                JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, value, arg, &(jargs[idx]));
                 if(res != JNIV8MarshallingError::kOk) {
                     // conversion failed => simply clean up & throw an exception
                     free(jargs);
                     switch(res) {
                         default:
                         case JNIV8MarshallingError::kWrongType:
-                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' is not nullable");
+                            ThrowV8TypeError("wrong type for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
                             break;
                         case JNIV8MarshallingError::kUndefined:
                             ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' does not accept undefined");
                             break;
                         case JNIV8MarshallingError::kNotNullable:
-                            ThrowV8TypeError("wrong type for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' is not nullable");
                             break;
                         case JNIV8MarshallingError::kNoNaN:
                             ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must not be NaN");
                             break;
                         case JNIV8MarshallingError::kVoidNotNull:
-                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must be null");
+                            ThrowV8TypeError("argument #" + std::to_string(idx) + " of '" + cb->methodName + "' must be null or undefined");
                             break;
                         case JNIV8MarshallingError::kOutOfRange:
                             ThrowV8RangeError("value '"+
@@ -391,12 +380,13 @@ void JNIV8ClassInfo::registerStaticMethod(const std::string& methodName, JNIV8Ob
     _registerMethod(holder);
 }
 
-void JNIV8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
+void JNIV8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaValue> *arguments) {
     // check if this is an overload for a method that is already registered
     for(auto &it : javaCallbackHolders) {
         if(it->methodName == methodName) {
             // make sure that return types match!
-            JNI_ASSERTF(returnType.type == it->returnType.type, "Overload for method '%s' of class '%s' has a different return type", methodName.c_str(), container->canonicalName.c_str());
+            JNI_ASSERTF(returnType.valueType == it->returnType.valueType && JNIWrapper::getEnvironment()->IsSameObject(returnType.clazz, it->returnType.clazz),
+                        "Overload for method '%s' of class '%s' has a different return type", methodName.c_str(), container->canonicalName.c_str());
             // register overload
             it->signatures.push_back({methodId, arguments});
             return;
@@ -411,12 +401,13 @@ void JNIV8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID
     _registerJavaMethod(holder);
 }
 
-void JNIV8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaArgument> *arguments) {
+void JNIV8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaValue> *arguments) {
     // check if this is an overload for a method that is already registered
     for(auto &it : javaCallbackHolders) {
         if(it->methodName == methodName) {
             // make sure that return types match!
-            JNI_ASSERTF(returnType.type == it->returnType.type, "Overload for static method '%s' of class '%s' has a different return type", methodName.c_str(), container->canonicalName.c_str());
+            JNI_ASSERTF(returnType.valueType == it->returnType.valueType && JNIWrapper::getEnvironment()->IsSameObject(returnType.clazz, it->returnType.clazz),
+                        "Overload for method '%s' of class '%s' has a different return type", methodName.c_str(), container->canonicalName.c_str());
             // register overload
             it->signatures.push_back({methodId, arguments});
             return;
@@ -431,7 +422,7 @@ void JNIV8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jme
     _registerJavaMethod(holder);
 }
 
-void JNIV8ClassInfo::registerJavaAccessor(const std::string& propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId, jmethodID setterId) {
+void JNIV8ClassInfo::registerJavaAccessor(const std::string& propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId, jmethodID setterId) {
     JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;
     holder->javaGetterId = getterId;
@@ -440,7 +431,7 @@ void JNIV8ClassInfo::registerJavaAccessor(const std::string& propertyName, const
     _registerJavaAccessor(holder);
 }
 
-void JNIV8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8JavaArgument& propertyType, jmethodID getterId,
+void JNIV8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId,
                                              jmethodID setterId) {
     JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;

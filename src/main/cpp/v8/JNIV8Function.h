@@ -15,7 +15,7 @@ public:
     static void initializeV8Bindings(JNIV8ClassInfo *info);
 
     static jobject jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jobject handler);
-    static jobject jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jobject receiver, jobjectArray arguments);
+    static jobject jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jobjectArray arguments);
 
     /**
      * cache JNI class references

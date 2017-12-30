@@ -24,20 +24,15 @@ public:
     static jint jniGetV8Length(JNIEnv *env, jobject obj);
 
     /**
-     * Returns all objects inside of the array
-     */
-    static jobjectArray jniGetV8Elements(JNIEnv *env, jobject obj);
-
-    /**
      * Returns all objects from a specified range inside of the array
      */
-    static jobjectArray jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint from, jint to);
+    static jobjectArray jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint flags, jint type, jclass returnType, jint from, jint to);
 
     /**
      * Returns the object at the specified index
      * if index is out of bounds, returns JNIV8Undefined
      */
-    static jobject jniGetV8Element(JNIEnv *env, jobject obj, jint index);
+    static jobject jniGetV8Element(JNIEnv *env, jobject obj, jint flags, jint type, jclass returnType, jint index);
 
     /**
      * cache JNI class references
@@ -47,7 +42,6 @@ private:
     static struct {
         jclass clazz;
     } _jniObject;
-    jobjectArray v8ArrayToObjectArray(v8::Local<v8::Array> array, uint32_t from=1, uint32_t to=0);
 };
 
 BGJS_JNI_LINK_DEF(JNIV8Array)

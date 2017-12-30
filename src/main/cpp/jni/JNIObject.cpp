@@ -37,7 +37,7 @@ JNIObject::JNIObject(jobject obj, JNIClassInfo *info) : JNIBase(info) {
 }
 
 JNIObject::~JNIObject() {
-    JNI_ASSERT(_atomicJniObjectRefCount==0, "JNIObject was deleted while retaining java object");
+    JNI_ASSERTF(_atomicJniObjectRefCount==0, "JNIObject (%s) was deleted while retaining java object (ref count: %d)", getCanonicalName().c_str(), _atomicJniObjectRefCount.load());
     if(_jniObject) {
         // this should/can never happen for persistent objects
         // if there is a strong ref to the JObject, then the native object must not be deleted!
@@ -53,6 +53,10 @@ void JNIObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("RegisterClass", "(Ljava/lang/String;Ljava/lang/String;)V", (void*)JNIObject::jniRegisterClass);
 }
 
+bool JNIObject::isRetained() const {
+    return _atomicJniObjectRefCount != 0;
+}
+
 const jobject JNIObject::getJObject() {
     // persistents always have a weak reference to the jobject
     // the strong reference only exists if they are retained by native code
@@ -62,24 +66,6 @@ const jobject JNIObject::getJObject() {
     }
     // non persistents always have a strong reference as long as they exist
     return _jniObject;
-}
-
-std::shared_ptr<JNIObject> JNIObject::getSharedPtr() {
-    if(isPersistent()) {
-        retainJObject();
-    }
-    return std::shared_ptr<JNIObject>(this, [=](JNIObject *cls) {
-        if (!cls->isPersistent()) {
-            // non persistent objects need to be deleted once they are not referenced anymore
-            // wrapping an object again will return a new native instance!
-            delete cls;
-        } else {
-            // ownership of persistent objects is held by the java side
-            // object is only deleted if the java object is garbage collected
-            // when there are no more references from C we need to make the reference to the java object weak again!
-            cls->releaseJObject();
-        }
-    });
 }
 
 void JNIObject::retainJObject() {
@@ -95,7 +81,9 @@ void JNIObject::retainJObject() {
         // or another thread B could possible even already have created the object
         // e.g. (0->1(A)->0->1(B), executed as 1->0->1 (B)(A)
         // => check state here, guarded by mutex, and possibly do nothing
-        if(_atomicJniObjectRefCount==0 || _jniObject) return;
+        if(_atomicJniObjectRefCount==0 || _jniObject) {
+            return;
+        }
 
         JNIEnv *env = JNIWrapper::getEnvironment();
         _jniObject = env->NewGlobalRef(_jniObjectWeak);
@@ -115,7 +103,9 @@ void JNIObject::releaseJObject() {
         // or another thread B could possible even already have released the object
         // e.g. (1->0(A)->1->0(B), executed as 1->0->1 (B)(A)
         // => check state here, guarded by mutex, and possibly do nothing
-        if(_atomicJniObjectRefCount > 0 || !_jniObject) return;
+        if(_atomicJniObjectRefCount > 0 || !_jniObject) {
+            return;
+        }
 
         JNIEnv *env = JNIWrapper::getEnvironment();
 
@@ -198,6 +188,7 @@ extern "C" {
 
     JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_JNIObjectReference_disposeNative(JNIEnv *env, jobject obj, jlong nativeHandle) {
         JNIObject *jniObject = reinterpret_cast<JNIObject*>(nativeHandle);
+        if(jniObject->isRetained()) return false;
         delete jniObject;
         return true;
     }
