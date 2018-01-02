@@ -60,11 +60,7 @@ enum JNIV8MarshallingFlags {
     /*
      * coerce null even if requested type can handle it (e.g. Double)
      */
-    kCoerceNull = 1<<3,
-    /*
-     * discard result value; can only be used with type Void
-     */
-    kDiscard = 1<<4
+    kCoerceNull = 1<<3
 };
 
 struct JNIV8JavaValue {

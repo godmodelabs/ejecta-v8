@@ -30,9 +30,5 @@ public class V8Flags {
     /*
      * coerce null even if requested type can handle it (e.g. Double)
      */
-    CoerceNull = 1<<3,
-    /*
-     * discard result value; can only be used with type Void/void
-     */
-    Discard = 1<<4;
+    CoerceNull = 1<<3;
 };
