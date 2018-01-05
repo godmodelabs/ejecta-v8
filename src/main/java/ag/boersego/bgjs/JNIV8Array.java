@@ -3,6 +3,8 @@ package ag.boersego.bgjs;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import java.util.Arrays;
+
 import ag.boersego.v8annotations.V8Flags;
 
 /**
@@ -115,5 +117,19 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
             index++;
             return getV8Element(index);
         }
+    }
+
+    @Override
+    public boolean equals(final Object other) {
+        if (!(other instanceof JNIV8Array)) {
+            return super.equals(other);
+        }
+
+        final JNIV8Array otherArray = (JNIV8Array)other;
+        if (otherArray.getV8Length() != getV8Length()) {
+            return false;
+        }
+
+        return Arrays.equals(otherArray.getV8Elements(), getV8Elements());
     }
 }

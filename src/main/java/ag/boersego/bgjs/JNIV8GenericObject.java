@@ -17,4 +17,14 @@ final public class JNIV8GenericObject extends JNIV8Object {
     protected JNIV8GenericObject(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof JNIV8GenericObject)) {
+            return super.equals(obj);
+        }
+
+        final JNIV8GenericObject other = (JNIV8GenericObject)obj;
+        return other.getV8Fields().equals(other.getV8Fields());
+    }
 }

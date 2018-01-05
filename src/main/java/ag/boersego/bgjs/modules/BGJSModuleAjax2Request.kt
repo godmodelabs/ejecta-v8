@@ -99,7 +99,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                 }
 
                 var contentType = responseHeaders?.get("Content-Type");
-                _responseIsJson = contentType?.startsWith("application/json")!!
+                _responseIsJson = contentType?.startsWith("application/json") ?: false
 
                 // TODO: Cookie handling
 
