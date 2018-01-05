@@ -301,7 +301,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
                 break;
             }
             case JNIV8JavaValueType::kVoid: {
-                if (!(arg.flags & JNIV8MarshallingFlags::kDiscard) && !v8Value->IsNull() && !v8Value->IsUndefined()) {
+                if ((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNull() && !v8Value->IsUndefined()) {
                     return JNIV8MarshallingError::kVoidNotNull;
                 }
                 target->l = nullptr;
