@@ -10,6 +10,7 @@ import ag.boersego.v8annotations.V8Class
 import ag.boersego.v8annotations.V8ClassCreationPolicy
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
+import android.annotation.SuppressLint
 import android.util.Log
 import okhttp3.Headers
 import okhttp3.OkHttpClient
@@ -91,6 +92,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
     override fun run() {
         val request = object : AjaxRequest(url, body, null, method) {
+            @SuppressLint("LogNotTimber")
             override fun run() {
                 super.run()
 
@@ -144,14 +146,17 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                         details.setReturnData(mErrorCode, responseHeaders)
                     }
 
-                    fail?.callAsV8Function(mErrorData, info, details)
-                    always?.callAsV8Function(mErrorData, mErrorCode, info)
+                    val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
+
+                    fail?.callAsV8Function(returnObject, info, details)
+                    always?.callAsV8Function(returnObject, mErrorCode, info)
                 }
                 done?.dispose()
                 fail?.dispose()
                 always?.dispose()
             }
         }
+        request.connectionTimeout = 30000
         request.setCacheInstance(cache)
         request.setHeaders(headers)
         request.setHttpClient(client)
