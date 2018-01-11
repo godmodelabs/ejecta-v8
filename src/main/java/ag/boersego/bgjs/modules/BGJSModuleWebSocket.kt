@@ -31,7 +31,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
                 onopen?.callAsV8Function()
             }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response) {
+            override fun onFailure(webSocket: WebSocket?, t: Throwable?, response: Response?) {
                 super.onFailure(webSocket, t, response)
                 _readyState = ReadyState.CLOSED
 
