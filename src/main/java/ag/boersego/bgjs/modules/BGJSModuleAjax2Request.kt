@@ -116,9 +116,9 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                             always?.callAsV8Function(parsedResponse, mSuccessCode, null)
                         } catch (e: Exception) {
                             // Call fail callback with parse errors
-                            var details = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
+                            var failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
                             try {
-                                fail?.callAsV8Function(mSuccessData, "parseerror", details)
+                                fail?.callAsV8Function(mSuccessData, "parseerror", failDetails)
                                 Log.e(TAG, "Exception thrown when calling ajax callback", e)
                             } catch (failEx: IllegalArgumentException) {
                                 Log.e(TAG, "Cannot execute fail callback: " + fail, failEx)
@@ -138,7 +138,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                 } else {
                     // TODO: responseJSON?
                     var info: String? = null
-                    var details: HttpResponseDetails? = null
+                    val failDetails: HttpResponseDetails? = null
                     if (mErrorThrowable != null) {
                         info = if (mErrorThrowable is SocketTimeoutException) "timeout" else "error"
                     } else {
@@ -148,7 +148,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
                     val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
 
-                    fail?.callAsV8Function(returnObject, info, details)
+                    fail?.callAsV8Function(returnObject, info, failDetails)
                     always?.callAsV8Function(returnObject, mErrorCode, info)
                 }
                 done?.dispose()
