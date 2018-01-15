@@ -53,7 +53,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang,
-        jstring timezone, jfloat density, jstring deviceClass) {
+        jstring timezone, jfloat density, jstring deviceClass, jboolean debug) {
 
 	auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
 	ct->setAssetManager(assetManager);
@@ -64,6 +64,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	const char* deviceClassStr = env->GetStringUTFChars(deviceClass, NULL);
 	ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
 	ct->setDensity(density);
+	ct->setDebug(debug);
 	env->ReleaseStringUTFChars(locale, localeStr);
 	env->ReleaseStringUTFChars(lang, langStr);
 	env->ReleaseStringUTFChars(timezone, tzStr);

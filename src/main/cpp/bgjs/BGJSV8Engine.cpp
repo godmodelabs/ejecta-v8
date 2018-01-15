@@ -791,6 +791,14 @@ bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view)  {
 	return didDraw;
 }
 
+void BGJSV8Engine::js_global_getDebug(Local<String> property,
+                                       const v8::PropertyCallbackInfo<v8::Value>& info) {
+    EscapableHandleScope scope(Isolate::GetCurrent());
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
+
+    info.GetReturnValue().Set(scope.Escape(Boolean::New(Isolate::GetCurrent(), ctx->_debug)));
+}
+
 void BGJSV8Engine::js_global_getLocale(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
@@ -1072,6 +1080,8 @@ void BGJSV8Engine::createContext() {
     globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process"), process);
 
 	// environment variables
+    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "debug"),
+                              BGJSV8Engine::js_global_getDebug, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
 	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
                               BGJSV8Engine::js_global_getLocale, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
 	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"),
@@ -1205,6 +1215,10 @@ void BGJSV8Engine::setDensity(float density) {
 }
 float BGJSV8Engine::getDensity() const {
     return _density;
+}
+
+void BGJSV8Engine::setDebug(bool debug) {
+    _debug = debug;
 }
 
 char* BGJSV8Engine::loadFile(const char* path, unsigned int* length) const {

@@ -72,6 +72,7 @@ public:
 	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
 	void setDensity(float density);
 	float getDensity() const;
+	void setDebug(bool debug);
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
@@ -82,6 +83,7 @@ public:
 	static void js_global_clearTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_setInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_clearInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
+    static void js_global_getDebug(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value> &info);
 	static void js_global_getLocale(v8::Local<v8::String> property,
 			const v8::PropertyCallbackInfo<v8::Value>& info);
 	static void js_global_getLang(v8::Local<v8::String> property,
@@ -109,6 +111,7 @@ public:
 
     void trace(const v8::FunctionCallbackInfo<v8::Value> &info);
 
+    bool _debug;
 private:
 	// called by JNIWrapper
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
@@ -150,7 +153,7 @@ private:
 
 	float _density;
 
-	uint8_t _nextEmbedderDataIndex;
+    uint8_t _nextEmbedderDataIndex;
 	jobject _javaObject, _javaAssetManager;
 
     void enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>&);

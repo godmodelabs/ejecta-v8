@@ -289,7 +289,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			e.printStackTrace();
 		}
 		Log.d(TAG, "Initializing V8Engine");
-		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone");
+		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", BuildConfig.DEBUG);
     }
 
     public native void registerModule(JNIV8Module module);
