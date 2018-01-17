@@ -83,7 +83,6 @@ public:
 	static void js_global_clearTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_setInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_clearInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
-    static void js_global_getDebug(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value> &info);
 	static void js_global_getLocale(v8::Local<v8::String> property,
 			const v8::PropertyCallbackInfo<v8::Value>& info);
 	static void js_global_getLang(v8::Local<v8::String> property,

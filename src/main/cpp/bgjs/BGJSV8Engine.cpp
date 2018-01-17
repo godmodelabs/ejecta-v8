@@ -571,7 +571,9 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
 		moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, baseNameStr.c_str()));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
 		moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+        moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
 
         module(this, moduleObj);
         result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
@@ -684,6 +686,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 		moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
 		moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+        moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
 
         Handle<Value> fnModuleInitializerArgs[] = {
                 exportsObj,                                      // exports
@@ -789,14 +792,6 @@ bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view)  {
 		view->call(view->_cbRedraw);
 	}
 	return didDraw;
-}
-
-void BGJSV8Engine::js_global_getDebug(Local<String> property,
-                                       const v8::PropertyCallbackInfo<v8::Value>& info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    info.GetReturnValue().Set(scope.Escape(Boolean::New(Isolate::GetCurrent(), ctx->_debug)));
 }
 
 void BGJSV8Engine::js_global_getLocale(Local<String> property,
@@ -1080,8 +1075,6 @@ void BGJSV8Engine::createContext() {
     globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process"), process);
 
 	// environment variables
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "debug"),
-                              BGJSV8Engine::js_global_getDebug, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
 	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
                               BGJSV8Engine::js_global_getLocale, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
 	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"),
