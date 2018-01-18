@@ -215,7 +215,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
                     if ((arg.flags & JNIV8MarshallingFlags::kNonNull)) {
                         return JNIV8MarshallingError::kNotNullable;
                     }
-                } else if (!env->IsInstanceOf(target->l, arg.clazz)) {
+                } else if (arg.clazz && !env->IsInstanceOf(target->l, arg.clazz)) {
                     // validate objects type
                     if (v8Value->IsUndefined()) {
                         return JNIV8MarshallingError::kUndefined;
