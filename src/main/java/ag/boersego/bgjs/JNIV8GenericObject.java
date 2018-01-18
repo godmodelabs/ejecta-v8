@@ -1,5 +1,9 @@
 package ag.boersego.bgjs;
 
+import android.support.annotation.NonNull;
+
+import java.util.Map;
+
 /**
  * Created by martin on 26.09.17.
  */
@@ -26,5 +30,13 @@ final public class JNIV8GenericObject extends JNIV8Object {
 
         final JNIV8GenericObject other = (JNIV8GenericObject)obj;
         return other.getV8Fields().equals(other.getV8Fields());
+    }
+
+    public static JNIV8GenericObject fromMap(final V8Engine engine, @NonNull final Map<String, Object> map) {
+        final JNIV8GenericObject instance = Create(engine);
+
+        instance.setV8Fields(map);
+
+        return instance;
     }
 }
