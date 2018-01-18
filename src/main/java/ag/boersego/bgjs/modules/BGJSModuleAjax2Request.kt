@@ -49,27 +49,38 @@ class HttpResponseDetails : JNIV8Object {
 class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
     @V8Function
-    fun done(cb: JNIV8Function?) {
-        this.done = cb
+    fun done(cb: JNIV8Function?): BGJSModuleAjax2Request {
+        if (cb != null) {
+            callbacks.add(Pair(CallbackType.DONE, cb))
+        }
+        return this
     }
 
     @V8Function
-    fun fail(cb: JNIV8Function?) {
-        this.fail = cb
+    fun fail(cb: JNIV8Function?): BGJSModuleAjax2Request {
+        if (cb != null) {
+        callbacks.add(Pair(CallbackType.FAIL, cb))
+    }
+        return this
     }
 
     @V8Function
-    fun always(cb: JNIV8Function?) {
-        this.always = cb
+    fun always(cb: JNIV8Function?): BGJSModuleAjax2Request {
+        if (cb != null) {
+            callbacks.add(Pair(CallbackType.ALWAYS, cb))
+        }
+        return this
     }
 
-    private var done: JNIV8Function? = null
-
-    private var fail: JNIV8Function? = null
-
-    private var always: JNIV8Function? = null
+    private var callbacks = ArrayList<Pair<CallbackType, JNIV8Function>>()
 
     constructor(engine: V8Engine) : super(engine)
+
+    enum class CallbackType {
+        DONE,
+        FAIL,
+        ALWAYS
+    }
 
 
     private lateinit var url: String
@@ -82,11 +93,12 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
     fun abort(): Boolean {
         // TODO: Why does this need a parameter?
         aborted = true
-        fail?.callAsV8Function(null, "abort")
-        fail?.dispose()
-        done?.dispose()
-        always?.callAsV8Function(null, 0, "abort")
-        always?.dispose()
+        callbacks.forEach { cb ->
+            if (cb.first != CallbackType.DONE) {
+                cb.second.callAsV8Function(null, "abort")
+            }
+            cb.second.dispose()
+        }
         return true
     }
 
@@ -112,48 +124,40 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                     if (_responseIsJson) {
                         try {
                             var parsedResponse = v8Engine.parseJSON(mSuccessData)
-                            done?.callAsV8Function(parsedResponse, null, details)
-                            always?.callAsV8Function(parsedResponse, mSuccessCode, null)
+                            callCallbacks(CallbackType.DONE, parsedResponse, null, details, mSuccessCode)
                         } catch (e: Exception) {
                             // Call fail callback with parse errors
                             var failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
-                            try {
-                                fail?.callAsV8Function(mSuccessData, "parseerror", failDetails)
-                                Log.e(TAG, "Exception thrown when calling ajax callback", e)
-                            } catch (failEx: IllegalArgumentException) {
-                                Log.e(TAG, "Cannot execute fail callback: " + fail, failEx)
-                            }
-                            try {
-                                always?.callAsV8Function(mErrorData, mErrorCode, "parseerror")
-                            } catch (alwaysEx: IllegalArgumentException) {
-                                Log.e(TAG, "Cannot execute always callback: " + always, alwaysEx)
-                            }
+                            callCallbacks(CallbackType.FAIL, mSuccessData, "parseerror", failDetails, mErrorCode)
                         }
 
                     } else {
-                        done?.callAsV8Function(mSuccessData, null, details)
-                        always?.callAsV8Function(mSuccessData, mSuccessCode, null)
+                        callCallbacks(CallbackType.DONE, mSuccessData, null, details, mSuccessCode)
                     }
 
                 } else {
-                    // TODO: responseJSON?
                     var info: String? = null
-                    val failDetails: HttpResponseDetails? = null
+                    var failDetails: HttpResponseDetails? = null
                     if (mErrorThrowable != null) {
                         info = if (mErrorThrowable is SocketTimeoutException) "timeout" else "error"
                     } else {
-                        val details = HttpResponseDetails(v8Engine)
-                        details.setReturnData(mErrorCode, responseHeaders)
+                        failDetails = HttpResponseDetails(v8Engine)
+                        failDetails.setReturnData(mErrorCode, responseHeaders)
                     }
-
-                    val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
-
-                    fail?.callAsV8Function(returnObject, info, failDetails)
-                    always?.callAsV8Function(returnObject, mErrorCode, info)
+                    if (_responseIsJson && mErrorData != null) {
+                        try {
+                            var parsedResponse = v8Engine.parseJSON(mErrorData)
+                            callCallbacks(CallbackType.DONE, parsedResponse, null, failDetails, mSuccessCode)
+                        } catch (e: Exception) {
+                            // Call fail callback with parse errors
+                            var failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
+                            callCallbacks(CallbackType.FAIL, mSuccessData, "parseerror", failDetails, mErrorCode)
+                        }
+                    } else {
+                        val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
+                        callCallbacks(CallbackType.FAIL, returnObject, info, failDetails, mErrorCode)
+                    }
                 }
-                done?.dispose()
-                fail?.dispose()
-                always?.dispose()
             }
         }
         request.connectionTimeout = 30000
@@ -161,6 +165,22 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
         request.setHeaders(headers)
         request.setHttpClient(client)
         executor.execute(request)
+    }
+
+    private fun callCallbacks(type: CallbackType, returnObject: Any?, info: String?, details: HttpResponseDetails?, errorCode: Int) {
+        for (cb in callbacks) {
+            try {
+                when (cb.first) {
+                    CallbackType.ALWAYS ->
+                            cb.second.callAsV8Function(returnObject, errorCode, info)
+                    type ->
+                            cb.second.callAsV8Function(returnObject, info, details)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception thrown when calling ajax " + cb.first + " callback", e)
+            }
+            cb.second.dispose()
+        }
     }
 
     private lateinit var cache: V8UrlCache
