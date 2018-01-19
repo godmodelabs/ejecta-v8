@@ -88,6 +88,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
     private val headers: HashMap<String, String> = HashMap(Companion.httpAdditionalHeaders)
     private var body: String? = null
     private var aborted: Boolean = false
+    private var outputType: String? = null
 
     @V8Function
     fun abort(): Boolean {
@@ -144,14 +145,17 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                         failDetails = HttpResponseDetails(v8Engine)
                         failDetails.setReturnData(mErrorCode, responseHeaders)
                     }
+                    Log.d(TAG, "Error code " + mErrorCode + ", info " + info + ", body " + mErrorData)
+                    val errorObj = JNIV8GenericObject.Create(v8Engine)
                     if (_responseIsJson && mErrorData != null) {
                         try {
                             var parsedResponse = v8Engine.parseJSON(mErrorData)
-                            callCallbacks(CallbackType.DONE, parsedResponse, null, failDetails, mSuccessCode)
+                            errorObj.setV8Field("responseJSON", parsedResponse)
+                            callCallbacks(CallbackType.FAIL, errorObj, null, failDetails, mErrorCode)
                         } catch (e: Exception) {
                             // Call fail callback with parse errors
-                            var failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
-                            callCallbacks(CallbackType.FAIL, mSuccessData, "parseerror", failDetails, mErrorCode)
+                            errorObj.setV8Field("responseJSON", mErrorData)
+                            callCallbacks(CallbackType.FAIL, errorObj, "parseerror", failDetails, mErrorCode)
                         }
                     } else {
                         val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
@@ -164,6 +168,9 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
         request.setCacheInstance(cache)
         request.setHeaders(headers)
         request.setHttpClient(client)
+        if (outputType != null) {
+            request.setOutputType(outputType)
+        }
         executor.execute(request)
     }
 
@@ -206,6 +213,10 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                     headers[key] = value
                 } else {
                     headers[key] = value.toString()
+                }
+
+                if (key == "Content-Type") {
+                    outputType = headers[key]
                 }
             }
         }
