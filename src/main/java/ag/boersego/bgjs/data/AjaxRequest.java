@@ -4,6 +4,8 @@ import android.os.Build;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -16,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.FormBody;
 import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -32,6 +35,7 @@ public class AjaxRequest implements Runnable {
     private OkHttpClient mHttpClient;
     private HashMap<String, String> mHeaders;
     private Headers mResponseHeaders;
+    private FormBody mFormBody;
 
     public void setHttpClient(OkHttpClient httpClient) {
         mHttpClient = httpClient;
@@ -39,6 +43,10 @@ public class AjaxRequest implements Runnable {
 
     public void setHeaders(@NonNull HashMap<String, String> headers) {
         mHeaders = headers;
+    }
+
+    public void setFormBody(@NotNull FormBody formBody) {
+        mFormBody = formBody;
     }
 
     public interface AjaxListener {
@@ -268,22 +276,28 @@ public class AjaxRequest implements Runnable {
                 }
             }
 
-			if (mResultBuilder != null) {
-				mData = mResultBuilder.toString().getBytes();
-			}
-			if (mData != null) {
-                if (mOutputType != null) {
-                    requestBuilder.post(RequestBody.create(MediaType.parse(mOutputType), mData));
-                } else {
-                    if (mMethod.equals("POST")) {
-                        requestBuilder.post(RequestBody.create(MediaType.parse("application/x-www-form-urlencoded"), mData));
-                    }
+			if (mFormBody != null) {
+                if ("POST".equals(mMethod)) {
+                    requestBuilder.post(mFormBody);
                 }
-            } else if (mMethod != null) {
-                if (mMethod.equals("DELETE")) {
-                    requestBuilder.delete();
-                } else if (mMethod.equals("POST")) {
-                    requestBuilder.post(RequestBody.create(null, new byte[0]));
+            } else {
+                if (mResultBuilder != null) {
+                    mData = mResultBuilder.toString().getBytes();
+                }
+                if (mData != null) {
+                    if (mOutputType != null) {
+                        requestBuilder.post(RequestBody.create(MediaType.parse(mOutputType), mData));
+                    } else {
+                        if (mMethod.equals("POST")) {
+                            requestBuilder.post(RequestBody.create(MediaType.parse("application/x-www-form-urlencoded"), mData));
+                        }
+                    }
+                } else if (mMethod != null) {
+                    if (mMethod.equals("DELETE")) {
+                        requestBuilder.delete();
+                    } else if (mMethod.equals("POST")) {
+                        requestBuilder.post(RequestBody.create(null, new byte[0]));
+                    }
                 }
             }
 

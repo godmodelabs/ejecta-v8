@@ -132,7 +132,7 @@ class BGJSModuleWebSocket (private var okHttpClient: OkHttpClient) : JNIV8Module
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         val exports = JNIV8GenericObject.Create(engine)
 
-        exports.setV8Field("create", JNIV8Function.Create(engine, { _, arguments ->
+        exports.setV8Field("WebSocket", JNIV8Function.Create(engine, { _, arguments ->
             if (arguments.isEmpty() || arguments[0] !is String) {
                 throw IllegalArgumentException("create needs one string argument (url)")
             }

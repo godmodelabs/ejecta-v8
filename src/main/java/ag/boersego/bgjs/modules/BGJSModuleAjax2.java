@@ -5,6 +5,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import ag.boersego.bgjs.JNIV8Function;
 import ag.boersego.bgjs.JNIV8GenericObject;
 import ag.boersego.bgjs.JNIV8Module;
+import ag.boersego.bgjs.JNIV8Object;
 import ag.boersego.bgjs.JNIV8Undefined;
 import ag.boersego.bgjs.V8Engine;
 import ag.boersego.bgjs.data.V8UrlCache;
@@ -70,10 +71,12 @@ public class BGJSModuleAjax2 extends JNIV8Module {
                 headers = null;
             }
 
-            final String body;
+            final Object body;
             if (arguments.length >= 4) {
                 if (arguments[3] == null || arguments[3] instanceof String) {
-                    body = (String) arguments[3];
+                    body = arguments[3];
+                } else if (arguments[3] instanceof JNIV8Object) {
+                    body = arguments[3];
                 } else if (!(arguments[3] instanceof JNIV8Undefined)) {
                     throw new RuntimeException("request: fourth argument is body and must be undefined or a String");
                 } else {

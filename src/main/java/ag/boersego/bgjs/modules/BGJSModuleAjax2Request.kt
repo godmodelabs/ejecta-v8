@@ -12,9 +12,11 @@ import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 import android.annotation.SuppressLint
 import android.util.Log
+import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import java.net.SocketTimeoutException
+import java.net.URLEncoder
 import java.util.concurrent.ThreadPoolExecutor
 
 /**
@@ -119,6 +121,8 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                 // TODO: Cookie handling
 
                 if (mSuccessData != null) {
+                    // Retrieve any cookies
+
                     val details = HttpResponseDetails(v8Engine)
                     details.setReturnData(mSuccessCode, responseHeaders)
 
@@ -168,6 +172,9 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
         request.setCacheInstance(cache)
         request.setHeaders(headers)
         request.setHttpClient(client)
+        if (formBody != null) {
+            request.setFormBody(formBody!!)
+        }
         if (outputType != null) {
             request.setOutputType(outputType)
         }
@@ -198,7 +205,9 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
     private var _responseIsJson: Boolean = false
 
-    fun setData(url: String, method: String, headerRaw: JNIV8GenericObject?, body: String?,
+    private var formBody: FormBody? = null
+
+    fun setData(url: String, method: String, headerRaw: JNIV8GenericObject?, body: Any?,
                 cache: V8UrlCache, client: OkHttpClient, executor: ThreadPoolExecutor) {
         this.url = url;
         this.method = method;
@@ -221,7 +230,57 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
             }
         }
 
-        this.body = body;
+        if (outputType == null && body != null) {
+            outputType = "application/x-www-form-urlencoded; charset=UTF-8"
+        }
+
+        if (method == "POST") {
+            val requestIsJson = outputType?.startsWith("application/json")
+            if (requestIsJson == true) {
+                if (body is String) {
+                    this.body = body
+                } else {
+                    this.body = v8Engine.getGlobalObject().getV8FieldTyped("JSON", JNIV8Object::class.java)!!.callV8Method("stringify", body) as String
+                }
+            } else {
+                // We're sending a form object
+                if (body is JNIV8Object && requestIsJson != true) {
+                    val formBody = FormBody.Builder()
+                    val bodyMap = body.v8Fields
+
+                    for (entry in bodyMap.entries) {
+                        formBody.add(entry.key, entry.value as String)
+                    }
+                    this.formBody = formBody.build()
+                } else if (body is String) {
+                    this.body = body;
+                } else {
+                    Log.w(TAG, "Cannot set body type " + body)
+                }
+            }
+        } else {
+            if (body is JNIV8Object) {
+                val bodyMap = body.v8Fields
+                if (!bodyMap.isEmpty()) {
+                    val urlBuilder = StringBuilder(url)
+                    urlBuilder.append("?")
+                    var isFirstItem = true
+                    val entries = bodyMap.entries
+                    for (entry in entries) {
+                        if (!isFirstItem) {
+                            urlBuilder.append("&")
+                        }
+                        isFirstItem = false
+
+                        urlBuilder.append(URLEncoder.encode(entry.key, "UTF-8"))
+                        urlBuilder.append("=")
+                        urlBuilder.append(URLEncoder.encode(entry.value as String, "UTF-8"))
+                    }
+                    this.url = urlBuilder.toString()
+                }
+
+            }
+        }
 
     }
 
