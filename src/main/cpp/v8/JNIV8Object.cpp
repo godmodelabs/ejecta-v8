@@ -401,7 +401,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
 
     JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
 
-    MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames();
+    MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames(context);
     if(maybeArrayRef.IsEmpty()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -418,7 +418,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        keyRef = Local<String>::Cast(valueRef);
+        keyRef = valueRef->ToString();
 
         maybeValueRef = localRef->Get(context, keyRef);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
