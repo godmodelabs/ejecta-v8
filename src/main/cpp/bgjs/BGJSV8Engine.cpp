@@ -1034,7 +1034,7 @@ void BGJSV8Engine::createContext() {
 		v8::V8::InitializePlatform(platform);
 		LOGD("Initialized platform");
 		v8::V8::Initialize();
-		LOGD("Initialized v8");
+		LOGD("Initialized v8: %s", v8::V8::GetVersion());
 	}
 
 	v8::Isolate::CreateParams create_params;
