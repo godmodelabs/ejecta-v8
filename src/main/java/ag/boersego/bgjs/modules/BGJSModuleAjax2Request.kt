@@ -1,9 +1,6 @@
 package ag.boersego.bgjs.modules
 
-import ag.boersego.bgjs.JNIV8Function
-import ag.boersego.bgjs.JNIV8GenericObject
-import ag.boersego.bgjs.JNIV8Object
-import ag.boersego.bgjs.V8Engine
+import ag.boersego.bgjs.*
 import ag.boersego.bgjs.data.AjaxRequest
 import ag.boersego.bgjs.data.V8UrlCache
 import ag.boersego.v8annotations.V8Class
@@ -25,11 +22,9 @@ import java.util.concurrent.ThreadPoolExecutor
  */
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-class HttpResponseDetails : JNIV8Object {
-    var statusCode: Int = 0
+class HttpResponseDetails(engine: V8Engine) : JNIV8Object(engine) {
+    private var statusCode: Int = 0
         @V8Getter get
-
-    constructor(engine: V8Engine) : super(engine)
 
     private var headers: Headers? = null
 
@@ -48,7 +43,7 @@ class HttpResponseDetails : JNIV8Object {
 
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-class BGJSModuleAjax2Request : JNIV8Object, Runnable {
+class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     @V8Function
     fun done(cb: JNIV8Function?): BGJSModuleAjax2Request {
@@ -75,8 +70,6 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
     }
 
     private var callbacks = ArrayList<Pair<CallbackType, JNIV8Function>>()
-
-    constructor(engine: V8Engine) : super(engine)
 
     enum class CallbackType {
         DONE,
@@ -115,7 +108,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                     return
                 }
 
-                var contentType = responseHeaders?.get("Content-Type");
+                val contentType = responseHeaders?.get("Content-Type")
                 _responseIsJson = contentType?.startsWith("application/json") ?: false
 
                 // TODO: Cookie handling
@@ -128,11 +121,11 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
                     if (_responseIsJson) {
                         try {
-                            var parsedResponse = v8Engine.parseJSON(mSuccessData)
+                            val parsedResponse = v8Engine.parseJSON(mSuccessData)
                             callCallbacks(CallbackType.DONE, parsedResponse, null, details, mSuccessCode)
                         } catch (e: Exception) {
                             // Call fail callback with parse errors
-                            var failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
+                            val failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
                             callCallbacks(CallbackType.FAIL, mSuccessData, "parseerror", failDetails, mErrorCode)
                         }
 
@@ -149,11 +142,11 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                         failDetails = HttpResponseDetails(v8Engine)
                         failDetails.setReturnData(mErrorCode, responseHeaders)
                     }
-                    Log.d(TAG, "Error code " + mErrorCode + ", info " + info + ", body " + mErrorData)
+                    Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
                     val errorObj = JNIV8GenericObject.Create(v8Engine)
                     if (_responseIsJson && mErrorData != null) {
                         try {
-                            var parsedResponse = v8Engine.parseJSON(mErrorData)
+                            val parsedResponse = v8Engine.parseJSON(mErrorData)
                             errorObj.setV8Field("responseJSON", parsedResponse)
                             callCallbacks(CallbackType.FAIL, errorObj, null, failDetails, mErrorCode)
                         } catch (e: Exception) {
@@ -184,6 +177,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
     private fun callCallbacks(type: CallbackType, returnObject: Any?, info: String?, details: HttpResponseDetails?, errorCode: Int) {
         for (cb in callbacks) {
             try {
+                @Suppress("NON_EXHAUSTIVE_WHEN")
                 when (cb.first) {
                     CallbackType.ALWAYS ->
                             cb.second.callAsV8Function(returnObject, errorCode, info)
@@ -209,8 +203,8 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
     fun setData(url: String, method: String, headerRaw: JNIV8GenericObject?, body: Any?,
                 cache: V8UrlCache, client: OkHttpClient, executor: ThreadPoolExecutor) {
-        this.url = url;
-        this.method = method;
+        this.url = url
+        this.method = method
         this.cache = cache
         this.client = client
         this.executor = executor
@@ -253,7 +247,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
                     }
                     this.formBody = formBody.build()
                 } else if (body is String) {
-                    this.body = body;
+                    this.body = body
                 } else {
                     Log.w(TAG, "Cannot set body type " + body)
                 }
@@ -274,7 +268,9 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
                         urlBuilder.append(URLEncoder.encode(entry.key, "UTF-8"))
                         urlBuilder.append("=")
-                        urlBuilder.append(URLEncoder.encode(entry.value as String, "UTF-8"))
+                        if (entry.value != null && entry.value !is JNIV8Undefined) {
+                            urlBuilder.append(URLEncoder.encode(entry.value as String, "UTF-8"))
+                        }
                     }
                     this.url = urlBuilder.toString()
                 }
@@ -286,7 +282,7 @@ class BGJSModuleAjax2Request : JNIV8Object, Runnable {
 
     companion object {
         private var httpAdditionalHeaders: HashMap<String, String>
-        val TAG = BGJSModuleAjax2Request::class.java.simpleName
+        val TAG:String = BGJSModuleAjax2Request::class.java.simpleName
 
         init {
             JNIV8Object.RegisterV8Class(BGJSModuleAjax2Request::class.java)
