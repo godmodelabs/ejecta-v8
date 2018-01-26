@@ -2,6 +2,7 @@ package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
 import ag.boersego.v8annotations.*
+import android.util.Log
 import okhttp3.*
 
 /**
@@ -33,15 +34,23 @@ class BGJSWebSocket : JNIV8Object, Runnable {
 
             override fun onFailure(webSocket: WebSocket?, t: Throwable?, response: Response?) {
                 super.onFailure(webSocket, t, response)
+
+                Log.w(TAG, "onFailure:", t)
                 _readyState = ReadyState.CLOSED
 
                 onerror?.callAsV8Function()
+                if (webSocket != null) {
+                    onClosed(webSocket, 0, "error")
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 super.onMessage(webSocket, text)
 
-                onmessage?.callAsV8Function(text)
+                val data = JNIV8GenericObject.Create(v8Engine)
+                data.setV8Field("data", text)
+
+                onmessage?.callAsV8Function(data)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -88,16 +97,16 @@ class BGJSWebSocket : JNIV8Object, Runnable {
 
     constructor(engine: V8Engine) : super(engine)
 
-    private var onclose: JNIV8Function? = null
+    var onclose: JNIV8Function? = null
         @V8Getter get
         @V8Setter set
-    private var onerror: JNIV8Function? = null
+    var onerror: JNIV8Function? = null
         @V8Getter get
         @V8Setter set
-    private var onmessage: JNIV8Function? = null
+    var onmessage: JNIV8Function? = null
         @V8Getter get
         @V8Setter set
-    private var onopen: JNIV8Function? = null
+    var onopen: JNIV8Function? = null
         @V8Getter get
         @V8Setter set
     private var _readyState: ReadyState = ReadyState.CONNECTING
@@ -124,6 +133,10 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     fun setData(okHttpClient: OkHttpClient, url: String) {
         this.httpClient = okHttpClient
         this._url = url
+    }
+
+    companion object {
+        val TAG = BGJSWebSocket::class.java.simpleName
     }
 }
 
