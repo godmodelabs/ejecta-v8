@@ -24,13 +24,38 @@
     public *;
 }
 
+-keep class ag.boersego.bgjs.JNIV8Object {
+    public <init>(***);
+    public *;
+    void adjustJSExternalMemory(long);
+}
+
 -keep class * extends ag.boersego.bgjs.JNIV8Object {
+    public <init>(***);
+    public *;
+}
+
+-keep class ag.boersego.bgjs.JNIObject {
     public <init>(***);
     public *;
 }
 
 -keep class * extends ag.boersego.bgjs.JNIObject {
     public <init>(***);
+    public *;
+}
+
+-keep class ag.boersego.bgjs.JNIV8Undefined {
+    public <init>(***);
+    public *;
+}
+
+-keep class ag.boersego.bgjs.JNIV8Function {
+    public <init>(***);
+    public *;
+}
+
+-keep class ag.boersego.bgjs.JNIV8Function$* {
     public *;
 }
 
@@ -44,12 +69,27 @@
     public *;
 }
 
+-keep class ag.boersego.bgjs.JNIV8Module {
+    public <init>(***);
+    public *;
+}
+
 -keep class * extends ag.boersego.bgjs.JNIV8GenericObject {
     public <init>(***);
     public *;
 }
 
 -keep class * extends ag.boersego.bgjs.JNIV8Array {
+    public <init>(***);
+    public *;
+}
+
+-keep class ag.boersego.bgjs.V8JSException {
+    public <init>(***);
+    public *;
+}
+
+-keep class * extends ag.boersego.bgjs.V8JSException {
     public <init>(***);
     public *;
 }
@@ -119,6 +159,11 @@
     public *;
 }
 
--keepclasseswithmembernames class * {
+-keepclasseswithmembernames,includedescriptorclasses class * {
     native <methods>;
+}
+
+-keep public class ag.boersego.v8annotations.generated.** {
+    public <init>(***);
+    public protected *;
 }

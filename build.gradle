@@ -11,6 +11,7 @@ android {
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"
+        consumerProguardFiles 'proguard-rules.txt'
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_STL=c++_static"
@@ -29,6 +30,13 @@ android {
     externalNativeBuild {
         cmake {
             path "CMakeLists.txt"
+        }
+    }
+
+    buildTypes {
+        release {
+            proguardFile getDefaultProguardFile('proguard-android.txt')
+            proguardFile 'proguard-project.txt'
         }
     }
 }
