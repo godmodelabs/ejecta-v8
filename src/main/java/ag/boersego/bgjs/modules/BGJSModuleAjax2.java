@@ -72,6 +72,7 @@ public class BGJSModuleAjax2 extends JNIV8Module {
             }
 
             final Object body;
+            int timeoutMs = -1;
             if (arguments.length >= 4) {
                 if (arguments[3] == null || arguments[3] instanceof String) {
                     body = arguments[3];
@@ -82,12 +83,22 @@ public class BGJSModuleAjax2 extends JNIV8Module {
                 } else {
                     body = null;
                 }
+                if (arguments.length >= 5) {
+                    if (arguments[4] instanceof Number) {
+                        timeoutMs = ((Number)arguments[4]).intValue();
+                    } else if (arguments[4] instanceof String) {
+                        timeoutMs = Integer.valueOf((String)arguments[4]);
+                    }
+                }
             } else {
                 body = null;
             }
 
+
+
+
             final BGJSModuleAjax2Request request = new BGJSModuleAjax2Request(engine);
-            request.setData(url, method, headers, body, mCache, httpClient, executor);
+            request.setData(url, method, headers, body, mCache, httpClient, executor, timeoutMs);
 
             engine.enqueueOnNextTick(request);
 

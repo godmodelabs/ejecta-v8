@@ -161,7 +161,10 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 }
             }
         }
-        request.connectionTimeout = 30000
+        if (timeoutMs != -1) {
+            request.connectionTimeout = timeoutMs
+            request.readTimeout = timeoutMs
+        }
         request.setCacheInstance(cache)
         request.setHeaders(headers)
         request.setHttpClient(client)
@@ -201,13 +204,16 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     private var formBody: FormBody? = null
 
+    private var timeoutMs: Int = -1
+
     fun setData(url: String, method: String, headerRaw: JNIV8GenericObject?, body: Any?,
-                cache: V8UrlCache, client: OkHttpClient, executor: ThreadPoolExecutor) {
+                cache: V8UrlCache, client: OkHttpClient, executor: ThreadPoolExecutor, timeoutMs: Int) {
         this.url = url
         this.method = method
         this.cache = cache
         this.client = client
         this.executor = executor
+        this.timeoutMs = timeoutMs
 
         if (headerRaw != null) {
             val fields = headerRaw.v8Fields
