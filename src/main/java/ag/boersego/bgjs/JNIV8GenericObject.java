@@ -1,5 +1,6 @@
 package ag.boersego.bgjs;
 
+import android.support.annotation.Keep;
 import android.support.annotation.NonNull;
 
 import java.util.Map;
@@ -17,7 +18,7 @@ final public class JNIV8GenericObject extends JNIV8Object {
 
     //------------------------------------------------------------------------
     // internal fields & methods
-
+    @Keep
     protected JNIV8GenericObject(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
     }

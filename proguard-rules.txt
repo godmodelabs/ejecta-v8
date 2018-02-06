@@ -26,32 +26,36 @@
 
 -keep class ag.boersego.bgjs.JNIV8Object {
     public <init>(***);
+    protected <init>(***);
     public *;
     void adjustJSExternalMemory(long);
 }
 
 -keep class * extends ag.boersego.bgjs.JNIV8Object {
-    public <init>(***);
+    protected public <init>(***);
+    protected <init>(***);
     public *;
 }
 
 -keep class ag.boersego.bgjs.JNIObject {
     public <init>(***);
+    protected <init>(***);
     public *;
 }
 
 -keep class * extends ag.boersego.bgjs.JNIObject {
     public <init>(***);
+    protected <init>(***);
     public *;
 }
 
 -keep class ag.boersego.bgjs.JNIV8Undefined {
-    public <init>(***);
+    protected public <init>(***);
     public *;
 }
 
 -keep class ag.boersego.bgjs.JNIV8Function {
-    public <init>(***);
+    protected public <init>(***);
     public *;
 }
 
@@ -60,32 +64,38 @@
 }
 
 -keep class * extends ag.boersego.bgjs.JNIV8Function {
-    public <init>(***);
+    protected public <init>(***);
     public *;
 }
 
 -keep class * extends ag.boersego.bgjs.JNIV8Module {
-    public <init>(***);
+    protected public <init>(***);
     public *;
 }
 
 -keep class ag.boersego.bgjs.JNIV8Module {
-    public <init>(***);
+    protected public <init>(***);
     public *;
 }
 
--keep class * extends ag.boersego.bgjs.JNIV8GenericObject {
+-keep class ag.boersego.bgjs.JNIV8GenericObject {
     public <init>(***);
+    protected <init>(***);
     public *;
 }
 
 -keep class * extends ag.boersego.bgjs.JNIV8Array {
-    public <init>(***);
+    protected public <init>(***);
+    public *;
+}
+
+-keep class ag.boersego.bgjs.V8Exception {
+    protected public <init>(***);
     public *;
 }
 
 -keep class ag.boersego.bgjs.V8JSException {
-    public <init>(***);
+    protected public <init>(***);
     public *;
 }
 

@@ -1,5 +1,7 @@
 package ag.boersego.bgjs;
 
+import android.support.annotation.Keep;
+
 /**
  * Created by martin on 27.09.17.
  */
@@ -13,5 +15,6 @@ public class JNIV8Undefined {
         return instance;
     }
 
+    @Keep
     private JNIV8Undefined() {}
 }

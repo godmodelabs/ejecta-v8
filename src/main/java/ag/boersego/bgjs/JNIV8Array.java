@@ -1,5 +1,6 @@
 package ag.boersego.bgjs;
 
+import android.support.annotation.Keep;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -93,6 +94,7 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
     private native Object _getV8Element(int flags, int type, Class returnType, int index);
     private native Object[] _getV8Elements(int flags, int type, Class returnType, int from, int to);
 
+    @Keep
     protected JNIV8Array(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
     }
