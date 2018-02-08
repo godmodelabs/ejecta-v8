@@ -779,7 +779,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				}
 
 				mRenderPending = false;
-				if (mReinitPending) {
+				if (mReinitPending && !mFinished) {
 					if (DEBUG) {
 						Log.d(TAG, "Reinit pending executing");
 					}
@@ -955,14 +955,18 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 	@Override
 	public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-		Log.d(TAG, "Finishing thread");
+		if (DEBUG) {
+			Log.d(TAG, "Finishing thread");
+		}
 		mRenderThread.finish();
 		return false;
 	}
 
 	@Override
 	public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-		Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
+		if (DEBUG) {
+			Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
+		}
 		mRenderThread.setSize(width, height);
 		mRenderThread.reinitGl();
 		V8TextureView.this.resetTouches();
