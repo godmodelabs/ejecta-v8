@@ -5,6 +5,22 @@
 #ifndef ANDROID_GUIDANTS_JNIREF_H
 #define ANDROID_GUIDANTS_JNIREF_H
 
+#include <jni.h>
+
+class JNILocalFrame {
+private:
+    JNIEnv *_env;
+public:
+    JNILocalFrame(JNIEnv *env, size_t capacity = 0) {
+        _env = env;
+        _env->PushLocalFrame((jint)capacity);
+    }
+
+    ~JNILocalFrame() {
+        _env->PopLocalFrame(nullptr);
+    }
+};
+
 /**
  * base class for global and local smart pointers
  * should not be used directly

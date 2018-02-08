@@ -317,6 +317,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
  * if object is null, the method is assumed to be static
  */
 v8::Local<v8::Value> JNIV8Marshalling::callJavaMethod(JNIEnv *env, JNIV8JavaValue returnType, jclass clazz, jmethodID methodId, jobject object, jvalue *args) {
+    JNILocalFrame localFrame(env, 1);
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::EscapableHandleScope handleScope(isolate);
     v8::Local<v8::Value> result;

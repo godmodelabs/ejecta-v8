@@ -434,7 +434,10 @@ bool BGJSV8Engine::registerModule(const char* name, requireHook requireFn) {
 }
 
 void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target) {
-	Isolate *isolate = engine->getIsolate();
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env, 2);
+
+    Isolate *isolate = engine->getIsolate();
 	HandleScope scope(isolate);
 	Local<Context> context = engine->getContext();
 
@@ -447,7 +450,6 @@ void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8
 
 	jobject module = engine->_javaModules.at(moduleId);
 
-	JNIEnv *env = JNIWrapper::getEnvironment();
 	env->CallVoidMethod(module, _jniV8Module.requireId, engine->getJObject(), JNIV8Wrapper::wrapObject<JNIV8GenericObject>(target)->getJObject());
 }
 

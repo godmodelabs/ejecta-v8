@@ -212,7 +212,10 @@ private:
 
     template<class ObjectType>
     static JNILocalRef<JNIV8Object> createJavaClass(JNIV8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments) {
-        return JNILocalRef<JNIV8Object>::Cast(JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", info->engine->getJObject(), (jlong)(void*)jsObj, arguments));
+        jobject engineObj = info->engine->getJObject();
+        JNILocalRef<JNIV8Object> ref = JNILocalRef<JNIV8Object>::Cast(JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", engineObj, (jlong)(void*)jsObj, arguments));
+        JNIWrapper::getEnvironment()->DeleteLocalRef(engineObj);
+        return ref;
     }
     
     // cache of classes + ids

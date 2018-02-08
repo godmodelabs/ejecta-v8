@@ -23,6 +23,9 @@ void JNIV8ClassInfo::initJNICache() {
 }
 
 void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env, 1);
+
     Isolate *isolate = info.GetIsolate();
     HandleScope scope(isolate);
 
@@ -32,7 +35,7 @@ void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const 
     JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
     if (cb->javaGetterId) {
         jobject jobj = nullptr;
-        JNIEnv *env = JNIWrapper::getEnvironment();
+
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
             JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
@@ -56,6 +59,9 @@ void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const 
 
 
 void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env, 1);
+
     Isolate *isolate = info.GetIsolate();
     HandleScope scope(isolate);
 
@@ -68,7 +74,7 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<
         jobject jobj = nullptr;
         jvalue jval;
         memset(&jval, 0, sizeof(jvalue));
-        JNIEnv *env = JNIWrapper::getEnvironment();
+
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
             JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
@@ -119,10 +125,12 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<
 }
 
 void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env);
+
     HandleScope scope(args.GetIsolate());
     Isolate *isolate = args.GetIsolate();
 
-    JNIEnv *env = JNIWrapper::getEnvironment();
     jobject jobj = nullptr;
 
     v8::Local<v8::External> ext;
@@ -240,6 +248,9 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
 }
 
 void JNIV8ClassInfo::v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env);
+
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -259,6 +270,9 @@ void JNIV8ClassInfo::v8AccessorGetterCallback(Local<String> property, const Prop
 
 
 void JNIV8ClassInfo::v8AccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env);
+
     HandleScope scope(info.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -277,6 +291,9 @@ void JNIV8ClassInfo::v8AccessorSetterCallback(Local<String> property, Local<Valu
 }
 
 void JNIV8ClassInfo::v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env);
+
     HandleScope scope(args.GetIsolate());
 
     v8::Local<v8::External> ext;
