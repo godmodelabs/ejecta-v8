@@ -310,6 +310,7 @@ jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jst
     } else {
         args = nullptr;
     }
+    env->DeleteLocalRef(arguments);
 
     Local<Value> resultRef;
     maybeLocal = Local<Object>::Cast(funcRef)->CallAsFunction(context, localRef, numArgs, args);
