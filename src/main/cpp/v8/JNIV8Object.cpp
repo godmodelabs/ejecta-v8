@@ -297,12 +297,15 @@ jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jst
 
     jsize numArgs;
     Local<Value> *args;
+    jobject tempObj;
 
     numArgs = env->GetArrayLength(arguments);
     if (numArgs) {
         args = (Local<Value>*)malloc(sizeof(Local<Value>)*numArgs);
         for(jsize i=0; i<numArgs; i++) {
-            args[i] = JNIV8Marshalling::jobject2v8value(env->GetObjectArrayElement(arguments, i));
+            tempObj = env->GetObjectArrayElement(arguments, i);
+            args[i] = JNIV8Marshalling::jobject2v8value(tempObj);
+            env->DeleteLocalRef(tempObj);
         }
     } else {
         args = nullptr;
@@ -391,6 +394,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
         } else {
             env->SetObjectArrayElement(result, i, string);
         }
+        env->DeleteLocalRef(string);
     }
 
     return result;
@@ -411,6 +415,11 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
     Local<Value> valueRef;
     Local<String> keyRef;
 
+    jobject strObj;
+    // we are only using the .l member of the jvalue; so one memset is enough!
+    jvalue jval = {0};
+    memset(&jval, 0, sizeof(jvalue));
+
     jobject result = env->NewObject(_jniHashMap.clazz, _jniHashMap.initId);
     for(uint32_t i=0,n=arrayRef->Length(); i<n; i++) {
         MaybeLocal<Value> maybeValueRef = arrayRef->Get(context, i);
@@ -426,8 +435,6 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
             return nullptr;
         }
 
-        jvalue jval = {0};
-        memset(&jval, 0, sizeof(jvalue));
         JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, valueRef, arg, &jval);
         if(res != JNIV8MarshallingError::kOk) {
             std::string strPropertyName = JNIV8Marshalling::v8string2string(keyRef);
@@ -456,11 +463,14 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
             return nullptr;
         }
 
+        strObj = JNIV8Marshalling::v8string2jstring(keyRef);
         env->CallObjectMethod(result,
                               _jniHashMap.putId,
-                              JNIV8Marshalling::v8string2jstring(keyRef),
+                              strObj,
                               jval.l
         );
+        env->DeleteLocalRef(jval.l);
+        env->DeleteLocalRef(strObj);
     }
 
     return result;

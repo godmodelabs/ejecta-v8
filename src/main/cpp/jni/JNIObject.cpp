@@ -58,14 +58,15 @@ bool JNIObject::isRetained() const {
 }
 
 const jobject JNIObject::getJObject() {
+    JNIEnv *env = JNIWrapper::getEnvironment();
     // persistents always have a weak reference to the jobject
     // the strong reference only exists if they are retained by native code
     // to avoid having to synchronize read/write, we simply ALWAYS use the weak ref if we can
     if(isPersistent()) {
-        return _jniObjectWeak;
+        return env->NewLocalRef(_jniObjectWeak);
     }
     // non persistents always have a strong reference as long as they exist
-    return _jniObject;
+    return env->NewLocalRef(_jniObject);
 }
 
 void JNIObject::retainJObject() {

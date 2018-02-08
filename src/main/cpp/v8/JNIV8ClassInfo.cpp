@@ -160,6 +160,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
     }
 
     jvalue *jargs;
+    jobject obj;
     size_t numJArgs;
 
     if(!signature->arguments) {
@@ -170,7 +171,9 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
         memset(jargs, 0, sizeof(jvalue)*numJArgs);
         jobjectArray jArray = env->NewObjectArray(args.Length(), _jniObject.clazz, nullptr);
         for (int idx = 0, n = args.Length(); idx < n; idx++) {
-            env->SetObjectArrayElement(jArray, idx, JNIV8Marshalling::v8value2jobject(args[idx]));
+            obj = JNIV8Marshalling::v8value2jobject(args[idx]);
+            env->SetObjectArrayElement(jArray, idx, obj);
+            env->DeleteLocalRef(obj);
         }
         jargs[0].l = jArray;
     } else {

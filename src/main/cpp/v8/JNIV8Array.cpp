@@ -64,6 +64,10 @@ jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint 
     jobjectArray elements = env->NewObjectArray(size, _jniObject.clazz, nullptr);
     if(!size) return elements;
 
+    // we are only using the .l member here and overwriting it every time => one memset is enough
+    jvalue jval = {0};
+    memset(&jval, 0, sizeof(jvalue));
+
     for(uint32_t i=(uint32_t)from; i<=to; i++) {
         v8::MaybeLocal<v8::Value> maybeValue = localRef->Get(context, i);
         v8::Local<v8::Value> value;
@@ -73,8 +77,6 @@ jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint 
             value = maybeValue.ToLocalChecked();
         }
 
-        jvalue jval = {0};
-        memset(&jval, 0, sizeof(jvalue));
         JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, value, arg, &jval);
         if(res != JNIV8MarshallingError::kOk) {
             switch(res) {
@@ -103,7 +105,9 @@ jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint 
         }
 
         env->SetObjectArrayElement(elements, i-from, jval.l);
+        env->DeleteLocalRef(jval.l);
     }
+
     return elements;
 }
 
@@ -185,8 +189,11 @@ jobject JNIV8Array::jniCreateWithArray(JNIEnv *env, jobject obj, jobject engineO
     jsize numArgs = env->GetArrayLength(elements);
     v8::Local<v8::Object> objRef = v8::Array::New(isolate, numArgs);
     if (numArgs) {
+        jobject obj;
         for(jsize i=0; i<numArgs; i++) {
-            objRef->Set(i, JNIV8Marshalling::jobject2v8value(env->GetObjectArrayElement(elements, i)));
+            obj = env->GetObjectArrayElement(elements, i);
+            objRef->Set(i, JNIV8Marshalling::jobject2v8value(obj));
+            env->DeleteLocalRef(obj);
         }
     }
 

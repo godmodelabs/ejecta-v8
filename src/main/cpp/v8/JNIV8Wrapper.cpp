@@ -105,6 +105,7 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
     for (int i = 0, n = numArgs; i < n; i++) {
         value = JNIV8Marshalling::v8value2jobject(args[i]);
         env->SetObjectArrayElement(arguments, i, value);
+        env->DeleteLocalRef(value);
     }
 
     // create temporary persistent for the js object and then call the constructor

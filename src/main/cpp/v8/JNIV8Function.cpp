@@ -59,6 +59,7 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
     for (int i = 1, n = numArgs; i < n; i++) {
         value = JNIV8Marshalling::v8value2jobject(args[i]);
         env->SetObjectArrayElement(arguments, i - 1, value);
+        env->DeleteLocalRef(value);
     }
 
     jobject result = env->CallObjectMethod(holder->jFuncRef, holder->callbackMethodId, receiver, arguments);
@@ -100,13 +101,16 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     v8::TryCatch try_catch;
 
     jsize numArgs;
+    jobject tempObj;
     v8::Local<v8::Value> *args;
 
     numArgs = env->GetArrayLength(arguments);
     if (numArgs) {
         args = (v8::Local<v8::Value>*)malloc(sizeof(v8::Local<v8::Value>)*numArgs);
         for(jsize i=0; i<numArgs; i++) {
-            args[i] = JNIV8Marshalling::jobject2v8value(env->GetObjectArrayElement(arguments, i));
+            tempObj = env->GetObjectArrayElement(arguments, i);
+            args[i] = JNIV8Marshalling::jobject2v8value(tempObj);
+            env->DeleteLocalRef(tempObj);
         }
     } else {
         args = nullptr;
