@@ -484,7 +484,7 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
     } else if(valueRef->IsBoolean()) {
         return env->CallStaticObjectMethod(_jniBoolean.clazz, _jniBoolean.valueOfId, valueRef->BooleanValue());
     } else if(valueRef->IsUndefined()) {
-        return _undefined;
+        return env->NewLocalRef(_undefined);
     } else if(valueRef->IsSymbol()) {
         JNI_ASSERT(0, "Symbols are not supported");
     } else {
