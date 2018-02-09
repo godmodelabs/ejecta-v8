@@ -158,14 +158,17 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_ajaxDone(
 		argarray[0] = v8::Null(isolate);
 	} else {
 		nativeString = env->GetStringUTFChars(dataStr, 0);
-		Handle<Value> resultObj;
+		Local<String> resultString = String::NewFromUtf8(isolate, nativeString);
+		MaybeLocal<Value> resultObj;
 		if (processData) {
-			resultObj = context->parseJSON(String::NewFromUtf8(isolate, nativeString));
-		} else {
-			resultObj = String::NewFromUtf8(isolate, nativeString);
+			resultObj = context->parseJSON(resultString);
 		}
-
-		argarray[0] = resultObj;
+		if(resultObj.IsEmpty()) {
+			if(processData) success = (jboolean)false;
+			argarray[0] = resultString;
+		} else {
+			argarray[0] = resultObj.ToLocalChecked();
+		}
 	}
 
 

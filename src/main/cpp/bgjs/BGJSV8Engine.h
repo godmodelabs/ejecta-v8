@@ -98,8 +98,8 @@ public:
 	void registerGLView(BGJSGLView* view);
 	void unregisterGLView(BGJSGLView* view);
 
-	v8::Handle<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
-	v8::Handle<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
+	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
+	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
 
 	void createContext();
 

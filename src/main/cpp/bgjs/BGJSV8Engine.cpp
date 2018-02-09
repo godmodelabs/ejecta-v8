@@ -475,25 +475,31 @@ uint8_t BGJSV8Engine::requestEmbedderDataIndex() {
 //////////////////////////
 // Require
 
-Handle<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
-	EscapableHandleScope scope(_isolate);
-	Handle<Value> args[] = { source };
+MaybeLocal<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
+    EscapableHandleScope scope(_isolate);
+    Local<Context> context = getContext();
+    Handle<Value> args[] = { source };
 
     Local<Function> jsonParseFn = Local<Function>::New(_isolate, _jsonParseFn);
-	Local<Value> result = jsonParseFn->Call(getContext()->Global(), 1, args);
-
-	return scope.Escape(result);
+	MaybeLocal<Value> result = jsonParseFn->Call(context, context->Global(), 1, args);
+    if(result.IsEmpty()) {
+        return result;
+    }
+	return scope.Escape(result.ToLocalChecked());
 }
 
-Handle<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) const {
-	EscapableHandleScope scope(Isolate::GetCurrent());
+MaybeLocal<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) const {
+    EscapableHandleScope scope(Isolate::GetCurrent());
+    Local<Context> context = getContext();
 
 	Handle<Value> args[] = { source };
 
     Local<Function> jsonStringifyFn = Local<Function>::New(_isolate, _jsonStringifyFn);
-	Local<Value> result = jsonStringifyFn->Call(getContext()->Global(), 1, args);
-
-	return scope.Escape(result);
+	MaybeLocal<Value> result = jsonStringifyFn->Call(context, context->Global(), 1, args);
+    if(result.IsEmpty()) {
+        return result;
+    }
+    return scope.Escape(result.ToLocalChecked());
 }
 
 Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, const char* name,
@@ -615,10 +621,11 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
             // Parse the package.json
             // Create a string containing the JSON source
             source = String::NewFromUtf8(_isolate, buf);
-            Handle<Object> res = BGJSV8Engine::parseJSON(source)->ToObject();
+            Handle<Value> res;
+            MaybeLocal<Value> maybeRes = parseJSON(source);
             Handle<String> mainStr = String::NewFromUtf8(_isolate, (const char *) "main");
-            if (res->Has(mainStr)) {
-                Handle<String> jsFileName = res->Get(mainStr)->ToString();
+            if (maybeRes.ToLocal(&res) && res->IsObject() && res.As<Object>()->Has(mainStr)) {
+                Handle<String> jsFileName = res.As<Object>()->Get(mainStr)->ToString();
                 String::Utf8Value jsFileNameC(jsFileName);
 
                 fileName = baseNameStr + "/" + *jsFileNameC;
@@ -651,9 +658,10 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     if (isJson) {
         // Create a string containing the JSON source
         source = String::NewFromUtf8(_isolate, buf);
-        Local<Value> res = BGJSV8Engine::parseJSON(source);
+        MaybeLocal<Value> res = parseJSON(source);
         free((void*) buf);
-        return handle_scope.Escape(res);
+        if(res.IsEmpty()) return res;
+        return handle_scope.Escape(res.ToLocalChecked());
     }
 
     pathName = getPathName(fileName);
@@ -1309,12 +1317,12 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json)
     v8::Context::Scope ctxScope(context);
 
     v8::TryCatch try_catch;
-    v8::Local<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
+    v8::MaybeLocal<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
     if(value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
-    return JNIV8Marshalling::v8value2jobject(value);
+    return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
 JNIEXPORT jobject JNICALL

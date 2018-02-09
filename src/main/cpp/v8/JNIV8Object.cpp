@@ -489,12 +489,12 @@ jdouble JNIV8Object::jniToNumber(JNIEnv *env, jobject obj) {
 
 jstring JNIV8Object::jniToJSON(JNIEnv *env, jobject obj) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
-    v8::Local<v8::Value> stringValue = engine->stringifyJSON(localRef);
+    v8::MaybeLocal<v8::Value> stringValue = engine->stringifyJSON(localRef);
     if(stringValue.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
-    return JNIV8Marshalling::v8string2jstring(stringValue.As<v8::String>());
+    return JNIV8Marshalling::v8string2jstring(stringValue.ToLocalChecked().As<v8::String>());
 }
 
 jstring JNIV8Object::jniToString(JNIEnv *env, jobject obj) {
