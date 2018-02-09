@@ -115,7 +115,6 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     } else {
         args = nullptr;
     }
-    env->DeleteLocalRef(arguments);
 
     v8::Local<v8::Value> resultRef;
     if(asConstructor) {
