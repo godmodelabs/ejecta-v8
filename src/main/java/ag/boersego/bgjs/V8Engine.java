@@ -109,6 +109,12 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
+    public void runLocked(final Runnable runInLocker) {
+        final long lockerInst = lock();
+        runInLocker.run();
+        unlock(lockerInst);
+    }
+
     /**
      * Enqueue any Runnable to be executed on the next tick
      * @param runnable the function to execute once the currently executing JS block has relinquished control

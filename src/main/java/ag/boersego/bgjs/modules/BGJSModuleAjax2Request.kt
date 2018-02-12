@@ -41,7 +41,7 @@ class HttpResponseDetails(engine: V8Engine) : JNIV8Object(engine) {
 
 }
 
-
+@SuppressLint("LogNotTimber")
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
 class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
@@ -88,12 +88,14 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
     @V8Function
     fun abort(): Boolean {
         // TODO: Why does this need a parameter?
-        aborted = true
-        callbacks.forEach { cb ->
-            if (cb.first != CallbackType.DONE) {
-                cb.second.callAsV8Function(null, "abort")
+        v8Engine.runLocked {
+            aborted = true
+            callbacks.forEach { cb ->
+                if (cb.first != CallbackType.DONE) {
+                    cb.second.callAsV8Function(null, "abort")
+                }
+                cb.second.dispose()
             }
-            cb.second.dispose()
         }
         return true
     }
@@ -104,59 +106,56 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
             override fun run() {
                 super.run()
 
-                if (aborted) {
-                    return
-                }
+                v8Engine.runLocked {
 
-                val contentType = responseHeaders?.get("Content-Type")
-                _responseIsJson = contentType?.startsWith("application/json") ?: false
+                    if (!aborted) {
+                        val contentType = responseHeaders?.get("Content-Type")
+                        _responseIsJson = contentType?.startsWith("application/json") ?: false
 
-                // TODO: Cookie handling
+                        if (mSuccessData != null) {
+                            val details = HttpResponseDetails(v8Engine)
+                            details.setReturnData(mSuccessCode, responseHeaders)
 
-                if (mSuccessData != null) {
-                    // Retrieve any cookies
+                            if (_responseIsJson) {
+                                try {
+                                    val parsedResponse = v8Engine.parseJSON(mSuccessData)
+                                    callCallbacks(CallbackType.DONE, parsedResponse, null, details, mSuccessCode)
+                                } catch (e: Exception) {
+                                    // Call fail callback with parse errors
+                                    val failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
+                                    callCallbacks(CallbackType.FAIL, mSuccessData, "parseerror", failDetails, mErrorCode)
+                                }
 
-                    val details = HttpResponseDetails(v8Engine)
-                    details.setReturnData(mSuccessCode, responseHeaders)
+                            } else {
+                                callCallbacks(CallbackType.DONE, mSuccessData, null, details, mSuccessCode)
+                            }
 
-                    if (_responseIsJson) {
-                        try {
-                            val parsedResponse = v8Engine.parseJSON(mSuccessData)
-                            callCallbacks(CallbackType.DONE, parsedResponse, null, details, mSuccessCode)
-                        } catch (e: Exception) {
-                            // Call fail callback with parse errors
-                            val failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
-                            callCallbacks(CallbackType.FAIL, mSuccessData, "parseerror", failDetails, mErrorCode)
+                        } else {
+                            var info: String? = null
+                            var failDetails: HttpResponseDetails? = null
+                            if (mErrorThrowable != null) {
+                                info = if (mErrorThrowable is SocketTimeoutException) "timeout" else "error"
+                            } else {
+                                failDetails = HttpResponseDetails(v8Engine)
+                                failDetails.setReturnData(mErrorCode, responseHeaders)
+                            }
+                            Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
+                            val errorObj = JNIV8GenericObject.Create(v8Engine)
+                            if (_responseIsJson && mErrorData != null) {
+                                try {
+                                    val parsedResponse = v8Engine.parseJSON(mErrorData)
+                                    errorObj.setV8Field("responseJSON", parsedResponse)
+                                    callCallbacks(CallbackType.FAIL, errorObj, null, failDetails, mErrorCode)
+                                } catch (e: Exception) {
+                                    // Call fail callback with parse errors
+                                    errorObj.setV8Field("responseJSON", mErrorData)
+                                    callCallbacks(CallbackType.FAIL, errorObj, "parseerror", failDetails, mErrorCode)
+                                }
+                            } else {
+                                val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
+                                callCallbacks(CallbackType.FAIL, returnObject, info, failDetails, mErrorCode)
+                            }
                         }
-
-                    } else {
-                        callCallbacks(CallbackType.DONE, mSuccessData, null, details, mSuccessCode)
-                    }
-
-                } else {
-                    var info: String? = null
-                    var failDetails: HttpResponseDetails? = null
-                    if (mErrorThrowable != null) {
-                        info = if (mErrorThrowable is SocketTimeoutException) "timeout" else "error"
-                    } else {
-                        failDetails = HttpResponseDetails(v8Engine)
-                        failDetails.setReturnData(mErrorCode, responseHeaders)
-                    }
-                    Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
-                    val errorObj = JNIV8GenericObject.Create(v8Engine)
-                    if (_responseIsJson && mErrorData != null) {
-                        try {
-                            val parsedResponse = v8Engine.parseJSON(mErrorData)
-                            errorObj.setV8Field("responseJSON", parsedResponse)
-                            callCallbacks(CallbackType.FAIL, errorObj, null, failDetails, mErrorCode)
-                        } catch (e: Exception) {
-                            // Call fail callback with parse errors
-                            errorObj.setV8Field("responseJSON", mErrorData)
-                            callCallbacks(CallbackType.FAIL, errorObj, "parseerror", failDetails, mErrorCode)
-                        }
-                    } else {
-                        val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
-                        callCallbacks(CallbackType.FAIL, returnObject, info, failDetails, mErrorCode)
                     }
                 }
             }
