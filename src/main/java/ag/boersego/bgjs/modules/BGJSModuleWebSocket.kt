@@ -2,6 +2,7 @@ package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
 import ag.boersego.v8annotations.*
+import android.annotation.SuppressLint
 import android.util.Log
 import okhttp3.*
 
@@ -10,6 +11,7 @@ import okhttp3.*
  * Copyright (c) 2017 BörseGo AG. All rights reserved.
  */
 
+@SuppressLint("LogNotTimber")
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
 class BGJSWebSocket : JNIV8Object, Runnable {
 
@@ -28,43 +30,52 @@ class BGJSWebSocket : JNIV8Object, Runnable {
         socket = httpClient.newWebSocket(request, object: WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 super.onOpen(webSocket, response)
-                _readyState = ReadyState.OPEN
-                onopen?.callAsV8Function()
+                v8Engine.runLocked {
+                    _readyState = ReadyState.OPEN
+                    onopen?.callAsV8Function()
+                }
             }
 
             override fun onFailure(webSocket: WebSocket?, t: Throwable?, response: Response?) {
                 super.onFailure(webSocket, t, response)
 
-                Log.w(TAG, "onFailure:", t)
-                _readyState = ReadyState.CLOSED
+                v8Engine.runLocked {
+                    if (DEBUG) {
+                        Log.w(TAG, "onFailure:", t)
+                    }
+                    _readyState = ReadyState.CLOSED
 
-                onerror?.callAsV8Function()
-                if (webSocket != null) {
-                    onClosed(webSocket, 0, "error")
+                    onerror?.callAsV8Function()
+                    if (webSocket != null) {
+                        onClosed(webSocket, 0, "error")
+                    }
                 }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 super.onMessage(webSocket, text)
+                v8Engine.runLocked {
+                    val data = JNIV8GenericObject.Create(v8Engine)
+                    data.setV8Field("data", text)
 
-                val data = JNIV8GenericObject.Create(v8Engine)
-                data.setV8Field("data", text)
-
-                onmessage?.callAsV8Function(data)
+                    onmessage?.callAsV8Function(data)
+                }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 super.onClosed(webSocket, code, reason)
-                _readyState = ReadyState.CLOSED
+                v8Engine.runLocked {
+                    _readyState = ReadyState.CLOSED
 
-                if (onclose != null) {
-                    val closeEvent = JNIV8GenericObject.Create(v8Engine)
-                    closeEvent.setV8Field("code", code)
-                    closeEvent.setV8Field("reason", reason)
-                    onclose?.callAsV8Function(closeEvent)
-                    closeEvent.dispose()
+                    if (onclose != null) {
+                        val closeEvent = JNIV8GenericObject.Create(v8Engine)
+                        closeEvent.setV8Field("code", code)
+                        closeEvent.setV8Field("reason", reason)
+                        onclose?.callAsV8Function(closeEvent)
+                        closeEvent.dispose()
+                    }
+                    socket = null
                 }
-                socket = null
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
@@ -85,14 +96,17 @@ class BGJSWebSocket : JNIV8Object, Runnable {
 
     @V8Function
     fun send(msg: String): Any? {
-        if (_readyState != ReadyState.OPEN) {
-            throw RuntimeException("INVALID_STATE_ERR")
+        var success = false
+        v8Engine.runLocked {
+            if (_readyState != ReadyState.OPEN) {
+                throw RuntimeException("INVALID_STATE_ERR")
+            }
+            if (socket != null) {
+                socket?.send(msg)
+                success = true
+            }
         }
-        if (socket != null) {
-            socket?.send(msg)
-            return true
-        }
-        return false
+        return success
     }
 
     constructor(engine: V8Engine) : super(engine)
@@ -137,6 +151,8 @@ class BGJSWebSocket : JNIV8Object, Runnable {
 
     companion object {
         val TAG = BGJSWebSocket::class.java.simpleName
+        @Suppress("SimplifyBooleanWithConstants")
+        val DEBUG = true && BuildConfig.DEBUG
     }
 }
 

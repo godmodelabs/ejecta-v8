@@ -582,6 +582,15 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		}
 	}
 
+	public static void doAjaxRequest(String url, long jsCb, long thisObj, long errorCb,
+			String data, String method, boolean processData) {
+		V8AjaxRequest req = mInstance.new V8AjaxRequest(url, jsCb, thisObj, errorCb, data, method, processData);
+		if (DEBUG) {
+			Log.d(TAG, "Preparing to do ajax request on thread "
+					+ Thread.currentThread().getId());
+		}
+	}
+
 	public void shutdown() {
 		mHandler.sendEmptyMessage(MSG_QUIT);
 	}
