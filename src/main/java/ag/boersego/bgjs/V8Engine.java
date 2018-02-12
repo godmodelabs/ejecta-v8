@@ -61,31 +61,28 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     private OkHttpClient mHttpClient;
     private final ArrayList<Runnable> mNextTickQueue = new ArrayList<>();
     private boolean mJobQueueActive = false;
-    private final Runnable mQueueWaitRunnable = new Runnable() {
-        @Override
-        public void run() {
-            while (true) {
-                synchronized (mNextTickQueue) {
-                    mJobQueueActive = true;
-                    if (mNextTickQueue.isEmpty()) {
-                        mJobQueueActive = false;
-                        return;
-                    }
+    private final Runnable mQueueWaitRunnable = () -> {
+        while (true) {
+            synchronized (mNextTickQueue) {
+                mJobQueueActive = true;
+                if (mNextTickQueue.isEmpty()) {
+                    mJobQueueActive = false;
+                    return;
                 }
-                final long v8Locker = lock();
-                final ArrayList<Runnable> jobsToRun;
-
-                synchronized (mNextTickQueue) {
-                    jobsToRun = new ArrayList<>(mNextTickQueue);
-                    mNextTickQueue.clear();
-                }
-
-                for (final Runnable r : jobsToRun) {
-                    r.run();
-                }
-
-                unlock(v8Locker);
             }
+            final long v8Locker = lock();
+            final ArrayList<Runnable> jobsToRun;
+
+            synchronized (mNextTickQueue) {
+                jobsToRun = new ArrayList<>(mNextTickQueue);
+                mNextTickQueue.clear();
+            }
+
+            for (final Runnable r : jobsToRun) {
+                r.run();
+            }
+
+            unlock(v8Locker);
         }
     };
 	private boolean mPaused;
@@ -305,8 +302,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
 	public native JNIV8GenericObject getGlobalObject();
 
-	private native long lock();
-    private native void unlock(long lockerPtr);
+	native long lock();
+    native void unlock(long lockerPtr);
 
 	private Thread jsThread = null;
 
