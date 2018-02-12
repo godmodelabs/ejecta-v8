@@ -1,5 +1,6 @@
 package ag.boersego.bgjs;
 
+import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
@@ -32,30 +33,33 @@ import okhttp3.OkHttpClient;
  *
  **/
 
+@SuppressWarnings("unused")
+@SuppressLint("LogNotTimber")
 public class V8Engine extends JNIObject implements Handler.Callback {
 	static {
 		System.loadLibrary("bgjs");
 	}
 
 	protected static V8Engine mInstance;
-	protected final boolean mIsTablet;
+	private final boolean mIsTablet;
 	protected Handler mHandler;
 	private String scriptPath;
 	private AssetManager assetManager;
 	private boolean mReady;
 	private ArrayList<V8EngineHandler> mHandlers = null;
-	private final SparseArray<V8Timeout> mTimeouts = new SparseArray<V8Timeout>(50);
+	private final SparseArray<V8Timeout> mTimeouts = new SparseArray<>(50);
 	private int mLastTimeoutId = 1;
-	private final HashSet<V8Timeout> mTimeoutsToGC = new HashSet<V8Timeout>();
+	private final HashSet<V8Timeout> mTimeoutsToGC = new HashSet<>();
 	private V8Timeout mRunningTO;
-	protected final String mLocale;
-	protected final String mLang;
-	protected final String mTimeZone;
-	private final HashMap<String, ArrayList<V8EventCB> > mEvents = new HashMap<String, ArrayList<V8EventCB> >();
-	protected float mDensity;
+	private final String mLocale;
+	private final String mLang;
+	private final String mTimeZone;
+	private final HashMap<String, ArrayList<V8EventCB> > mEvents = new HashMap<>();
+	private float mDensity;
 
 	private static final String TAG = "V8Engine";
-	private static boolean DEBUG = false && BuildConfig.DEBUG;
+	@SuppressWarnings("PointlessBooleanExpression")
+    private static boolean DEBUG = false && BuildConfig.DEBUG;
     private V8UrlCache mCache;
 	private ThreadPoolExecutor mTPExecutor;
     private OkHttpClient mHttpClient;
@@ -87,7 +91,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     };
 	private boolean mPaused;
 
-	public static void doDebug (boolean debug) {
+    public static void doDebug (boolean debug) {
         DEBUG = debug;
     }
 
@@ -134,7 +138,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
      * @return true if it had to be scheduled, false if other functions were queued already
      */
 	public boolean enqueueOnNextTick(final JNIV8Function function) {
-	    return enqueueOnNextTick(() -> function.callAsV8Function());
+	    return enqueueOnNextTick(function::callAsV8Function);
     }
 
 	public interface V8EngineHandler {
@@ -143,10 +147,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	
 	public class V8EventCB {
 		public final long cbPtr;
-		public final long thisPtr;
+		final long thisPtr;
 		public final String event;
 		
-		public V8EventCB (long cbPtr, long thisPtr, String event) {
+		V8EventCB(long cbPtr, long thisPtr, String event) {
 			this.cbPtr = cbPtr;
 			this.thisPtr = thisPtr;
 			this.event = event;
@@ -173,7 +177,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			this.dead = true;
 		}
 
-		@Override
+        @Override
 		public void run() {
 			mRunningTO = this;
 			if (this.dead) {
@@ -291,22 +295,34 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     public native void registerModule(JNIV8Module module);
 
-	public JNIV8Function getConstructor(Class<? extends JNIV8Object> jniv8class) {
+    public JNIV8Function getConstructor(Class<? extends JNIV8Object> jniv8class) {
 		return getConstructor(jniv8class.getCanonicalName());
 	}
 	private native JNIV8Function getConstructor(String canonicalName);
 
 	public native Object parseJSON(String json);
-	public native Object runScript(String script, String name);
+    public native Object runScript(String script, String name);
 	public native Object require(String file);
 
 	public native JNIV8GenericObject getGlobalObject();
 
+	/**
+	 * Create a v8::Locker and return the pointer to the instance
+	 * @return pointer to v8::Locker
+	 */
 	native long lock();
+
+    /**
+     * Destroy / Leave a v8::Locker
+     * @param lockerPtr the pointer to the Locker instance
+     */
     native void unlock(long lockerPtr);
 
 	private Thread jsThread = null;
 
+    /**
+     * This Runnable is the main loop of a separate Thread where v8 code is executed.
+     */
 	class V8EngineRunnable implements Runnable {
 		V8EngineRunnable() {
 		}
@@ -328,10 +344,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		}
 	}
 
-    protected void onFromJsInstance (String event, long cbPtr, long thisPtr) {
+    private void onFromJsInstance(String event, long cbPtr, long thisPtr) {
         ArrayList<V8EventCB> eventList = mInstance.mEvents.get(event);
         if (eventList == null) {
-            eventList = new ArrayList<V8Engine.V8EventCB>();
+            eventList = new ArrayList<>();
             mInstance.mEvents.put(event, eventList);
         }
 
@@ -374,7 +390,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			return;
 		}
 		if (mHandlers == null) {
-			mHandlers = new ArrayList<V8EngineHandler>(1);
+			mHandlers = new ArrayList<>(1);
 		}
 		mHandlers.add(h);
 	}
@@ -393,7 +409,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
                 return true;
             case MSG_QUIT:
-                Looper.myLooper().quit();
+                Looper looper = Looper.myLooper();
+                if (looper != null) {
+                    looper.quit();
+                }
                 return true;
             case MSG_LOAD:
                 return true;
@@ -421,7 +440,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		V8Timeout[] timeOutCopy;
 		synchronized (mTimeouts) {
 			timeOutCopy = new V8Timeout[mTimeoutsToGC.size()];
-			timeOutCopy = (V8Timeout[]) mTimeoutsToGC.toArray(timeOutCopy);
+			timeOutCopy = mTimeoutsToGC.toArray(timeOutCopy);
 			mTimeoutsToGC.clear();
 		}
 		try {
@@ -465,7 +484,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		}
 	}
 	
-	void removeTimeoutInst(int id) {
+	private void removeTimeoutInst(int id) {
 		synchronized (mTimeouts) {
 			V8Timeout to = mTimeouts.get(id);
 			if (to != null) {
@@ -504,8 +523,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		private long mErrorCb;
 		private boolean mProcessData;
 
-		public V8AjaxRequest(String url, long jsCallbackPtr, long thisObj, long errorCb,
-				String data, String method, boolean processData) {
+		V8AjaxRequest(String url, long jsCallbackPtr, long thisObj, long errorCb,
+                      String data, String method, boolean processData) {
 			mCbPtr = jsCallbackPtr;
 			mThisObj = thisObj;
 			mErrorCb = errorCb;
@@ -523,19 +542,16 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			mReq.doRunOnUiThread(false);
 			mReq.setOutputType("application/json");
 
-			final Runnable runnable = new Runnable() {
-				@Override
-				public void run() {
-					if (DEBUG) {
-						Log.d(TAG, "Executing V8Ajax request");
-					}
-					mReq.run();
-                    mReq.runCallback();
-					V8Engine engine = V8Engine.getInstance();
-					engine.mHandler.sendMessage(engine.mHandler
-							.obtainMessage(MSG_AJAX, V8AjaxRequest.this));
-				}
-			};
+			final Runnable runnable = () -> {
+                if (DEBUG) {
+                    Log.d(TAG, "Executing V8Ajax request");
+                }
+                mReq.run();
+                mReq.runCallback();
+                V8Engine engine = V8Engine.getInstance();
+                engine.mHandler.sendMessage(engine.mHandler
+                        .obtainMessage(MSG_AJAX, V8AjaxRequest.this));
+            };
 			if (mTPExecutor != null) {
 				mTPExecutor.execute(runnable);
 			} else {
@@ -544,7 +560,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			}
 		}
 
-		public void doCallBack() {
+		void doCallBack() {
 			if (DEBUG) {
 				Log.d(TAG, "Calling V8 success cb " + mCbPtr + ", thisObj "
 						+ mThisObj + " for code " + mCode + ", thread "
@@ -563,15 +579,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			mSuccess = false;
 			mData = data;
 			mCode = code;
-		}
-	}
-
-	public static void doAjaxRequest(String url, long jsCb, long thisObj, long errorCb,
-			String data, String method, boolean processData) {
-		V8AjaxRequest req = mInstance.new V8AjaxRequest(url, jsCb, thisObj, errorCb, data, method, processData);
-		if (DEBUG) {
-			Log.d(TAG, "Preparing to do ajax request on thread "
-					+ Thread.currentThread().getId());
 		}
 	}
 
