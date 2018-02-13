@@ -253,6 +253,14 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (mRenderThread == null) {
 			return;
 		}
+
+		// This is actually the pointer to the BGJSView and could have been cleared because
+        // it was closed.
+		final long objPtr = mRenderThread.mJSId;
+
+		if (objPtr == 0) {
+		    return;
+        }
 		int count = 0;
 		for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
 			if (mTouchesThere[i]) {

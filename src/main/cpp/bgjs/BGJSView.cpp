@@ -192,8 +192,10 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 	}
 
     Isolate* isolate = _engine->getIsolate();
+
 	TryCatch trycatch;
 	HandleScope scope (isolate);
+	Local<Context> context = _engine->getContext();
 
 	Handle<Value> args[] = { eventObjRef };
 
@@ -208,12 +210,15 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 		}
 
 		Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = _cbEvent[i];
-
-	    Local<Object> callback = Local<Object>::New (isolate, *cb);
-		Handle<Value> result = callback->CallAsFunction(callback, 1, args);
-		if (result.IsEmpty()) {
-			_engine->forwardV8ExceptionToJNI(&trycatch);
-			return;
+		if (cb != NULL) {
+			MaybeLocal<Object> callback = MaybeLocal<Object>(Local<Object>::New(isolate, *cb));
+			if (!callback.IsEmpty()) {
+				MaybeLocal<Value> result = callback.ToLocalChecked()->CallAsFunction(context, callback.ToLocalChecked(), 1, args);
+				if (result.IsEmpty()) {
+					_engine->forwardV8ExceptionToJNI(&trycatch);
+					return;
+				}
+			}
 		}
 	}
 }
