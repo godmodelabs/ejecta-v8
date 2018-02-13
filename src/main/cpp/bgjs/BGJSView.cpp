@@ -98,7 +98,7 @@ void BGJSView::js_view_on(const v8::FunctionCallbackInfo<v8::Value>& args) {
 		Handle<Object> func = args[1]->ToObject();
 		if (func->IsFunction()) {
 			String::Utf8Value eventUtf8(args[0]->ToString());
-			// v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object> > funcPersist(isolate, func);
+
 			v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object> >* funcPersist = new v8::Persistent<v8::Object, v8::CopyablePersistentTraits<v8::Object> >(isolate, func);
 			BGJS_NEW_PERSISTENT_PTR(funcPersist);
 			const char *event = *eventUtf8;
@@ -211,9 +211,9 @@ void BGJSView::sendEvent(Handle<Object> eventObjRef) {
 
 		Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = _cbEvent[i];
 		if (cb != NULL) {
-			MaybeLocal<Object> callback = MaybeLocal<Object>(Local<Object>::New(isolate, *cb));
+			Local<Object> callback = Local<Object>::New(isolate, *cb);
 			if (!callback.IsEmpty()) {
-				MaybeLocal<Value> result = callback.ToLocalChecked()->CallAsFunction(context, callback.ToLocalChecked(), 1, args);
+				MaybeLocal<Value> result = callback->CallAsFunction(context, callback, 1, args);
 				if (result.IsEmpty()) {
 					_engine->forwardV8ExceptionToJNI(&trycatch);
 					return;

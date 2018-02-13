@@ -723,6 +723,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 						}
 					}
 				}
+				if (mFinished) {
+				    break;
+                }
 				checkCurrent();
 
 				// Draw here
@@ -969,6 +972,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		mRenderThread.finish();
 		return false;
 	}
+
+	public void finish() {
+	    mRenderThread.finish();
+    }
 
 	@Override
 	public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
