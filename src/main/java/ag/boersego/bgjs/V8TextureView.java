@@ -45,6 +45,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 	private final float mTouchSlop;
     protected IV8GLViewOnRender mCallback;
 	private Rect mViewRect;
+	private boolean mFinished = false;
 
 
 	protected boolean DEBUG;
@@ -93,6 +94,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 	@Override
 	public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+		// It is possible that the containing view wants to kill this before we have even been able to start the render thread
+		if (mFinished) {
+			return;
+		}
 		mRenderThread = new RenderThread(surface, width, height);
 		if (DEBUG) {
 			Log.d(TAG, "Starting render thread");
@@ -974,7 +979,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 	}
 
 	public void finish() {
-	    mRenderThread.finish();
+	    // Mark this finished in any case, even when there is no render thread running yet
+	    mFinished = true;
+	    if (mRenderThread != null) {
+	        mRenderThread.finish();
+	    }
     }
 
 	@Override
