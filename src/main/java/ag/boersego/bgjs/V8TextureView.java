@@ -757,13 +757,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 } */
 
 				mRenderCnt++;
-				
-				// We don't swap buffers here. Because we don't want to clear buffers on buffer swap, we need to do it in native code.
-                // This is important because JS Canvas also doesn't clear except via fillRect
-                /* if (didDraw) {
-                    mEgl.eglSwapBuffers(mEglDisplay, mEglSurface);
-                    checkEglError("eglSwapBuffers");
-                } */
+
 
 				synchronized (this) {
 					// If no rendering or other changes are pending, sleep till the next request
