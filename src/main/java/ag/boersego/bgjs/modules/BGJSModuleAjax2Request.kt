@@ -92,10 +92,15 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
             aborted = true
             callbacks.forEach { cb ->
                 if (cb.first != CallbackType.DONE) {
-                    cb.second.callAsV8Function(null, "abort")
+                    try {
+                        cb.second.callAsV8Function(null, "abort")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Exception thrown when calling ajax " + cb.first + " callback on abort", e)
+                    }
                 }
-                cb.second.dispose()
             }
+            callbacks.forEach { it.second.dispose() }
+            callbacks.clear()
         }
         return true
     }
@@ -117,14 +122,16 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             details.setReturnData(mSuccessCode, responseHeaders)
 
                             if (_responseIsJson) {
+                                var parsedResponse: Any? = null
                                 try {
-                                    val parsedResponse = v8Engine.parseJSON(mSuccessData)
-                                    callCallbacks(CallbackType.DONE, parsedResponse, null, details, mSuccessCode)
+                                    parsedResponse = v8Engine.parseJSON(mSuccessData)
                                 } catch (e: Exception) {
                                     // Call fail callback with parse errors
                                     val failDetails = HttpResponseDetails(v8Engine).setReturnData(mSuccessCode, responseHeaders)
                                     callCallbacks(CallbackType.FAIL, mSuccessData, "parseerror", failDetails, mErrorCode)
+                                    return@runLocked
                                 }
+                                callCallbacks(CallbackType.DONE, parsedResponse, null, details, mSuccessCode)
 
                             } else {
                                 callCallbacks(CallbackType.DONE, mSuccessData, null, details, mSuccessCode)
@@ -142,15 +149,18 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
                             val errorObj = JNIV8GenericObject.Create(v8Engine)
                             if (_responseIsJson && mErrorData != null) {
+                                var parsedResponse: Any? = null
                                 try {
-                                    val parsedResponse = v8Engine.parseJSON(mErrorData)
-                                    errorObj.setV8Field("responseJSON", parsedResponse)
-                                    callCallbacks(CallbackType.FAIL, errorObj, null, failDetails, mErrorCode)
+                                    parsedResponse = v8Engine.parseJSON(mErrorData)
                                 } catch (e: Exception) {
                                     // Call fail callback with parse errors
                                     errorObj.setV8Field("responseJSON", mErrorData)
                                     callCallbacks(CallbackType.FAIL, errorObj, "parseerror", failDetails, mErrorCode)
+                                    return@runLocked
                                 }
+                                // Call fail callback with parsed object
+                                errorObj.setV8Field("responseJSON", parsedResponse)
+                                callCallbacks(CallbackType.FAIL, errorObj, null, failDetails, mErrorCode)
                             } else {
                                 val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
                                 callCallbacks(CallbackType.FAIL, returnObject, info, failDetails, mErrorCode)
@@ -166,6 +176,7 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
         }
         request.setCacheInstance(cache)
         request.setHeaders(headers)
+        request.doRunOnUiThread(false)
         request.setHttpClient(client)
         if (formBody != null) {
             request.setFormBody(formBody!!)
@@ -191,6 +202,7 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
             }
             cb.second.dispose()
         }
+        callbacks.clear()
     }
 
     private lateinit var cache: V8UrlCache
