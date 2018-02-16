@@ -56,8 +56,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private int[] mEglVersion;
     private float mClearRed, mClearGreen, mClearBlue, mClearAlpha;
     private boolean mClearColorSet;
+	private boolean mDontClearOnFlip;
 
-    /**
+	/**
 	 * Create a new V8TextureView instance
 	 * @param context Context instance
 	 * @param jsCbName The name of the JS function to call once the view is created
@@ -334,6 +335,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		mTouchDistance = 0;
 	}
 
+	public void dontClearOnFlip(boolean dontClear) {
+		mDontClearOnFlip = dontClear;
+	}
+
 	private static class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
 
 		private static final String TAG = "V8ConfigChooser";
@@ -563,7 +568,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * @return pointer to JNI object
      */
     protected long createGL () {
-        return ClientAndroid.createGL(V8Engine.getInstance(), this, mScaling, false, getMeasuredWidth(), getMeasuredHeight());
+        return ClientAndroid.createGL(V8Engine.getInstance(), this, mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
     }
 
 	/**
