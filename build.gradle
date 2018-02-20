@@ -54,7 +54,7 @@ repositories {
 dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
     implementation 'com.squareup.okhttp3:okhttp:3.9.1'
-    implementation "com.android.support:support-annotations:$rootProject.ext.supportLibraryVersion"
+    compileOnly "com.android.support:support-annotations:$rootProject.ext.supportLibraryVersion"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     kapt project(path: ':ejecta-v8:v8annotations-compiler')
     api project(path: ':ejecta-v8:v8annotations')
