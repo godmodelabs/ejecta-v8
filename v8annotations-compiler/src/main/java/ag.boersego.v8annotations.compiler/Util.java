@@ -19,7 +19,7 @@ import javax.lang.model.util.SimpleTypeVisitor6;
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 29.11.17 for myrmecophaga-2.0.
- * Copyright (c) 2017 ${ORGANIZATION_NAME}. All rights reserved.
+ * Copyright (c) 2017 BörseGo AG. All rights reserved.
  */
 
 public class Util {

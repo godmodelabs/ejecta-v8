@@ -18,7 +18,7 @@ import java.util.concurrent.ThreadPoolExecutor
 
 /**
  * Created by Kevin Read <me></me>@kevin-read.com> on 09.11.17 for myrmecophaga-2.0.
- * Copyright (c) 2017 ${ORGANIZATION_NAME}. All rights reserved.
+ * Copyright (c) 2017 BörseGo AG. All rights reserved.
  */
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)

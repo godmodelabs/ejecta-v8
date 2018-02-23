@@ -13,7 +13,7 @@ import okhttp3.OkHttpClient;
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 17.11.17 for myrmecophaga-2.0.
- * Copyright (c) 2017 ${ORGANIZATION_NAME}. All rights reserved.
+ * Copyright (c) 2017 BörseGo AG. All rights reserved.
  */
 
 public class BGJSModuleAjax2 extends JNIV8Module {
