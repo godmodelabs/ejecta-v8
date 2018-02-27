@@ -148,7 +148,7 @@ BGJSView::BGJSView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip)
     BGJS_RESET_PERSISTENT(isolate, this->jsViewOT, bgjsgl);
 }
 
-Handle<Value> BGJSView::startJS(const char* fnName,
+MaybeLocal<Value> BGJSView::startJS(const char* fnName,
         const char* configJson, Handle<Value> uiObj, long configId, bool hasIntradayQuotes) {
     Isolate* isolate = _engine->getIsolate();
     v8::Locker locker(isolate);
@@ -173,17 +173,20 @@ Handle<Value> BGJSView::startJS(const char* fnName,
 	    Number::New(isolate, hasIntradayQuotes) };
 
 	BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
-	Local<Value> res = engine->callFunction(isolate, context->Global(),
+	MaybeLocal<Value> res = engine->callFunction(isolate, context->Global(),
 	        fnName, 5, argv);
-	if (res->IsNumber()) {
-		_contentObj = res->ToNumber()->Value();
+	if (!res.IsEmpty() && res.ToLocalChecked()->IsNumber()) {
+		_contentObj = res.ToLocalChecked()->ToNumber()->Value();
 #ifdef DEBUG
 		LOGD ("startJS return id %d", _contentObj);
 #endif
+		return scope.Escape(res.ToLocalChecked());
 	} else {
 		LOGI ("Did not receive a return id from startJS");
 	}
-	return scope.Escape(res);
+    MaybeLocal<Value> empty;
+    return empty;
+
 }
 
 void BGJSView::sendEvent(Handle<Object> eventObjRef) {

@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.opengl.EGL14;
 import android.opengl.GLES10;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
@@ -320,6 +321,15 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         }
     }
 
+    public static boolean isEmulator() {
+        return Build.MODEL.contains("google_sdk")
+                || Build.MODEL.contains("Emulator")
+                || Build.MODEL.contains("Android SDK built for x86")
+                || Build.MANUFACTURER.contains("Genymotion")
+                // || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
+                || "google_sdk".equals(Build.PRODUCT);
+    }
+
     public void removeClearColor() {
         mClearColorSet = false;
     }
@@ -344,6 +354,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		private static final String TAG = "V8ConfigChooser";
 		private static final boolean DEBUG = false;
         private final int[] mEglVersion;
+        private final boolean mDontTouchSwap;
 
         public ConfigChooser(int r, int g, int b, int a, int depth, int stencil, int[] version) {
 			mRedSize = r;
@@ -353,6 +364,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			mDepthSize = depth;
 			mStencilSize = stencil;
             mEglVersion = version;
+            mDontTouchSwap = isEmulator();
             if (DEBUG) {
                 Log.d(TAG, "EGL version " + version[0] + "." + version[1]);
             }
@@ -401,14 +413,14 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			int bestDepth = 128;
 			for (EGLConfig config : configs) {
                 boolean hasSwap = false;
-                if (mEglVersion[0] > 1 || mEglVersion[1] >= 4) {
-                    /* final int surfaceType = findConfigAttrib(egl, display, config, EGL14.EGL_SURFACE_TYPE, 0);
+                if (!mDontTouchSwap && mEglVersion[0] > 1 || mEglVersion[1] >= 4) {
+                    final int surfaceType = findConfigAttrib(egl, display, config, EGL14.EGL_SURFACE_TYPE, 0);
                     if ((surfaceType & EGL14.EGL_SWAP_BEHAVIOR_PRESERVED_BIT) != 0) {
                         hasSwap = true;
                     }
                     if (DEBUG) {
-                        Log.d(TAG, "surfaceType " + surfaceType + " has preserved bit " + hasSwap);
-                    } */
+						Log.d(TAG, "surfaceType " + surfaceType + " has preserved bit " + hasSwap);
+                    }
                 }
 
 				// Get depth and stencil sizes
@@ -611,6 +623,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		private boolean mPaused;
         private boolean mNeedsAttention;
         private int[] mEglVersion;
+        // True if this surface can preserve color buffer contents on swap
+        private boolean mHasSwap;
 
 
         RenderThread(SurfaceTexture surface, int width, int height) {
@@ -762,7 +776,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 } */
 
 				mRenderCnt++;
-
+				
+				// We don't swap buffers here. Because we don't want to clear buffers on buffer swap, we need to do it in native code.
+                // This is important because JS Canvas also doesn't clear except via fillRect
+                /* if (!mHasSwap && didDraw) {
+                    mEgl.eglSwapBuffers(mEglDisplay, mEglSurface);
+                    checkEglError("eglSwapBuffers");
+                } */
 
 				synchronized (this) {
 					// If no rendering or other changes are pending, sleep till the next request
@@ -898,6 +918,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			mEglContext = createContext(mEgl, mEglDisplay, mEglConfig);
 
 			mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
+
+			final int[] surfaceSwapValues = new int[2];
+			if (mEgl.eglGetConfigAttrib(mEglDisplay, mEglConfig, EGL14.EGL_SURFACE_TYPE, surfaceSwapValues)) {
+                if ((surfaceSwapValues[0] & EGL14.EGL_SWAP_BEHAVIOR_PRESERVED_BIT) != 0) {
+                    mHasSwap = true;
+                }
+            }
 
 			if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
 				int error = mEgl.eglGetError();

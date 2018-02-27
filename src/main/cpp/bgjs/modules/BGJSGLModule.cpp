@@ -1219,7 +1219,7 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 		const char* cbStr = env->GetStringUTFChars(callbackName, NULL);
 
 		LOGI("setupGraphics(%s)", cbStr);
-		Local<Value> res = view->startJS(cbStr, NULL, v8::Undefined(isolate), 0, false);
+		MaybeLocal<Value> res = view->startJS(cbStr, NULL, v8::Undefined(isolate), 0, false);
 		if(try_catch.HasCaught()) {
 			ct->forwardV8ExceptionToJNI(&try_catch);
 			return -1;
@@ -1227,8 +1227,8 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 		view->opened = true;
 		env->ReleaseStringUTFChars(callbackName, cbStr);
 
-		if (res->IsNumber()) {
-			return res->ToNumber()->Value();
+		if (!res.IsEmpty() && res.ToLocalChecked()->IsNumber()) {
+			return res.ToLocalChecked()->ToNumber()->Value();
 		}
 	}
 	return -1;

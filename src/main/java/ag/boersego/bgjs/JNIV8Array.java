@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 
 import ag.boersego.v8annotations.V8Flags;
 
@@ -116,8 +117,10 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
 
         @Override
         public Object next() {
-            index++;
-            return getV8Element(index);
+            if (index >= getV8Length()) {
+                throw new NoSuchElementException();
+            }
+            return getV8Element(index++);
         }
     }
 

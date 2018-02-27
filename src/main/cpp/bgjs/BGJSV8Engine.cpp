@@ -506,7 +506,6 @@ Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, 
 		int argc, Handle<Value> argv[]) const {
 	v8::Locker l(isolate);
 	EscapableHandleScope scope(isolate);
-	TryCatch trycatch;
 
 	Local<Function> fn = Handle<Function>::Cast(recv->Get(String::NewFromUtf8(isolate, name)));
 			String::Utf8Value value(fn);
