@@ -8,8 +8,6 @@ cross-platform Canvas-based JS application this is for - if you have a web
 application or your JS code accesses the DOM in any way a WebView will be a
 better choice.
 
-You can download the sample app from Play Store: https://play.google.com/store/apps/details?id=ag.boersego.bgjs.sample
-
 Ejecta-v8 is published under the MIT Open Source License (http://opensource.org/licenses/mit-license.php), as is Ejecta.
 
 This library needs a precompiled, statically linked version of v8 to link
