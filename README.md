@@ -10,6 +10,9 @@ better choice.
 
 Ejecta-v8 is published under the MIT Open Source License (http://opensource.org/licenses/mit-license.php), as is Ejecta.
 
+You can use our sample app under https://github.com/godmodelabs/ejecta-v8-sample
+to get a feel for the library.
+
 This library needs a precompiled, statically linked version of v8 to link
 against. Currently this is tested against 5.4.500.36 (the latest stable
 version as of the time of writing). See also *Updating v8*.
