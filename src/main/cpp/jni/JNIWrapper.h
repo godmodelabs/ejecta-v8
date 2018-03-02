@@ -88,16 +88,18 @@ public:
      * - object needs to have been registered before with JNIWrapper::registerObject<ObjectType>() (or another overload) and BGJS_JNIJNIV8Object_LINK
      */
     template <typename ObjectType> static
-    std::shared_ptr<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
+    JNILocalRef<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
         va_list args;
         va_start(args, constructorAlias);
         jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
         va_end(args);
-        return JNIWrapper::wrapObject<ObjectType>(obj);
+        JNILocalRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
+        return ptr;
     }
 
     template <typename ObjectType> static
-    std::shared_ptr<ObjectType> createObject(const char *constructorAlias, va_list args) {
+    JNILocalRef<ObjectType> createObject(const char *constructorAlias, va_list args) {
         jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
         return JNIWrapper::wrapObject<ObjectType>(obj);
     }
@@ -117,13 +119,17 @@ public:
         va_start(args, constructorAlias);
         jobject obj = _createObject(canonicalName, constructorAlias, args);
         va_end(args);
-        return JNIWrapper::wrapObject<ObjectType>(obj);
+        JNILocalRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
+        return ptr;
     }
 
     template <typename ObjectType> static
     JNILocalRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias, va_list args) {
         jobject obj = _createObject(canonicalName, constructorAlias, args);
-        return JNIWrapper::wrapObject<ObjectType>(obj);
+        JNILocalRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
+        return ptr;
     }
 
     /**
