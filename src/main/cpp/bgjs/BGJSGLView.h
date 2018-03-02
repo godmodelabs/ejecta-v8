@@ -2,7 +2,6 @@
 #define __BGJSGLVIEW_H	1
 
 #include "BGJSCanvasContext.h"
-#include "BGJSView.h"
 #include "BGJSV8Engine.h"
 #include "os-android.h"
 
@@ -14,39 +13,29 @@
  * Licensed under the MIT license.
  */
 
-typedef struct __tagAnimationFrameRequest {
-	BGJSGLView *view;
-	v8::Persistent<v8::Object> callback;
-	v8::Persistent<v8::Object> thisObj;
-	bool valid;
-	int requestId;
-} AnimationFrameRequest;
-
-class BGJSGLView : public BGJSView {
+class BGJSGLView : public JNIScope<BGJSGLView, JNIV8Object> {
 public:
-	BGJSGLView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip, int width, int height);
-	virtual ~BGJSGLView();
-	virtual void prepareRedraw();
-	virtual void endRedraw();
-	void endRedrawNoSwap();
+	BGJSGLView(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
+
+    void setViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
+
+	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
+	static void initializeV8Bindings(JNIV8ClassInfo *info);
+
+	static jobject jniCreate(JNIEnv *env, jobject obj, jobject engineOb);
+
+    virtual ~BGJSGLView();
+    virtual void prepareRedraw();
+    virtual void endRedraw();
+
 	void setTouchPosition(int x, int y);
 	void swapBuffers();
-	void resize (int width, int height, bool resizeOnly);
-	void close ();
-	void requestRefresh();
-	int requestAnimationFrameForView(v8::Handle<v8::Object> cb, v8::Handle<v8::Object> thisObj, int id);
-#ifdef ANDROID
-	void setJavaGl(JNIEnv* env, jobject javaGlView);
-#endif
 
 	BGJSCanvasContext *context2d;
 
-	AnimationFrameRequest _frameRequests[MAX_FRAME_REQUESTS];
-	int _firstFrameRequest;
-	int _nextFrameRequest;
-
 protected:
     bool noFlushOnRedraw = false;
+    bool noClearOnFlip = false;
 };
 
 #endif

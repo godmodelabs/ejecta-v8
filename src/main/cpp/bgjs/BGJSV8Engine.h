@@ -171,8 +171,6 @@ private:
 	v8::Persistent<v8::Function> _getStackTraceFn;
     v8::Local<v8::Function> makeRequireFunction(std::string pathName);
 
-	std::set<BGJSGLView*> _glViews;
-
 	int _nextTimerId;
 };
 

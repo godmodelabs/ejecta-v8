@@ -24,14 +24,7 @@ public class ClientAndroid {
 	
 	// BGJSGLModule
     public static native int cssColorToInt(String color);
-    public static native long createGL(V8Engine engine, V8TextureView gl2jniView, float pixelRatio, boolean noClearOnFlip, int width, int height);
-    public static native int init(V8Engine engine, long objPtr, int width, int height, String callbackName);
-    public static native boolean step(V8Engine engine, long jsPtr);
     public static native void setTouchPosition(V8Engine engine, long jsPtr, int x, int y);
-    public static native void sendTouchEvent(V8Engine engine, long objPtr, String typeStr,
-			float[] xArr, float[] yArr, float scale);
-    public static native void redraw (V8Engine engine, long jsPtr);
-	public static native void close(V8Engine engine, long jsPtr);
 
     // BGJSModule
     public static native void cleanupNativeFnPtr (V8Engine engine, long nativePtr);

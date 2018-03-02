@@ -36,7 +36,6 @@ add_library( # Sets the name of the library.
              src/main/cpp/bgjs/modules/AjaxModule.cpp
              src/main/cpp/bgjs/modules/BGJSGLModule.cpp
              src/main/cpp/bgjs/BGJSCanvasContext.cpp
-             src/main/cpp/bgjs/BGJSView.cpp
              src/main/cpp/bgjs/BGJSGLView.cpp
              src/main/cpp/ejecta/EJCanvas/EJCanvasContext.cpp
              src/main/cpp/ejecta/EJConvert.cpp

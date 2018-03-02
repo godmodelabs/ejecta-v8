@@ -1177,6 +1177,9 @@ JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * en
     HandleScope scope(isolate);
     Context::Scope context_scope(ct->getContext());
 
+	JNILocalRef<BGJSGLView> view = JNIV8Wrapper::createObject<BGJSGLView>();
+    view->
+
 	BGJSGLView *view = new BGJSGLView(ct.get(), pixelRatio, noClearOnFlip, width, height);
 	view->setJavaGl(env, env->NewGlobalRef(javaGlView));
 
@@ -1234,23 +1237,23 @@ JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
 	return -1;
 }
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
-		jobject obj, jobject engine, jlong objPtr) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-	v8::Locker l(isolate);
-	Isolate::Scope isolateScope(isolate);
-    HandleScope scope(isolate);
-
-	Context::Scope context_scope(ct->getContext());
-
-	BGJSGLView *view = (BGJSGLView*) objPtr;
-	view->close();
-
-	ct->unregisterGLView(view);
-	env->DeleteGlobalRef(view->_javaGlView);
-	delete (view);
-}
+//JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
+//		jobject obj, jobject engine, jlong objPtr) {
+//	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
+//	Isolate* isolate = ct->getIsolate();
+//	v8::Locker l(isolate);
+//	Isolate::Scope isolateScope(isolate);
+//    HandleScope scope(isolate);
+//
+//	Context::Scope context_scope(ct->getContext());
+//
+//	BGJSGLView *view = (BGJSGLView*) objPtr;
+//	view->close();
+//
+//	ct->unregisterGLView(view);
+//	env->DeleteGlobalRef(view->_javaGlView);
+//	delete (view);
+//}
 
 const GLfloat gTriangleVertices[] = { 0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
 
@@ -1261,67 +1264,60 @@ JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_step(JNIEnv * env,
 	return ct->runAnimationRequests(view);
 }
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,
-		jobject obj, jobject engine, jlong jsPtr) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	BGJSGLView *view = (BGJSGLView*) jsPtr;
-	return view->call(view->_cbRedraw);
-}
 
-
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
-		JNIEnv * env, jobject obj, jobject engine, jlong objPtr, jstring typeStr,
-		jfloatArray xArr, jfloatArray yArr, jfloat scale) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-	v8::Locker l(isolate);
-	Isolate::Scope isolateScope(isolate);
-	HandleScope scope(isolate);
-	Context::Scope context_scope(ct->getContext());
-
-	float* x = env->GetFloatArrayElements(xArr, NULL);
-	float* y = env->GetFloatArrayElements(yArr, NULL);
-	const int count = env->GetArrayLength(xArr);
-	const char *type = env->GetStringUTFChars(typeStr, 0);
-	if (x == NULL || y == NULL) {
-		LOGE("sendTouchEvent: Cannot access point copies: %p %p", x, y);
-		return;
-	}
-
-	/* if (count == 0) {
-		LOGI("sendTouchEvent: Empty array");
-		return;
-	} */
-
-    // Local<Context> v8Context = ct->_context.Get(isolate);
-	BGJSGLView *view = (BGJSGLView*) objPtr;
-
-	// Create event object
-	Handle<Object> eventObjRef = Object::New(isolate);
-	eventObjRef->Set(String::NewFromUtf8(isolate, "type"), String::NewFromUtf8(isolate, type));
-	eventObjRef->Set(String::NewFromUtf8(isolate, "scale"), Number::New(isolate, scale));
-
-	Handle<String> pageX = String::NewFromUtf8(isolate, "clientX");
-	Handle<String> pageY = String::NewFromUtf8(isolate, "clientY");
-
-	Handle<Array> touchesArray = Array::New(isolate, count);
-
-	// Populate touches array
-	for (int i = 0; i < count; i++) {
-		Handle<Object> touchObjRef = Object::New(isolate);
-		touchObjRef->Set(pageX, Number::New(isolate, x[i]));
-		touchObjRef->Set(pageY, Number::New(isolate, y[i]));
-		touchesArray->Set(Number::New(isolate, i), touchObjRef);
-	}
-
-	eventObjRef->Set(String::NewFromUtf8(isolate, "touches"), touchesArray);
-
-	// Cleanup JNI stuff used for constructing the event object
-	env->ReleaseFloatArrayElements(xArr, x, 0);
-	env->ReleaseFloatArrayElements(yArr, y, 0);
-	env->ReleaseStringUTFChars(typeStr, type);
-
-	// send event to view (can throw jni exception)
-	view->sendEvent(eventObjRef);
-}
-
+//JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
+//		JNIEnv * env, jobject obj, jobject engine, jlong objPtr, jstring typeStr,
+//		jfloatArray xArr, jfloatArray yArr, jfloat scale) {
+//	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
+//	Isolate* isolate = ct->getIsolate();
+//	v8::Locker l(isolate);
+//	Isolate::Scope isolateScope(isolate);
+//	HandleScope scope(isolate);
+//	Context::Scope context_scope(ct->getContext());
+//
+//	float* x = env->GetFloatArrayElements(xArr, NULL);
+//	float* y = env->GetFloatArrayElements(yArr, NULL);
+//	const int count = env->GetArrayLength(xArr);
+//	const char *type = env->GetStringUTFChars(typeStr, 0);
+//	if (x == NULL || y == NULL) {
+//		LOGE("sendTouchEvent: Cannot access point copies: %p %p", x, y);
+//		return;
+//	}
+//
+//	/* if (count == 0) {
+//		LOGI("sendTouchEvent: Empty array");
+//		return;
+//	} */
+//
+//    // Local<Context> v8Context = ct->_context.Get(isolate);
+//	BGJSGLView *view = (BGJSGLView*) objPtr;
+//
+//	// Create event object
+//	Handle<Object> eventObjRef = Object::New(isolate);
+//	eventObjRef->Set(String::NewFromUtf8(isolate, "type"), String::NewFromUtf8(isolate, type));
+//	eventObjRef->Set(String::NewFromUtf8(isolate, "scale"), Number::New(isolate, scale));
+//
+//	Handle<String> pageX = String::NewFromUtf8(isolate, "clientX");
+//	Handle<String> pageY = String::NewFromUtf8(isolate, "clientY");
+//
+//	Handle<Array> touchesArray = Array::New(isolate, count);
+//
+//	// Populate touches array
+//	for (int i = 0; i < count; i++) {
+//		Handle<Object> touchObjRef = Object::New(isolate);
+//		touchObjRef->Set(pageX, Number::New(isolate, x[i]));
+//		touchObjRef->Set(pageY, Number::New(isolate, y[i]));
+//		touchesArray->Set(Number::New(isolate, i), touchObjRef);
+//	}
+//
+//	eventObjRef->Set(String::NewFromUtf8(isolate, "touches"), touchesArray);
+//
+//	// Cleanup JNI stuff used for constructing the event object
+//	env->ReleaseFloatArrayElements(xArr, x, 0);
+//	env->ReleaseFloatArrayElements(yArr, y, 0);
+//	env->ReleaseStringUTFChars(typeStr, type);
+//
+//	// send event to view (can throw jni exception)
+//	view->sendEvent(eventObjRef);
+//}
+//

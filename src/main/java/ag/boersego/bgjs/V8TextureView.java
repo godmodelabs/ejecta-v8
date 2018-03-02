@@ -58,8 +58,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private float mClearRed, mClearGreen, mClearBlue, mClearAlpha;
     private boolean mClearColorSet;
 	private boolean mDontClearOnFlip;
+    private BGJSGLView mBGJSGLView;
 
-	/**
+    /**
 	 * Create a new V8TextureView instance
 	 * @param context Context instance
 	 * @param jsCbName The name of the JS function to call once the view is created
@@ -104,6 +105,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (DEBUG) {
 			Log.d(TAG, "Starting render thread");
 		}
+
 		mRenderThread.start();
 	}
 
@@ -301,10 +303,17 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (DEBUG) {
 			Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale "
 					+ scale);
+
+			final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(V8Engine.getInstance());
+			touchEventObj.setV8Field("type", type);
+			touchEventObj.setV8Field("scale", scale);
+            touchEventObj.setV8Field("clientX", x);
+            touchEventObj.setV8Field("clientY", y);
+
+            // TODO: Originally these were collected and sent as arrays? Good?
+
+			mBGJSGLView.onEvent(touchEventObj);
 		}
-		// Call JNI function that calls V8
-		ClientAndroid.sendTouchEvent(V8Engine.getInstance(), mRenderThread.mJSId, type, x, y,
-				(float) scale);
 	}
 
 	public void setClearColor(final int color) {
@@ -579,8 +588,12 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * Create the JNI side of OpenGL init. Can be overriden by subclasses to instantiate other BGJSGLView subclasses
      * @return pointer to JNI object
      */
-    protected long createGL () {
-        return ClientAndroid.createGL(V8Engine.getInstance(), this, mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
+    protected BGJSGLView createGL () {
+        final BGJSGLView glView = BGJSGLView.Create(V8Engine.getInstance());
+        glView.setTextureView(this);
+        glView.setViewData(mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
+
+        return glView;
     }
 
 	/**
@@ -712,7 +725,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 
 			// Create a C instance of GLView and record the native ID
-			mJSId = createGL();
+			mBGJSGLView = createGL();
             V8TextureView.this.onGLCreated(mJSId);
 
             if (mClearColorSet) {
@@ -769,7 +782,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
                 }
 
-				final boolean didDraw = ClientAndroid.step(V8Engine.getInstance(), mJSId);
+                mBGJSGLView.onRedraw();
 
                 /* if (DEBUG) {
                     Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
@@ -837,9 +850,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				mCallback.renderThreadClosed(mChartId);
 			}
 
-			if (mJSId != 0) {
-				ClientAndroid.close(V8Engine.getInstance(), mJSId);
-			}
+			if (mBGJSGLView != null) {
+                mBGJSGLView.onClose();
+            }
+
+            mBGJSGLView = null;
 
 			finishGL();
 		}
