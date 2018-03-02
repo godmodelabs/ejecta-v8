@@ -287,12 +287,6 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
                                          "(Lag/boersego/bgjs/V8Engine;J[Ljava/lang/Object;)V");
         JNI_ASSERTF(constructorId,
                    "Constructor '(V8Engine, long, Object[])' does not exist on registered class '%s'", canonicalName.c_str());
-    } else {
-        // if creation from javascript is not allowed, we need the other one...
-        constructorId = env->GetMethodID(it->second->clsObject, "<init>",
-                                         "(Lag/boersego/bgjs/V8Engine;)V");
-        JNI_ASSERTF(constructorId,
-                   "Constructor '(V8Engine)' does not exist on registered class '%s'", canonicalName.c_str());
     }
 #endif
 
