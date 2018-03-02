@@ -784,7 +784,7 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 	if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
 	    Local<Object> localFunc = args[0]->ToObject();
 
-        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]);
+        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
         jobject functionWrapped = JNIV8Marshalling::v8value2jobject(localFunc);
         args.GetReturnValue().Set(view->callJavaIntMethod("requestAnimationFrame", functionWrapped));
 	} else {
@@ -816,9 +816,8 @@ void BGJSV8Engine::js_global_cancelAnimationFrame(
 	if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
 
 		int id = (int) (Local<Number>::Cast(args[0])->Value());
-        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]);
+        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
         args.GetReturnValue().Set(view->callJavaIntMethod("cancelAnimationFrame", id));
-		ctx->cancelAnimationFrame(id);
 	} else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(

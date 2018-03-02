@@ -23,6 +23,7 @@
 #include "BGJSV8Engine.h"
 #include "modules/AjaxModule.h"
 #include "modules/BGJSGLModule.h"
+#include "BGJSGLView.h"
 
 #include "jniext.h"
 #include "../jni/JNIWrapper.h"

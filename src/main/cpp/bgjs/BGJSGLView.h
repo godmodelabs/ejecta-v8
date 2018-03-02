@@ -3,6 +3,7 @@
 
 #include "BGJSCanvasContext.h"
 #include "BGJSV8Engine.h"
+#include "../v8/JNIV8Object.h"
 #include "os-android.h"
 
 /**
@@ -17,25 +18,33 @@ class BGJSGLView : public JNIScope<BGJSGLView, JNIV8Object> {
 public:
 	BGJSGLView(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
-    void setViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
+    static void setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
+	void onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
 
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
 	static void initializeV8Bindings(JNIV8ClassInfo *info);
 
-	static jobject jniCreate(JNIEnv *env, jobject obj, jobject engineOb);
-
     virtual ~BGJSGLView();
-    virtual void prepareRedraw();
-    virtual void endRedraw();
+    static void prepareRedraw(JNIEnv *env, jobject objWrapped);
+    virtual void onPrepareRedraw();
+    static void endRedraw(JNIEnv *env, jobject objWrapped);
+    virtual void onEndRedraw();
 
-	void setTouchPosition(int x, int y);
-	void swapBuffers();
+	static void setTouchPosition(JNIEnv *env, jobject objWrapped, int x, int y);
+    virtual void onSetTouchPosition(int x, int y);
+    void swapBuffers();
 
 	BGJSCanvasContext *context2d;
+
+    int getWidth();
+    int getHeight();
 
 protected:
     bool noFlushOnRedraw = false;
     bool noClearOnFlip = false;
+
+    int _width = 0;
+    int _height = 0;
 };
 
 #endif

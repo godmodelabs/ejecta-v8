@@ -47,7 +47,6 @@ static void checkGlError(const char* op) {
 BGJS_JNI_LINK(BGJSGLView, "ag/boersego/bgjs/BGJSGLView");
 
 void BGJSGLView::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-	info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine)Lag/boersego/bgjs/JNIV8GenericObject;", (void*)BGJSGLView::jniCreate);
     info->registerNativeMethod("prepareRedraw", "()V", (void*)BGJSGLView::prepareRedraw);
     info->registerNativeMethod("endRedraw", "()V", (void*)BGJSGLView::endRedraw);
     info->registerNativeMethod("setTouchPosition", "(II)V", (void*)BGJSGLView::setTouchPosition);
@@ -58,38 +57,29 @@ void BGJSGLView::initializeV8Bindings(JNIV8ClassInfo *info) {
 
 }
 
-jobject BGJSGLView::jniCreate(JNIEnv *env, jobject obj, jobject engineObj) {
-	auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
-	v8::Isolate* isolate = engine->getIsolate();
-	v8::Locker l(isolate);
-	v8::Isolate::Scope isolateScope(isolate);
-	v8::HandleScope scope(isolate);
-	v8::Local<v8::Context> context = engine->getContext();
-	v8::Context::Scope ctxScope(context);
+void BGJSGLView::setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height) {
+	auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
 
-	v8::Local<v8::Object> objRef;
-
-	objRef = v8::Object::New(isolate);
-
-	return JNIV8Wrapper::wrapObject<BGJSGLView>(objRef)->getJObject();
+    self->onSetViewData(pixelRatio, doNoClearOnFlip, width, height);
 }
 
-void BGJSGLView::setViewData(float pixelRatio, bool doNoClearOnFlip, int width, int height) {
-
-	noFlushOnRedraw = false;
+void BGJSGLView::onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int height) {
+    _width = width;
+    _height = height;
+    noFlushOnRedraw = false;
     noClearOnFlip = doNoClearOnFlip;
 
-	const char* eglVersion = eglQueryString(eglGetCurrentDisplay(), EGL_VERSION);
-	LOGD("egl version %s", eglVersion);
-	// bzero (_frameRequests, sizeof(_frameRequests));
+    const char* eglVersion = eglQueryString(eglGetCurrentDisplay(), EGL_VERSION);
+    LOGD("egl version %s", eglVersion);
+    // bzero (_frameRequests, sizeof(_frameRequests));
 
-	context2d = new BGJSCanvasContext(width, height);
-	context2d->backingStoreRatio = pixelRatio;
+    context2d = new BGJSCanvasContext(width, height);
+    context2d->backingStoreRatio = pixelRatio;
 #ifdef DEBUG
-	LOGI("pixel Ratio %f", pixelRatio);
+    LOGI("pixel Ratio %f", pixelRatio);
 #endif
-	context2d->create();
+    context2d->create();
 }
 
 BGJSGLView::~BGJSGLView() {
@@ -98,8 +88,22 @@ BGJSGLView::~BGJSGLView() {
 	}
 }
 
-void BGJSGLView::prepareRedraw() {
-	context2d->startRendering();
+int BGJSGLView::getWidth() {
+    return _width;
+}
+
+int BGJSGLView::getHeight() {
+    return _height;
+}
+
+void BGJSGLView::prepareRedraw(JNIEnv *env, jobject objWrapped) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->onPrepareRedraw();
+}
+
+void BGJSGLView::onPrepareRedraw() {
+    context2d->startRendering();
 }
 
 static unsigned int nextPowerOf2(unsigned int n)
@@ -114,14 +118,26 @@ static unsigned int nextPowerOf2(unsigned int n)
     return p;
 }
 
-void BGJSGLView::endRedraw() {
-	context2d->endRendering();
-	if (!noFlushOnRedraw) {
-	    this->swapBuffers();
-	}
+void BGJSGLView::endRedraw(JNIEnv *env, jobject objWrapped) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->onEndRedraw();
 }
 
-void BGJSGLView::setTouchPosition(int x, int y) {
+void BGJSGLView::onEndRedraw() {
+    context2d->endRendering();
+    if (!noFlushOnRedraw) {
+        this->swapBuffers();
+    }
+}
+
+void BGJSGLView::setTouchPosition(JNIEnv *env, jobject objWrapped, int x, int y) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->onSetTouchPosition(x, y);
+}
+
+void BGJSGLView::onSetTouchPosition(int x, int y) {
     // A NOP. Subclasses might be interested in this though
 }
 

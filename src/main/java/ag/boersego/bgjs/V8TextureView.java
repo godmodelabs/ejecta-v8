@@ -81,13 +81,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         DEBUG = debug;
     }
 
-    abstract public void onGLCreated (long jsId);
+    abstract public void onGLCreated (BGJSGLView jsViewObject);
 
-    abstract public void onGLRecreated (long jsId);
+    abstract public void onGLRecreated (BGJSGLView jsViewObject);
 
     abstract public void onGLCreateError (Exception ex);
 
-    abstract public void onRenderAttentionNeeded (long jsId);
+    abstract public void onRenderAttentionNeeded (BGJSGLView jsViewObject);
 
     public void doNeedAttention(boolean b) {
 		if(mRenderThread != null) {
@@ -183,7 +183,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 					return false;
 				}
 				// And pass the touch event to JS
-				ClientAndroid.setTouchPosition(engine, mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
+				if (mBGJSGLView != null) {
+                    mBGJSGLView.setTouchPosition((int) mTouches[id].x, (int) mTouches[id].y);
+                }
+
 			}
 
 			sendTouchEvent("touchstart");
@@ -216,9 +219,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 						}
 					}
 					
-					if (touchDirty) {
-						ClientAndroid.setTouchPosition(V8Engine.getInstance(), mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
-					}
+					if (touchDirty && mBGJSGLView != null) {
+                        mBGJSGLView.setTouchPosition((int) mTouches[id].x, (int) mTouches[id].y);
+                    }
 				}
 			}
 			
@@ -265,9 +268,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 		// This is actually the pointer to the BGJSView and could have been cleared because
         // it was closed.
-		final long objPtr = mRenderThread.mJSId;
 
-		if (objPtr == 0) {
+		if (mBGJSGLView == null) {
 		    return;
         }
 		int count = 0;
@@ -589,8 +591,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * @return pointer to JNI object
      */
     protected BGJSGLView createGL () {
-        final BGJSGLView glView = BGJSGLView.Create(V8Engine.getInstance());
-        glView.setTextureView(this);
+        final BGJSGLView glView = new BGJSGLView(V8Engine.getInstance(), this);
         glView.setViewData(mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
 
         return glView;
@@ -615,8 +616,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		private EGLContext mEglContext;
 		private EGLSurface mEglSurface;
 
-
-		private long mJSId;
 
 		private long mLastRenderSec;	// Used to calculate FPS
 		private int mRenderCnt;
@@ -677,7 +676,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				mRenderPending = true;
 				this.notifyAll();
 				if (DEBUG) {
-					Log.d(TAG, "Requested render mJSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0'));
+					Log.d(TAG, "Requested render mJSID " + mBGJSGLView);
 				}
 			}
 		}
@@ -726,7 +725,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 			// Create a C instance of GLView and record the native ID
 			mBGJSGLView = createGL();
-            V8TextureView.this.onGLCreated(mJSId);
+            V8TextureView.this.onGLCreated(mBGJSGLView);
 
             if (mClearColorSet) {
                 GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
@@ -832,7 +831,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 						Log.d(TAG, "Reinit pending executing");
 					}
 					reinitGL();
-                    V8TextureView.this.onGLRecreated(mJSId);
+                    V8TextureView.this.onGLRecreated(mBGJSGLView);
 					mReinitPending = false;
 				}
 
@@ -841,7 +840,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 					if (DEBUG) {
 						Log.d(TAG, "Attending V8TextureView super");
 					}
-					V8TextureView.this.onRenderAttentionNeeded(mJSId);
+					V8TextureView.this.onRenderAttentionNeeded(mBGJSGLView);
                     mNeedsAttention = false;
 				}
 			}

@@ -462,7 +462,7 @@ void BGJSCanvasGL::getWidth(Local<String> property,
 	Local<Object> self = info.Holder();
 	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
 	void* ptr = wrap->Value();
-	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->width;
+	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->getWidth();
 #ifdef DEBUG
 	LOGD("getWidth %d", value);
 #endif
@@ -475,7 +475,7 @@ void BGJSCanvasGL::getHeight(Local<String> property,
 	Local<Object> self = info.Holder();
 	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
 	void* ptr = wrap->Value();
-	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->height;
+	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->getHeight();
 #ifdef DEBUG
 	LOGD("getHeight %d", value);
 #endif
@@ -1164,104 +1164,6 @@ JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_cssColorToInt(JNIEnv 
     unsigned int colorsShifted = (colorRGBA.hex & 0xFF000000) + ((colorRGBA.hex & 0x00FF0000) >> 16) + (colorRGBA.hex & 0x0000FF00)
                                  + ((colorRGBA.hex & 0x000000FF) << 16);
     return colorsShifted;
-}
-
-JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env,
-		jobject obj, jobject engine, jobject javaGlView, jfloat pixelRatio, jboolean noClearOnFlip, jint width, jint height) {
-    LOGD("createGL started");
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-    LOGD("createGL: isolate is %p", isolate);
-    v8::Locker l(isolate);
-	Isolate::Scope isolate_scope(isolate);
-    HandleScope scope(isolate);
-    Context::Scope context_scope(ct->getContext());
-
-	JNILocalRef<BGJSGLView> view = JNIV8Wrapper::createObject<BGJSGLView>();
-    view->
-
-	BGJSGLView *view = new BGJSGLView(ct.get(), pixelRatio, noClearOnFlip, width, height);
-	view->setJavaGl(env, env->NewGlobalRef(javaGlView));
-
-	// Register GLView with context so that cancelAnimationRequest works.
-	ct->registerGLView(view);
-
-	return (jlong) view;
-}
-
-JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
-		jobject obj, jobject engine, jlong objPtr, jint width, jint height, jstring callbackName) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-	v8::Locker l(isolate);
-	Isolate::Scope isolateScope(isolate);
-    HandleScope scope(isolate);
-
-#ifdef DEBUG
-	LOGI("setupGraphics(%d, %d)", width, height);
-#endif
-    Context::Scope context_scope(ct->getContext());
-
-	BGJSGLView *view = (BGJSGLView*) objPtr;
-	TryCatch try_catch;
-
-	if (width != view->width || height != view->height || !view->opened) {
-#ifdef DEBUG
-		LOGD("Resizing from %dx%d to %dx%d, resizeOnly %i", view->width, view->height, width, height, (int)(view->opened));
-#endif
-		view->resize(width, height, view->opened);
-		if(try_catch.HasCaught()) {
-			ct->forwardV8ExceptionToJNI(&try_catch);
-			return -1;
-		}
-	}
-	Handle<Value> uiObj;
-
-	// Only call this once!
-	if (!view->opened) {
-		const char* cbStr = env->GetStringUTFChars(callbackName, NULL);
-
-		LOGI("setupGraphics(%s)", cbStr);
-		MaybeLocal<Value> res = view->startJS(cbStr, NULL, v8::Undefined(isolate), 0, false);
-		if(try_catch.HasCaught()) {
-			ct->forwardV8ExceptionToJNI(&try_catch);
-			return -1;
-		}
-		view->opened = true;
-		env->ReleaseStringUTFChars(callbackName, cbStr);
-
-		if (!res.IsEmpty() && res.ToLocalChecked()->IsNumber()) {
-			return res.ToLocalChecked()->ToNumber()->Value();
-		}
-	}
-	return -1;
-}
-
-//JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
-//		jobject obj, jobject engine, jlong objPtr) {
-//	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-//	Isolate* isolate = ct->getIsolate();
-//	v8::Locker l(isolate);
-//	Isolate::Scope isolateScope(isolate);
-//    HandleScope scope(isolate);
-//
-//	Context::Scope context_scope(ct->getContext());
-//
-//	BGJSGLView *view = (BGJSGLView*) objPtr;
-//	view->close();
-//
-//	ct->unregisterGLView(view);
-//	env->DeleteGlobalRef(view->_javaGlView);
-//	delete (view);
-//}
-
-const GLfloat gTriangleVertices[] = { 0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
-
-JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_step(JNIEnv * env,
-		jobject obj, jobject engine, jlong jsPtr) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	BGJSGLView *view = (BGJSGLView*) jsPtr;
-	return ct->runAnimationRequests(view);
 }
 
 

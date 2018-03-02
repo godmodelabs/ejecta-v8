@@ -253,6 +253,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		// Register bundled Java-bridged JS modules
 		registerModule(BGJSModuleAjax2.getInstance());
         registerModule(new BGJSModuleLocalStorage(application.getApplicationContext()));
+        JNIV8Object.RegisterV8Class(BGJSGLView.class);
 
         // start thread
 		jsThread = new Thread(new V8EngineRunnable());

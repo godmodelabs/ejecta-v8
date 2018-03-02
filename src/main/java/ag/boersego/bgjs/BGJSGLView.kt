@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-class BGJSGLView(engine: V8Engine) : JNIV8Object(engine) {
+class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object(engine) {
     private val callbacksResize = ArrayList<JNIV8Function>(2)
     private val callbacksClose = ArrayList<JNIV8Function>(2)
     private val callbacksRedraw = ArrayList<JNIV8Function>(2)
@@ -25,7 +25,7 @@ class BGJSGLView(engine: V8Engine) : JNIV8Object(engine) {
     private val queuedAnimationRequests = Stack<AnimationFrameRequest>()
     private val nextAnimationRequestId = AtomicInteger(0)
 
-    lateinit var textureView: V8TextureView
+    // lateinit var textureView: V8TextureView
 
     val devicePixelRatio: Float
         @V8Getter get() = textureView.resources.displayMetrics.density
