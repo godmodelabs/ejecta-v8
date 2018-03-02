@@ -38,6 +38,9 @@ import okhttp3.OkHttpClient;
 public class V8Engine extends JNIObject implements Handler.Callback {
 	static {
 		System.loadLibrary("bgjs");
+		JNIV8Object.RegisterAliasForPrimitive(Number.class, Double.class);
+		// Register kotlin primitives (which from the viewpoint of JNI are classes that don't have a classloader!)
+		JNIV8ObjectKt.registerKotlinAliases();
 	}
 
 	protected static V8Engine mInstance;

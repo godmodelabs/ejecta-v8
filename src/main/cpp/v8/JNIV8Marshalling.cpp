@@ -80,7 +80,7 @@ JNIV8JavaValue JNIV8Marshalling::valueWithClass(jint type, jclass clazz, JNIV8Ma
     if(it == _typeMap.end()) {
         return JNIV8JavaValue(JNIV8JavaValueType::kObject, clazz, flags);
     }
-    return JNIV8JavaValue((*it).second, clazz, flags);
+    return JNIV8Marshalling::valueWithType((*it).second, clazz ? true : false, flags);
 }
 
 JNIV8JavaValue JNIV8Marshalling::persistentValueWithTypeSignature(const std::string &type, JNIV8MarshallingFlags flags) {
@@ -157,6 +157,13 @@ decltype(JNIV8Marshalling::_jniString) JNIV8Marshalling::_jniString = {0};
 decltype(JNIV8Marshalling::_jniVoid) JNIV8Marshalling::_jniVoid = {0};
 jobject JNIV8Marshalling::_undefined = nullptr;
 std::unordered_map<int, JNIV8JavaValueType> JNIV8Marshalling::_typeMap;
+
+/**
+ * register an alias for a primitive type
+ */
+void JNIV8Marshalling::registerAliasForPrimitive(jint aliasType, jint primitiveType) {
+    _typeMap[aliasType] = _typeMap[primitiveType];
+}
 
 /**
  * cache JNI class references

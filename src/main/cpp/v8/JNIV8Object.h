@@ -35,6 +35,9 @@ v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(\
 v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
 );
 
+#define ThrowJNICastError(msg)\
+env->ThrowNew(env->FindClass("java/lang/ClassCastException"), (msg).c_str());
+
 /**
  * Base class for all native classes associated with a java object and a js object
  * constructor should never be called manually; if you want to create a new instance
@@ -92,6 +95,7 @@ private:
     static jstring jniToString(JNIEnv *env, jobject obj);
     static jstring jniToJSON(JNIEnv *env, jobject obj);
     static void jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
+    static void jniRegisterAliasForPrimitive(JNIEnv *env, jobject obj, jint aliasType, jint primitiveType);
 
     // v8 callbacks
     static void weakPersistentCallback(const v8::WeakCallbackInfo<void>& data);

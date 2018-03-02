@@ -140,6 +140,11 @@ public:
      * cache JNI class references
      */
     static void initJNICache();
+
+    /**
+     * register an alias for a primitive type
+     */
+    static void registerAliasForPrimitive(jint aliasType, jint primitiveType);
 private:
     static jobject _undefined;
     static std::unordered_map<int, JNIV8JavaValueType> _typeMap;

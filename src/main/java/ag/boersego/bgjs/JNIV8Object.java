@@ -13,6 +13,11 @@ import ag.boersego.v8annotations.V8Flags;
 
 @SuppressWarnings("unused")
 abstract public class JNIV8Object extends JNIObject {
+    static public void RegisterAliasForPrimitive(Class alias, Class primitive) {
+        RegisterAliasForPrimitive(alias.hashCode(), primitive.hashCode());
+    }
+    static private native void RegisterAliasForPrimitive(int aliasType, int primitiveType);
+
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
         if(Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");

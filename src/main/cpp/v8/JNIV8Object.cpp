@@ -186,6 +186,7 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("toJSON", "()Ljava/lang/String;", (void*)JNIV8Object::jniToJSON);
 
     info->registerNativeMethod("RegisterV8Class", "(Ljava/lang/String;Ljava/lang/String;)V", (void*)JNIV8Object::jniRegisterV8Class);
+    info->registerNativeMethod("RegisterAliasForPrimitive", "(II)V", (void*)JNIV8Object::jniRegisterAliasForPrimitive);
 }
 
 void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change) {
@@ -212,22 +213,22 @@ jobject JNIV8Object::jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstri
         switch(res) {
             default:
             case JNIV8MarshallingError::kWrongType:
-                ThrowV8TypeError("wrong type for field '" + strFieldName + "'");
+                ThrowJNICastError("wrong type for field '" + strFieldName + "'");
                 break;
             case JNIV8MarshallingError::kUndefined:
-                ThrowV8TypeError("field '" + strFieldName + "' must not be undefined");
+                ThrowJNICastError("field '" + strFieldName + "' must not be undefined");
                 break;
             case JNIV8MarshallingError::kNotNullable:
-                ThrowV8TypeError("field '" + strFieldName + "' is not nullable");
+                ThrowJNICastError("field '" + strFieldName + "' is not nullable");
                 break;
             case JNIV8MarshallingError::kNoNaN:
-                ThrowV8TypeError("field '" + strFieldName + "' must not be NaN");
+                ThrowJNICastError("field '" + strFieldName + "' must not be NaN");
                 break;
             case JNIV8MarshallingError::kVoidNotNull:
-                ThrowV8TypeError("field '" + strFieldName + "' can only be null or undefined");
+                ThrowJNICastError("field '" + strFieldName + "' can only be null or undefined");
                 break;
             case JNIV8MarshallingError::kOutOfRange:
-                ThrowV8RangeError("assigned value '"+
+                ThrowJNICastError("assigned value '"+
                                   JNIV8Marshalling::v8string2string(valueRef.ToLocalChecked()->ToString())+"' is out of range for field '" + strFieldName + "'");
                 break;
         }
@@ -330,22 +331,22 @@ jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jst
         switch(res) {
             default:
             case JNIV8MarshallingError::kWrongType:
-                ThrowV8TypeError("wrong type for return value of '" + strMethodName + "'");
+                ThrowJNICastError("wrong type for return value of '" + strMethodName + "'");
                 break;
             case JNIV8MarshallingError::kUndefined:
-                ThrowV8TypeError("return value of '" + strMethodName + "' must not be undefined");
+                ThrowJNICastError("return value of '" + strMethodName + "' must not be undefined");
                 break;
             case JNIV8MarshallingError::kNotNullable:
-                ThrowV8TypeError("return value of '" + strMethodName + "' is not nullable");
+                ThrowJNICastError("return value of '" + strMethodName + "' is not nullable");
                 break;
             case JNIV8MarshallingError::kNoNaN:
-                ThrowV8TypeError("return value of '" + strMethodName + "' must not be NaN");
+                ThrowJNICastError("return value of '" + strMethodName + "' must not be NaN");
                 break;
             case JNIV8MarshallingError::kVoidNotNull:
-                ThrowV8TypeError("return value of '" + strMethodName + "' can only be null or undefined");
+                ThrowJNICastError("return value of '" + strMethodName + "' can only be null or undefined");
                 break;
             case JNIV8MarshallingError::kOutOfRange:
-                ThrowV8RangeError("return value '"+
+                ThrowJNICastError("return value '"+
                                   JNIV8Marshalling::v8string2string(resultRef->ToString())+"' is out of range for method '" + strMethodName + "'");
                 break;
         }
@@ -441,22 +442,22 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
             switch(res) {
                 default:
                 case JNIV8MarshallingError::kWrongType:
-                    ThrowV8TypeError("wrong type for value of '" + strPropertyName + "'");
+                    ThrowJNICastError("wrong type for value of '" + strPropertyName + "'");
                     break;
                 case JNIV8MarshallingError::kUndefined:
-                    ThrowV8TypeError("value of '" + strPropertyName + "' must not be undefined");
+                    ThrowJNICastError("value of '" + strPropertyName + "' must not be undefined");
                     break;
                 case JNIV8MarshallingError::kNotNullable:
-                    ThrowV8TypeError("value of '" + strPropertyName + "' is not nullable");
+                    ThrowJNICastError("value of '" + strPropertyName + "' is not nullable");
                     break;
                 case JNIV8MarshallingError::kNoNaN:
-                    ThrowV8TypeError("value of '" + strPropertyName + "' must not be NaN");
+                    ThrowJNICastError("value of '" + strPropertyName + "' must not be NaN");
                     break;
                 case JNIV8MarshallingError::kVoidNotNull:
-                    ThrowV8TypeError("value of '" + strPropertyName + "' can only be null or undefined");
+                    ThrowJNICastError("value of '" + strPropertyName + "' can only be null or undefined");
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
-                    ThrowV8RangeError("value '"+
+                    ThrowJNICastError("value '"+
                                       JNIV8Marshalling::v8string2string(valueRef->ToString())+"' is out of range for property '" + strPropertyName + "'");
                     break;
             }
@@ -514,6 +515,10 @@ void JNIV8Object::jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedCl
     std::replace(strBaseClass.begin(), strBaseClass.end(), '.', '/');
 
     JNIV8Wrapper::registerJavaObject(strDerivedClass, strBaseClass);
+}
+
+void JNIV8Object::jniRegisterAliasForPrimitive(JNIEnv *env, jobject obj, jint aliasType, jint primitiveType) {
+    JNIV8Marshalling::registerAliasForPrimitive(aliasType, primitiveType);
 }
 
 //--------------------------------------------------------------------------------------------------
