@@ -57,7 +57,6 @@ void BGJSGLView::initializeV8Bindings(JNIV8ClassInfo *info) {
 
 }
 
-
 void BGJSGLView::setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height) {
 	auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
 
