@@ -43,8 +43,6 @@ BGJSCanvasContext::BGJSCanvasContext(int width, int height) : EJCanvasContext(wi
 	// glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, viewRenderBuffer);
 
 	stencilBuffer = 0;
-	height = 0;
-	width = 0;
 
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
@@ -115,7 +113,7 @@ void BGJSCanvasContext::clipRect(CGRect rect) {
 }
 
 
-void BGJSCanvasContext::resize (int widthp, int heightp, bool resizeOnly) {
+void BGJSCanvasContext::resize (int widthp, int heightp) {
 
 	viewportWidth = width = widthp;
 	viewportHeight = height = heightp;
@@ -155,11 +153,7 @@ void BGJSCanvasContext::resize (int widthp, int heightp, bool resizeOnly) {
     glClear(GL_COLOR_BUFFER_BIT);
     checkGlError("glClear(resize)");
 
-    if (!resizeOnly) {
-    	glTranslatef(0, heightp, 0);
-    } else {
-    	glTranslatef(0, heightp, 0);
-    }
+	glTranslatef(0, heightp, 0);
 	glScalef( 1, -1, 1 );
 }
 

@@ -19,7 +19,7 @@ public:
 	BGJSGLView(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
     static void setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
-	void onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
+	virtual void onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
 
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
 	static void initializeV8Bindings(JNIV8ClassInfo *info);
@@ -43,8 +43,11 @@ protected:
     bool noFlushOnRedraw = false;
     bool noClearOnFlip = false;
 
+	float _pixelRatio = 0;
     int _width = 0;
     int _height = 0;
 };
+
+BGJS_JNI_LINK_DEF(BGJSGLView)
 
 #endif

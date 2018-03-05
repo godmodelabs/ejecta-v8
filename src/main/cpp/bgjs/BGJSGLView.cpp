@@ -68,6 +68,7 @@ void BGJSGLView::setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, 
 void BGJSGLView::onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int height) {
     _width = width;
     _height = height;
+    _pixelRatio = pixelRatio;
     noFlushOnRedraw = false;
     noClearOnFlip = doNoClearOnFlip;
 
@@ -81,6 +82,7 @@ void BGJSGLView::onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width
     LOGI("pixel Ratio %f", pixelRatio);
 #endif
     context2d->create();
+    context2d->resize(width, height);
 }
 
 BGJSGLView::~BGJSGLView() {

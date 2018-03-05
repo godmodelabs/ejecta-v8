@@ -51,6 +51,8 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
         return;
     }
 
+    JNI_ASSERT(baseCanonicalName != "<unknown>" && canonicalName != "<unknown>", "Could not resolve canonicalnames; missing BGJS_JNI_LINK_DEF?");
+
     // baseCanonicalName must either be empty (not a derived object), or already registered
     std::map<std::string, JNIClassInfo*>::iterator it;
 
@@ -58,6 +60,7 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
     if(!baseCanonicalName.empty()) {
         it = _objmap.find(baseCanonicalName);
         if (it == _objmap.end()) {
+            JNI_ASSERT(0, "Attempt to register objects with unknown super class");
             return;
         }
         baseInfo = it->second;

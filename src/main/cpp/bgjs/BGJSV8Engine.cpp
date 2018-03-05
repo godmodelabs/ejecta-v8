@@ -817,7 +817,7 @@ void BGJSV8Engine::js_global_cancelAnimationFrame(
 
 		int id = (int) (Local<Number>::Cast(args[0])->Value());
         JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
-        args.GetReturnValue().Set(view->callJavaIntMethod("cancelAnimationFrame", id));
+        view->callJavaVoidMethod("cancelAnimationFrame", id);
 	} else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(

@@ -10,11 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 02.03.18 for myrmecophaga-2.0.
- * Copyright (c) 2018 ${ORGANIZATION_NAME}. All rights reserved.
+ * Copyright (c) 2018 BörseGo AG. All rights reserved.
  */
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object(engine) {
+open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object(engine) {
     private val callbacksResize = ArrayList<JNIV8Function>(2)
     private val callbacksClose = ArrayList<JNIV8Function>(2)
     private val callbacksRedraw = ArrayList<JNIV8Function>(2)
@@ -84,9 +84,9 @@ class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object
 
     private fun executeCallbacks(callbacks: ArrayList<JNIV8Function>, vararg args: Any) {
         var lastException: Exception? = null
-        for (cb in callbacksClose) {
+        for (cb in callbacks) {
             try {
-                cb.callAsV8Function(args)
+                cb.callAsV8Function(*args)
             } catch (e: Exception) {
                 lastException = e
                 Log.e(TAG, "Exception when running close callback", e)
