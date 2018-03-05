@@ -47,7 +47,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
 		JNIV8Wrapper::init();
 
 		JNIWrapper::registerObject<BGJSV8Engine>();
-        JNIWrapper::registerObject<BGJSGLView>();
+        JNIV8Wrapper::registerObject<BGJSGLView>();
     }
 
     return JNI_VERSION_1_6;

@@ -93,10 +93,6 @@ public:
                                 const v8::PropertyCallbackInfo<v8::Value>& info);
     static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
 	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
-	void cancelAnimationFrame(int id);
-	bool runAnimationRequests(BGJSGLView* view);
-	void registerGLView(BGJSGLView* view);
-	void unregisterGLView(BGJSGLView* view);
 
 	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
 	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;

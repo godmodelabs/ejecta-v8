@@ -51,6 +51,8 @@ void BGJSGLView::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("endRedraw", "()V", (void*)BGJSGLView::endRedraw);
     info->registerNativeMethod("setTouchPosition", "(II)V", (void*)BGJSGLView::setTouchPosition);
     info->registerNativeMethod("setViewData", "(FZII)V", (void*)BGJSGLView::setViewData);
+    info->registerMethod("requestAnimationFrame", "(Lag/boersego/bgjs/JNIV8Function;)I");
+    info->registerMethod("cancelAnimationFrame", "(I)V");
 }
 
 void BGJSGLView::initializeV8Bindings(JNIV8ClassInfo *info) {

@@ -298,7 +298,8 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
 void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, jlong jsObjPtr) {
     auto v8Object = JNIWrapper::wrapObject<JNIV8Object>(obj);
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
-    JNI_ASSERT(v8Object && engine, "Invalid parameters");
+    JNI_ASSERT(engine, "Invalid engine parameter");
+    JNI_ASSERT(v8Object, "Invalid object; object must extend JNIV8Object and be registered on JNIV8Wrapper");
 
     JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
 

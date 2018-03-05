@@ -56,17 +56,19 @@ class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object
         }
     }
 
+    @Suppress("unused")
     fun requestAnimationFrame(cb: JNIV8Function): Int {
-        synchronized(this) {
+        // synchronized(this) {
             val id = nextAnimationRequestId.incrementAndGet()
             queuedAnimationRequests.add(AnimationFrameRequest(cb, id))
-            textureView.doNeedAttention(true)
+            textureView.requestRender()
             return id
-        }
+        // }
     }
 
+    @Suppress("unused")
     fun cancelAnimationFrame(id: Int) {
-        synchronized(this) {
+        // synchronized(this) {
             for (animationRequest in queuedAnimationRequests) {
                 if (animationRequest.id == id) {
                     // TODO: dispose
@@ -74,10 +76,10 @@ class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object
                     break
                 }
             }
-            if (queuedAnimationRequests.isEmpty()) {
-                textureView.doNeedAttention(false)
-            }
-        }
+//            if (queuedAnimationRequests.isEmpty()) {
+//                textureView.
+//            }
+        // }
     }
 
     private fun executeCallbacks(callbacks: ArrayList<JNIV8Function>, vararg args: Any) {
@@ -101,18 +103,24 @@ class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object
 
     fun onRedraw():Boolean {
         var didDraw = false
-        synchronized(this) {
-            didDraw = !callbacksRedraw.isEmpty()
-            if (didDraw) {
-                prepareRedraw()
-                for (animationRequest in queuedAnimationRequests) {
-                    animationRequest.cb.callAsV8Function()
-                }
-                for (cb in callbacksRedraw) {
-                    cb.callAsV8Function()
-                }
-                endRedraw()
+        // synchronized(this) {
+        // Clone and empty both lists of callbacks
+        val locker = v8Engine.lock()
+        val callbacksForThisRedraw = ArrayList<JNIV8Function>(30)
+        callbacksForThisRedraw.addAll(callbacksRedraw)
+        queuedAnimationRequests.forEach { callbacksForThisRedraw.add(it.cb) }
+        // callbacksRedraw.clear()
+        queuedAnimationRequests.clear()
+        v8Engine.unlock(locker)
+
+        didDraw = !callbacksForThisRedraw.isEmpty()
+
+        if (didDraw) {
+            prepareRedraw()
+            for (cb in callbacksForThisRedraw) {
+                cb.callAsV8Function()
             }
+            endRedraw()
         }
         return didDraw
     }
