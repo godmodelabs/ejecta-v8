@@ -187,14 +187,13 @@ jobject JNIWrapper::_createObject(const std::string& canonicalName, const char* 
 
         JNIEnv *env = JNIWrapper::getEnvironment();
 
-        jclass clazz = env->FindClass(canonicalName.c_str());
         jmethodID constructor;
         if (!constructorAlias) {
             constructor = info->methodMap.at("<init>").id;
-            return env->NewObject(clazz, constructor);
+            return env->NewObject(info->jniClassRef, constructor);
         } else {
             constructor = info->methodMap.at(constructorAlias).id;
-            return env->NewObjectV(clazz, constructor, constructorArgs);
+            return env->NewObjectV(info->jniClassRef, constructor, constructorArgs);
         }
     }
 }

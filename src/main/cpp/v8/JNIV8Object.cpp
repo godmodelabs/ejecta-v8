@@ -383,13 +383,15 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
     jobjectArray result = nullptr;
     jstring string;
 
+    std::string test;
+
     for(uint32_t i=0,n=arrayRef->Length(); i<n; i++) {
         MaybeLocal<Value> maybeValueRef = arrayRef->Get(context, i);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        string = JNIV8Marshalling::v8string2jstring(Local<String>::Cast(valueRef));
+        string = JNIV8Marshalling::v8string2jstring(valueRef->ToString());
         if(!result) {
             result = env->NewObjectArray(n, _jniString.clazz, string);
         } else {
