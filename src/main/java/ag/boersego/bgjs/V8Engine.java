@@ -18,7 +18,7 @@ import java.util.TimeZone;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import ag.boersego.bgjs.data.V8UrlCache;
-import ag.boersego.bgjs.modules.BGJSModuleAjax2;
+import ag.boersego.bgjs.modules.BGJSModuleAjax;
 import ag.boersego.bgjs.modules.BGJSModuleLocalStorage;
 import ag.boersego.bgjs.modules.BGJSModuleWebSocket;
 import okhttp3.OkHttpClient;
@@ -249,7 +249,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		mTimeZone = TimeZone.getDefault().getID();
 
 		// Register bundled Java-bridged JS modules
-		registerModule(BGJSModuleAjax2.getInstance());
+		registerModule(BGJSModuleAjax.getInstance());
         registerModule(new BGJSModuleLocalStorage(application.getApplicationContext()));
 
         // start thread
@@ -260,12 +260,12 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     public void setUrlCache (V8UrlCache cache) {
         mCache = cache;
-        BGJSModuleAjax2.getInstance().setUrlCache(cache);
+        BGJSModuleAjax.getInstance().setUrlCache(cache);
     }
 
 	public void setTPExecutor(final ThreadPoolExecutor executor) {
 		mTPExecutor = executor;
-        BGJSModuleAjax2.getInstance().setExecutor(executor);
+        BGJSModuleAjax.getInstance().setExecutor(executor);
 	}
 
     public static boolean isReady () {
@@ -490,7 +490,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
 	public void setHttpClient(final OkHttpClient client) {
 		mHttpClient = client;
-		BGJSModuleAjax2.getInstance().setHttpClient(client);
+		BGJSModuleAjax.getInstance().setHttpClient(client);
         registerModule(new BGJSModuleWebSocket(client));
 	}
 
