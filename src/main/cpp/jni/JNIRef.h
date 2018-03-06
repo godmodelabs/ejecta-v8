@@ -52,6 +52,19 @@ protected:
         }
     }
 
+    // reset internal storage
+    void reset(JNIRef<T>& ref) {
+        release();
+        _obj = obj; // @TODO
+        retain();
+    }
+
+    void reset(JNIRef<T>&& ref) {
+        release();
+        _obj = obj; // @TODO
+        retain();
+    }
+
     // make ref retaining (initializes counter)
     void retain() {
         // null pointers can not be retained...
@@ -167,7 +180,7 @@ public:
         return *this;
     }
 
-    // create a global ref from a local ref
+    // create a local ref from a global ref
     static JNILocalRef<T> New(JNIGlobalRef<T>& ref) {
         return JNILocalRef<T>(ref.get());
     }
@@ -212,9 +225,20 @@ public:
         return *this;
     }
 
-    // create a local ref from a global ref
+    // create a global ref from a local ref
+    static JNIGlobalRef<T> New(JNILocalRef<T>&& ref) {
+        return JNIGlobalRef<T>(ref.get());
+    }
     static JNIGlobalRef<T> New(JNILocalRef<T>& ref) {
         return JNIGlobalRef<T>(ref.get());
+    }
+
+    // assign to a global ref from a local ref
+    void Reset(JNIRef<T>&& ref) {
+        reset(ref);
+    }
+    void Reset(JNIRef<T>& ref) {
+        reset(ref);
     }
 
     // cast between different types

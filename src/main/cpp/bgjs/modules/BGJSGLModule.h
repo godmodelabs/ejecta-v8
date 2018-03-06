@@ -14,7 +14,7 @@ class BGJSV8Engine2dGL;
  * Licensed under the MIT license.
  */
 
-class BGJSGLModule : public BGJSModule {
+class BGJSGLModule  {
 	bool initialize();
 	~BGJSGLModule();
 

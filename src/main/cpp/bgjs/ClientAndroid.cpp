@@ -21,7 +21,6 @@
 #include <v8.h>
 
 #include "BGJSV8Engine.h"
-#include "modules/AjaxModule.h"
 #include "modules/BGJSGLModule.h"
 #include "BGJSGLView.h"
 
@@ -74,7 +73,6 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	ct->createContext();
 	LOGD("BGJS context created");
 
-	ct->registerModule("ajax", AjaxModule::doRequire);
 	ct->registerModule("canvas", BGJSGLModule::doRequire);
 	LOGD("ClientAndroid init: registerModule done");
 }

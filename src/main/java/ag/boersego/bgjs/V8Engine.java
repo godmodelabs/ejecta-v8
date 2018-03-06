@@ -10,7 +10,6 @@ import android.os.Message;
 import android.util.Log;
 import android.util.SparseArray;
 
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,7 +17,6 @@ import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import ag.boersego.bgjs.data.AjaxRequest;
 import ag.boersego.bgjs.data.V8UrlCache;
 import ag.boersego.bgjs.modules.BGJSModuleAjax2;
 import ag.boersego.bgjs.modules.BGJSModuleLocalStorage;
@@ -425,12 +423,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 return true;
             case MSG_LOAD:
                 return true;
-            case MSG_AJAX:
-                V8AjaxRequest req = (V8AjaxRequest) msg.obj;
-                if (req != null) {
-                    req.doCallBack();
-                }
-                return true;
             case MSG_READY:
                 mReady = true;
                 if (mHandlers != null) {
@@ -522,83 +514,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         registerModule(new BGJSModuleWebSocket(client));
 	}
 
-	public class V8AjaxRequest implements AjaxRequest.AjaxListener {
-        private AjaxRequest mReq;
-		private long mCbPtr;
-		private long mThisObj;
-		private boolean mSuccess;
-		private String mData;
-		private int mCode;
-		private long mErrorCb;
-		private boolean mProcessData;
-
-		V8AjaxRequest(String url, long jsCallbackPtr, long thisObj, long errorCb,
-                      String data, String method, boolean processData) {
-			mCbPtr = jsCallbackPtr;
-			mThisObj = thisObj;
-			mErrorCb = errorCb;
-			mSuccess = false;
-			mProcessData = processData;
-			try {
-				mReq = new AjaxRequest(url, data, this, method);
-			} catch (URISyntaxException e) {
-				Log.e(TAG, "Cannot create URL", e);
-				ClientAndroid.ajaxDone(V8Engine.this, null, 500, mCbPtr, mThisObj, mErrorCb, false, mProcessData);
-                return;
-			}
-			mReq.setCacheInstance(mCache);
-            mReq.setHttpClient(mHttpClient);
-			mReq.doRunOnUiThread(false);
-			mReq.setOutputType("application/json");
-
-			final Runnable runnable = () -> {
-                if (DEBUG) {
-                    Log.d(TAG, "Executing V8Ajax request");
-                }
-                mReq.run();
-                mReq.runCallback();
-                V8Engine engine = V8Engine.getInstance();
-                engine.mHandler.sendMessage(engine.mHandler
-                        .obtainMessage(MSG_AJAX, V8AjaxRequest.this));
-            };
-			if (mTPExecutor != null) {
-				mTPExecutor.execute(runnable);
-			} else {
-				final Thread thr = new Thread(runnable);
-				thr.start();
-			}
-		}
-
-		void doCallBack() {
-			if (DEBUG) {
-				Log.d(TAG, "Calling V8 success cb " + mCbPtr + ", thisObj "
-						+ mThisObj + " for code " + mCode + ", thread "
-						+ Thread.currentThread().getId());
-			}
-			ClientAndroid.ajaxDone(V8Engine.this, mData, mCode, mCbPtr, mThisObj, mErrorCb, mSuccess, mProcessData);
-		}
-
-		public void success(String data, int code, AjaxRequest r) {
-			mSuccess = true;
-			mData = data;
-			mCode = code;
-		}
-
-		public void error(String data, int code, Throwable tr, AjaxRequest r) {
-			mSuccess = false;
-			mData = data;
-			mCode = code;
-		}
-	}
-
-	public static void doAjaxRequest(String url, long jsCb, long thisObj, long errorCb,
-			String data, String method, boolean processData) {
-		V8AjaxRequest req = mInstance.new V8AjaxRequest(url, jsCb, thisObj, errorCb, data, method, processData);
-		if (DEBUG) {
-			Log.d(TAG, "Preparing to do ajax request on thread "
-					+ Thread.currentThread().getId());
-		}
-	}
 
 	public void shutdown() {
 		mHandler.sendEmptyMessage(MSG_QUIT);
@@ -608,7 +523,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	private static final int MSG_CLEANUP = 1;
 	private static final int MSG_QUIT = 2;
 	private static final int MSG_LOAD = 3;
-	private static final int MSG_AJAX = 4;
 	private static final int MSG_READY = 5;
 
 

@@ -20,9 +20,6 @@
 -keep class ag.boersego.bgjs.V8Engine {
     public *;
 }
--keep class * extends ag.boersego.bgjs.V8BackedJavaClass {
-    public *;
-}
 
 -keep class ag.boersego.bgjs.JNIV8Object {
     public <init>(***);

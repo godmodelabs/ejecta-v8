@@ -28,7 +28,7 @@ public class BGJSModuleAjax2 extends JNIV8Module {
     }
 
     private BGJSModuleAjax2() {
-        super("ajax2");
+        super("ajax");
     }
 
     public void setUrlCache (V8UrlCache cache) {

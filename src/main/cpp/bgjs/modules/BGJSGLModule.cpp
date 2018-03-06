@@ -17,6 +17,7 @@
 
 #include "../jniext.h"
 #include "../../jni/JNIWrapper.h"
+#include "../../v8/JNIV8Wrapper.h"
 
 // #define DEBUG 1
 #undef DEBUG
@@ -91,7 +92,7 @@ public:
 
 class BGJSCanvasGL {
 public:
-	BGJSGLView* _view;
+	JNIGlobalRef<BGJSGLView> _view;
 	const BGJSV8Engine2dGL* _context2d;
 	const BGJSV8Engine* _context;
 
@@ -748,10 +749,6 @@ static void js_context_arc(const v8::FunctionCallbackInfo<v8::Value>& args) {
 static void js_context_drawSystemFocusRing(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	//CONTEXT_FETCH();
 
-	/*
-	 void drawSystemFocusRing(in Element element);
-	 */
-	//assert(argumentCount==1);
 	LOGI("drawSystemFocusRing: unimplemented stub!");
 	args.GetReturnValue().SetUndefined();
 }
@@ -759,10 +756,6 @@ static void js_context_drawSystemFocusRing(const v8::FunctionCallbackInfo<v8::Va
 static void js_context_drawCustomFocusRing(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	//CONTEXT_FETCH();
 
-	/*
-	 void drawCustomFocusRing(in Element element);
-	 */
-	//assert(argumentCount==1);
 	LOGI("drawCustomFocusRing: unimplemented stub!");
 	args.GetReturnValue().SetUndefined();
 }
@@ -954,8 +947,8 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	}
 	Local<Object> obj = args[0]->ToObject();
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
-	Local<Value> external = obj->GetInternalField(0);
-	canvas->_view = externalToClassPtr<BGJSGLView>(external);
+	canvas->_view = JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject());
+// JNIGlobalRef
 
 	Local<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance();
 	fn->SetInternalField(0, External::New(isolate, canvas));
@@ -971,8 +964,9 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 		args.GetReturnValue().SetUndefined();
 		return;
 	}
-	BGJSCanvasGL *canvas = externalToClassPtr<BGJSCanvasGL>(
-			args.This()->ToObject()->GetInternalField(0));
+
+	Local<External> external = Local<External>::Cast(args.This()->ToObject()->GetInternalField(0));
+	BGJSCanvasGL *canvas = reinterpret_cast<BGJSCanvasGL*>(external->Value());
 
 	if (canvas->_context2d) {
 	    args.GetReturnValue().Set(scope.Escape(Local<Object>::New(isolate, canvas->_context2d->_jsValue)));
@@ -1138,10 +1132,6 @@ void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target
 	target->Set(String::NewFromUtf8(isolate, "exports"), exports);
 }
 
-BGJSGLModule::BGJSGLModule() :
-		BGJSModule("bgjsgl") {
-
-}
 
 BGJSGLModule::~BGJSGLModule() {
 
