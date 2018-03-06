@@ -502,18 +502,6 @@ MaybeLocal<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) const {
     return scope.Escape(result.ToLocalChecked());
 }
 
-Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, const char* name,
-		int argc, Handle<Value> argv[]) const {
-	v8::Locker l(isolate);
-	EscapableHandleScope scope(isolate);
-
-	Local<Function> fn = Handle<Function>::Cast(recv->Get(String::NewFromUtf8(isolate, name)));
-			String::Utf8Value value(fn);
-	
-	Local<Value> result = fn->Call(recv, argc, argv);
-	return scope.Escape(result);
-}
-
 v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) {
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);

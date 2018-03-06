@@ -52,19 +52,6 @@ protected:
         }
     }
 
-    // reset internal storage
-    void reset(JNIRef<T>& ref) {
-        release();
-        _obj = obj; // @TODO
-        retain();
-    }
-
-    void reset(JNIRef<T>&& ref) {
-        release();
-        _obj = obj; // @TODO
-        retain();
-    }
-
     // make ref retaining (initializes counter)
     void retain() {
         // null pointers can not be retained...
@@ -168,7 +155,7 @@ private:
 public:
     JNILocalRef(JNILocalRef<T>&& ref) : JNIRef<T>(std::move(ref)) {}
     JNILocalRef(const JNILocalRef<T> &ref) : JNIRef<T>(ref) {}
-    JNILocalRef(T *obj) : JNIRef<T>(obj, false) {}
+    JNILocalRef(T *obj = nullptr) : JNIRef<T>(obj, false) {}
 
     JNILocalRef<T>& operator=(JNILocalRef<T>&& other) {
         JNIRef<T>::operator=(std::move(other));
@@ -213,7 +200,7 @@ private:
 public:
     JNIGlobalRef(JNIGlobalRef<T>&& ref) : JNIRef<T>(std::move(ref)) {}
     JNIGlobalRef(const JNIGlobalRef<T> &ref) : JNIRef<T>(ref) {}
-    JNIGlobalRef(T *obj) : JNIRef<T>(obj, true) {}
+    JNIGlobalRef(T *obj = nullptr) : JNIRef<T>(obj, true) {}
 
     JNIGlobalRef<T>& operator=(JNIGlobalRef<T>&& other) {
         JNIRef<T>::operator=(std::move(other));
@@ -225,20 +212,24 @@ public:
         return *this;
     }
 
+    JNIGlobalRef<T>& operator=(JNILocalRef<T>&& other) {
+        JNIRef<T>::operator=(std::move(other));
+        JNIRef<T>::retain();
+        return *this;
+    }
+
+    JNIGlobalRef<T>& operator=(JNILocalRef<T>& other) {
+        JNIRef<T>::operator=(other);
+        JNIRef<T>::retain();
+        return *this;
+    }
+
     // create a global ref from a local ref
     static JNIGlobalRef<T> New(JNILocalRef<T>&& ref) {
         return JNIGlobalRef<T>(ref.get());
     }
     static JNIGlobalRef<T> New(JNILocalRef<T>& ref) {
         return JNIGlobalRef<T>(ref.get());
-    }
-
-    // assign to a global ref from a local ref
-    void Reset(JNIRef<T>&& ref) {
-        reset(ref);
-    }
-    void Reset(JNIRef<T>& ref) {
-        reset(ref);
     }
 
     // cast between different types

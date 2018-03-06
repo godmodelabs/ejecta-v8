@@ -795,7 +795,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 if (mClearColorSet) {
                     GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
                     GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
-                    mClearColorSet = false;
                 }
 
 				synchronized (this) {

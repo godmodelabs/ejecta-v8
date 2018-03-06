@@ -61,9 +61,6 @@ public:
 	v8::Isolate* getIsolate() const;
 	v8::Local<v8::Context> getContext() const;
 
-	v8::Handle<v8::Value> callFunction(v8::Isolate* isolate, v8::Handle<v8::Object> recv, const char* name,
-    		int argc, v8::Handle<v8::Value> argv[]) const;
-
 	bool forwardJNIExceptionToV8() const;
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
 

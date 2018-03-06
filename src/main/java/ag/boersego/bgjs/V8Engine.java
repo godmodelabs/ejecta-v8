@@ -371,26 +371,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		}
 	}
 	
-	protected void callOnCBBool(String event, boolean b) {
-		synchronized (mEvents) {
-			ArrayList<V8EventCB> eventList = mEvents.get(event);
-			if (eventList == null) {
-				if (DEBUG) {
-					Log.i (TAG, "No listeners for event " + event);
-				}
-				return;
-			}
-			
-			for (V8EventCB cb : eventList) {
-				if (DEBUG) {
-					Log.d (TAG, "Calling on " + event + ", " + cb.cbPtr);
-				}
-				ClientAndroid.runCBBoolean(this, cb.cbPtr, cb.thisPtr, b);
-			}
-		}
-	}
-
-	
 	public synchronized void addStatusHandler (V8EngineHandler h) {
 		if (mReady) {
 			h.onReady();

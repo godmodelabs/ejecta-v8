@@ -30,7 +30,7 @@ using namespace v8;
  * BGJSGLModule
  * Canvas BGJS extension. This is the glue between Ejectas Canvas and OpenGL draw code, BGJSGLViews context handling and v8.
  *
- * Copyright 2014 Kevin Read <me@kevin-read.com> and BörseGo AG (https://github.com/godmodelabs/ejecta-v8/)
+ * Copyright 2018 Kevin Read <me@kevin-read.com> and BörseGo AG (https://github.com/godmodelabs/ejecta-v8/)
  * Licensed under the MIT license.
  */
 
@@ -84,17 +84,37 @@ void* ptr = wrap->Value(); \
 BGJSCanvasContext *__context = static_cast<BGJSV8Engine2dGL*>(ptr)->context;
 
 
+/**
+ * internal struct for storing information for weak callbacks
+ */
+struct CanvasCallbackHolder {
+    v8::Persistent<v8::Object> persistent;
+};
+
 class BGJSV8Engine2dGL {
 public:
-	Persistent<Object> _jsValue;
+	v8::Persistent<v8::Object> _jsValue;
 	BGJSCanvasContext* context;
+
+    ~BGJSV8Engine2dGL();
 };
+
+BGJSV8Engine2dGL::~BGJSV8Engine2dGL() {
+    if (context) {
+        context = nullptr;
+    }
+    if (!_jsValue.IsEmpty()) {
+        _jsValue.Reset();
+    }
+}
 
 class BGJSCanvasGL {
 public:
 	JNIGlobalRef<BGJSGLView> _view;
 	const BGJSV8Engine2dGL* _context2d;
 	const BGJSV8Engine* _context;
+
+    ~BGJSCanvasGL();
 
 	static void getWidth(Local<String> property,
 			const v8::PropertyCallbackInfo<Value>& info);
@@ -109,6 +129,12 @@ public:
 	static void setPixelRatio(Local<String> property, Local<Value> value,
     			const v8::PropertyCallbackInfo<void>& info);
 };
+
+BGJSCanvasGL::~BGJSCanvasGL() {
+    if (_context2d) {
+        delete _context2d;
+    }
+}
 
 v8::Persistent<v8::Function> BGJSGLModule::g_classRefCanvasGL;
 v8::Persistent<v8::Function> BGJSGLModule::g_classRefContext2dGL;
@@ -929,6 +955,12 @@ static void js_context_putImageData(const v8::FunctionCallbackInfo<v8::Value>& a
 	args.GetReturnValue().SetUndefined();
 }
 
+void js_canvas_destruct(const v8::WeakCallbackInfo<void>& data) {
+    BGJSCanvasGL* canvas = (BGJSCanvasGL*)data.GetParameter();
+
+    delete canvas;
+}
+
 void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = Isolate::GetCurrent();
 	v8::Locker l(isolate);
@@ -948,10 +980,12 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	Local<Object> obj = args[0]->ToObject();
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
 	canvas->_view = JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject());
-// JNIGlobalRef
 
 	Local<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance();
 	fn->SetInternalField(0, External::New(isolate, canvas));
+    CanvasCallbackHolder* persistentHolder = new CanvasCallbackHolder();
+    persistentHolder->persistent.Reset(isolate, fn);
+    persistentHolder->persistent.SetWeak((void*)canvas, js_canvas_destruct, WeakCallbackType::kParameter);
 	args.GetReturnValue().Set(scope.Escape(fn));
 }
 
@@ -974,28 +1008,15 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 	}
 
 	BGJSV8Engine2dGL *context2d = new BGJSV8Engine2dGL();
-	// Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(BGJSV8Engine::_context));
 	Local<Function> gClassRefLocal = *reinterpret_cast<Local<Function>*>(&BGJSGLModule::g_classRefContext2dGL);
 	Local<Object> jsObj = gClassRefLocal->NewInstance();
 	BGJS_RESET_PERSISTENT(isolate, context2d->_jsValue, jsObj);
-	context2d->_jsValue.SetWeak<BGJSV8Engine2dGL>(context2d, js_context_destruct, WeakCallbackType::kInternalFields);
+
 	context2d->context = canvas->_view->context2d;
 	jsObj->SetInternalField(0, External::New(isolate, context2d));
 	canvas->_context2d = context2d;
 
 	args.GetReturnValue().Set(scope.Escape(jsObj));
-}
-
-void BGJSGLModule::js_context_destruct(const v8::WeakCallbackInfo<BGJSV8Engine2dGL>& data) {
-	LOGD("js context destruct %p", data);
-	// delete (BGJSV8Engine2dGL*)data.GetInternalField(0);
-	BGJS_CLEAR_PERSISTENT(data.GetParameter()->_jsValue);
-	delete (data.GetParameter());
-	/* BGJSV8Engine2dGL *context2d = data.GetParameter();
-	context2d->_jsValue.Reset();
-	// assert(value.IsNearDeath());
-	delete context2d; */
-	// TODO: Also destroy canvas instance?
 }
 
 void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target) {

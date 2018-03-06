@@ -122,30 +122,5 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 	}
 }
 
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_runCBBoolean (JNIEnv * env, jobject obj, jobject engine, jlong cbPtr, jlong thisPtr, jboolean b) {
-	auto context = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-    v8::Isolate* isolate = context->getIsolate();
-    v8::Locker l (isolate);
-	Isolate::Scope isolateScope(isolate);
-
-	HandleScope scope(isolate);
-	Context::Scope context_scope(context->getContext());
-
-	TryCatch trycatch;
-	Persistent<Function>* fnPersist = static_cast<Persistent<Function>*>((void*)cbPtr);
-	Persistent<Object>* thisObjPersist = static_cast<Persistent<Object>*>((void*)thisPtr);
-	Local<Function> fn = (*reinterpret_cast<Local<Function>*>(fnPersist));
-	Local<Object> thisObj = (*reinterpret_cast<Local<Object>*>(thisObjPersist));
-
-	int argcount = 1;
-	Handle<Value> argarray[] = { Boolean::New(isolate, b ? true : false)};
-
-	Handle<Value> result = fn->Call(thisObj, argcount, argarray);
-	if (result.IsEmpty()) {
-		context->forwardV8ExceptionToJNI(&trycatch);
-	}
-	// TODO: Don't we need to clean up these persistents?
-    // => No, because they are pointers to a persistent that is stored elsewhere?!
-}
 
 
