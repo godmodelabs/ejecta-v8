@@ -463,7 +463,6 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
 jstring JNIV8Marshalling::v8string2jstring(v8::Local<v8::String> string) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     return env->NewString(*v8::String::Value(string), string->Length()); // returns "" when called with NULL,0
-
 }
 
 /**
@@ -471,20 +470,23 @@ jstring JNIV8Marshalling::v8string2jstring(v8::Local<v8::String> string) {
  */
 jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
     JNIEnv *env = JNIWrapper::getEnvironment();
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope scope(isolate);
 
     if(valueRef->IsNull()) {
         return nullptr;
     } else if(valueRef->IsObject()) {
+        v8::Local<v8::Object> objectRef = valueRef.As<v8::Object>();
         if (valueRef->IsFunction()) {
-            return JNIV8Wrapper::wrapObject<JNIV8Function>(valueRef->ToObject())->getJObject();
+            return JNIV8Wrapper::wrapObject<JNIV8Function>(objectRef)->getJObject();
         } else if (valueRef->IsArray()) {
-            return JNIV8Wrapper::wrapObject<JNIV8Array>(valueRef->ToObject())->getJObject();
+            return JNIV8Wrapper::wrapObject<JNIV8Array>(objectRef)->getJObject();
         }
-        auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(valueRef->ToObject());
+        auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(objectRef);
         if (ptr) {
             return ptr->getJObject();
         } else {
-            return JNIV8Wrapper::wrapObject<JNIV8GenericObject>(valueRef->ToObject())->getJObject();
+            return JNIV8Wrapper::wrapObject<JNIV8GenericObject>(objectRef)->getJObject();
         }
     } else if(valueRef->IsNumber()) {
         return env->CallStaticObjectMethod(_jniDouble.clazz, _jniDouble.valueOfId, valueRef->NumberValue());

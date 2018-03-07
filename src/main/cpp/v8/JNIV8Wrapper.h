@@ -151,7 +151,9 @@ public:
             JNIEnv *env = JNIWrapper::getEnvironment();
             jobjectArray arguments = env->NewObjectArray(0, _jniObject.clazz, nullptr);
             // __android_log_print(ANDROID_LOG_WARN, "JNIV8Wrapper", "Creating %s", JNIBase::getCanonicalName<ObjectType>().c_str());
-            return JNILocalRef<ObjectType>::Cast(info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments));
+            auto localRef = JNILocalRef<ObjectType>::Cast(info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments));
+            env->DeleteLocalRef(arguments);
+            return localRef;
         } else {
             if (object->InternalFieldCount() >= 1) {
                 // does the object have internal fields? if so use it!
