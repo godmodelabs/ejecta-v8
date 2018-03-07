@@ -141,10 +141,7 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
     // initialize class info: template with constructor and general setup created here
     // individual methods and accessors handled by static method on subclass
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
-    Isolate::Scope isolateScope(isolate);
     HandleScope scope(isolate);
-    Context::Scope ctxScope(engine->getContext());
 
     // v8 class name: canonical name with underscores instead of slashes
     // e.g. ag/boersego/bgjs/Test becomes ag_boersego_bgjs_Test
@@ -301,8 +298,6 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, j
     JNI_ASSERT(engine, "Invalid engine parameter");
     JNI_ASSERT(v8Object, "Invalid object; object must extend JNIV8Object and be registered on JNIV8Wrapper");
 
-    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
-
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
     Isolate::Scope isolateScope(isolate);
@@ -311,6 +306,8 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, j
 
     v8::Persistent<Object>* persistentPtr;
     v8::Local<Object> jsObj;
+
+    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
 
     // if an object was already supplied we just need to extract it and store it
     if(jsObjPtr) {
