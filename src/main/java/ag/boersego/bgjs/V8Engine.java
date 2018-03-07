@@ -112,8 +112,11 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     public void runLocked(final Runnable runInLocker) {
         final long lockerInst = lock();
-        runInLocker.run();
-        unlock(lockerInst);
+        try {
+			runInLocker.run();
+		} finally {
+			unlock(lockerInst);
+		}
     }
 
     /**

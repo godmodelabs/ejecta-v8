@@ -105,13 +105,13 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
         var didDraw = false
         // synchronized(this) {
         // Clone and empty both lists of callbacks
-        val locker = v8Engine.lock()
         val callbacksForThisRedraw = ArrayList<JNIV8Function>(30)
-        callbacksForThisRedraw.addAll(callbacksRedraw)
-        queuedAnimationRequests.forEach { callbacksForThisRedraw.add(it.cb) }
-        // callbacksRedraw.clear()
-        queuedAnimationRequests.clear()
-        v8Engine.unlock(locker)
+        v8Engine.runLocked {
+            callbacksForThisRedraw.addAll(callbacksRedraw)
+            queuedAnimationRequests.forEach { callbacksForThisRedraw.add(it.cb) }
+            // callbacksRedraw.clear()
+            queuedAnimationRequests.clear()
+        }
 
         didDraw = !callbacksForThisRedraw.isEmpty()
 
