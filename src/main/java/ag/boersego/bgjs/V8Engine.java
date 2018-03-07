@@ -110,6 +110,11 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
+    /**
+     * Execute a Runnable within a v8 level lock on this v8 engine and hence this v8 Isolate.
+     * @param runInLocker the Runnable to execute with the lock held
+     * @return the result of the block
+     */
     public void runLocked(final Runnable runInLocker) {
         final long lockerInst = lock();
         try {
@@ -320,13 +325,13 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	 * Create a v8::Locker and return the pointer to the instance
 	 * @return pointer to v8::Locker
 	 */
-	native long lock();
+	private native long lock();
 
     /**
      * Destroy / Leave a v8::Locker
      * @param lockerPtr the pointer to the Locker instance
      */
-    native void unlock(long lockerPtr);
+    private native void unlock(long lockerPtr);
 
 	private Thread jsThread = null;
 
