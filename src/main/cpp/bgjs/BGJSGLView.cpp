@@ -51,12 +51,22 @@ void BGJSGLView::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("endRedraw", "()V", (void*)BGJSGLView::endRedraw);
     info->registerNativeMethod("setTouchPosition", "(II)V", (void*)BGJSGLView::setTouchPosition);
     info->registerNativeMethod("setViewData", "(FZII)V", (void*)BGJSGLView::setViewData);
+    info->registerNativeMethod("viewWasResized", "(II)V", (void*)BGJSGLView::viewWasResized);
     info->registerMethod("requestAnimationFrame", "(Lag/boersego/bgjs/JNIV8Function;)I");
     info->registerMethod("cancelAnimationFrame", "(I)V");
 }
 
 void BGJSGLView::initializeV8Bindings(JNIV8ClassInfo *info) {
 
+
+}
+
+void BGJSGLView::viewWasResized(JNIEnv *env, jobject objWrapped, int width, int height) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->_width = width;
+    self->_height = height;
+    self->context2d->resize(width, height);
 }
 
 void BGJSGLView::setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height) {

@@ -44,6 +44,8 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
 
     external fun setViewData(devicePixelRatio: Float, dontClearOnFlip: Boolean, x: Int, y: Int)
 
+    external fun viewWasResized(x: Int, y: Int)
+
     @V8Function
     fun on(event: String, cb: JNIV8Function) {
         // TODO: Synchronize these
@@ -126,6 +128,7 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
     }
 
     fun onResize() {
+        viewWasResized(width, height)
         executeCallbacks(callbacksResize)
     }
 

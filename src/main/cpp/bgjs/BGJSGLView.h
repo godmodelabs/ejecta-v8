@@ -18,7 +18,7 @@ class BGJSGLView : public JNIScope<BGJSGLView, JNIV8Object> {
 public:
 	BGJSGLView(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
-    static void setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
+    static void setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height);
 	virtual void onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
 
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
@@ -29,6 +29,8 @@ public:
     virtual void onPrepareRedraw();
     static void endRedraw(JNIEnv *env, jobject objWrapped);
     virtual void onEndRedraw();
+
+    static void viewWasResized(JNIEnv *env, jobject objWrapped, int width, int height);
 
 	static void setTouchPosition(JNIEnv *env, jobject objWrapped, int x, int y);
     virtual void onSetTouchPosition(int x, int y);

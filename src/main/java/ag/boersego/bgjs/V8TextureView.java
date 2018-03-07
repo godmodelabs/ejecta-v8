@@ -87,7 +87,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
     abstract public void onGLCreated (BGJSGLView jsViewObject);
 
-    abstract public void onGLRecreated (BGJSGLView jsViewObject);
+    public void onGLRecreated (BGJSGLView jsViewObject) {
+        if (mBGJSGLView != null) {
+            mBGJSGLView.onResize();
+        }
+    }
 
     abstract public void onGLCreateError (Exception ex);
 
@@ -101,7 +105,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (mFinished) {
 			return;
 		}
-		mRenderThread = new RenderThread(surface, width, height);
+		mRenderThread = new RenderThread(surface);
 		if (DEBUG) {
 			Log.d(TAG, "Starting render thread");
 		}
@@ -624,9 +628,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		private long mLastRenderSec;	// Used to calculate FPS
 		private int mRenderCnt;
 
-		private int mWidth;				// Cache width and height of underlying surface
-		private int mHeight;
-
 		private boolean mRenderPending;
 		private boolean mReinitPending;
 
@@ -637,10 +638,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         private boolean mHasSwap;
 
 
-        RenderThread(SurfaceTexture surface, int width, int height) {
+        RenderThread(SurfaceTexture surface) {
 			mSurface = surface;
-			mWidth = width;
-			mHeight = height;
 		}
 
 		/**
@@ -980,11 +979,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 		}
 
-		public void setSize(int width, int height) {
-			mWidth = width;
-			mHeight = height;
-		}
-
 		public SurfaceTexture getSurface() {
 			return mSurface;
 		}
@@ -1012,7 +1006,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (DEBUG) {
 			Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
 		}
-		mRenderThread.setSize(width, height);
+
 		mRenderThread.reinitGl();
 		V8TextureView.this.resetTouches();
 
