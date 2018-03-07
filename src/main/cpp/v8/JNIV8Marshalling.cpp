@@ -115,6 +115,7 @@ JNIV8JavaValue JNIV8Marshalling::persistentValueWithTypeSignature(const std::str
     JNI_ASSERTF((type.length()>1 && clazz) || std::string("ZBCSIJFDV").find(type) != std::string::npos, "invalid argument type '%s'", type.c_str());
     JNI_ASSERTF(valueType != JNIV8JavaValueType::kObject || (env->IsSameObject(clazz, _jniObjectClazz) || env->IsAssignableFrom(clazz, _jniJNIV8ObjectClazz)), "invalid argument type '%s'", type.c_str())
     JNI_ASSERT((flags & JNIV8MarshallingFlags::kNonNull) || type.length() > 1, "primitive types must not be nullable")
+    JNI_ASSERT(!(flags & JNIV8MarshallingFlags::kUndefinedIsNull) || type.length() > 1, "primitive types can not treat undefined as null")
     JNI_ASSERT(valueType != JNIV8JavaValueType::kVoid || (!clazz || !(flags & JNIV8MarshallingFlags::kNonNull)), "Void property must nullable");
 #endif
 
