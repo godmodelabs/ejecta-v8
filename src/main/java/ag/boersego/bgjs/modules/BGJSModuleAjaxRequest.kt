@@ -261,7 +261,13 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     val bodyMap = body.v8Fields
 
                     for (entry in bodyMap.entries) {
-                        formBody.add(entry.key, if (entry.value is String) entry.value as String else "")
+                        // Encoded as form fields, undefined or null are represented as empty
+                        val stringValue = when (entry.value) {
+                            is JNIV8Undefined -> ""
+                            null -> ""
+                            else -> entry.value.toString()
+                        }
+                        formBody.add(entry.key, stringValue)
                     }
                     this.formBody = formBody.build()
                 } else if (body is String) {
