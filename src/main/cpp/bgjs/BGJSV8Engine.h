@@ -61,9 +61,6 @@ public:
 	v8::Isolate* getIsolate() const;
 	v8::Local<v8::Context> getContext() const;
 
-	v8::Handle<v8::Value> callFunction(v8::Isolate* isolate, v8::Handle<v8::Object> recv, const char* name,
-    		int argc, v8::Handle<v8::Value> argv[]) const;
-
 	bool forwardJNIExceptionToV8() const;
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
 
@@ -93,10 +90,6 @@ public:
                                 const v8::PropertyCallbackInfo<v8::Value>& info);
     static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
 	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
-	void cancelAnimationFrame(int id);
-	bool runAnimationRequests(BGJSGLView* view);
-	void registerGLView(BGJSGLView* view);
-	void unregisterGLView(BGJSGLView* view);
 
 	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
 	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
@@ -170,8 +163,6 @@ private:
 	v8::Persistent<v8::Function> _makeJavaErrorFn;
 	v8::Persistent<v8::Function> _getStackTraceFn;
     v8::Local<v8::Function> makeRequireFunction(std::string pathName);
-
-	std::set<BGJSGLView*> _glViews;
 
 	int _nextTimerId;
 };

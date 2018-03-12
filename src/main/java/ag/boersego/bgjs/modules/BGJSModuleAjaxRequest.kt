@@ -43,10 +43,10 @@ class HttpResponseDetails(engine: V8Engine) : JNIV8Object(engine) {
 
 @SuppressLint("LogNotTimber")
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
+class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     @V8Function
-    fun done(cb: JNIV8Function?): BGJSModuleAjax2Request {
+    fun done(cb: JNIV8Function?): BGJSModuleAjaxRequest {
         if (cb != null) {
             callbacks.add(Pair(CallbackType.DONE, cb))
         }
@@ -54,7 +54,7 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
     }
 
     @V8Function
-    fun fail(cb: JNIV8Function?): BGJSModuleAjax2Request {
+    fun fail(cb: JNIV8Function?): BGJSModuleAjaxRequest {
         if (cb != null) {
         callbacks.add(Pair(CallbackType.FAIL, cb))
     }
@@ -62,7 +62,7 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
     }
 
     @V8Function
-    fun always(cb: JNIV8Function?): BGJSModuleAjax2Request {
+    fun always(cb: JNIV8Function?): BGJSModuleAjaxRequest {
         if (cb != null) {
             callbacks.add(Pair(CallbackType.ALWAYS, cb))
         }
@@ -114,7 +114,7 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 v8Engine.runLocked {
 
                     if (!aborted) {
-                        val contentType = responseHeaders?.get("Content-Type")
+                        val contentType = responseHeaders?.get("content-type")
                         _responseIsJson = contentType?.startsWith("application/json") ?: false
 
                         if (mSuccessData != null) {
@@ -177,7 +177,7 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
         request.setCacheInstance(cache)
         request.setHeaders(headers)
         request.doRunOnUiThread(false)
-        request.setHttpClient(client)
+         request.setHttpClient(client)
         if (formBody != null) {
             request.setFormBody(formBody!!)
         }
@@ -229,14 +229,15 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
         if (headerRaw != null) {
             val fields = headerRaw.v8Fields
             for ((key, value) in fields) {
+                val keyLower = key.toLowerCase()
                 if (value is String) {
-                    headers[key] = value
+                    headers[keyLower] = value
                 } else {
-                    headers[key] = value.toString()
+                    headers[keyLower] = value.toString()
                 }
 
-                if (key == "Content-Type") {
-                    outputType = headers[key]
+                if (keyLower == "content-type") {
+                    outputType = headers[keyLower]
                 }
             }
         }
@@ -260,7 +261,13 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     val bodyMap = body.v8Fields
 
                     for (entry in bodyMap.entries) {
-                        formBody.add(entry.key, entry.value as String)
+                        // Encoded as form fields, undefined or null are represented as empty
+                        val stringValue = when (entry.value) {
+                            is JNIV8Undefined -> ""
+                            null -> ""
+                            else -> entry.value.toString()
+                        }
+                        formBody.add(entry.key, stringValue)
                     }
                     this.formBody = formBody.build()
                 } else if (body is String) {
@@ -299,10 +306,10 @@ class BGJSModuleAjax2Request(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     companion object {
         private var httpAdditionalHeaders: HashMap<String, String>
-        val TAG:String = BGJSModuleAjax2Request::class.java.simpleName
+        val TAG:String = BGJSModuleAjaxRequest::class.java.simpleName
 
         init {
-            JNIV8Object.RegisterV8Class(BGJSModuleAjax2Request::class.java)
+            JNIV8Object.RegisterV8Class(BGJSModuleAjaxRequest::class.java)
             JNIV8Object.RegisterV8Class(HttpResponseDetails::class.java)
             httpAdditionalHeaders = hashMapOf("Accept-Charset" to "utf-8",
                     "Accept-Language" to "en-US",

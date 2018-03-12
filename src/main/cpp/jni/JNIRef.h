@@ -155,7 +155,7 @@ private:
 public:
     JNILocalRef(JNILocalRef<T>&& ref) : JNIRef<T>(std::move(ref)) {}
     JNILocalRef(const JNILocalRef<T> &ref) : JNIRef<T>(ref) {}
-    JNILocalRef(T *obj) : JNIRef<T>(obj, false) {}
+    JNILocalRef(T *obj = nullptr) : JNIRef<T>(obj, false) {}
 
     JNILocalRef<T>& operator=(JNILocalRef<T>&& other) {
         JNIRef<T>::operator=(std::move(other));
@@ -167,7 +167,7 @@ public:
         return *this;
     }
 
-    // create a global ref from a local ref
+    // create a local ref from a global ref
     static JNILocalRef<T> New(JNIGlobalRef<T>& ref) {
         return JNILocalRef<T>(ref.get());
     }
@@ -200,7 +200,7 @@ private:
 public:
     JNIGlobalRef(JNIGlobalRef<T>&& ref) : JNIRef<T>(std::move(ref)) {}
     JNIGlobalRef(const JNIGlobalRef<T> &ref) : JNIRef<T>(ref) {}
-    JNIGlobalRef(T *obj) : JNIRef<T>(obj, true) {}
+    JNIGlobalRef(T *obj = nullptr) : JNIRef<T>(obj, true) {}
 
     JNIGlobalRef<T>& operator=(JNIGlobalRef<T>&& other) {
         JNIRef<T>::operator=(std::move(other));
@@ -212,7 +212,22 @@ public:
         return *this;
     }
 
-    // create a local ref from a global ref
+    JNIGlobalRef<T>& operator=(JNILocalRef<T>&& other) {
+        JNIRef<T>::operator=(std::move(other));
+        JNIRef<T>::retain();
+        return *this;
+    }
+
+    JNIGlobalRef<T>& operator=(JNILocalRef<T>& other) {
+        JNIRef<T>::operator=(other);
+        JNIRef<T>::retain();
+        return *this;
+    }
+
+    // create a global ref from a local ref
+    static JNIGlobalRef<T> New(JNILocalRef<T>&& ref) {
+        return JNIGlobalRef<T>(ref.get());
+    }
     static JNIGlobalRef<T> New(JNILocalRef<T>& ref) {
         return JNIGlobalRef<T>(ref.get());
     }

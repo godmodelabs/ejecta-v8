@@ -17,6 +17,7 @@
 
 #include "../jniext.h"
 #include "../../jni/JNIWrapper.h"
+#include "../../v8/JNIV8Wrapper.h"
 
 // #define DEBUG 1
 #undef DEBUG
@@ -29,7 +30,7 @@ using namespace v8;
  * BGJSGLModule
  * Canvas BGJS extension. This is the glue between Ejectas Canvas and OpenGL draw code, BGJSGLViews context handling and v8.
  *
- * Copyright 2014 Kevin Read <me@kevin-read.com> and BörseGo AG (https://github.com/godmodelabs/ejecta-v8/)
+ * Copyright 2018 Kevin Read <me@kevin-read.com> and BörseGo AG (https://github.com/godmodelabs/ejecta-v8/)
  * Licensed under the MIT license.
  */
 
@@ -85,15 +86,28 @@ BGJSCanvasContext *__context = static_cast<BGJSV8Engine2dGL*>(ptr)->context;
 
 class BGJSV8Engine2dGL {
 public:
-	Persistent<Object> _jsValue;
+	v8::Persistent<v8::Object> _jsValue;
 	BGJSCanvasContext* context;
+
+    ~BGJSV8Engine2dGL();
 };
+
+BGJSV8Engine2dGL::~BGJSV8Engine2dGL() {
+    if (context) {
+        context = nullptr;
+    }
+    if (!_jsValue.IsEmpty()) {
+        _jsValue.Reset();
+    }
+}
 
 class BGJSCanvasGL {
 public:
-	BGJSGLView* _view;
+	JNIGlobalRef<BGJSGLView> _view;
 	const BGJSV8Engine2dGL* _context2d;
 	const BGJSV8Engine* _context;
+
+    ~BGJSCanvasGL();
 
 	static void getWidth(Local<String> property,
 			const v8::PropertyCallbackInfo<Value>& info);
@@ -108,6 +122,20 @@ public:
 	static void setPixelRatio(Local<String> property, Local<Value> value,
     			const v8::PropertyCallbackInfo<void>& info);
 };
+
+/**
+ * internal struct for storing information for weak callbacks
+ */
+struct CanvasCallbackHolder {
+    v8::Persistent<v8::Object> persistent;
+    BGJSCanvasGL* canvas;
+};
+
+BGJSCanvasGL::~BGJSCanvasGL() {
+    if (_context2d) {
+        delete _context2d;
+    }
+}
 
 v8::Persistent<v8::Function> BGJSGLModule::g_classRefCanvasGL;
 v8::Persistent<v8::Function> BGJSGLModule::g_classRefContext2dGL;
@@ -462,7 +490,7 @@ void BGJSCanvasGL::getWidth(Local<String> property,
 	Local<Object> self = info.Holder();
 	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
 	void* ptr = wrap->Value();
-	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->width;
+	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->getWidth();
 #ifdef DEBUG
 	LOGD("getWidth %d", value);
 #endif
@@ -475,7 +503,7 @@ void BGJSCanvasGL::getHeight(Local<String> property,
 	Local<Object> self = info.Holder();
 	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
 	void* ptr = wrap->Value();
-	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->height;
+	int value = static_cast<BGJSCanvasGL*>(ptr)->_view->getHeight();
 #ifdef DEBUG
 	LOGD("getHeight %d", value);
 #endif
@@ -748,10 +776,6 @@ static void js_context_arc(const v8::FunctionCallbackInfo<v8::Value>& args) {
 static void js_context_drawSystemFocusRing(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	//CONTEXT_FETCH();
 
-	/*
-	 void drawSystemFocusRing(in Element element);
-	 */
-	//assert(argumentCount==1);
 	LOGI("drawSystemFocusRing: unimplemented stub!");
 	args.GetReturnValue().SetUndefined();
 }
@@ -759,10 +783,6 @@ static void js_context_drawSystemFocusRing(const v8::FunctionCallbackInfo<v8::Va
 static void js_context_drawCustomFocusRing(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	//CONTEXT_FETCH();
 
-	/*
-	 void drawCustomFocusRing(in Element element);
-	 */
-	//assert(argumentCount==1);
 	LOGI("drawCustomFocusRing: unimplemented stub!");
 	args.GetReturnValue().SetUndefined();
 }
@@ -936,6 +956,13 @@ static void js_context_putImageData(const v8::FunctionCallbackInfo<v8::Value>& a
 	args.GetReturnValue().SetUndefined();
 }
 
+void js_canvas_destruct(const v8::WeakCallbackInfo<void>& data) {
+	CanvasCallbackHolder* canvasHolder = (CanvasCallbackHolder*)data.GetParameter();
+
+    delete canvasHolder->canvas;
+    delete canvasHolder;
+}
+
 void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = Isolate::GetCurrent();
 	v8::Locker l(isolate);
@@ -954,11 +981,14 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	}
 	Local<Object> obj = args[0]->ToObject();
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
-	Local<Value> external = obj->GetInternalField(0);
-	canvas->_view = externalToClassPtr<BGJSGLView>(external);
+	canvas->_view = JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject());
 
 	Local<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance();
 	fn->SetInternalField(0, External::New(isolate, canvas));
+    CanvasCallbackHolder* persistentHolder = new CanvasCallbackHolder();
+    persistentHolder->canvas = canvas;
+    persistentHolder->persistent.Reset(isolate, fn);
+    persistentHolder->persistent.SetWeak((void*)persistentHolder, js_canvas_destruct, WeakCallbackType::kParameter);
 	args.GetReturnValue().Set(scope.Escape(fn));
 }
 
@@ -971,8 +1001,9 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 		args.GetReturnValue().SetUndefined();
 		return;
 	}
-	BGJSCanvasGL *canvas = externalToClassPtr<BGJSCanvasGL>(
-			args.This()->ToObject()->GetInternalField(0));
+
+	Local<External> external = Local<External>::Cast(args.This()->ToObject()->GetInternalField(0));
+	BGJSCanvasGL *canvas = reinterpret_cast<BGJSCanvasGL*>(external->Value());
 
 	if (canvas->_context2d) {
 	    args.GetReturnValue().Set(scope.Escape(Local<Object>::New(isolate, canvas->_context2d->_jsValue)));
@@ -980,28 +1011,15 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 	}
 
 	BGJSV8Engine2dGL *context2d = new BGJSV8Engine2dGL();
-	// Context::Scope context_scope(*reinterpret_cast<Local<Context>*>(BGJSV8Engine::_context));
 	Local<Function> gClassRefLocal = *reinterpret_cast<Local<Function>*>(&BGJSGLModule::g_classRefContext2dGL);
 	Local<Object> jsObj = gClassRefLocal->NewInstance();
 	BGJS_RESET_PERSISTENT(isolate, context2d->_jsValue, jsObj);
-	context2d->_jsValue.SetWeak<BGJSV8Engine2dGL>(context2d, js_context_destruct, WeakCallbackType::kInternalFields);
+
 	context2d->context = canvas->_view->context2d;
 	jsObj->SetInternalField(0, External::New(isolate, context2d));
 	canvas->_context2d = context2d;
 
 	args.GetReturnValue().Set(scope.Escape(jsObj));
-}
-
-void BGJSGLModule::js_context_destruct(const v8::WeakCallbackInfo<BGJSV8Engine2dGL>& data) {
-	LOGD("js context destruct %p", data);
-	// delete (BGJSV8Engine2dGL*)data.GetInternalField(0);
-	BGJS_CLEAR_PERSISTENT(data.GetParameter()->_jsValue);
-	delete (data.GetParameter());
-	/* BGJSV8Engine2dGL *context2d = data.GetParameter();
-	context2d->_jsValue.Reset();
-	// assert(value.IsNearDeath());
-	delete context2d; */
-	// TODO: Also destroy canvas instance?
 }
 
 void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target) {
@@ -1138,10 +1156,6 @@ void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target
 	target->Set(String::NewFromUtf8(isolate, "exports"), exports);
 }
 
-BGJSGLModule::BGJSGLModule() :
-		BGJSModule("bgjsgl") {
-
-}
 
 BGJSGLModule::~BGJSGLModule() {
 
@@ -1165,163 +1179,3 @@ JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_cssColorToInt(JNIEnv 
                                  + ((colorRGBA.hex & 0x000000FF) << 16);
     return colorsShifted;
 }
-
-JNIEXPORT jlong JNICALL Java_ag_boersego_bgjs_ClientAndroid_createGL(JNIEnv * env,
-		jobject obj, jobject engine, jobject javaGlView, jfloat pixelRatio, jboolean noClearOnFlip, jint width, jint height) {
-    LOGD("createGL started");
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-    LOGD("createGL: isolate is %p", isolate);
-    v8::Locker l(isolate);
-	Isolate::Scope isolate_scope(isolate);
-    HandleScope scope(isolate);
-    Context::Scope context_scope(ct->getContext());
-
-	BGJSGLView *view = new BGJSGLView(ct.get(), pixelRatio, noClearOnFlip, width, height);
-	view->setJavaGl(env, env->NewGlobalRef(javaGlView));
-
-	// Register GLView with context so that cancelAnimationRequest works.
-	ct->registerGLView(view);
-
-	return (jlong) view;
-}
-
-JNIEXPORT int JNICALL Java_ag_boersego_bgjs_ClientAndroid_init(JNIEnv * env,
-		jobject obj, jobject engine, jlong objPtr, jint width, jint height, jstring callbackName) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-	v8::Locker l(isolate);
-	Isolate::Scope isolateScope(isolate);
-    HandleScope scope(isolate);
-
-#ifdef DEBUG
-	LOGI("setupGraphics(%d, %d)", width, height);
-#endif
-    Context::Scope context_scope(ct->getContext());
-
-	BGJSGLView *view = (BGJSGLView*) objPtr;
-	TryCatch try_catch;
-
-	if (width != view->width || height != view->height || !view->opened) {
-#ifdef DEBUG
-		LOGD("Resizing from %dx%d to %dx%d, resizeOnly %i", view->width, view->height, width, height, (int)(view->opened));
-#endif
-		view->resize(width, height, view->opened);
-		if(try_catch.HasCaught()) {
-			ct->forwardV8ExceptionToJNI(&try_catch);
-			return -1;
-		}
-	}
-	Handle<Value> uiObj;
-
-	// Only call this once!
-	if (!view->opened) {
-		const char* cbStr = env->GetStringUTFChars(callbackName, NULL);
-
-		LOGI("setupGraphics(%s)", cbStr);
-		MaybeLocal<Value> res = view->startJS(cbStr, NULL, v8::Undefined(isolate), 0, false);
-		if(try_catch.HasCaught()) {
-			ct->forwardV8ExceptionToJNI(&try_catch);
-			return -1;
-		}
-		view->opened = true;
-		env->ReleaseStringUTFChars(callbackName, cbStr);
-
-		if (!res.IsEmpty() && res.ToLocalChecked()->IsNumber()) {
-			return res.ToLocalChecked()->ToNumber()->Value();
-		}
-	}
-	return -1;
-}
-
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_close(JNIEnv * env,
-		jobject obj, jobject engine, jlong objPtr) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-	v8::Locker l(isolate);
-	Isolate::Scope isolateScope(isolate);
-    HandleScope scope(isolate);
-
-	Context::Scope context_scope(ct->getContext());
-
-	BGJSGLView *view = (BGJSGLView*) objPtr;
-	view->close();
-
-	ct->unregisterGLView(view);
-	env->DeleteGlobalRef(view->_javaGlView);
-	delete (view);
-}
-
-const GLfloat gTriangleVertices[] = { 0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
-
-JNIEXPORT bool JNICALL Java_ag_boersego_bgjs_ClientAndroid_step(JNIEnv * env,
-		jobject obj, jobject engine, jlong jsPtr) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	BGJSGLView *view = (BGJSGLView*) jsPtr;
-	return ct->runAnimationRequests(view);
-}
-
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_redraw(JNIEnv * env,
-		jobject obj, jobject engine, jlong jsPtr) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	BGJSGLView *view = (BGJSGLView*) jsPtr;
-	return view->call(view->_cbRedraw);
-}
-
-
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
-		JNIEnv * env, jobject obj, jobject engine, jlong objPtr, jstring typeStr,
-		jfloatArray xArr, jfloatArray yArr, jfloat scale) {
-	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-	Isolate* isolate = ct->getIsolate();
-	v8::Locker l(isolate);
-	Isolate::Scope isolateScope(isolate);
-	HandleScope scope(isolate);
-	Context::Scope context_scope(ct->getContext());
-
-	float* x = env->GetFloatArrayElements(xArr, NULL);
-	float* y = env->GetFloatArrayElements(yArr, NULL);
-	const int count = env->GetArrayLength(xArr);
-	const char *type = env->GetStringUTFChars(typeStr, 0);
-	if (x == NULL || y == NULL) {
-		LOGE("sendTouchEvent: Cannot access point copies: %p %p", x, y);
-		return;
-	}
-
-	/* if (count == 0) {
-		LOGI("sendTouchEvent: Empty array");
-		return;
-	} */
-
-    // Local<Context> v8Context = ct->_context.Get(isolate);
-	BGJSGLView *view = (BGJSGLView*) objPtr;
-
-	// Create event object
-	Handle<Object> eventObjRef = Object::New(isolate);
-	eventObjRef->Set(String::NewFromUtf8(isolate, "type"), String::NewFromUtf8(isolate, type));
-	eventObjRef->Set(String::NewFromUtf8(isolate, "scale"), Number::New(isolate, scale));
-
-	Handle<String> pageX = String::NewFromUtf8(isolate, "clientX");
-	Handle<String> pageY = String::NewFromUtf8(isolate, "clientY");
-
-	Handle<Array> touchesArray = Array::New(isolate, count);
-
-	// Populate touches array
-	for (int i = 0; i < count; i++) {
-		Handle<Object> touchObjRef = Object::New(isolate);
-		touchObjRef->Set(pageX, Number::New(isolate, x[i]));
-		touchObjRef->Set(pageY, Number::New(isolate, y[i]));
-		touchesArray->Set(Number::New(isolate, i), touchObjRef);
-	}
-
-	eventObjRef->Set(String::NewFromUtf8(isolate, "touches"), touchesArray);
-
-	// Cleanup JNI stuff used for constructing the event object
-	env->ReleaseFloatArrayElements(xArr, x, 0);
-	env->ReleaseFloatArrayElements(yArr, y, 0);
-	env->ReleaseStringUTFChars(typeStr, type);
-
-	// send event to view (can throw jni exception)
-	view->sendEvent(eventObjRef);
-}
-

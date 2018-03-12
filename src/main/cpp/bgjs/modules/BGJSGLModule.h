@@ -14,7 +14,7 @@ class BGJSV8Engine2dGL;
  * Licensed under the MIT license.
  */
 
-class BGJSGLModule : public BGJSModule {
+class BGJSGLModule  {
 	bool initialize();
 	~BGJSGLModule();
 
@@ -24,7 +24,6 @@ public:
 
 	static void js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args);
 	static void js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value>& args);
-	static void js_context_destruct (const v8::WeakCallbackInfo<BGJSV8Engine2dGL>& info);
 
 	static v8::Persistent<v8::Function> g_classRefCanvasGL;
 	static v8::Persistent<v8::Function> g_classRefContext2dGL;

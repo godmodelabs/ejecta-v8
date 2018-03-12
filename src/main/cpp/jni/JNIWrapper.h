@@ -200,16 +200,15 @@ public:
      */
     static void initializeNativeObject(jobject object, jstring canonicalName);
 private:
+    static void detachThread(void* _);
     // Factory method for creating objects
     static jobject _createObject(const std::string& canonicalName, const char* constructorAlias, va_list constructorArgs);
     static std::shared_ptr<JNIClass> _wrapClass(const std::string& canonicalName);
 
     static void _registerObject(size_t hashCode, JNIObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, ObjectInitializer i, ObjectConstructor c);
 
-    static pthread_mutex_t _mutexEnv;
     static JavaVM *_jniVM;
-    static JNIEnv *_jniEnv;
-    static pid_t _jniThreadId;
+    static pthread_key_t _jniEnvKey, _jniDetachThreadKey;
     static jfieldID _jniNativeHandleFieldID;
 
     static jclass _jniStringClass;

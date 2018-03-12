@@ -16,49 +16,11 @@ EJCanvasContextScreen::EJCanvasContextScreen(short widthp, short heightp) : EJCa
 	// Work out the final screen size - this takes the scalingMode, canvas size,
 	// screen size and retina properties into account
 
-	/* CGRect frame = CGRectMake(0, 0, width, height);
-	CGSize screen = [EJApp instance].view.bounds.size;
-    float contentScale = (useRetinaResolution && [UIScreen mainScreen].scale == 2) ? 2 : 1;
-	float aspect = frame.size.width / frame.size.height;
-
-	if( scalingMode == kEJScalingModeFitWidth ) {
-		frame.size.width = screen.width;
-		frame.size.height = screen.width / aspect;
-	}
-	if( scalingMode == kEJScalingModeFitHeight ) {
-		frame.size.width = screen.height * aspect;
-		frame.size.height = screen.height;
-	}
-	float internalScaling = frame.size.width / (float)width;
-	[EJApp instance].internalScaling = internalScaling;
-
-    backingStoreRatio = internalScaling * contentScale;
-
-	bufferWidth = viewportWidth = frame.size.width * contentScale;
-	bufferHeight = viewportHeight = frame.size.height * contentScale; */
-
 	backingStoreRatio = 1.0f;
 	bufferWidth = viewportWidth = width;
 	bufferHeight = viewportHeight = height;
 
 	LOGI("Creating ScreenCanvas: size: %dx%d", width, height);
-
-	/* NSLog(
-		@"Creating ScreenCanvas: "
-			@"size: %dx%d, aspect ratio: %.3f, "
-			@"scaled: %.3f = %.0fx%.0f, "
-			@"retina: %@ = %.0fx%.0f, "
-			@"msaa: %@",
-		width, height, aspect,
-		internalScaling, frame.size.width, frame.size.height,
-		(useRetinaResolution ? @"yes" : @"no"),
-		frame.size.width * contentScale, frame.size.height * contentScale,
-		(msaaEnabled ? [NSString stringWithFormat:@"yes (%d samples)", msaaSamples] : @"no")
-	);
-
-	// Create the OpenGL UIView with final screen size and content scaling (retina)
-	glview = [[EAGLView alloc] initWithFrame:frame contentScale:contentScale]; */
-
 	// Parent constructor creates the frame- and renderbuffers
 
 
@@ -74,13 +36,6 @@ EJCanvasContextScreen::EJCanvasContextScreen(short widthp, short heightp) : EJCa
 	glEnable(GL_BLEND);
 
 	this->prepare();
-
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-	// Append the OpenGL view to Impact's main view
-	/* [[EJApp instance] hideLoadingScreen];
-	[[EJApp instance].view addSubview:glview]; */
 }
 
 void EJCanvasContextScreen::prepare () {
@@ -94,13 +49,6 @@ void EJCanvasContextScreen::prepare () {
 EJImageData* EJCanvasContextScreen::getImageDataSx (float sx, float sy, float sw, float sh)  {
 	// FIXME: This takes care of the flipped pixel layout and the internal scaling.
 	// The latter will mush pixel; not sure how to fix it - print warning instead.
-
-	/* if( backingStoreRatio != 1 && [EJTexture smoothScaling] ) {
-		NSLog(
-			@"Warning: The screen canvas has been scaled; getImageData() may not work as expected. "
-			@"Set imageSmoothingEnabled=false or use an off-screen Canvas for more accurate results."
-		);
-	} */
 
 	this->flushBuffers();
 
@@ -126,7 +74,6 @@ EJImageData* EJCanvasContextScreen::getImageDataSx (float sx, float sy, float sw
 	free(internalPixels);
 
 	return EJImageData::initWithWidth (sw, sh, (GLubyte *)pixels);
-	// return [[[EJImageData alloc] initWithWidth:sw height:sh pixels:(GLubyte *)pixels] autorelease];
 }
 
 void EJCanvasContextScreen::finish () {
@@ -153,6 +100,4 @@ void EJCanvasContextScreen::present () {
 	}
 	else {
 #endif
-		// [glview.context presentRenderbuffer:GL_RENDERBUFFER];
-	// }
 }

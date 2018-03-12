@@ -141,10 +141,7 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
     // initialize class info: template with constructor and general setup created here
     // individual methods and accessors handled by static method on subclass
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
-    Isolate::Scope isolateScope(isolate);
     HandleScope scope(isolate);
-    Context::Scope ctxScope(engine->getContext());
 
     // v8 class name: canonical name with underscores instead of slashes
     // e.g. ag/boersego/bgjs/Test becomes ag_boersego_bgjs_Test
@@ -298,9 +295,8 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
 void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, jlong jsObjPtr) {
     auto v8Object = JNIWrapper::wrapObject<JNIV8Object>(obj);
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
-    JNI_ASSERT(v8Object && engine, "Invalid parameters");
-
-    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
+    JNI_ASSERT(engine, "Invalid engine parameter");
+    JNI_ASSERT(v8Object, "Invalid object; object must extend JNIV8Object and be registered on JNIV8Wrapper");
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -310,6 +306,8 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, j
 
     v8::Persistent<Object>* persistentPtr;
     v8::Local<Object> jsObj;
+
+    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
 
     // if an object was already supplied we just need to extract it and store it
     if(jsObjPtr) {
@@ -330,14 +328,16 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, j
 void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& canonicalName, const std::string& baseCanonicalName, JNIV8ObjectInitializer i, JNIV8ObjectCreator c, size_t size) {
     // canonicalName may be already registered
     // (e.g. when called from JNI_OnLoad; when using multiple linked libraries it is called once for each library)
-    if (_objmap.find(canonicalName) != _objmap.end()) {
+    auto it = _objmap.find(canonicalName);
+    if (it != _objmap.end()) {
+        JNI_ASSERTF(!i && !it->second->initializer, "Class %s registered both from native and java", canonicalName.c_str());
         return;
     }
 
     // base class has to be registered if it is not JNIV8Object (which is only registered with JNIWrapper, because it provides no JS functionality on its own)
     JNIV8ClassInfoContainer *baseInfo = nullptr;
     if (!baseCanonicalName.empty()) {
-        auto it = _objmap.find(baseCanonicalName);
+        it = _objmap.find(baseCanonicalName);
         if (it == _objmap.end()) {
             return;
         }

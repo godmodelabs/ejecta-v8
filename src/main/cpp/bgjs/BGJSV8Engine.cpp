@@ -502,18 +502,6 @@ MaybeLocal<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) const {
     return scope.Escape(result.ToLocalChecked());
 }
 
-Handle<Value> BGJSV8Engine::callFunction(Isolate* isolate, Handle<Object> recv, const char* name,
-		int argc, Handle<Value> argv[]) const {
-	v8::Locker l(isolate);
-	EscapableHandleScope scope(isolate);
-
-	Local<Function> fn = Handle<Function>::Cast(recv->Get(String::NewFromUtf8(isolate, name)));
-			String::Utf8Value value(fn);
-	
-	Local<Value> result = fn->Call(recv, argc, argv);
-	return scope.Escape(result);
-}
-
 v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) {
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
@@ -727,82 +715,6 @@ v8::Local<v8::Context> BGJSV8Engine::getContext() const {
 	return scope.Escape(Local<Context>::New(_isolate, _context));
 }
 
-void BGJSV8Engine::cancelAnimationFrame(int id) {
-	for (std::set<BGJSGLView*>::iterator it = _glViews.begin();
-			it != _glViews.end(); ++it) {
-		int i = 0;
-		while (i < MAX_FRAME_REQUESTS) {
-			AnimationFrameRequest *request = &((*it)->_frameRequests[i]);
-			if (request->requestId == id && request->valid
-					&& request->view != NULL) {
-				request->valid = false;
-				BGJS_CLEAR_PERSISTENT(request->callback);
-				BGJS_CLEAR_PERSISTENT(request->thisObj);
-				break;
-			}
-			i++;
-		}
-	}
-}
-
-void BGJSV8Engine::registerGLView(BGJSGLView* view) {
-	_glViews.insert(view);
-}
-
-void BGJSV8Engine::unregisterGLView(BGJSGLView* view) {
-	_glViews.erase(view);
-}
-
-bool BGJSV8Engine::runAnimationRequests(BGJSGLView* view)  {
-	v8::Locker l(_isolate);
-    Isolate::Scope isolateScope(_isolate);
-	HandleScope scope(_isolate);
-
-	TryCatch trycatch;
-	bool didDraw = false;
-
-	AnimationFrameRequest *request;
-	int index = view->_firstFrameRequest, nextIndex = view->_nextFrameRequest,
-			startFrame = view->_firstFrameRequest;
-	while (index != nextIndex) {
-		request = &(view->_frameRequests[index]);
-
-		if (request->valid) {
-			didDraw = true;
-			request->view->prepareRedraw();
-			Handle<Value> args[0];
-
-			Handle<Value> result = Local<Object>::New(_isolate, request->callback)->CallAsFunction(
-					Local<Object>::New(_isolate, request->thisObj), 0, args);
-
-			if (result.IsEmpty()) {
-                forwardV8ExceptionToJNI(&trycatch);
-                return false;
-			}
-
-			String::Utf8Value fnName(Local<Object>::New(_isolate, request->callback)->ToString());
-			BGJS_CLEAR_PERSISTENT(request->callback);
-			BGJS_CLEAR_PERSISTENT(request->thisObj);
-
-			request->view->endRedraw();
-			request->valid = false;
-			request->view = NULL;
-		}
-
-		index = (index + 1) % MAX_FRAME_REQUESTS;
-	}
-	while (index != nextIndex)
-		;
-
-	view->_firstFrameRequest = nextIndex;
-
-	// If we couldn't draw anything, request that we can the next time
-	if (!didDraw) {
-		view->call(view->_cbRedraw);
-	}
-	return didDraw;
-}
-
 void BGJSV8Engine::js_global_getLocale(Local<String> property,
 		const v8::PropertyCallbackInfo<v8::Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
@@ -859,16 +771,10 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 
 	if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
 	    Local<Object> localFunc = args[0]->ToObject();
-		Handle<Object> objRef = args[1]->ToObject();
-		BGJSGLView* view = static_cast<BGJSGLView *>(v8::External::Cast(*(objRef->GetInternalField(0)))->Value());
-		if (localFunc->IsFunction()) {
-			int id = view->requestAnimationFrameForView(localFunc, args.This(),
-					(ctx->_nextTimerId)++);
-			args.GetReturnValue().Set(id);
-			return;
-		} else {
-			LOGI("requestAnimationFrame: Not a function");
-		}
+
+        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
+        jobject functionWrapped = JNIV8Marshalling::v8value2jobject(localFunc);
+        args.GetReturnValue().Set(view->callJavaIntMethod("requestAnimationFrame", functionWrapped));
 	} else {
 	    LOGI("requestAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
 	        args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
@@ -885,7 +791,7 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value>& args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
 
-    if (args.Length() >= 1 && args[0]->IsFunction()) {
+    if (args.Length() >= 2 && args[0]->IsFunction()) {
         ctx->enqueueNextTick(args);
     }
 }
@@ -895,11 +801,16 @@ void BGJSV8Engine::js_global_cancelAnimationFrame(
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
 	v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
-	if (args.Length() >= 1 && args[0]->IsNumber()) {
+	if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
 
 		int id = (int) (Local<Number>::Cast(args[0])->Value());
-		ctx->cancelAnimationFrame(id);
-	}
+        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
+        view->callJavaVoidMethod("cancelAnimationFrame", id);
+	} else {
+        ctx->getIsolate()->ThrowException(
+                v8::Exception::ReferenceError(
+                        v8::String::NewFromUtf8(ctx->getIsolate(), "cancelAnimationFrame: Wrong number or type of parameters")));
+    }
 
 	args.GetReturnValue().SetUndefined();
 }

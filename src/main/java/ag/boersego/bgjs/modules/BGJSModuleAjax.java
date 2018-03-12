@@ -16,19 +16,19 @@ import okhttp3.OkHttpClient;
  * Copyright (c) 2017 BörseGo AG. All rights reserved.
  */
 
-public class BGJSModuleAjax2 extends JNIV8Module {
+public class BGJSModuleAjax extends JNIV8Module {
 
-    private static final BGJSModuleAjax2 sInstance = new BGJSModuleAjax2();
+    private static final BGJSModuleAjax sInstance = new BGJSModuleAjax();
     private V8UrlCache mCache;
     private ThreadPoolExecutor executor;
     private OkHttpClient httpClient;
 
-    public static BGJSModuleAjax2 getInstance() {
+    public static BGJSModuleAjax getInstance() {
         return sInstance;
     }
 
-    private BGJSModuleAjax2() {
-        super("ajax2");
+    private BGJSModuleAjax() {
+        super("ajax");
     }
 
     public void setUrlCache (V8UrlCache cache) {
@@ -97,7 +97,7 @@ public class BGJSModuleAjax2 extends JNIV8Module {
 
 
 
-            final BGJSModuleAjax2Request request = new BGJSModuleAjax2Request(engine);
+            final BGJSModuleAjaxRequest request = new BGJSModuleAjaxRequest(engine);
             request.setData(url, method, headers, body, mCache, httpClient, executor, timeoutMs);
 
             engine.enqueueOnNextTick(request);

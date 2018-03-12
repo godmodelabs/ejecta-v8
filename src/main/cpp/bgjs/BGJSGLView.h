@@ -2,8 +2,8 @@
 #define __BGJSGLVIEW_H	1
 
 #include "BGJSCanvasContext.h"
-#include "BGJSView.h"
 #include "BGJSV8Engine.h"
+#include "../v8/JNIV8Object.h"
 #include "os-android.h"
 
 /**
@@ -14,39 +14,42 @@
  * Licensed under the MIT license.
  */
 
-typedef struct __tagAnimationFrameRequest {
-	BGJSGLView *view;
-	v8::Persistent<v8::Object> callback;
-	v8::Persistent<v8::Object> thisObj;
-	bool valid;
-	int requestId;
-} AnimationFrameRequest;
-
-class BGJSGLView : public BGJSView {
+class BGJSGLView : public JNIScope<BGJSGLView, JNIV8Object> {
 public:
-	BGJSGLView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip, int width, int height);
-	virtual ~BGJSGLView();
-	virtual void prepareRedraw();
-	virtual void endRedraw();
-	void endRedrawNoSwap();
-	void setTouchPosition(int x, int y);
-	void swapBuffers();
-	void resize (int width, int height, bool resizeOnly);
-	void close ();
-	void requestRefresh();
-	int requestAnimationFrameForView(v8::Handle<v8::Object> cb, v8::Handle<v8::Object> thisObj, int id);
-#ifdef ANDROID
-	void setJavaGl(JNIEnv* env, jobject javaGlView);
-#endif
+	BGJSGLView(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
+
+    static void setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height);
+	virtual void onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
+
+	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
+	static void initializeV8Bindings(JNIV8ClassInfo *info);
+
+    virtual ~BGJSGLView();
+    static void prepareRedraw(JNIEnv *env, jobject objWrapped);
+    virtual void onPrepareRedraw();
+    static void endRedraw(JNIEnv *env, jobject objWrapped);
+    virtual void onEndRedraw();
+
+    static void viewWasResized(JNIEnv *env, jobject objWrapped, int width, int height);
+
+	static void setTouchPosition(JNIEnv *env, jobject objWrapped, int x, int y);
+    virtual void onSetTouchPosition(int x, int y);
+    void swapBuffers();
 
 	BGJSCanvasContext *context2d;
 
-	AnimationFrameRequest _frameRequests[MAX_FRAME_REQUESTS];
-	int _firstFrameRequest;
-	int _nextFrameRequest;
+    int getWidth();
+    int getHeight();
 
 protected:
     bool noFlushOnRedraw = false;
+    bool noClearOnFlip = false;
+
+	float _pixelRatio = 0;
+    int _width = 0;
+    int _height = 0;
 };
+
+BGJS_JNI_LINK_DEF(BGJSGLView)
 
 #endif

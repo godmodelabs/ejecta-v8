@@ -29,14 +29,9 @@ add_library( # Sets the name of the library.
              src/main/cpp/jni/JNIWrapper.cpp
              src/main/cpp/bgjs/BGJSV8Engine.cpp
              src/main/cpp/bgjs/ClientAndroid.cpp
-             src/main/cpp/bgjs/BGJSModule.cpp
-             src/main/cpp/bgjs/BGJSClass.cpp
              src/main/cpp/utils/mallocdebug.cpp
-             src/main/cpp/bgjs/BGJSJavaWrapper.cpp
-             src/main/cpp/bgjs/modules/AjaxModule.cpp
              src/main/cpp/bgjs/modules/BGJSGLModule.cpp
              src/main/cpp/bgjs/BGJSCanvasContext.cpp
-             src/main/cpp/bgjs/BGJSView.cpp
              src/main/cpp/bgjs/BGJSGLView.cpp
              src/main/cpp/ejecta/EJCanvas/EJCanvasContext.cpp
              src/main/cpp/ejecta/EJConvert.cpp

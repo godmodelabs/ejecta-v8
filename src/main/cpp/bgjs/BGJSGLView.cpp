@@ -44,23 +44,55 @@ static void checkGlError(const char* op) {
 #endif
 }
 
-BGJSGLView::BGJSGLView(BGJSV8Engine *engine, float pixelRatio, bool doNoClearOnFlip, int width, int height) :
-		BGJSView(engine, pixelRatio, doNoClearOnFlip) {
+BGJS_JNI_LINK(BGJSGLView, "ag/boersego/bgjs/BGJSGLView");
 
-	_firstFrameRequest = 0;
-	_nextFrameRequest = 0;
-	noFlushOnRedraw = false;
+void BGJSGLView::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
+    info->registerNativeMethod("prepareRedraw", "()V", (void*)BGJSGLView::prepareRedraw);
+    info->registerNativeMethod("endRedraw", "()V", (void*)BGJSGLView::endRedraw);
+    info->registerNativeMethod("setTouchPosition", "(II)V", (void*)BGJSGLView::setTouchPosition);
+    info->registerNativeMethod("setViewData", "(FZII)V", (void*)BGJSGLView::setViewData);
+    info->registerNativeMethod("viewWasResized", "(II)V", (void*)BGJSGLView::viewWasResized);
+    info->registerMethod("requestAnimationFrame", "(Lag/boersego/bgjs/JNIV8Function;)I");
+    info->registerMethod("cancelAnimationFrame", "(I)V");
+}
 
-	const char* eglVersion = eglQueryString(eglGetCurrentDisplay(), EGL_VERSION);
-	LOGD("egl version %s", eglVersion);
-	// bzero (_frameRequests, sizeof(_frameRequests));
+void BGJSGLView::initializeV8Bindings(JNIV8ClassInfo *info) {
 
-	context2d = new BGJSCanvasContext(width, height);
-	context2d->backingStoreRatio = pixelRatio;
+
+}
+
+void BGJSGLView::viewWasResized(JNIEnv *env, jobject objWrapped, int width, int height) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->_width = width;
+    self->_height = height;
+    self->context2d->resize(width, height);
+}
+
+void BGJSGLView::setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height) {
+	auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->onSetViewData(pixelRatio, doNoClearOnFlip, width, height);
+}
+
+void BGJSGLView::onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int height) {
+    _width = width;
+    _height = height;
+    _pixelRatio = pixelRatio;
+    noFlushOnRedraw = false;
+    noClearOnFlip = doNoClearOnFlip;
+
+    const char* eglVersion = eglQueryString(eglGetCurrentDisplay(), EGL_VERSION);
+    LOGD("egl version %s", eglVersion);
+    // bzero (_frameRequests, sizeof(_frameRequests));
+
+    context2d = new BGJSCanvasContext(width, height);
+    context2d->backingStoreRatio = pixelRatio;
 #ifdef DEBUG
-	LOGI("pixel Ratio %f", pixelRatio);
+    LOGI("pixel Ratio %f", pixelRatio);
 #endif
-	context2d->create();
+    context2d->create();
+    context2d->resize(width, height);
 }
 
 BGJSGLView::~BGJSGLView() {
@@ -69,17 +101,22 @@ BGJSGLView::~BGJSGLView() {
 	}
 }
 
-#ifdef ANDROID
-void BGJSGLView::setJavaGl(JNIEnv* env, jobject javaGlView) {
-	this->_javaGlView = javaGlView;
-	jclass clazz = env->GetObjectClass(javaGlView);
-	// this->_javaRedrawMid = env->GetMethodID(clazz, "requestRender", "()V");
+int BGJSGLView::getWidth() {
+    return _width;
 }
 
-#endif
+int BGJSGLView::getHeight() {
+    return _height;
+}
 
-void BGJSGLView::prepareRedraw() {
-	context2d->startRendering();
+void BGJSGLView::prepareRedraw(JNIEnv *env, jobject objWrapped) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->onPrepareRedraw();
+}
+
+void BGJSGLView::onPrepareRedraw() {
+    context2d->startRendering();
 }
 
 static unsigned int nextPowerOf2(unsigned int n)
@@ -94,18 +131,26 @@ static unsigned int nextPowerOf2(unsigned int n)
     return p;
 }
 
-void BGJSGLView::endRedraw() {
-	context2d->endRendering();
-	if (!noFlushOnRedraw) {
-	    this->swapBuffers();
-	}
+void BGJSGLView::endRedraw(JNIEnv *env, jobject objWrapped) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->onEndRedraw();
 }
 
-void BGJSGLView::endRedrawNoSwap() {
-	context2d->endRendering();
+void BGJSGLView::onEndRedraw() {
+    context2d->endRendering();
+    if (!noFlushOnRedraw) {
+        this->swapBuffers();
+    }
 }
 
-void BGJSGLView::setTouchPosition(int x, int y) {
+void BGJSGLView::setTouchPosition(JNIEnv *env, jobject objWrapped, int x, int y) {
+    auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
+
+    self->onSetTouchPosition(x, y);
+}
+
+void BGJSGLView::onSetTouchPosition(int x, int y) {
     // A NOP. Subclasses might be interested in this though
 }
 
@@ -119,97 +164,4 @@ void BGJSGLView::swapBuffers() {
 	// checkGlError("eglSwapBuffers");
 }
 
-void BGJSGLView::resize(int widthp, int heightp, bool resizeOnly) {
-#ifdef DEBUG
-	LOGI("Resize to %dx%d", widthp, heightp);
-#endif	
-	context2d->resize(widthp, heightp, resizeOnly);
-	this->width = widthp;
-	this->height = heightp;
 
-	int count = _cbResize.size();
-#ifdef DEBUG
-	LOGI("Sending resize event to %i subscribers", count);
-#endif
-	if (count > 0) {
-		Isolate* isolate = _engine->getIsolate();
-		v8::Locker locker(isolate);
-		EscapableHandleScope scope(isolate);
-		Local<Context> context = _engine->getContext();
-		Context::Scope context_scope(context);
-
-		Handle<Value> args[0];
-		for (std::vector<Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >*>::size_type i = 0; i < count; i++) {
-        	Persistent<Object, v8::CopyablePersistentTraits<v8::Object> >* cb = _cbResize[i];
-        	Local<Object> callback = Local<Object>::New(isolate, *cb);
-        	LOGD("resize callback call");
-
-			Handle<Value> result = callback->CallAsFunction(callback, 0, args);
-			if (result.IsEmpty()) {
-				return;
-			}
-		}
-	}
-}
-
-void BGJSGLView::close() {
-
-	// Invalidate all refresh requests
-	for (int i = 0; i < MAX_FRAME_REQUESTS; i++) {
-		if (_frameRequests[i].valid && _frameRequests[i].view != NULL) {
-			_frameRequests[i].valid = false;
-			BGJS_CLEAR_PERSISTENT(_frameRequests[i].callback);
-			_frameRequests[i].view = NULL;
-		}
-	}
-
-	LOGD("BGJSGLView close");
-
-	call(_cbClose);
-}
-
-void BGJSGLView::requestRefresh() {
-	JNIEnv* env = JNIWrapper::getEnvironment();
-	if (env == NULL) {
-		LOGE("Cannot refresh BGJSGLView with no envCache");
-		return;
-	}
-	jclass clazz = env->GetObjectClass(_javaGlView);
-	this->_javaRedrawMid = env->GetMethodID(clazz, "requestRender", "()V");
-	env->CallVoidMethod(_javaGlView, _javaRedrawMid);
-
-#ifdef DEBUG
-	LOGD("Requested refresh");
-#endif
-}
-
-int BGJSGLView::requestAnimationFrameForView(Handle<Object> cb, Handle<Object> thisObj, int id) {
-    Isolate* isolate = _engine->getIsolate();
-    HandleScope scope(isolate);
-	// make sure there is still room in the buffer
-#ifdef DEBUG
-	LOGD("requestAnimation %d %d", _firstFrameRequest, _nextFrameRequest);
-#endif
-
-	if (_nextFrameRequest >= MAX_FRAME_REQUESTS) {
-		return -1;
-	}
-
-	// schedule request
-
-	AnimationFrameRequest *request = &_frameRequests[_nextFrameRequest];
-	BGJS_RESET_PERSISTENT(isolate, request->callback, cb);
-	request->view = this;
-	request->valid = true;
-	BGJS_RESET_PERSISTENT(isolate, request->thisObj, thisObj);
-	request->requestId = id;
-	_nextFrameRequest = (_nextFrameRequest + 1) % MAX_FRAME_REQUESTS;
-
-#ifdef DEBUG
-	LOGD("requestAnimation new id %d", request->requestId);
-#endif
-
-	requestRefresh();
-
-	return request->requestId;
-}

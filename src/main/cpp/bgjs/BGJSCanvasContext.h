@@ -25,7 +25,7 @@ class BGJSCanvasContext : public EJCanvasContext {
 
 public:
 	BGJSCanvasContext(int width, int height);
-	void resize(int width, int height, bool resizeOnly);
+	void resize(int width, int height);
 	void save();
 	void restore();
 	void clipY (float y, float y2);

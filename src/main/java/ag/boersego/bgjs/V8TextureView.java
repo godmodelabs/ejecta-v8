@@ -11,6 +11,7 @@ import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.os.Build;
 import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.MotionEvent.PointerCoords;
@@ -34,6 +35,7 @@ import javax.microedition.khronos.egl.EGLSurface;
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 abstract public class V8TextureView extends TextureView implements TextureView.SurfaceTextureListener {
 
+    private final V8Engine mEngine;
     protected RenderThread mRenderThread;
 	private final MotionEvent.PointerCoords[] mTouches = new MotionEvent.PointerCoords[MAX_NUM_TOUCHES];
 	private final boolean[] mTouchesThere = new boolean[MAX_NUM_TOUCHES];
@@ -41,7 +43,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 	private double mTouchDistance;
     protected static float mScaling;
 	private boolean mInteractive;
-	protected final String mCbName;
 	private PointerCoords mTouchStart;
 	private final float mTouchSlop;
     protected IV8GLViewOnRender mCallback;
@@ -57,41 +58,45 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private int[] mEglVersion;
     private float mClearRed, mClearGreen, mClearBlue, mClearAlpha;
     private boolean mClearColorSet;
-	private boolean mDontClearOnFlip;
+	protected boolean mDontClearOnFlip;
+    private BGJSGLView mBGJSGLView;
 
-	/**
+    /**
 	 * Create a new V8TextureView instance
 	 * @param context Context instance
-	 * @param jsCbName The name of the JS function to call once the view is created
-	 * @param param The parameter to pass to the JS function
+	 * @param engine the V8Engine to use
 	 */
-	public V8TextureView(Context context, String jsCbName, String param) {
+	public V8TextureView(Context context, @NonNull final V8Engine engine) {
 		super(context);
+		mEngine = engine;
         final Resources r = getResources();
         if (r != null) {
 		    mScaling = r.getDisplayMetrics().density;
         }
 		mTouchSlop = TOUCH_SLOP * mScaling;
-		mCbName = jsCbName;
 		setSurfaceTextureListener(this);
 	}
+
+	public V8Engine getEngine() {
+	    return mEngine;
+    }
 
     public void doDebug(boolean debug) {
         DEBUG = debug;
     }
 
-    abstract public void onGLCreated (long jsId);
+    abstract public void onGLCreated (BGJSGLView jsViewObject);
 
-    abstract public void onGLRecreated (long jsId);
+    public void onGLRecreated (BGJSGLView jsViewObject) {
+        if (mBGJSGLView != null) {
+            mBGJSGLView.onResize();
+        }
+    }
 
     abstract public void onGLCreateError (Exception ex);
 
-    abstract public void onRenderAttentionNeeded (long jsId);
+    protected void onFrameRendered (BGJSGLView jsViewObject) {
 
-    public void doNeedAttention(boolean b) {
-		if(mRenderThread != null) {
-			mRenderThread.setNeedAttention(b);
-		}
     }
 
 	@Override
@@ -100,10 +105,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (mFinished) {
 			return;
 		}
-		mRenderThread = new RenderThread(surface, width, height);
+		mRenderThread = new RenderThread(surface);
 		if (DEBUG) {
 			Log.d(TAG, "Starting render thread");
 		}
+
 		mRenderThread.start();
 	}
 
@@ -176,12 +182,14 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 							+ (mTouches[0].y - mTouches[1].y) * (mTouches[0].y - mTouches[1].y));
 				}
 				mNumTouches = count;
-				V8Engine engine = V8Engine.getInstance();
-				if (engine == null || mRenderThread == null) {
+				if (mEngine == null || mRenderThread == null) {
 					return false;
 				}
 				// And pass the touch event to JS
-				ClientAndroid.setTouchPosition(engine, mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
+				if (mBGJSGLView != null) {
+                    mBGJSGLView.setTouchPosition((int) mTouches[id].x, (int) mTouches[id].y);
+                }
+
 			}
 
 			sendTouchEvent("touchstart");
@@ -214,9 +222,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 						}
 					}
 					
-					if (touchDirty) {
-						ClientAndroid.setTouchPosition(V8Engine.getInstance(), mRenderThread.mJSId, (int)mTouches[id].x, (int)mTouches[id].y);
-					}
+					if (touchDirty && mBGJSGLView != null) {
+                        mBGJSGLView.setTouchPosition((int) mTouches[id].x, (int) mTouches[id].y);
+                    }
 				}
 			}
 			
@@ -263,9 +271,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 		// This is actually the pointer to the BGJSView and could have been cleared because
         // it was closed.
-		final long objPtr = mRenderThread.mJSId;
 
-		if (objPtr == 0) {
+		if (mBGJSGLView == null) {
 		    return;
         }
 		int count = 0;
@@ -276,20 +283,26 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		}
 		mNumTouches = count;
 
-		final float[] x = new float[mNumTouches], y = new float[mNumTouches];
+		// We need to calculate the scale of a pinch-zoom gesture from touches 1 & 2
 		double x1 = 0, y1 = 0, x2 = 0, y2 = 0, scale;
+		// Also create a WhatWG compatible touch event object per touch
+		final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[mNumTouches];
 		int j = 0;
 		for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
 			if (mTouchesThere[i]) {
-				x[j] = mTouches[i].x;
-				y[j] = mTouches[i].y;
+				final float x = mTouches[i].x;
+				final float y = mTouches[i].y;
 				if (j == 0) {
-					x1 = x[j];
-					y1 = y[j];
+					x1 = x;
+					y1 = y;
 				} else if (j == 1) {
-					x2 = x[j];
-					y2 = y[j];
+					x2 = x;
+					y2 = y;
 				}
+				final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
+                touchObj.setV8Field("clientX", x);
+                touchObj.setV8Field("clientY", y);
+                touchObjs[j] = touchObj;
 				j++;
 			}
 		}
@@ -299,12 +312,18 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			scale = 1f;
 		}
 		if (DEBUG) {
-			Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale "
-					+ scale);
-		}
-		// Call JNI function that calls V8
-		ClientAndroid.sendTouchEvent(V8Engine.getInstance(), mRenderThread.mJSId, type, x, y,
-				(float) scale);
+            Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale "
+                    + scale);
+        }
+
+        JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, touchObjs);
+
+        final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(mEngine);
+        touchEventObj.setV8Field("type", type);
+        touchEventObj.setV8Field("scale", scale);
+        touchEventObj.setV8Field("touches", touches);
+
+        mBGJSGLView.onEvent(touchEventObj);
 	}
 
 	public void setClearColor(final int color) {
@@ -579,8 +598,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * Create the JNI side of OpenGL init. Can be overriden by subclasses to instantiate other BGJSGLView subclasses
      * @return pointer to JNI object
      */
-    protected long createGL () {
-        return ClientAndroid.createGL(V8Engine.getInstance(), this, mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
+    protected BGJSGLView createGL () {
+        final BGJSGLView glView = new BGJSGLView(mEngine, this);
+        glView.setViewData(mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
+
+        return glView;
     }
 
 	/**
@@ -603,34 +625,21 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		private EGLSurface mEglSurface;
 
 
-		private long mJSId;
-
 		private long mLastRenderSec;	// Used to calculate FPS
 		private int mRenderCnt;
 
-		private int mWidth;				// Cache width and height of underlying surface
-		private int mHeight;
-
 		private boolean mRenderPending;
-		private boolean mSetInstrumentPending;
 		private boolean mReinitPending;
 
-		private int mInstrumentId;
-		private int mExchangeId;
-
-		private int mChartId = -1;
 
 		private boolean mPaused;
-        private boolean mNeedsAttention;
         private int[] mEglVersion;
         // True if this surface can preserve color buffer contents on swap
         private boolean mHasSwap;
 
 
-        RenderThread(SurfaceTexture surface, int width, int height) {
+        RenderThread(SurfaceTexture surface) {
 			mSurface = surface;
-			mWidth = width;
-			mHeight = height;
 		}
 
 		/**
@@ -664,7 +673,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				mRenderPending = true;
 				this.notifyAll();
 				if (DEBUG) {
-					Log.d(TAG, "Requested render mJSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0'));
+					Log.d(TAG, "Requested render mJSID " + mBGJSGLView);
 				}
 			}
 		}
@@ -711,24 +720,26 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				Log.d(TAG, "GL init done");
 			}
 
-			// Create a C instance of GLView and record the native ID
-			mJSId = createGL();
-            V8TextureView.this.onGLCreated(mJSId);
-
             if (mClearColorSet) {
                 GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
+                GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
             }
+
+			// Create a C instance of GLView and record the native ID
+			mBGJSGLView = createGL();
+
+            V8TextureView.this.onGLCreated(mBGJSGLView);
 
 			if (mCallback != null) {
 				// Tell clients that rendering has started
-				mCallback.renderStarted(mChartId);
+				mCallback.renderStarted(V8TextureView.this);
 			}
 
 			while (!mFinished) {
 
 				synchronized (this) {
 					while (mPaused && !mFinished) {
-						if (!mRenderPending && !mSetInstrumentPending) {
+						if (!mRenderPending) {
 							if (DEBUG) {
 								Log.d(TAG, "Paused");
 							}
@@ -741,8 +752,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 								Log.d(TAG, "Pause done");
 							}
 						} else {
-							Log.d(TAG, "Paused, but resuming becquse rp " + (mRenderPending ? "true" : "false")
-									+ ", si " + (mSetInstrumentPending ? "true" : "false"));
+							Log.d(TAG, "Paused, but resuming becquse rp " + (mRenderPending ? "true" : "false"));
 							break;
 						}
 					}
@@ -765,11 +775,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				}
 
 
-				if (mClearColorSet) {
-                    GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
-                }
-
-				final boolean didDraw = ClientAndroid.step(V8Engine.getInstance(), mJSId);
+                mBGJSGLView.onRedraw();
 
                 /* if (DEBUG) {
                     Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
@@ -784,9 +790,15 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     checkEglError("eglSwapBuffers");
                 } */
 
+                // Since we're double buffering, also clear the back buffer
+                if (mClearColorSet) {
+                    GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
+                    GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
+                }
+
 				synchronized (this) {
 					// If no rendering or other changes are pending, sleep till the next request
-					if (!mRenderPending && !mSetInstrumentPending) {
+					if (!mRenderPending && !mFinished) {
 						if (DEBUG) {
 							Log.d(TAG, "No work pending, sleeping");
 						}
@@ -819,27 +831,23 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 						Log.d(TAG, "Reinit pending executing");
 					}
 					reinitGL();
-                    V8TextureView.this.onGLRecreated(mJSId);
+                    V8TextureView.this.onGLRecreated(mBGJSGLView);
 					mReinitPending = false;
 				}
 
                 // The party that created V8TextureView might want to be notified once we have rendered a frame
-				if (mNeedsAttention) {
-					if (DEBUG) {
-						Log.d(TAG, "Attending V8TextureView super");
-					}
-					V8TextureView.this.onRenderAttentionNeeded(mJSId);
-                    mNeedsAttention = false;
-				}
+                V8TextureView.this.onFrameRendered(mBGJSGLView);
 			}
 			
 			if (mCallback != null) {
-				mCallback.renderThreadClosed(mChartId);
+				mCallback.renderThreadClosed(V8TextureView.this);
 			}
 
-			if (mJSId != 0) {
-				ClientAndroid.close(V8Engine.getInstance(), mJSId);
-			}
+			if (mBGJSGLView != null) {
+                mBGJSGLView.onClose();
+            }
+
+            mBGJSGLView = null;
 
 			finishGL();
 		}
@@ -971,28 +979,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 		}
 
-		public void setSize(int width, int height) {
-			mWidth = width;
-			mHeight = height;
-		}
-
 		public SurfaceTexture getSurface() {
 			return mSurface;
 		}
-
-        public void setNeedAttention (boolean b) {
-            synchronized (this) {
-                if (mNeedsAttention != b) {
-                    mNeedsAttention = b;
-                    if (b) {
-                        this.notifyAll();
-                    }
-                    if (DEBUG) {
-                        Log.d(TAG, "Requested attention " + b);
-                    }
-                }
-            }
-        }
 	}
 
 	@Override
@@ -1017,7 +1006,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (DEBUG) {
 			Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
 		}
-		mRenderThread.setSize(width, height);
+
 		mRenderThread.reinitGl();
 		V8TextureView.this.resetTouches();
 

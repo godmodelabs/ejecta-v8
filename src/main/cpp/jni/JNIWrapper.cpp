@@ -7,11 +7,18 @@
 #include <cstdlib>
 #include "JNIWrapper.h"
 
-pthread_mutex_t JNIWrapper::_mutexEnv = PTHREAD_MUTEX_INITIALIZER;
+pthread_key_t JNIWrapper::_jniEnvKey = NULL;
+pthread_key_t JNIWrapper::_jniDetachThreadKey = NULL;
+
+void JNIWrapper::detachThread(void* _) {
+    _jniVM->DetachCurrentThread();
+}
 
 void JNIWrapper::init(JavaVM *vm) {
     _jniVM = vm;
 
+    pthread_key_create(&_jniEnvKey, NULL);
+    pthread_key_create(&_jniDetachThreadKey, &detachThread);
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     _jniStringClass = (jclass)env->NewGlobalRef(env->FindClass("java/lang/String"));
@@ -51,6 +58,8 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
         return;
     }
 
+    JNI_ASSERT(baseCanonicalName != "<unknown>" && canonicalName != "<unknown>", "Could not resolve canonicalnames; missing BGJS_JNI_LINK_DEF?");
+
     // baseCanonicalName must either be empty (not a derived object), or already registered
     std::map<std::string, JNIClassInfo*>::iterator it;
 
@@ -58,6 +67,7 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
     if(!baseCanonicalName.empty()) {
         it = _objmap.find(baseCanonicalName);
         if (it == _objmap.end()) {
+            JNI_ASSERT(0, "Attempt to register objects with unknown super class");
             return;
         }
         baseInfo = it->second;
@@ -136,26 +146,16 @@ void JNIWrapper::_registerObject(size_t hashCode, JNIObjectType type,
 }
 
 JNIEnv* JNIWrapper::getEnvironment() {
-    // currently we just cache the most recently used env in a static variable..
-    // if multiple threads are used frequently this is certainly not optimal
-    // otherwise it should be "okay"
-
-    pthread_mutex_lock(&_mutexEnv);
-
-    pid_t t = gettid();
-    if(_jniThreadId != t) {
-        int r = _jniVM->GetEnv((void **) &_jniEnv, JNI_VERSION_1_6);
+    JNIEnv* env = static_cast<JNIEnv*>(pthread_getspecific(_jniEnvKey));
+    if (!env) {
+        int r = _jniVM->GetEnv((void **) &env, JNI_VERSION_1_6);
         if (r != JNI_OK) {
-            __android_log_print(ANDROID_LOG_DEBUG, "JNIWrapper", "attached new thread to JNI. Make sure to detach on exit!");
-            int r = _jniVM->AttachCurrentThread(&_jniEnv, nullptr);
+            int r = _jniVM->AttachCurrentThread(&env, nullptr);
             JNI_ASSERT(r == JNI_OK, "Failed to attach thread to JVM");
-            (void) r;
+            pthread_setspecific(_jniDetachThreadKey, (void*)(r < 0 ? 1 : r+1));   // Actual value doesn't matter as long as its non-NULL
         }
-        _jniThreadId = t;
+        pthread_setspecific(_jniEnvKey, (void*)env);
     }
-    JNIEnv *env = _jniEnv;
-
-    pthread_mutex_unlock(&_mutexEnv);
 
     return env;
 }
@@ -254,8 +254,6 @@ jstring JNIWrapper::string2jstring(const std::string& string) {
 std::map<std::string, JNIClassInfo*> JNIWrapper::_objmap;
 jfieldID JNIWrapper::_jniNativeHandleFieldID = nullptr;
 JavaVM* JNIWrapper::_jniVM = nullptr;
-JNIEnv* JNIWrapper::_jniEnv = nullptr;
-pid_t JNIWrapper::_jniThreadId = 0;
 jstring JNIWrapper::_jniCharsetName = nullptr;
 jclass JNIWrapper::_jniStringClass = nullptr;
 jmethodID JNIWrapper::_jniStringInit = nullptr;
