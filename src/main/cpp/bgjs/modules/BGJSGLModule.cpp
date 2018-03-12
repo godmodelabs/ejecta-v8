@@ -84,13 +84,6 @@ void* ptr = wrap->Value(); \
 BGJSCanvasContext *__context = static_cast<BGJSV8Engine2dGL*>(ptr)->context;
 
 
-/**
- * internal struct for storing information for weak callbacks
- */
-struct CanvasCallbackHolder {
-    v8::Persistent<v8::Object> persistent;
-};
-
 class BGJSV8Engine2dGL {
 public:
 	v8::Persistent<v8::Object> _jsValue;
@@ -128,6 +121,14 @@ public:
 			const v8::PropertyCallbackInfo<void>& info);
 	static void setPixelRatio(Local<String> property, Local<Value> value,
     			const v8::PropertyCallbackInfo<void>& info);
+};
+
+/**
+ * internal struct for storing information for weak callbacks
+ */
+struct CanvasCallbackHolder {
+    v8::Persistent<v8::Object> persistent;
+    BGJSCanvasGL* canvas;
 };
 
 BGJSCanvasGL::~BGJSCanvasGL() {
@@ -956,9 +957,10 @@ static void js_context_putImageData(const v8::FunctionCallbackInfo<v8::Value>& a
 }
 
 void js_canvas_destruct(const v8::WeakCallbackInfo<void>& data) {
-    BGJSCanvasGL* canvas = (BGJSCanvasGL*)data.GetParameter();
+	CanvasCallbackHolder* canvasHolder = (CanvasCallbackHolder*)data.GetParameter();
 
-    delete canvas;
+    delete canvasHolder->canvas;
+    delete canvasHolder;
 }
 
 void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -984,8 +986,9 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	Local<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance();
 	fn->SetInternalField(0, External::New(isolate, canvas));
     CanvasCallbackHolder* persistentHolder = new CanvasCallbackHolder();
+    persistentHolder->canvas = canvas;
     persistentHolder->persistent.Reset(isolate, fn);
-    persistentHolder->persistent.SetWeak((void*)canvas, js_canvas_destruct, WeakCallbackType::kParameter);
+    persistentHolder->persistent.SetWeak((void*)persistentHolder, js_canvas_destruct, WeakCallbackType::kParameter);
 	args.GetReturnValue().Set(scope.Escape(fn));
 }
 
@@ -1176,61 +1179,3 @@ JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_cssColorToInt(JNIEnv 
                                  + ((colorRGBA.hex & 0x000000FF) << 16);
     return colorsShifted;
 }
-
-
-//JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_sendTouchEvent(
-//		JNIEnv * env, jobject obj, jobject engine, jlong objPtr, jstring typeStr,
-//		jfloatArray xArr, jfloatArray yArr, jfloat scale) {
-//	auto ct = JNIWrapper::wrapObject<BGJSV8Engine>(engine);
-//	Isolate* isolate = ct->getIsolate();
-//	v8::Locker l(isolate);
-//	Isolate::Scope isolateScope(isolate);
-//	HandleScope scope(isolate);
-//	Context::Scope context_scope(ct->getContext());
-//
-//	float* x = env->GetFloatArrayElements(xArr, NULL);
-//	float* y = env->GetFloatArrayElements(yArr, NULL);
-//	const int count = env->GetArrayLength(xArr);
-//	const char *type = env->GetStringUTFChars(typeStr, 0);
-//	if (x == NULL || y == NULL) {
-//		LOGE("sendTouchEvent: Cannot access point copies: %p %p", x, y);
-//		return;
-//	}
-//
-//	/* if (count == 0) {
-//		LOGI("sendTouchEvent: Empty array");
-//		return;
-//	} */
-//
-//    // Local<Context> v8Context = ct->_context.Get(isolate);
-//	BGJSGLView *view = (BGJSGLView*) objPtr;
-//
-//	// Create event object
-//	Handle<Object> eventObjRef = Object::New(isolate);
-//	eventObjRef->Set(String::NewFromUtf8(isolate, "type"), String::NewFromUtf8(isolate, type));
-//	eventObjRef->Set(String::NewFromUtf8(isolate, "scale"), Number::New(isolate, scale));
-//
-//	Handle<String> pageX = String::NewFromUtf8(isolate, "clientX");
-//	Handle<String> pageY = String::NewFromUtf8(isolate, "clientY");
-//
-//	Handle<Array> touchesArray = Array::New(isolate, count);
-//
-//	// Populate touches array
-//	for (int i = 0; i < count; i++) {
-//		Handle<Object> touchObjRef = Object::New(isolate);
-//		touchObjRef->Set(pageX, Number::New(isolate, x[i]));
-//		touchObjRef->Set(pageY, Number::New(isolate, y[i]));
-//		touchesArray->Set(Number::New(isolate, i), touchObjRef);
-//	}
-//
-//	eventObjRef->Set(String::NewFromUtf8(isolate, "touches"), touchesArray);
-//
-//	// Cleanup JNI stuff used for constructing the event object
-//	env->ReleaseFloatArrayElements(xArr, x, 0);
-//	env->ReleaseFloatArrayElements(yArr, y, 0);
-//	env->ReleaseStringUTFChars(typeStr, type);
-//
-//	// send event to view (can throw jni exception)
-//	view->sendEvent(eventObjRef);
-//}
-//

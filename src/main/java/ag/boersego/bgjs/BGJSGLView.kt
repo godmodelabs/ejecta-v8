@@ -25,8 +25,6 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
     private val queuedAnimationRequests = Stack<AnimationFrameRequest>()
     private val nextAnimationRequestId = AtomicInteger(0)
 
-    // lateinit var textureView: V8TextureView
-
     val devicePixelRatio: Float
         @V8Getter get() = textureView.resources.displayMetrics.density
 
@@ -48,54 +46,50 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
 
     @V8Function
     fun on(event: String, cb: JNIV8Function) {
-        // TODO: Synchronize these
-        when (event) {
-            "event" -> callbacksEvent.add(cb)
-            "resize" -> callbacksResize.add(cb)
-            "close" -> callbacksClose.add(cb)
-            "redraw" -> callbacksRedraw.add(cb)
+        val list = when (event) {
+            "event" -> callbacksEvent
+            "resize" -> callbacksResize
+            "close" -> callbacksClose
+            "redraw" -> callbacksRedraw
             else -> throw IllegalArgumentException("invalid event type '$event'" )
+        }
+        synchronized(list) {
+            list.add(cb)
         }
     }
 
     @Suppress("unused")
     fun requestAnimationFrame(cb: JNIV8Function): Int {
-        // synchronized(this) {
             val id = nextAnimationRequestId.incrementAndGet()
             queuedAnimationRequests.add(AnimationFrameRequest(cb, id))
             textureView.requestRender()
             return id
-        // }
     }
 
     @Suppress("unused")
     fun cancelAnimationFrame(id: Int) {
-        // synchronized(this) {
-            for (animationRequest in queuedAnimationRequests) {
-                if (animationRequest.id == id) {
-                    // TODO: dispose
-                    queuedAnimationRequests.remove(animationRequest)
-                    break
-                }
+        for (animationRequest in queuedAnimationRequests) {
+            if (animationRequest.id == id) {
+                queuedAnimationRequests.remove(animationRequest)
+                break
             }
-//            if (queuedAnimationRequests.isEmpty()) {
-//                textureView.
-//            }
-        // }
+        }
     }
 
     private fun executeCallbacks(callbacks: ArrayList<JNIV8Function>, vararg args: Any) {
         var lastException: Exception? = null
-        for (cb in callbacks) {
-            try {
-                cb.callAsV8Function(*args)
-            } catch (e: Exception) {
-                lastException = e
-                Log.e(TAG, "Exception when running close callback", e)
+        synchronized(callbacks) {
+            for (cb in callbacks) {
+                try {
+                    cb.callAsV8Function(*args)
+                } catch (e: Exception) {
+                    lastException = e
+                    Log.e(TAG, "Exception when running close callback", e)
+                }
             }
         }
         if (lastException != null) {
-            throw lastException
+            throw lastException!!
         }
     }
 
@@ -105,13 +99,12 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
 
     fun onRedraw():Boolean {
         var didDraw = false
-        // synchronized(this) {
-        // Clone and empty both lists of callbacks
+        // Clone and empty both lists of callbacks in a v8::Locker so JS cannot add event listeners
+        // while we execute them
         val callbacksForThisRedraw = ArrayList<JNIV8Function>(30)
         v8Engine.runLocked {
             callbacksForThisRedraw.addAll(callbacksRedraw)
             queuedAnimationRequests.forEach { callbacksForThisRedraw.add(it.cb) }
-            // callbacksRedraw.clear()
             queuedAnimationRequests.clear()
         }
 
@@ -134,12 +127,6 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
 
     fun onEvent(event: JNIV8Object) {
         executeCallbacks(callbacksEvent, event)
-    }
-
-    fun cleanup() {
-        // TODO: remove all event listeners and dispose
-        // TODO: romve all animation frame requests and dispose them
-
     }
 
     companion object {
