@@ -44,7 +44,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	protected static V8Engine mInstance;
 	private final boolean mIsTablet;
 	protected Handler mHandler;
-	private String scriptPath;
 	private AssetManager assetManager;
 	private boolean mReady;
 	private ArrayList<V8EngineHandler> mHandlers = null;
@@ -230,10 +229,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		}
 	}
 
-	protected V8Engine(Application application, String path) {
-		if (path != null) {
-            scriptPath = path;
-        }
+	protected V8Engine(Application application) {
         if (application != null) {
             assetManager = application.getAssets();
             final Resources r = application.getResources();
@@ -261,6 +257,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         registerModule(new BGJSModuleLocalStorage(application.getApplicationContext()));
 
         // start thread
+        initializeV8(assetManager);
+
+        assetManager = null;
 		jsThread = new Thread(new V8EngineRunnable());
 		jsThread.setName("EjectaV8JavaScriptContext");
 		jsThread.start();
@@ -280,18 +279,18 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		return getInstance().mReady;
 	}
 
-	public synchronized static V8Engine getInstance(Application app, String path) {
+	public synchronized static V8Engine getInstance(Application app) {
 		if (mInstance == null) {
-            if(app == null || path == null) {
+            if(app == null) {
                 throw new RuntimeException("V8Engine hasn't been initialized");
             }
-			mInstance = new V8Engine(app, path);
+			mInstance = new V8Engine(app);
 		}
 		return mInstance;
 	}
 
 	public static V8Engine getInstance() {
-		return getInstance(null, null);
+		return getInstance(null);
 	}
 
     public static V8Engine getCachedInstance() {
@@ -344,14 +343,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
 		@Override
 		public void run() {
-
 			Looper.prepare();
 			mHandler = new Handler(V8Engine.this);
-			initializeV8(assetManager);
-
-			assetManager = null;
-
-			require(scriptPath);
 
 			mHandler.sendMessageAtFrontOfQueue(mHandler.obtainMessage(MSG_READY));
 			mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
