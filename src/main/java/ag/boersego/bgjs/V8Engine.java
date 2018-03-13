@@ -305,7 +305,11 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			e.printStackTrace();
 		}
 		Log.d(TAG, "Initializing V8Engine");
-		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", BuildConfig.DEBUG);
+		final int maxHeapSizeForV8 = (int)(Runtime.getRuntime().maxMemory() / 1024 / 1024 / 3);
+		if (DEBUG) {
+			Log.d(TAG, "Max heap size for v8 is " + maxHeapSizeForV8 + " MB");
+		}
+		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", BuildConfig.DEBUG, maxHeapSizeForV8);
     }
 
     public native void registerModule(JNIV8Module module);

@@ -959,6 +959,8 @@ static void js_context_putImageData(const v8::FunctionCallbackInfo<v8::Value>& a
 void js_canvas_destruct(const v8::WeakCallbackInfo<void>& data) {
 	CanvasCallbackHolder* canvasHolder = (CanvasCallbackHolder*)data.GetParameter();
 
+    canvasHolder->persistent.Reset();
+
     delete canvasHolder->canvas;
     delete canvasHolder;
 }

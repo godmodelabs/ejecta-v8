@@ -78,14 +78,22 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
 
     private fun executeCallbacks(callbacks: ArrayList<JNIV8Function>, vararg args: Any) {
         var lastException: Exception? = null
+        var cbs: Array<Any>? = null
         synchronized(callbacks) {
-            for (cb in callbacks) {
-                try {
+            if (callbacks.isEmpty()) {
+                return
+            }
+            cbs = callbacks.toArray()
+        }
+
+        for (cb in cbs!!) {
+            try {
+                if (cb is JNIV8Function) {
                     cb.callAsV8Function(*args)
-                } catch (e: Exception) {
-                    lastException = e
-                    Log.e(TAG, "Exception when running close callback", e)
                 }
+            } catch (e: Exception) {
+                lastException = e
+                Log.e(TAG, "Exception when running close callback", e)
             }
         }
         if (lastException != null) {
@@ -106,16 +114,18 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
             callbacksForThisRedraw.addAll(callbacksRedraw)
             queuedAnimationRequests.forEach { callbacksForThisRedraw.add(it.cb) }
             queuedAnimationRequests.clear()
-        }
 
-        didDraw = !callbacksForThisRedraw.isEmpty()
+            didDraw = !callbacksForThisRedraw.isEmpty()
 
-        if (didDraw) {
-            prepareRedraw()
-            for (cb in callbacksForThisRedraw) {
-                cb.callAsV8Function()
+            // TODO: what are on.redraw?
+
+            if (didDraw) {
+                prepareRedraw()
+                for (cb in callbacksForThisRedraw) {
+                    cb.callAsV8Function()
+                }
+                endRedraw()
             }
-            endRedraw()
         }
         return didDraw
     }

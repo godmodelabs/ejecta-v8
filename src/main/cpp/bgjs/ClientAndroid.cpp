@@ -54,7 +54,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang,
-        jstring timezone, jfloat density, jstring deviceClass, jboolean debug) {
+        jstring timezone, jfloat density, jstring deviceClass, jboolean debug, jint maxHeapSize) {
 
 	auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
 	ct->setAssetManager(assetManager);
@@ -66,11 +66,13 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
 	ct->setDensity(density);
 	ct->setDebug(debug);
+	ct->setMaxHeapSize(maxHeapSize);
 	env->ReleaseStringUTFChars(locale, localeStr);
 	env->ReleaseStringUTFChars(lang, langStr);
 	env->ReleaseStringUTFChars(timezone, tzStr);
     env->ReleaseStringUTFChars(deviceClass, deviceClassStr);
 	ct->createContext();
+
 	LOGD("BGJS context created");
 
 	ct->registerModule("canvas", BGJSGLModule::doRequire);
