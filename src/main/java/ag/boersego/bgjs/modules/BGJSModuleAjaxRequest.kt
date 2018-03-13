@@ -90,15 +90,11 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         // TODO: Why does this need a parameter?
         v8Engine.runLocked {
             aborted = true
-            callbacks.forEach { cb ->
-                if (cb.first != CallbackType.DONE) {
-                    try {
-                        cb.second.callAsV8Function(null, "abort")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Exception thrown when calling ajax " + cb.first + " callback on abort", e)
-                    }
-                }
-            }
+            val failDetails = HttpResponseDetails(v8Engine)
+            failDetails.setReturnData(500, null)
+            val returnObject = JNIV8GenericObject.Create(v8Engine)
+            callCallbacks(CallbackType.FAIL, returnObject, "abort", failDetails, 500)
+
             callbacks.forEach { it.second.dispose() }
             callbacks.clear()
         }
