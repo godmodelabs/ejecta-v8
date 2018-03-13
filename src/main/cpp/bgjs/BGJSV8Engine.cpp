@@ -707,7 +707,12 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 }
 
 v8::Isolate* BGJSV8Engine::getIsolate() const {
-    return this->_isolate;
+    if(_isolate == nullptr) {
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
+                      "V8Engine has not been initialized yet");
+    }
+    return _isolate;
 }
 
 v8::Local<v8::Context> BGJSV8Engine::getContext() const {
@@ -1191,7 +1196,7 @@ BGJSV8Engine::~BGJSV8Engine() {
 	if (_locale) {
 		free(_locale);
 	}
-    this->_isolate->Exit();
+    _isolate->Exit();
 
 	for(auto &it : _javaModules) {
 		env->DeleteGlobalRef(it.second);

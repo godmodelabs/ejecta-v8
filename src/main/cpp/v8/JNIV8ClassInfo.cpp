@@ -605,6 +605,7 @@ v8::Local<v8::Object> JNIV8ClassInfo::newInstance() const {
     assert(container->type == JNIV8ObjectType::kPersistent);
 
     Isolate* isolate = engine->getIsolate();
+
     Isolate::Scope scope(isolate);
     EscapableHandleScope handleScope(isolate);
     Context::Scope ctxScope(engine->getContext());
