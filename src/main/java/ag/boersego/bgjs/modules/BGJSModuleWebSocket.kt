@@ -65,7 +65,6 @@ class BGJSWebSocket : JNIV8Object, Runnable {
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 super.onClosed(webSocket, code, reason)
                 v8Engine.runLocked {
-                    _readyState = ReadyState.CLOSED
 
                     if (onclose != null) {
                         val closeEvent = JNIV8GenericObject.Create(v8Engine)
@@ -74,6 +73,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
                         onclose?.callAsV8Function(closeEvent)
                         closeEvent.dispose()
                     }
+                    _readyState = ReadyState.CLOSED
                     socket = null
                 }
             }
@@ -98,7 +98,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     fun send(msg: String): Any? {
         var success = false
         v8Engine.runLocked {
-            if (_readyState != ReadyState.OPEN) {
+            if (_readyState != ReadyState.OPEN && _readyState != ReadyState.CLOSING) {
                 throw RuntimeException("INVALID_STATE_ERR")
             }
             if (socket != null) {
