@@ -327,7 +327,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
         for (final JNIV8GenericObject touch : touchObjs) {
         	touch.dispose();
-		}
+        }
         touches.dispose();
         touchEventObj.dispose();
 	}

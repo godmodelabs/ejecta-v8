@@ -7,6 +7,7 @@ import ag.boersego.v8annotations.V8Getter
 import android.util.Log
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.collections.ArrayList
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 02.03.18 for myrmecophaga-2.0.
@@ -106,28 +107,24 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
     }
 
     fun onRedraw():Boolean {
-        var didDraw = false
+        if (queuedAnimationRequests.isEmpty()) {
+            return false
+        }
+
         // Clone and empty both lists of callbacks in a v8::Locker so JS cannot add event listeners
         // while we execute them
-        val callbacksForThisRedraw = ArrayList<JNIV8Function>(30)
         v8Engine.runLocked {
-            callbacksForThisRedraw.addAll(callbacksRedraw)
-            queuedAnimationRequests.forEach { callbacksForThisRedraw.add(it.cb) }
+            val callbacksForRedraw = ArrayList<JNIV8Function>(queuedAnimationRequests.size)
+            queuedAnimationRequests.forEach { callbacksForRedraw.add(it.cb) }
             queuedAnimationRequests.clear()
 
-            didDraw = !callbacksForThisRedraw.isEmpty()
-
-            // TODO: what are on.redraw?
-
-            if (didDraw) {
                 prepareRedraw()
-                for (cb in callbacksForThisRedraw) {
+                for (cb in callbacksForRedraw) {
                     cb.callAsV8Function()
                 }
                 endRedraw()
-            }
         }
-        return didDraw
+        return true
     }
 
     fun onResize() {
