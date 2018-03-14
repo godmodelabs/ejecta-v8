@@ -104,6 +104,9 @@ public:
     void trace(const v8::FunctionCallbackInfo<v8::Value> &info);
 
     bool _debug;
+
+    void setMaxHeapSize(int maxHeapSize);
+
 private:
 	// called by JNIWrapper
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
@@ -142,6 +145,7 @@ private:
 	char *_lang;		// de
 	char *_tz;			// Europe/Berlin
 	char *_deviceClass; // "phone"/"tablet"
+	int _maxHeapSize;	// in MB
 
 	float _density;
 
@@ -165,6 +169,7 @@ private:
     v8::Local<v8::Function> makeRequireFunction(std::string pathName);
 
 	int _nextTimerId;
+
 };
 
 BGJS_JNI_LINK_DEF(BGJSV8Engine)

@@ -324,6 +324,12 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         touchEventObj.setV8Field("touches", touches);
 
         mBGJSGLView.onEvent(touchEventObj);
+
+        for (final JNIV8GenericObject touch : touchObjs) {
+        	touch.dispose();
+        }
+        touches.dispose();
+        touchEventObj.dispose();
 	}
 
 	public void setClearColor(final int color) {

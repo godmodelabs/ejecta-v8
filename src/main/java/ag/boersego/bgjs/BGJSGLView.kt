@@ -7,6 +7,7 @@ import ag.boersego.v8annotations.V8Getter
 import android.util.Log
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.collections.ArrayList
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 02.03.18 for myrmecophaga-2.0.
@@ -78,14 +79,22 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
 
     private fun executeCallbacks(callbacks: ArrayList<JNIV8Function>, vararg args: Any) {
         var lastException: Exception? = null
+        var cbs: Array<Any>? = null
         synchronized(callbacks) {
-            for (cb in callbacks) {
-                try {
+            if (callbacks.isEmpty()) {
+                return
+            }
+            cbs = callbacks.toArray()
+        }
+
+        for (cb in cbs!!) {
+            try {
+                if (cb is JNIV8Function) {
                     cb.callAsV8Function(*args)
-                } catch (e: Exception) {
-                    lastException = e
-                    Log.e(TAG, "Exception when running close callback", e)
                 }
+            } catch (e: Exception) {
+                lastException = e
+                Log.e(TAG, "Exception when running close callback", e)
             }
         }
         if (lastException != null) {
@@ -98,26 +107,24 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
     }
 
     fun onRedraw():Boolean {
-        var didDraw = false
+        if (queuedAnimationRequests.isEmpty()) {
+            return false
+        }
+
         // Clone and empty both lists of callbacks in a v8::Locker so JS cannot add event listeners
         // while we execute them
-        val callbacksForThisRedraw = ArrayList<JNIV8Function>(30)
         v8Engine.runLocked {
-            callbacksForThisRedraw.addAll(callbacksRedraw)
-            queuedAnimationRequests.forEach { callbacksForThisRedraw.add(it.cb) }
+            val callbacksForRedraw = ArrayList<JNIV8Function>(queuedAnimationRequests.size)
+            queuedAnimationRequests.forEach { callbacksForRedraw.add(it.cb) }
             queuedAnimationRequests.clear()
-        }
 
-        didDraw = !callbacksForThisRedraw.isEmpty()
-
-        if (didDraw) {
-            prepareRedraw()
-            for (cb in callbacksForThisRedraw) {
-                cb.callAsV8Function()
-            }
-            endRedraw()
+                prepareRedraw()
+                for (cb in callbacksForRedraw) {
+                    cb.callAsV8Function()
+                }
+                endRedraw()
         }
-        return didDraw
+        return true
     }
 
     fun onResize() {

@@ -959,6 +959,9 @@ void BGJSV8Engine::createContext() {
 		v8::V8::InitializePlatform(platform);
 		LOGD("Initialized platform");
 		v8::V8::Initialize();
+        std::string flags = "--max_old_space_size=";
+        flags = flags + std::to_string(_maxHeapSize);
+        v8::V8::SetFlagsFromString(flags.c_str(), flags.length());
 		LOGD("Initialized v8: %s", v8::V8::GetVersion());
 	}
 
@@ -1137,6 +1140,14 @@ float BGJSV8Engine::getDensity() const {
 
 void BGJSV8Engine::setDebug(bool debug) {
     _debug = debug;
+}
+
+/**
+ * Sets the maximum "old space" heap size in Megabytes we set for v8
+ * @param maxHeapSize max heap in mb
+ */
+void BGJSV8Engine::setMaxHeapSize(int maxHeapSize) {
+    _maxHeapSize = maxHeapSize;
 }
 
 char* BGJSV8Engine::loadFile(const char* path, unsigned int* length) const {
