@@ -20,9 +20,9 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         var exports = JNIV8GenericObject.Create(engine)
 
-        exports.setV8Field("getItem", JNIV8Function.Create(engine, JNIV8Function.Handler { receiver, arguments ->
-            if (arguments.size < 1 || !(arguments[0] is String)) {
-                throw IllegalArgumentException("getItem needs one parameter of type String") as Throwable
+        exports.setV8Field("getItem", JNIV8Function.Create(engine, { receiver, arguments ->
+            if (arguments.isEmpty() || !(arguments[0] is String)) {
+                throw IllegalArgumentException("getItem needs one parameter of type String")
             }
             val key = arguments[0] as String
 

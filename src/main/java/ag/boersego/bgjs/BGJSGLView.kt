@@ -15,7 +15,7 @@ import kotlin.collections.ArrayList
  */
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8Object(engine) {
+open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) : JNIV8Object(engine) {
     private val callbacksResize = ArrayList<JNIV8Function>(2)
     private val callbacksClose = ArrayList<JNIV8Function>(2)
     private val callbacksRedraw = ArrayList<JNIV8Function>(2)
@@ -35,15 +35,15 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
     val height: Int
         @V8Getter get() = textureView.height
 
-    external fun prepareRedraw()
+    private external fun prepareRedraw()
 
-    external fun endRedraw()
+    private external fun endRedraw()
 
     external fun setTouchPosition(x: Int, y: Int)
 
     external fun setViewData(devicePixelRatio: Float, dontClearOnFlip: Boolean, x: Int, y: Int)
 
-    external fun viewWasResized(x: Int, y: Int)
+    private external fun viewWasResized(x: Int, y: Int)
 
     @V8Function
     fun on(event: String, cb: JNIV8Function) {
@@ -98,7 +98,7 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
             }
         }
         if (lastException != null) {
-            throw lastException!!
+            throw lastException
         }
     }
 
@@ -137,7 +137,7 @@ open class BGJSGLView(engine: V8Engine, val textureView: V8TextureView) : JNIV8O
     }
 
     companion object {
-        val TAG = BGJSGLView::class.java.simpleName
+        val TAG = BGJSGLView::class.java.simpleName!!
 
         @JvmStatic
         external fun Create(engine: V8Engine): BGJSGLView

@@ -145,7 +145,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
                             val errorObj = JNIV8GenericObject.Create(v8Engine)
                             if (_responseIsJson && mErrorData != null) {
-                                var parsedResponse: Any? = null
+                                val parsedResponse: Any?
                                 try {
                                     parsedResponse = v8Engine.parseJSON(mErrorData)
                                 } catch (e: Exception) {
@@ -248,7 +248,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 if (body is String) {
                     this.body = body
                 } else {
-                    this.body = v8Engine.getGlobalObject().getV8FieldTyped("JSON", JNIV8Object::class.java)!!.callV8Method("stringify", body) as String
+                    this.body = v8Engine.getGlobalObject().getV8Field<JNIV8Object>("JSON").callV8Method("stringify", body) as String
                 }
             } else {
                 // We're sending a form object
@@ -269,7 +269,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 } else if (body is String) {
                     this.body = body
                 } else {
-                    Log.w(TAG, "Cannot set body type " + body)
+                    Log.w(TAG, "Cannot set body type $body")
                 }
             }
         } else {

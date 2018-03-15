@@ -36,7 +36,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
                 }
             }
 
-            override fun onFailure(webSocket: WebSocket?, t: Throwable?, response: Response?) {
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 super.onFailure(webSocket, t, response)
 
                 v8Engine.runLocked {
@@ -46,9 +46,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
                     _readyState = ReadyState.CLOSED
 
                     onerror?.callAsV8Function()
-                    if (webSocket != null) {
-                        onClosed(webSocket, 0, "error")
-                    }
+                    onClosed(webSocket, 0, "error")
                 }
             }
 
@@ -88,7 +86,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
 
     @V8Function
     @JvmOverloads
-    fun close(code: Int = 1000, @V8UndefinedIsNull reason: String? = null): Unit {
+    fun close(code: Int = 1000, @V8UndefinedIsNull reason: String? = null) {
         if (socket != null) {
             socket?.close(code, reason)
         }
@@ -150,7 +148,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     }
 
     companion object {
-        val TAG = BGJSWebSocket::class.java.simpleName
+        val TAG = BGJSWebSocket::class.java.simpleName!!
         @Suppress("SimplifyBooleanWithConstants")
         val DEBUG = true && BuildConfig.DEBUG
     }
