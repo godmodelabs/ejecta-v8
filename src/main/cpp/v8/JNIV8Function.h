@@ -11,8 +11,8 @@ class JNIV8Function : public JNIScope<JNIV8Function, JNIV8Object> {
 public:
     JNIV8Function(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
+    static bool isWrappableV8Object(v8::Local<v8::Object> object);
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
-    static void initializeV8Bindings(JNIV8ClassInfo *info);
 
     static jobject jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jobject handler);
     static jobject jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jobjectArray arguments);

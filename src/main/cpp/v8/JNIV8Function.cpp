@@ -72,13 +72,13 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
     args.GetReturnValue().Set(JNIV8Marshalling::jobject2v8value(result));
 }
 
+static bool JNIV8Function::isWrappableV8Object(v8::Local<v8::Object> object) {
+    return object->IsFunction();
+}
+
 void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8Function$Handler;)Lag/boersego/bgjs/JNIV8Function;", (void*)JNIV8Function::jniCreate);
     info->registerNativeMethod("_callAsV8Function", "(ZIILjava/lang/Class;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
-}
-
-void JNIV8Function::initializeV8Bindings(JNIV8ClassInfo *info) {
-
 }
 
 jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jobjectArray arguments) {
@@ -253,7 +253,7 @@ jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jo
 
     // generate an instance specific function from the base function
     maybeLocalRef = funcRef->Call(context, context->Global(), 1, (v8::Local<v8::Value>*)&data);
-    if (!maybeLocalRef.ToLocal(&localRef) || !localRef->IsObject()) {
+    if (!maybeLocalRef.ToLocal(&localRef) || !localRef->IsFunction()) {
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "V8 failed to create function");
         return nullptr;
     }

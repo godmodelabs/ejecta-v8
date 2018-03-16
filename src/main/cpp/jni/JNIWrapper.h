@@ -88,20 +88,22 @@ public:
      * - object needs to have been registered before with JNIWrapper::registerObject<ObjectType>() (or another overload) and BGJS_JNIJNIV8Object_LINK
      */
     template <typename ObjectType> static
-    JNILocalRef<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
+    JNIRetainedRef<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
         va_list args;
         va_start(args, constructorAlias);
         jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
         va_end(args);
-        JNILocalRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
         JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
         return ptr;
     }
 
     template <typename ObjectType> static
-    JNILocalRef<ObjectType> createObject(const char *constructorAlias, va_list args) {
+    JNIRetainedRef<ObjectType> createObject(const char *constructorAlias, va_list args) {
         jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
-        return JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
+        return ptr;
     }
 
     /**
@@ -114,20 +116,20 @@ public:
      * - derived class must have been registed with JNIWrapper::registerJavaObject<ObjectType>(canonicalName) (or another overload)
      */
     template <typename ObjectType> static
-    JNILocalRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
+    JNIRetainedRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
         va_list args;
         va_start(args, constructorAlias);
         jobject obj = _createObject(canonicalName, constructorAlias, args);
         va_end(args);
-        JNILocalRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
         JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
         return ptr;
     }
 
     template <typename ObjectType> static
-    JNILocalRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias, va_list args) {
+    JNIRetainedRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias, va_list args) {
         jobject obj = _createObject(canonicalName, constructorAlias, args);
-        JNILocalRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
         JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
         return ptr;
     }

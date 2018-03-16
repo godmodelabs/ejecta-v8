@@ -129,6 +129,7 @@ v8::Local<v8::Object> JNIV8Object::getJSObject() {
 
     // if there is no js object yet, create it now!
     if(_jsObject.IsEmpty()) {
+        JNI_ASSERT(_v8ClassInfo->container->type != JNIV8ObjectType::kWrapper, "encountered wrapper object without a js value");
         localRef = _v8ClassInfo->newInstance();
         linkJSObject(localRef);
     } else {
@@ -151,9 +152,11 @@ void JNIV8Object::setJSObject(BGJSV8Engine *engine, JNIV8ClassInfo *cls,
     _bgjsEngine = engine;
     _v8ClassInfo = cls;
 
+    JNI_ASSERT(!jsObject.IsEmpty() || _v8ClassInfo->container->type != JNIV8ObjectType::kWrapper, "initialized wrapper object without a js value");
+
     if (!jsObject.IsEmpty()) {
         linkJSObject(jsObject);
-        // a js object was provided, so we can asume the reference is already being used somewhere
+        // a js object was provided, so we can assume the reference is already being used somewhere
         // => make the persistent reference weak, to get notified when it is no longer used
         makeWeak();
     }

@@ -7,12 +7,12 @@
 
 BGJS_JNI_LINK(JNIV8GenericObject, "ag/boersego/bgjs/JNIV8GenericObject");
 
-void JNIV8GenericObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-    info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;)Lag/boersego/bgjs/JNIV8GenericObject;", (void*)JNIV8GenericObject::jniCreate);
+static bool JNIV8GenericObject::isWrappableV8Object(v8::Local<v8::Object> object) {
+    return object->IsObject();
 }
 
-void JNIV8GenericObject::initializeV8Bindings(JNIV8ClassInfo *info) {
-
+void JNIV8GenericObject::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
+    info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;)Lag/boersego/bgjs/JNIV8GenericObject;", (void*)JNIV8GenericObject::jniCreate);
 }
 
 jobject JNIV8GenericObject::jniCreate(JNIEnv *env, jobject obj, jobject engineObj) {

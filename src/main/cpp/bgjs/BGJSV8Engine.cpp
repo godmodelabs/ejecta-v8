@@ -450,7 +450,8 @@ void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8
 
 	jobject module = engine->_javaModules.at(moduleId);
 
-	env->CallVoidMethod(module, _jniV8Module.requireId, engine->getJObject(), JNIV8Wrapper::wrapObject<JNIV8GenericObject>(target)->getJObject());
+	env->CallVoidMethod(module, _jniV8Module.requireId, engine->getJObject(),
+                        JNIV8Wrapper::wrapObject<JNIV8GenericObject>(target)->getJObject());
 }
 
 bool BGJSV8Engine::registerJavaModule(jobject module) {
@@ -777,9 +778,10 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 	if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
 	    Local<Object> localFunc = args[0]->ToObject();
 
-        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
+        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
         jobject functionWrapped = JNIV8Marshalling::v8value2jobject(localFunc);
         args.GetReturnValue().Set(view->callJavaIntMethod("requestAnimationFrame", functionWrapped));
+        JNIWrapper::getEnvironment()->DeleteLocalRef(functionWrapped);
 	} else {
 	    LOGI("requestAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
 	        args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
@@ -809,7 +811,7 @@ void BGJSV8Engine::js_global_cancelAnimationFrame(
 	if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
 
 		int id = (int) (Local<Number>::Cast(args[0])->Value());
-        JNILocalRef<JNIV8Object> view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
+        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
         view->callJavaVoidMethod("cancelAnimationFrame", id);
 	} else {
         ctx->getIsolate()->ThrowException(
@@ -961,7 +963,7 @@ void BGJSV8Engine::createContext() {
 		v8::V8::Initialize();
         std::string flags = "--max_old_space_size=";
         flags = flags + std::to_string(_maxHeapSize);
-        v8::V8::SetFlagsFromString(flags.c_str(), flags.length());
+        v8::V8::SetFlagsFromString(flags.c_str(), (int)flags.length());
 		LOGD("Initialized v8: %s", v8::V8::GetVersion());
 	}
 
@@ -1206,6 +1208,7 @@ BGJSV8Engine::~BGJSV8Engine() {
 }
 
 void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    JNI_ASSERT(args.Length()>=1 && args[0]->IsFunction(), "enqueueNextTick must be called with a callback function");
     HandleScope scope(args.GetIsolate());
     const auto wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
     JNIEnv* env = JNIWrapper::getEnvironment();
@@ -1349,6 +1352,7 @@ Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jstring 
     std::string strCanonicalName = JNIWrapper::jstring2string(canonicalName);
     std::replace(strCanonicalName.begin(), strCanonicalName.end(), '.', '/');
 
-	return JNIV8Wrapper::wrapObject<JNIV8Function>(JNIV8Wrapper::getJSConstructor(engine.get(), strCanonicalName))->getJObject();
+	return JNIV8Wrapper::wrapObject<JNIV8Function>(
+            JNIV8Wrapper::getJSConstructor(engine.get(), strCanonicalName))->getJObject();
 }
 }

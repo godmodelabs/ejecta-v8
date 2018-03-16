@@ -18,6 +18,10 @@ void JNIV8Array::initJNICache() {
     _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
 }
 
+static bool JNIV8Array::isWrappableV8Object(v8::Local<v8::Object> object) {
+    return object->IsArray();
+}
+
 void JNIV8Array::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreate);
     info->registerNativeMethod("CreateWithLength", "(Lag/boersego/bgjs/V8Engine;I)Lag/boersego/bgjs/JNIV8Array;", (void*)JNIV8Array::jniCreateWithLength);
@@ -25,10 +29,6 @@ void JNIV8Array::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("getV8Length", "()I", (void*)JNIV8Array::jniGetV8Length);
     info->registerNativeMethod("_getV8Elements", "(IILjava/lang/Class;II)[Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8ElementsInRange);
     info->registerNativeMethod("_getV8Element", "(IILjava/lang/Class;I)Ljava/lang/Object;", (void*)JNIV8Array::jniGetV8Element);
-}
-
-void JNIV8Array::initializeV8Bindings(JNIV8ClassInfo *info) {
-
 }
 
 /**

@@ -103,7 +103,7 @@ BGJSV8Engine2dGL::~BGJSV8Engine2dGL() {
 
 class BGJSCanvasGL {
 public:
-	JNIGlobalRef<BGJSGLView> _view;
+	JNIRetainedRef<BGJSGLView> _view;
 	const BGJSV8Engine2dGL* _context2d;
 	const BGJSV8Engine* _context;
 

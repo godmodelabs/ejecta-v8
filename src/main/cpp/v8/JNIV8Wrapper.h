@@ -83,19 +83,19 @@ public:
      * object needs to have been registered before with BGJS_REGISTER_OBJECT
      */
     template <typename ObjectType> static
-    JNILocalRef<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
+    JNIRetainedRef<ObjectType> createObject(const char *constructorAlias = nullptr, ...) {
         va_list args;
         va_start(args, constructorAlias);
-        JNILocalRef<ObjectType> ptr = JNIWrapper::createObject<ObjectType>(constructorAlias, args);
+        JNIRetainedRef<ObjectType> ptr = JNIWrapper::createObject<ObjectType>(constructorAlias, args);
         va_end(args);
         return ptr;
     }
 
     template <typename ObjectType> static
-    JNILocalRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
+    JNIRetainedRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias = nullptr, ...) {
         va_list args;
         va_start(args, constructorAlias);
-        JNILocalRef<ObjectType> ptr = JNIWrapper::createDerivedObject<ObjectType>(canonicalName, constructorAlias, args);
+        JNIRetainedRef<ObjectType> ptr = JNIWrapper::createDerivedObject<ObjectType>(canonicalName, constructorAlias, args);
         va_end(args);
         return ptr;
     }
@@ -114,7 +114,7 @@ public:
     template <typename ObjectType> static
     JNILocalRef<ObjectType> wrapObject(v8::Local<v8::Object> object) {
         auto it = _objmap.find(JNIBase::getCanonicalName<ObjectType>());
-        if (it == _objmap.end()){
+        if (it == _objmap.end()) {
             return nullptr;
         }
 
@@ -129,6 +129,10 @@ public:
         JNIV8ClassInfoContainer *info = it->second;
 
         if(info->type == JNIV8ObjectType::kWrapper) {
+            // make sure the object is actually supported by the specified type
+            if(!ObjectType::isWrappableV8Object(object)) {
+                return nullptr;
+            }
             /*
             // does the object have a native object stored in a private key?
             auto privateKey = v8::Private::ForApi(isolate, v8::String::NewFromUtf8(isolate, _v8PrivateKey));
@@ -151,9 +155,9 @@ public:
             JNIEnv *env = JNIWrapper::getEnvironment();
             jobjectArray arguments = env->NewObjectArray(0, _jniObject.clazz, nullptr);
             // __android_log_print(ANDROID_LOG_WARN, "JNIV8Wrapper", "Creating %s", JNIBase::getCanonicalName<ObjectType>().c_str());
-            auto localRef = JNILocalRef<ObjectType>::Cast(info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments));
+            auto retainedRef = JNIRetainedRef<ObjectType>::Cast(info->creator(_getV8ClassInfo(JNIBase::getCanonicalName<ObjectType>(), BGJSV8Engine::GetInstance(isolate)), persistent, arguments));
             env->DeleteLocalRef(arguments);
-            return localRef;
+            return JNILocalRef<ObjectType>::New(retainedRef);
         } else {
             if (object->InternalFieldCount() >= 1) {
                 // does the object have internal fields? if so use it!
@@ -213,9 +217,9 @@ private:
     }
 
     template<class ObjectType>
-    static JNILocalRef<JNIV8Object> createJavaClass(JNIV8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments) {
+    static JNIRetainedRef<JNIV8Object> createJavaClass(JNIV8ClassInfo *info, v8::Persistent<v8::Object> *jsObj, jobjectArray arguments) {
         jobject engineObj = info->engine->getJObject();
-        JNILocalRef<JNIV8Object> ref = JNILocalRef<JNIV8Object>::Cast(JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", engineObj, (jlong)(void*)jsObj, arguments));
+        JNIRetainedRef<JNIV8Object> ref = JNIRetainedRef<JNIV8Object>::Cast(JNIV8Wrapper::createDerivedObject<ObjectType>(info->container->canonicalName, "<JNIV8ObjectInit>", engineObj, (jlong)(void*)jsObj, arguments));
         JNIWrapper::getEnvironment()->DeleteLocalRef(engineObj);
         return ref;
     }
@@ -250,6 +254,7 @@ private:
     } _jniV8AccessorInfo;
 };
 
-template <> JNILocalRef<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(v8::Local<v8::Object> object);
+template <> JNILocalRef<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(
+        v8::Local<v8::Object> object);
 
 #endif //__JNIV8WRAPPER_H

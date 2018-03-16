@@ -11,8 +11,8 @@ class JNIV8GenericObject : public JNIScope<JNIV8GenericObject, JNIV8Object> {
 public:
     JNIV8GenericObject(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
+    static bool isWrappableV8Object(v8::Local<v8::Object> object);
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
-    static void initializeV8Bindings(JNIV8ClassInfo *info);
 
     static jobject jniCreate(JNIEnv *env, jobject obj, jobject engineObj);
 };
