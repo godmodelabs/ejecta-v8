@@ -996,7 +996,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			Log.d(TAG, "Finishing thread");
 		}
 		mRenderThread.finish();
-		return false;
+		return true;
 	}
 
 	public void finish() {
