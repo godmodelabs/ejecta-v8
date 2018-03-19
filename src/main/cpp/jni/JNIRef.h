@@ -204,7 +204,7 @@ public:
 
 /**
  * retained reference to a JNIObject
- * these references type keeps the referenced object from being garbage collection
+ * these references type keeps the referenced object from being garbage collected
  * they can safely be used as class members or globals
  */
 template <typename T>
@@ -218,10 +218,10 @@ private:
     JNIRetainedRef(const JNIRetainedRef<U> &&ref, T* ptr) : JNIRef<T>(std::move(ref), ptr) {}
 
     JNIRetainedRef(const JNILocalRef<T> &ref) : JNIRef<T>(ref) {
-        retain();
+        JNIRef<T>::retain();
     }
     JNIRetainedRef(const JNILocalRef<T> &&ref) : JNIRef<T>(ref) {
-        retain();
+        JNIRef<T>::retain();
     }
 public:
     JNIRetainedRef(JNIRetainedRef<T>&& ref) : JNIRef<T>(std::move(ref)) {}
@@ -235,18 +235,6 @@ public:
 
     JNIRetainedRef<T>& operator=(JNIRetainedRef<T>& other) {
         JNIRef<T>::operator=(other);
-        return *this;
-    }
-
-    JNIRetainedRef<T>& operator=(JNILocalRef<T>&& other) {
-        JNIRef<T>::operator=(std::move(other));
-        JNIRef<T>::retain();
-        return *this;
-    }
-
-    JNIRetainedRef<T>& operator=(JNILocalRef<T>& other) {
-        JNIRef<T>::operator=(other);
-        JNIRef<T>::retain();
         return *this;
     }
 
