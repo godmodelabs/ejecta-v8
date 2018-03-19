@@ -42,7 +42,8 @@ protected:
 
     // cast & move ctor
     template<typename U>
-    JNIRef(const JNIRef<U>&& ref, T* ptr) : _cnt(ref._cnt), _obj(ptr) {
+    JNIRef(JNIRef<U>&& ref, T* ptr) : _cnt(ref._cnt), _obj(ptr) {
+        ref._cnt = nullptr;
     }
 
     // default ctor
