@@ -29,7 +29,7 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
             mPref.getString(key, null)
         }))
 
-        exports.setV8Field("setItem", JNIV8Function.Create(engine, JNIV8Function.Handler { receiver, arguments ->
+        exports.setV8Field("setItem", JNIV8Function.Create(engine, { _, arguments ->
             if (arguments.size < 2 || !(arguments[0] is String) || !(arguments[1] is String)) {
                 throw IllegalArgumentException("setItem needs two parameters of type String")
             }

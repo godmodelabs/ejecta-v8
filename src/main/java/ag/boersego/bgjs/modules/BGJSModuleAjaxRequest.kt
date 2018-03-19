@@ -118,7 +118,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             details.setReturnData(mSuccessCode, responseHeaders)
 
                             if (_responseIsJson) {
-                                var parsedResponse: Any? = null
+                                var parsedResponse: Any?
                                 try {
                                     parsedResponse = v8Engine.parseJSON(mSuccessData)
                                 } catch (e: Exception) {
