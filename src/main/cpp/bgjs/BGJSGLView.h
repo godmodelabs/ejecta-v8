@@ -21,6 +21,7 @@ public:
     static void setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height);
 	virtual void onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
 
+	static bool isWrappableV8Object(v8::Local<v8::Object> object);
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
 	static void initializeV8Bindings(JNIV8ClassInfo *info);
 

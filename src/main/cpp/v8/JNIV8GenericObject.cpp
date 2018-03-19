@@ -7,7 +7,7 @@
 
 BGJS_JNI_LINK(JNIV8GenericObject, "ag/boersego/bgjs/JNIV8GenericObject");
 
-static bool JNIV8GenericObject::isWrappableV8Object(v8::Local<v8::Object> object) {
+bool JNIV8GenericObject::isWrappableV8Object(v8::Local<v8::Object> object) {
     return object->IsObject();
 }
 

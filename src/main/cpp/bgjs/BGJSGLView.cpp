@@ -57,8 +57,10 @@ void BGJSGLView::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 }
 
 void BGJSGLView::initializeV8Bindings(JNIV8ClassInfo *info) {
+}
 
-
+bool BGJSGLView::isWrappableV8Object(v8::Local<v8::Object> object) {
+    return false;
 }
 
 void BGJSGLView::viewWasResized(JNIEnv *env, jobject objWrapped, int width, int height) {

@@ -72,7 +72,7 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
     args.GetReturnValue().Set(JNIV8Marshalling::jobject2v8value(result));
 }
 
-static bool JNIV8Function::isWrappableV8Object(v8::Local<v8::Object> object) {
+bool JNIV8Function::isWrappableV8Object(v8::Local<v8::Object> object) {
     return object->IsFunction();
 }
 

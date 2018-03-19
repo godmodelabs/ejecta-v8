@@ -18,7 +18,7 @@ void JNIV8Array::initJNICache() {
     _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
 }
 
-static bool JNIV8Array::isWrappableV8Object(v8::Local<v8::Object> object) {
+bool JNIV8Array::isWrappableV8Object(v8::Local<v8::Object> object) {
     return object->IsArray();
 }
 
