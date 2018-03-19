@@ -72,7 +72,7 @@ open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) 
         for (animationRequest in queuedAnimationRequests) {
             if (animationRequest.id == id) {
                 queuedAnimationRequests.remove(animationRequest)
-                break
+                return
             }
         }
     }
@@ -103,7 +103,13 @@ open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) 
     }
 
     fun onClose() {
-        executeCallbacks(callbacksClose)
+        v8Engine.runLocked {
+            queuedAnimationRequests.clear()
+            callbacksResize.clear()
+            callbacksEvent.clear()
+            executeCallbacks(callbacksClose)
+            callbacksClose.clear()
+        }
     }
 
     fun onRedraw():Boolean {
