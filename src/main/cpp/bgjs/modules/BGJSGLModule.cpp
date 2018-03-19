@@ -983,7 +983,7 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	}
 	Local<Object> obj = args[0]->ToObject();
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
-	canvas->_view = JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject());
+	canvas->_view = JNIRetainedRef<BGJSGLView>::New(JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject()));
 
 	Local<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance();
 	fn->SetInternalField(0, External::New(isolate, canvas));
