@@ -863,6 +863,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 mBGJSGLView.onClose();
             }
 
+            mSurface.release();
+
             mBGJSGLView = null;
 
 			finishGL();
@@ -1006,7 +1008,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			Log.d(TAG, "Finishing thread");
 		}
 		mRenderThread.finish();
-		return true;
+		return false;
 	}
 
 	public void finish() {
