@@ -316,7 +316,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     + scale);
         }
 
-        JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object) touchObjs);
+        JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
 
         final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(mEngine);
         touchEventObj.setV8Field("type", type);

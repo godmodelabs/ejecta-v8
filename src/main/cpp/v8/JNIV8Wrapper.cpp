@@ -384,7 +384,7 @@ template<> JNILocalRef<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(
     } else {
         return nullptr;
     }
-    return JNIRetainedRef<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value()));
+    return JNILocalRef<JNIV8Object>(reinterpret_cast<JNIV8Object*>(ext->Value()));
 };
 
 /**

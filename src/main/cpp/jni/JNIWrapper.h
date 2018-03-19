@@ -93,7 +93,7 @@ public:
         va_start(args, constructorAlias);
         jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
         va_end(args);
-        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIRetainedRef<ObjectType>::New(JNIWrapper::wrapObject<ObjectType>(obj));
         JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
         return ptr;
     }
@@ -101,7 +101,7 @@ public:
     template <typename ObjectType> static
     JNIRetainedRef<ObjectType> createObject(const char *constructorAlias, va_list args) {
         jobject obj = _createObject(JNIBase::getCanonicalName<ObjectType>(), constructorAlias, args);
-        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIRetainedRef<ObjectType>::New(JNIWrapper::wrapObject<ObjectType>(obj));
         JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
         return ptr;
     }
@@ -121,7 +121,7 @@ public:
         va_start(args, constructorAlias);
         jobject obj = _createObject(canonicalName, constructorAlias, args);
         va_end(args);
-        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIRetainedRef<ObjectType>::New(JNIWrapper::wrapObject<ObjectType>(obj));
         JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
         return ptr;
     }
@@ -129,7 +129,7 @@ public:
     template <typename ObjectType> static
     JNIRetainedRef<ObjectType> createDerivedObject(const std::string &canonicalName, const char *constructorAlias, va_list args) {
         jobject obj = _createObject(canonicalName, constructorAlias, args);
-        JNIRetainedRef<ObjectType> ptr = JNIWrapper::wrapObject<ObjectType>(obj);
+        JNIRetainedRef<ObjectType> ptr = JNIRetainedRef<ObjectType>::New(JNIWrapper::wrapObject<ObjectType>(obj));
         JNIWrapper::getEnvironment()->DeleteLocalRef(obj);
         return ptr;
     }
