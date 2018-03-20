@@ -104,6 +104,9 @@ open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) 
 
     fun onClose() {
         v8Engine.runLocked {
+            if (DEBUG) {
+                Log.d(TAG, "onClose")
+            }
             queuedAnimationRequests.clear()
             callbacksResize.clear()
             callbacksEvent.clear()
@@ -143,6 +146,8 @@ open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) 
     }
 
     companion object {
+        @Suppress("SimplifyBooleanWithConstants")
+        val DEBUG = false && BuildConfig.DEBUG
         val TAG = BGJSGLView::class.java.simpleName!!
 
         @JvmStatic
