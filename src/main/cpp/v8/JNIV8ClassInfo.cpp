@@ -151,7 +151,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
     // try to find a matching signature
     JNIV8ObjectJavaSignatureInfo *signature = nullptr;
 
-    for (auto sig : cb->signatures) {
+    for (auto& sig : cb->signatures) {
         if (!sig.arguments) {
             if (!signature) {
                 signature = &sig;

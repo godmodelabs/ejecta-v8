@@ -212,11 +212,11 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
             if(env->IsSameObject(argumentInfos, nullptr)) {
                 strSignature = "([Ljava/lang/Object;)" + strReturnType;
             } else {
+                arguments = new std::vector<JNIV8JavaValue>();
                 jsize numArguments = env->GetArrayLength(argumentInfos);
                 // collect arguments
                 // ownership of malloc'ed memory is implicitly transferred to JNIV8ClassInfo!
                 if(numArguments>0) {
-                    arguments = new std::vector<JNIV8JavaValue>();
                     for(jsize argIdx=0; argIdx<numArguments; argIdx++) {
                         const jobject argumentInfo = env->GetObjectArrayElement(argumentInfos, argIdx);
                         const std::string strArgumentType = JNIWrapper::jstring2string((jstring)env->GetObjectField(argumentInfo, _jniV8FunctionArgumentInfo.typeId));
