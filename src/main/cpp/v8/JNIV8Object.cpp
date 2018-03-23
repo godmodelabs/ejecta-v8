@@ -58,6 +58,7 @@ JNIV8Object::JNIV8Object(jobject obj, JNIClassInfo *info) : JNIObject(obj, info)
 }
 
 JNIV8Object::~JNIV8Object() {
+    v8::Locker l(_bgjsEngine->getIsolate());
     // __android_log_print(ANDROID_LOG_INFO, "JNIV8Object", "deleted v8 object: %s", getCanonicalName().c_str());
     if(!_jsObject.IsEmpty()) {
         // adjust external memory counter if required
