@@ -82,10 +82,10 @@ void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 }
 
 jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jobjectArray arguments) {
-    auto ptr = JNIWrapper::wrapObject<JNIV8Object>(obj);
+    auto ptr = JNIWrapper::wrapObject<JNIV8Function>(obj);
     if(!ptr) {
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
-                      "Attempt to call method on disposed object");
+                      "Attempt to call method on disposed or invalid object");
         return nullptr;
     }
 
