@@ -892,6 +892,18 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             mBGJSGLView = null;
 
 			finishGL();
+			// Exit the Looper we started
+            Looper looper = Looper.myLooper();
+            if (looper != null) {
+                if (Build.VERSION.SDK_INT >= 18) {
+                    looper.quitSafely();
+                } else {
+                    looper.quit();
+                }
+            } else {
+                Log.w(TAG, "Renderthread has no looper!");
+            }
+            mRenderThread = null;
 		}
 
 		private void checkEglError(String prompt) {

@@ -15,7 +15,7 @@ import kotlin.collections.ArrayList
  */
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) : JNIV8Object(engine) {
+open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?) : JNIV8Object(engine) {
     private val callbacksResize = ArrayList<JNIV8Function>(2)
     private val callbacksClose = ArrayList<JNIV8Function>(2)
     private val callbacksRedraw = ArrayList<JNIV8Function>(2)
@@ -27,13 +27,13 @@ open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) 
     private val nextAnimationRequestId = AtomicInteger(0)
 
     val devicePixelRatio: Float
-        @V8Getter get() = textureView.resources.displayMetrics.density
+        @V8Getter get() = textureView?.resources?.displayMetrics?.density ?: 1f
 
     val width: Int
-        @V8Getter get() = textureView.width
+        @V8Getter get() = textureView?.width ?: 0
 
     val height: Int
-        @V8Getter get() = textureView.height
+        @V8Getter get() = textureView?.height ?: 0
 
     private external fun prepareRedraw()
 
@@ -63,7 +63,7 @@ open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) 
     fun requestAnimationFrame(cb: JNIV8Function): Int {
             val id = nextAnimationRequestId.incrementAndGet()
             queuedAnimationRequests.add(AnimationFrameRequest(cb, id))
-            textureView.requestRender()
+            textureView?.requestRender()
             return id
     }
 
@@ -113,6 +113,7 @@ open class BGJSGLView(engine: V8Engine, private val textureView: V8TextureView) 
             executeCallbacks(callbacksClose)
             callbacksClose.clear()
         }
+        textureView = null
     }
 
     fun onRedraw():Boolean {
