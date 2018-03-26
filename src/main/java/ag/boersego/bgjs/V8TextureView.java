@@ -795,7 +795,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 				}
 
 
-                mBGJSGLView.onRedraw();
+				if (mBGJSGLView != null) {
+					mBGJSGLView.onRedraw();
+				}
 
                 /* if (DEBUG) {
                     Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
@@ -837,6 +839,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 						}
 					}
 
+                    if (mFinished) {
+                        break;
+                    }
+
 					final long renderDone = System.currentTimeMillis();
 
 					// To achieve a max of 60 fps we will sleep a tad more if we didn't sleep just now
@@ -877,11 +883,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 mBGJSGLView.onClose();
             }
 
-            if (mIsDetached && mSurface != null && !mSurface.isReleased()) {
+            if (mIsDetached) {
                 mSurface.release();
+            } else {
+                mShouldReleaseSurface = true;
             }
-
-            mShouldReleaseSurface = true;
 
             mBGJSGLView = null;
 
@@ -1020,7 +1026,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		}
 
         public void canReleaseSurface() {
-            if (mShouldReleaseSurface && !mSurface.isReleased()) {
+            if (mShouldReleaseSurface) {
                 mSurface.release();
             }
         }
