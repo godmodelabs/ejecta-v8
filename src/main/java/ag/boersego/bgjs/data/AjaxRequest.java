@@ -264,7 +264,7 @@ public class AjaxRequest implements Runnable {
             } else {
                 if (mReferer != null) {
                     try {
-                        requestBuilder.addHeader("Referer", mReferer);
+                        requestBuilder.addHeader("Referer", new String(mReferer.getBytes("ISO-8859-1"), "ISO-8859-1"));
                     } catch (final Exception ex) {
                         Log.e(TAG, "Cannot set referer", ex);
                     }
