@@ -60,6 +60,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private boolean mClearColorSet;
 	protected boolean mDontClearOnFlip;
     private BGJSGLView mBGJSGLView;
+    // True if the TextureView was already detached and the surface can now be released
+    private boolean mIsDetached;
 
     /**
 	 * Create a new V8TextureView instance
@@ -129,7 +131,17 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		}
 	}
 
-	@Override
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+
+        mIsDetached = true;
+        if (mRenderThread != null) {
+            mRenderThread.canReleaseSurface();
+        }
+    }
+
+    @Override
 	public boolean onTouchEvent(/* @NotNull */ MotionEvent ev) {
 		// Non-interactive surfaces don't handle touch but pass it on
 		if (!mInteractive) {
@@ -642,6 +654,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         private int[] mEglVersion;
         // True if this surface can preserve color buffer contents on swap
         private boolean mHasSwap;
+        // True if rendering is done and the surface can be released once the view has been detached
+        private boolean mShouldReleaseSurface;
 
 
         RenderThread(SurfaceTexture surface) {
@@ -863,7 +877,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 mBGJSGLView.onClose();
             }
 
-            mSurface.release();
+            if (mIsDetached && mSurface != null && !mSurface.isReleased()) {
+                mSurface.release();
+            }
+
+            mShouldReleaseSurface = true;
 
             mBGJSGLView = null;
 
@@ -1000,7 +1018,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		public SurfaceTexture getSurface() {
 			return mSurface;
 		}
-	}
+
+        public void canReleaseSurface() {
+            if (mShouldReleaseSurface && !mSurface.isReleased()) {
+                mSurface.release();
+            }
+        }
+    }
 
 	@Override
 	public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
