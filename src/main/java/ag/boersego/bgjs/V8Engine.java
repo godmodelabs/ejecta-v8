@@ -43,7 +43,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
 	protected static V8Engine mInstance;
 	private final boolean mIsTablet;
-	protected Handler mHandler;
+    private final String mStoragePath;
+    protected Handler mHandler;
 	private AssetManager assetManager;
 	private boolean mReady;
 	private ArrayList<V8EngineHandler> mHandlers = null;
@@ -239,6 +240,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             } else {
                 throw new RuntimeException("No resources available");
             }
+            mStoragePath = application.getExternalCacheDir().toString();
         } else {
             throw new RuntimeException("Application is null");
         }
@@ -321,6 +323,18 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	public native Object parseJSON(String json);
     public native Object runScript(String script, String name);
 	public native Object require(String file);
+
+    /**
+     * Dumps v8 heap to filen
+     * @return the path to the file
+     */
+	private native String dumpHeap(String path);
+
+	public String dumpV8Heap() {
+	    synchronized (this) {
+	        return dumpHeap(mStoragePath);
+        }
+    }
 
 	public native JNIV8GenericObject getGlobalObject();
 

@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include "BGJSGLView.h"
+#include "v8-profiler.h"
 
 #define LOG_TAG	"BGJSV8Engine-jni"
 
@@ -1232,7 +1233,71 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
     LOG(LOG_INFO, "%s", str.str().c_str());
 }
 
+/////////////// Heap dump functions
+// These are based on https://github.com/bnoordhuis/node-heapdump
+
+class FileOutputStream : public OutputStream {
+public:
+    FileOutputStream(FILE* stream) : stream_(stream) {}
+
+    virtual int GetChunkSize() {
+        return 65536;  // big chunks == faster
+    }
+
+    virtual void EndOfStream() {}
+
+    virtual WriteResult WriteAsciiChunk(char* data, int size) {
+        const size_t len = static_cast<size_t>(size);
+        size_t off = 0;
+
+        while (off < len && !feof(stream_) && !ferror(stream_))
+            off += fwrite(data + off, 1, len - off, stream_);
+
+        return off == len ? kContinue : kAbort;
+    }
+
+private:
+    FILE* stream_;
+};
+
+inline bool WriteSnapshotHelper(Isolate* isolate, const char* filename) {
+    FILE* fp = fopen(filename, "w");
+    if (fp == NULL) return false;
+    const HeapSnapshot* const snap = isolate->GetHeapProfiler()->TakeHeapSnapshot();
+    FileOutputStream stream(fp);
+    snap->Serialize(&stream, HeapSnapshot::kJSON);
+    fclose(fp);
+    // Work around a deficiency in the API.  The HeapSnapshot object is const
+    // but we cannot call HeapProfiler::DeleteAllHeapSnapshots() because that
+    // invalidates _all_ snapshots, including those created by other tools.
+    const_cast<HeapSnapshot*>(snap)->Delete();
+    return true;
+}
+
+inline void RandomSnapshotFilename(const char* path, char* buffer, size_t size) {
+    std::time_t result = std::time(nullptr);
+    snprintf(buffer, size, "%s/heapdump-%llu.heapsnapshot", path, result);
+}
+
 extern "C" {
+
+JNIEXPORT jstring JNICALL
+Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn) {
+    const char *path = env->GetStringUTFChars(pathToSaveIn, 0);
+
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    char filename[512];
+    RandomSnapshotFilename(path, filename, 511);
+    WriteSnapshotHelper(isolate, filename);
+    jstring fileNameJstring = env->NewStringUTF(filename);
+
+    env->ReleaseStringUTFChars(pathToSaveIn, path);
+
+    return fileNameJstring;
+}
 
 JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json) {
