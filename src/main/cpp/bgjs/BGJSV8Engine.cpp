@@ -537,6 +537,12 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
     return handle_scope.Escape(Local<Function>::Cast(result));
 }
 
+#define _CHECK_AND_RETURN_REQUIRE_CACHE(fileName) std::map<std::string, v8::Persistent<v8::Value>>::iterator it; \
+it = _moduleCache.find(fileName); \
+if(it != _moduleCache.end()) { \
+    return handle_scope.Escape(Local<Value>::New(_isolate, it->second)); \
+}
+
 MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
@@ -551,11 +557,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     bool isJson = false;
 
     // check cache first
-    std::map<std::string, v8::Persistent<v8::Value>>::iterator it;
-    it = _moduleCache.find(baseNameStr);
-    if(it != _moduleCache.end()) {
-        return handle_scope.Escape(Local<Value>::New(_isolate, it->second));
-    }
+    _CHECK_AND_RETURN_REQUIRE_CACHE(baseNameStr)
+
 
     // Source of JS file if external code
     Handle<String> source;
@@ -589,11 +592,13 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
         if (!buf) {
             // It might be a directory with an index.js
             fileName = baseNameStr + "/index.js";
+            _CHECK_AND_RETURN_REQUIRE_CACHE(fileName)
             buf = loadFile(fileName.c_str());
 
             if (!buf) {
                 // So it might just be a js file
                 fileName = baseNameStr + ".js";
+                _CHECK_AND_RETURN_REQUIRE_CACHE(fileName)
                 buf = loadFile(fileName.c_str());
 
                 if (!buf) {
@@ -624,6 +629,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
                 }
 
                 // It might be a directory with an index.js
+                _CHECK_AND_RETURN_REQUIRE_CACHE(fileName)
                 buf = loadFile(fileName.c_str());
             } else {
                 LOGE("%s doesn't have a main object: %s", baseNameStr.c_str(), buf);
@@ -699,9 +705,11 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 
         if(!maybeLocal.IsEmpty()) {
             result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
-			_moduleCache[baseNameStr].Reset(_isolate, result);
+			_moduleCache[fileName].Reset(_isolate, result);
+
             return handle_scope.Escape(result);
         }
+
     }
 
     // this only happens when something went wrong (e.g. exception)
