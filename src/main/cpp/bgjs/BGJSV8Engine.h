@@ -94,6 +94,8 @@ public:
 	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
 	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
 
+    const char* enqueueMemoryDump(const char *basePath);
+
 	void createContext();
 
 	/**
@@ -112,6 +114,10 @@ private:
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
 
 	static void JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target);
+
+    static void OnGCCompletedForDump(v8::Isolate* isolate, v8::GCType type,
+                                     v8::GCCallbackFlags flags);
+
 	static struct {
 		jclass clazz;
 		jmethodID getNameId;

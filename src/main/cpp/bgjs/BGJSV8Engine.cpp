@@ -27,6 +27,9 @@
 
 using namespace v8;
 
+// We can only dump one Isolate's heap at a time
+char* _nextProfileDumpPath = NULL;
+
 BGJS_JNI_LINK(BGJSV8Engine, "ag/boersego/bgjs/V8Engine")
 
 //-----------------------------------------------------------
@@ -970,7 +973,7 @@ void BGJSV8Engine::createContext() {
 		v8::V8::InitializePlatform(platform);
 		LOGD("Initialized platform");
 		v8::V8::Initialize();
-        std::string flags = "--max_old_space_size=";
+        std::string flags = "--expose_gc --max_old_space_size=";
         flags = flags + std::to_string(_maxHeapSize);
         v8::V8::SetFlagsFromString(flags.c_str(), (int)flags.length());
 		LOGD("Initialized v8: %s", v8::V8::GetVersion());
@@ -1271,6 +1274,7 @@ private:
 inline bool WriteSnapshotHelper(Isolate* isolate, const char* filename) {
     FILE* fp = fopen(filename, "w");
     if (fp == NULL) return false;
+
     const HeapSnapshot* const snap = isolate->GetHeapProfiler()->TakeHeapSnapshot();
     FileOutputStream stream(fp);
     snap->Serialize(&stream, HeapSnapshot::kJSON);
@@ -1282,9 +1286,39 @@ inline bool WriteSnapshotHelper(Isolate* isolate, const char* filename) {
     return true;
 }
 
-inline void RandomSnapshotFilename(const char* path, char* buffer, size_t size) {
+void BGJSV8Engine::OnGCCompletedForDump(Isolate* isolate, GCType type,
+                          GCCallbackFlags flags) {
+
+
+    LOGI("GC completed, now dumping to %s", _nextProfileDumpPath);
+
+    WriteSnapshotHelper(isolate, _nextProfileDumpPath);
+    free (_nextProfileDumpPath);
+    _nextProfileDumpPath = NULL;
+    isolate->RemoveGCEpilogueCallback((const v8::Isolate::GCCallback)&(BGJSV8Engine::OnGCCompletedForDump));
+
+    LOGI("heap dump to %s done", _nextProfileDumpPath);
+}
+
+const char* BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
+    v8::Isolate *isolate = getIsolate();
+    v8::Locker l(isolate);
+
+    if (_nextProfileDumpPath != NULL) {
+        return NULL;
+    }
+
+    isolate->AddGCEpilogueCallback((v8::Isolate::GCCallback)&OnGCCompletedForDump);
+    isolate->RequestGarbageCollectionForTesting(Isolate::GarbageCollectionType::kFullGarbageCollection);
+    char* filename = static_cast<char *>(malloc(512));
     std::time_t result = std::time(nullptr);
-    snprintf(buffer, size, "%s/heapdump-%llu.heapsnapshot", path, result);
+    snprintf(filename, 512, "%s/heapdump-%lu.heapsnapshot", basePath, result);
+    LOGI("Enqueueing heap dump to %s", _nextProfileDumpPath);
+
+    _nextProfileDumpPath = filename;
+    WriteSnapshotHelper(isolate, filename);
+
+    return filename;
 }
 
 extern "C" {
@@ -1295,16 +1329,15 @@ Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathTo
 
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
-    v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
-    char filename[512];
-    RandomSnapshotFilename(path, filename, 511);
-    WriteSnapshotHelper(isolate, filename);
-    jstring fileNameJstring = env->NewStringUTF(filename);
+    const char* outPath = engine->enqueueMemoryDump(path);
 
     env->ReleaseStringUTFChars(pathToSaveIn, path);
 
-    return fileNameJstring;
+    if (outPath != NULL) {
+        return env->NewStringUTF(outPath);
+    } else {
+        return NULL;
+    }
 }
 
 JNIEXPORT jobject JNICALL
