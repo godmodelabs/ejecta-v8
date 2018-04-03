@@ -1290,14 +1290,18 @@ void BGJSV8Engine::OnGCCompletedForDump(Isolate* isolate, GCType type,
                           GCCallbackFlags flags) {
 
 
-    LOGI("GC completed, now dumping to %s", _nextProfileDumpPath);
-
-    WriteSnapshotHelper(isolate, _nextProfileDumpPath);
-    free (_nextProfileDumpPath);
+    if (_nextProfileDumpPath == NULL) {
+        return;
+    }
+    const char* dumpPath = _nextProfileDumpPath;
     _nextProfileDumpPath = NULL;
+    LOGI("GC completed, now dumping to %s", dumpPath);
+
+    WriteSnapshotHelper(isolate, dumpPath);
+    free ((void *) dumpPath);
     isolate->RemoveGCEpilogueCallback((const v8::Isolate::GCCallback)&(BGJSV8Engine::OnGCCompletedForDump));
 
-    LOGI("heap dump to %s done", _nextProfileDumpPath);
+    LOGI("heap dump to %s done", dumpPath);
 }
 
 const char* BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
@@ -1308,15 +1312,15 @@ const char* BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
         return NULL;
     }
 
-    isolate->AddGCEpilogueCallback((v8::Isolate::GCCallback)&OnGCCompletedForDump);
-    isolate->RequestGarbageCollectionForTesting(Isolate::GarbageCollectionType::kFullGarbageCollection);
     char* filename = static_cast<char *>(malloc(512));
     std::time_t result = std::time(nullptr);
     snprintf(filename, 512, "%s/heapdump-%lu.heapsnapshot", basePath, result);
-    LOGI("Enqueueing heap dump to %s", _nextProfileDumpPath);
+    LOGI("Enqueueing heap dump to %s", filename);
 
     _nextProfileDumpPath = filename;
-    WriteSnapshotHelper(isolate, filename);
+
+    isolate->AddGCEpilogueCallback((v8::Isolate::GCCallback)&OnGCCompletedForDump);
+    isolate->RequestGarbageCollectionForTesting(Isolate::GarbageCollectionType::kFullGarbageCollection);
 
     return filename;
 }
