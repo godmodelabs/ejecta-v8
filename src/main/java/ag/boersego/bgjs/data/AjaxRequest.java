@@ -321,7 +321,8 @@ public class AjaxRequest implements Runnable {
             } else {
                 client = mHttpClient;
             }
-            response = mHttpClient.newCall(request).execute();
+            response = client.newCall(request).execute();
+
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             final String responseStr;
             int dataSizeGuess = (int) response.body().contentLength();
@@ -333,8 +334,6 @@ public class AjaxRequest implements Runnable {
             onInputStreamReady(response);
 
 		} catch (Exception e) {
-
-			String errDescription;
             if (response != null) {
                 try {
                     mErrorData = response.body().string();
@@ -342,7 +341,6 @@ public class AjaxRequest implements Runnable {
                 }
                 mErrorCode = response.code();
             }
-            Log.i (TAG, "Cannot load data from api " + mUrl + ": " + mErrorData, e);
             mErrorThrowable = e;
 
 		} finally {
