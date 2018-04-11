@@ -114,6 +114,9 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                         _responseIsJson = contentType?.startsWith("application/json") ?: false
 
                         if (mSuccessData != null) {
+                            if (DEBUG) {
+                                Log.d(TAG, "ajax ${method} success response for ${url} with type $contentType and body $mSuccessData")
+                            }
                             val details = HttpResponseDetails(v8Engine)
                             details.setReturnData(mSuccessCode, responseHeaders)
 
@@ -142,7 +145,11 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                                 failDetails = HttpResponseDetails(v8Engine)
                                 failDetails.setReturnData(mErrorCode, responseHeaders)
                             }
-                            Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
+
+                            if (DEBUG) {
+                                Log.d(TAG, "ajax ${method} error response $mErrorCode for ${url} with type $contentType and body $mErrorData")
+                            }
+                            // Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
                             val errorObj = JNIV8GenericObject.Create(v8Engine)
                             if (_responseIsJson && mErrorData != null) {
                                 val parsedResponse: Any?
@@ -298,11 +305,16 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
             }
         }
 
+        if (DEBUG) {
+            Log.d(TAG, "ajax ${this.method} request for ${this.url} with type $outputType and body $body")
+        }
+
     }
 
     companion object {
         private var httpAdditionalHeaders: HashMap<String, String>
         val TAG:String = BGJSModuleAjaxRequest::class.java.simpleName
+        private val DEBUG = BuildConfig.DEBUG && true
 
         init {
             JNIV8Object.RegisterV8Class(BGJSModuleAjaxRequest::class.java)
