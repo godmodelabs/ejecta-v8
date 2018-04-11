@@ -1,3 +1,18 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+        google()
+    }
+    dependencies {
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
+    }
+}
+
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
 apply plugin: 'java'
 
 sourceCompatibility = 1.8
@@ -11,4 +26,64 @@ dependencies {
     compile project(':ejecta-v8:v8annotations')
     compile 'com.squareup:javapoet:1.9.0'
     compile fileTree(dir: 'libs', include: ['*.jar'])
+}
+
+// Upload to bintray
+group = 'de.boersego'
+version = '1.0.0'
+
+install {
+    repositories.mavenInstaller {
+        pom.project {
+            name 'Ejecta-V8 Annotations compiler'
+            description 'Embed Googles v8 into your Android app and have access to high-speed canvas, AJAX and websocket implementations as well as a powerful abstraction layer to add your own extensions. Comes with a Kotlin interface.'
+            url 'https://github.com/godmodelabs/ejecta-v8'
+            inceptionYear '2013'
+
+            packaging 'aar'
+            groupId 'de.boersego'
+            artifactId 'v8annotations-compiler'
+            version '1.0.0'
+
+            licenses {
+                license {
+                    name 'The MIT License (MIT)'
+                    url 'https://opensource.org/licenses/MIT'
+                }
+            }
+            scm {
+                connection 'https://github.com/godmodelabs/ejecta-v8.git'
+                url 'https://github.com/godmodelabs/ejecta-v8'
+
+            }
+            developers {
+                developer {
+                    id = 'unverbraucht'
+                    name 'Kevin Read'
+                }
+            }
+        }
+    }
+}
+
+Properties bintrayProperties = new Properties()
+bintrayProperties.load(project.file('../bintray.properties').newDataInputStream())
+
+bintray {
+    user = bintrayProperties.getProperty('user')
+    key = bintrayProperties.get('key')
+    configurations = ['archives']
+    pkg {
+        repo = 'ejecta-v8'
+        name = 'v8annotations-compiler'
+        licenses = ['MIT']
+        vcsUrl = 'https://github.com/godmodelabs/ejecta-v8.git'
+        publish = true
+        version {
+            name = '1.0.0'
+            desc = 'Ejecta-V8 Annotations compiler 1.0.0'
+            released = new Date()
+            vcsTag = 'v1.0.0'
+        }
+    }
 }
