@@ -10,6 +10,7 @@ import android.os.Message;
 import android.util.Log;
 import android.util.SparseArray;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -240,7 +241,13 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             } else {
                 throw new RuntimeException("No resources available");
             }
-            mStoragePath = application.getExternalCacheDir().toString();
+
+            // Lets check of external storage is available, otherwise let's use internal storage
+            File cacheDir = application.getExternalCacheDir();
+            if (cacheDir == null) {
+                cacheDir = application.getCacheDir();
+            }
+            mStoragePath = cacheDir.toString();
         } else {
             throw new RuntimeException("Application is null");
         }
