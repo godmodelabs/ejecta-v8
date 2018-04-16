@@ -1049,8 +1049,14 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 		if (DEBUG) {
 			Log.d(TAG, "Finishing thread");
 		}
-		mRenderThread.finish();
+        final RenderThread renderthread = mRenderThread;
+		if (renderthread != null) {
+            renderthread.finish();
 		return false;
+	}
+
+        // If there is no rendering happening we can just release the surface immediately
+        return true;
 	}
 
 	public void finish() {
@@ -1067,15 +1073,16 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
 		}
 
-		mRenderThread.reinitGl();
+        final RenderThread renderthread = mRenderThread;
+        if (renderthread != null) {
+            renderthread.reinitGl();
 		V8TextureView.this.resetTouches();
+        }
 
 	}
 
 	@Override
 	public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-		// Log.d (TAG, "Surface updated");
-
 	}
 
 }
