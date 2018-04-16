@@ -185,10 +185,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 					mTouchStart = new PointerCoords(mTouches[id]);
 				}
 				// Mark the pointer index as valid
-				if (id < MAX_NUM_TOUCHES) {
-					mTouchesThere[id] = true;
-				}
-				// For pinch-zoom, calculate the distance
+                mTouchesThere[id] = true;
+
+                // For pinch-zoom, calculate the distance
 				if (count == 2 && mTouches[0] != null && mTouches[1] != null) {
 					mTouchDistance = Math.sqrt((mTouches[0].x - mTouches[1].x) * (mTouches[0].x - mTouches[1].x)
 							+ (mTouches[0].y - mTouches[1].y) * (mTouches[0].y - mTouches[1].y));
@@ -445,7 +444,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			return chooseConfig(egl, display, configs);
 		}
 
-		public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
+		EGLConfig chooseConfig(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
 			EGLConfig bestConfig = null;
 			int bestDepth = 128;
 			for (EGLConfig config : configs) {
@@ -715,23 +714,16 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			if (DEBUG) {
 				Log.d(TAG, "Thread running");
 			}
-			boolean swapErrorLogged = false;
 
-			// We try to initialize the OpenGL stack with a valid config
+            // We try to initialize the OpenGL stack with a valid config
 			try {
 				initGL();
-				try {
-					// Next, we try to read the necessary information on the vendor so we can log it in case of errors
-					getVendorInfo();
-				} catch (Exception ex) {
-					// Fail silently, as this is optional
-				}
 			} catch (Exception ex) {
 				// If we cannot initialize OpenGL, log it and then quit
                 V8TextureView.this.onGLCreateError(ex);
 				try {
 					finishGL();
-				} catch (Exception e) {
+				} catch (Exception ignored) {
 				}
 				return;
 			}
@@ -853,7 +845,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 						}
 						try {
 							Thread.sleep(16 - (renderDone - startRender));
-						} catch (InterruptedException e) {
+						} catch (InterruptedException ignored) {
 						}
 					}
 				}
@@ -906,7 +898,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             mRenderThread = null;
 		}
 
-		private void checkEglError(String prompt) {
+		@SuppressWarnings("unused")
+        private void checkEglError(String prompt) {
 			int error;
 			while ((error = mEgl.eglGetError()) != EGL10.EGL_SUCCESS) {
 				Log.e(TAG, String.format("%s: EGL error: 0x%x", prompt, error));
@@ -1005,20 +998,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			
 			GLES10.glClearColor(1, 1, 1, 0);
 			GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
-			getVendorInfo();
-		}
-
-		private void getVendorInfo() {
-			try {
-				String vendor = mEgl.eglQueryString(mEglDisplay, EGL10.EGL_VENDOR);
-				String glVersion = mEgl.eglQueryString(mEglDisplay, EGL10.EGL_VERSION);
-				Context c = getContext();
-				/* if (c instanceof Activity) {
-					MyrmApplication ma = (MyrmApplication) ((Activity) c).getApplication();
-					ma.setOpenGlInfo(vendor, glVersion);
-				} */
-			} catch (Exception ex) {
-			}
 		}
 
 		EGLContext createContext(EGL10 egl, EGLDisplay eglDisplay, EGLConfig eglConfig) {
@@ -1033,11 +1012,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 			}
 		}
 
-		public SurfaceTexture getSurface() {
+		SurfaceTexture getSurface() {
 			return mSurface;
 		}
 
-        public void canReleaseSurface() {
+        void canReleaseSurface() {
             if (mShouldReleaseSurface) {
                 mSurface.release();
             }
@@ -1052,8 +1031,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         final RenderThread renderthread = mRenderThread;
 		if (renderthread != null) {
             renderthread.finish();
-		return false;
-	}
+            return false;
+        }
 
         // If there is no rendering happening we can just release the surface immediately
         return true;
@@ -1076,7 +1055,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         final RenderThread renderthread = mRenderThread;
         if (renderthread != null) {
             renderthread.reinitGl();
-		V8TextureView.this.resetTouches();
+            V8TextureView.this.resetTouches();
         }
 
 	}
