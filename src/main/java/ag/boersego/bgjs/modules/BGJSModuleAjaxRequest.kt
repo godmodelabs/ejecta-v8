@@ -314,7 +314,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
     companion object {
         private var httpAdditionalHeaders: HashMap<String, String>
         val TAG:String = BGJSModuleAjaxRequest::class.java.simpleName
-        private val DEBUG = BuildConfig.DEBUG && true
+        private val DEBUG = BuildConfig.DEBUG && false
 
         init {
             JNIV8Object.RegisterV8Class(BGJSModuleAjaxRequest::class.java)
