@@ -60,6 +60,9 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 add_definitions(-DENABLE_JNI_ASSERT=1)
 endif()
 
+
+target_compile_options( bgjs PUBLIC -fvisibility=default)
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=default")
 #--------------------------------------------------
 # select right v8 library for current abi
 #--------------------------------------------------
@@ -99,7 +102,7 @@ target_link_libraries( # Specifies the target library.
 
                        # Links the target library to the log library
                        # included in the NDK.
-                       ${v8-lib}
+                       PUBLIC ${v8-lib}
                        GLESv1_CM
                        EGL
                        android

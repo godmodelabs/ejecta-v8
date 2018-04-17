@@ -975,23 +975,31 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	if (args.Length() < 1) {
 		LOGE("js_canvas_constructor got no arguments");
 		args.GetReturnValue().SetUndefined();
+        return;
 	}
 	if (!args[0]->IsObject()) {
 		LOGE(
 				"js_canvas_constructor got non-object as first type: %s", *(String::Utf8Value(args[0]->ToString())));
 		args.GetReturnValue().SetUndefined();
+        return;
 	}
 	Local<Object> obj = args[0]->ToObject();
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
 	canvas->_view = JNIRetainedRef<BGJSGLView>::New(JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject()));
 
-	Local<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance();
-	fn->SetInternalField(0, External::New(isolate, canvas));
+	MaybeLocal<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance(BGJSV8Engine::GetInstance(isolate)->getContext());
+    if (fn.IsEmpty()) {
+        LOGE("js_canvas_constructor cannot create BGJSGLModule instance");
+        args.GetReturnValue().SetUndefined();
+        return;
+    }
+    Local<Object> fnLocal = fn.ToLocalChecked();
+    fnLocal->SetInternalField(0, External::New(isolate, canvas));
     CanvasCallbackHolder* persistentHolder = new CanvasCallbackHolder();
     persistentHolder->canvas = canvas;
-    persistentHolder->persistent.Reset(isolate, fn);
+    persistentHolder->persistent.Reset(isolate, fnLocal);
     persistentHolder->persistent.SetWeak((void*)persistentHolder, js_canvas_destruct, WeakCallbackType::kParameter);
-	args.GetReturnValue().Set(scope.Escape(fn));
+	args.GetReturnValue().Set(scope.Escape(fnLocal));
 }
 
 void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -1014,14 +1022,20 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 
 	BGJSV8Engine2dGL *context2d = new BGJSV8Engine2dGL();
 	Local<Function> gClassRefLocal = *reinterpret_cast<Local<Function>*>(&BGJSGLModule::g_classRefContext2dGL);
-	Local<Object> jsObj = gClassRefLocal->NewInstance();
-	BGJS_RESET_PERSISTENT(isolate, context2d->_jsValue, jsObj);
+	MaybeLocal<Object> jsObj = gClassRefLocal->NewInstance(BGJSV8Engine::GetInstance(isolate)->getContext());
+    if (jsObj.IsEmpty()) {
+        LOGE("js_canvas_constructor cannot create BGJSGLModule:context2d instance");
+        args.GetReturnValue().SetUndefined();
+        return;
+    }
+    Local<Object> fnLocal = jsObj.ToLocalChecked();
+	BGJS_RESET_PERSISTENT(isolate, context2d->_jsValue, fnLocal);
 
 	context2d->context = canvas->_view->context2d;
-	jsObj->SetInternalField(0, External::New(isolate, context2d));
+    fnLocal->SetInternalField(0, External::New(isolate, context2d));
 	canvas->_context2d = context2d;
 
-	args.GetReturnValue().Set(scope.Escape(jsObj));
+	args.GetReturnValue().Set(scope.Escape(fnLocal));
 }
 
 void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target) {
@@ -1051,7 +1065,7 @@ void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target
 	// bgjsgl->Set(String::NewFromUtf8(isolate, "log"), FunctionTemplate::New(BGJSGLModule::log));
 	Local<Function> instance = bgjshtmlft->GetFunction();
 	BGJS_RESET_PERSISTENT(isolate, BGJSGLModule::g_classRefCanvasGL, instance);
-	Handle<Object> exports = instance->NewInstance();
+	MaybeLocal<Object> exports = instance->NewInstance(BGJSV8Engine::GetInstance(isolate)->getContext());
 
 	// Create the template for Canvas objects
 	Local<FunctionTemplate> canvasft = FunctionTemplate::New(isolate);
@@ -1155,7 +1169,7 @@ void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target
 	BGJS_RESET_PERSISTENT(isolate, g_classRefContext2dGL, canvasft->GetFunction());
 	// g_classRefContext2dGL
 
-	target->Set(String::NewFromUtf8(isolate, "exports"), exports);
+	target->Set(String::NewFromUtf8(isolate, "exports"), exports.ToLocalChecked());
 }
 
 
