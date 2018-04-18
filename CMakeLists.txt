@@ -60,9 +60,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 add_definitions(-DENABLE_JNI_ASSERT=1)
 endif()
 
-
-target_compile_options( bgjs PUBLIC -fvisibility=default)
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=default")
 #--------------------------------------------------
 # select right v8 library for current abi
 #--------------------------------------------------
