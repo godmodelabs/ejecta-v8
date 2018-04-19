@@ -22,7 +22,7 @@ void JNIV8ClassInfo::initJNICache() {
     _jniObject.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/Object"));
 }
 
-void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<Name> property, const PropertyCallbackInfo<Value> &info) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     JNILocalFrame localFrame(env, 1);
 
@@ -58,7 +58,7 @@ void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<String> property, const 
 }
 
 
-void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<Name> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     JNILocalFrame localFrame(env, 1);
 
@@ -247,7 +247,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
     args.GetReturnValue().Set(result);
 }
 
-void JNIV8ClassInfo::v8AccessorGetterCallback(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+void JNIV8ClassInfo::v8AccessorGetterCallback(Local<Name> property, const PropertyCallbackInfo<Value> &info) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     JNILocalFrame localFrame(env);
 
@@ -269,7 +269,7 @@ void JNIV8ClassInfo::v8AccessorGetterCallback(Local<String> property, const Prop
 }
 
 
-void JNIV8ClassInfo::v8AccessorSetterCallback(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
+void JNIV8ClassInfo::v8AccessorSetterCallback(Local<Name> property, Local<Value> value, const PropertyCallbackInfo<void> &info) {
     JNIEnv *env = JNIWrapper::getEnvironment();
     JNILocalFrame localFrame(env);
 
@@ -525,7 +525,7 @@ void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder
 
     Local<External> data = External::New(isolate, (void*)holder);
 
-    AccessorSetterCallback finalSetter = 0;
+    AccessorNameSetterCallback finalSetter = 0;
     v8::PropertyAttribute settings = v8::PropertyAttribute::None;
     if(holder->javaSetterId) {
         finalSetter = v8JavaAccessorSetterCallback;
@@ -535,7 +535,7 @@ void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder
 
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->SetAccessor(String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        f->SetAccessor(engine->getContext(), String::NewFromUtf8(isolate, holder->propertyName.c_str(), v8::NewStringType::kNormal).ToLocalChecked().As<Name>(),
                        v8JavaAccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
     } else {
@@ -580,7 +580,7 @@ void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
     accessorHolders.push_back(holder);
     Local<External> data = External::New(isolate, (void*)holder);
 
-    AccessorSetterCallback finalSetter = 0;
+    AccessorNameSetterCallback finalSetter = 0;
     v8::PropertyAttribute settings = v8::PropertyAttribute::None;
     if(holder->setterCallback.i || holder->setterCallback.s) {
         finalSetter = v8AccessorSetterCallback;
@@ -590,7 +590,7 @@ void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
 
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->SetAccessor(String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        f->SetAccessor(engine->getContext(), String::NewFromUtf8(isolate, holder->propertyName.c_str()),
                        v8AccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
     } else {

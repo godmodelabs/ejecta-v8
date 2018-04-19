@@ -98,7 +98,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     v8::Local<v8::Context> context = ptr->getEngine()->getContext();
     v8::Context::Scope ctxScope(context);
 
-    v8::TryCatch try_catch;
+    v8::TryCatch try_catch(isolate);
 
     jsize numArgs;
     jobject tempObj;
@@ -203,12 +203,13 @@ v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     // first function: the native function is always the same, but we have to get it "into the script" somehow (x). This is what happens here
     // second function: this one introduces the External (x)
     // third function: the actual function for a specific JNIV8Function instance. Forwards all of its arguments to x (native function) prepended with y (external).
+    v8::ScriptOrigin origin = v8::ScriptOrigin(v8::String::NewFromOneByte(v8::Isolate::GetCurrent(), (const uint8_t*)"binding:JNIV8Function", v8::NewStringType::kInternalized).ToLocalChecked());
     funcRef = v8::Local<v8::Function>::Cast(
             v8::Script::Compile(
-                    v8::String::NewFromOneByte(isolate, (const uint8_t*)"(function(x){return function(y){return function(...args){return x(y,...args);}}})"),
-                    v8::String::NewFromOneByte(v8::Isolate::GetCurrent(), (const uint8_t*)"binding:JNIV8Function")
-            )->Run()
-    );
+                    context,
+                    v8::String::NewFromOneByte(isolate, (const uint8_t*)"(function(x){return function(y){return function(...args){return x(y,...args);}}})", v8::NewStringType::kInternalized).ToLocalChecked(),
+                    &origin)
+            .ToLocalChecked()->Run());
 
     maybeLocalRef = funcRef->Call(context, context->Global(), 1, (v8::Local<v8::Value>*)&baseFuncRef);
     if (!maybeLocalRef.ToLocal(&localRef) || !localRef->IsFunction()) {

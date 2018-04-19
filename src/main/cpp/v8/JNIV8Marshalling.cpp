@@ -448,7 +448,7 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
 
     // if string is empty or if conversion failed we return an empty string
     if(!len || maybeLocal.IsEmpty()) {
-        maybeLocal = v8::String::NewFromOneByte(isolate, (uint8_t*)"");
+        maybeLocal = v8::String::NewFromOneByte(isolate, (uint8_t*)"", v8::NewStringType::kInternalized);
         if(maybeLocal.IsEmpty()) {
             return scope.Escape(v8::Undefined(isolate).As<v8::String>());
         }

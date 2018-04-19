@@ -91,7 +91,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_timeoutCB(
 	HandleScope scope (isolate);
 	Context::Scope context_scope(context->getContext());
 
-	TryCatch trycatch;
+	TryCatch trycatch(isolate);
 
 	// Persistent<Function>* callbackPers = (Persistent<Function>*) jsCbPtr;
 	WrapPersistentObj* wo = (WrapPersistentObj*)thisPtr;

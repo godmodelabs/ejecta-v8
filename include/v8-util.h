@@ -6,6 +6,7 @@
 #define V8_UTIL_H_
 
 #include "v8.h"  // NOLINT(build/include)
+#include <assert.h>
 #include <map>
 #include <vector>
 
@@ -210,7 +211,7 @@ class PersistentValueMapBase {
    * key.
    */
   void RegisterExternallyReferencedObject(K& key) {
-    DCHECK(Contains(key));
+    assert(Contains(key));
     V8::RegisterExternallyReferencedObject(
         reinterpret_cast<internal::Object**>(FromVal(Traits::Get(&impl_, key))),
         reinterpret_cast<internal::Isolate*>(GetIsolate()));
@@ -392,9 +393,14 @@ class PersistentValueMap : public PersistentValueMapBase<K, V, Traits> {
    */
   Global<V> SetUnique(const K& key, Global<V>* persistent) {
     if (Traits::kCallbackType != kNotWeak) {
+      WeakCallbackType callback_type =
+          Traits::kCallbackType == kWeakWithInternalFields
+              ? WeakCallbackType::kInternalFields
+              : WeakCallbackType::kParameter;
       Local<V> value(Local<V>::New(this->isolate(), *persistent));
       persistent->template SetWeak<typename Traits::WeakCallbackDataType>(
-        Traits::WeakCallbackParameter(this, key, value), WeakCallback);
+          Traits::WeakCallbackParameter(this, key, value), WeakCallback,
+          callback_type);
     }
     PersistentContainerValue old_value =
         Traits::Set(this->impl(), key, this->ClearAndLeak(persistent));

@@ -99,7 +99,7 @@ target_link_libraries( # Specifies the target library.
 
                        # Links the target library to the log library
                        # included in the NDK.
-                       ${v8-lib}
+                       PUBLIC ${v8-lib}
                        GLESv1_CM
                        EGL
                        android

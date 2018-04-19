@@ -85,6 +85,8 @@ class V8_EXPORT V8ContextInfo {
   StringView auxData;
   bool hasMemoryOnConsole;
 
+  static int executionContextId(v8::Local<v8::Context> context);
+
  private:
   // Disallow copying and allocating this one.
   enum NotNullTagEnum { NotNullLiteral };
@@ -147,16 +149,15 @@ class V8_EXPORT V8InspectorSession {
 
   // Remote objects.
   virtual std::unique_ptr<protocol::Runtime::API::RemoteObject> wrapObject(
-      v8::Local<v8::Context>, v8::Local<v8::Value>,
-      const StringView& groupName) = 0;
+      v8::Local<v8::Context>, v8::Local<v8::Value>, const StringView& groupName,
+      bool generatePreview) = 0;
+
   virtual bool unwrapObject(std::unique_ptr<StringBuffer>* error,
                             const StringView& objectId, v8::Local<v8::Value>*,
                             v8::Local<v8::Context>*,
                             std::unique_ptr<StringBuffer>* objectGroup) = 0;
   virtual void releaseObjectGroup(const StringView&) = 0;
 };
-
-enum class V8ConsoleAPIType { kClear, kDebug, kLog, kInfo, kWarning, kError };
 
 class V8_EXPORT V8InspectorClient {
  public:
@@ -189,7 +190,8 @@ class V8_EXPORT V8InspectorClient {
 
   virtual void installAdditionalCommandLineAPI(v8::Local<v8::Context>,
                                                v8::Local<v8::Object>) {}
-  virtual void consoleAPIMessage(int contextGroupId, V8ConsoleAPIType,
+  virtual void consoleAPIMessage(int contextGroupId,
+                                 v8::Isolate::MessageErrorLevel level,
                                  const StringView& message,
                                  const StringView& url, unsigned lineNumber,
                                  unsigned columnNumber, V8StackTrace*) {}
@@ -201,6 +203,7 @@ class V8_EXPORT V8InspectorClient {
   virtual void consoleTime(const StringView& title) {}
   virtual void consoleTimeEnd(const StringView& title) {}
   virtual void consoleTimeStamp(const StringView& title) {}
+  virtual void consoleClear(int contextGroupId) {}
   virtual double currentTimeMS() { return 0; }
   typedef void (*TimerCallback)(void*);
   virtual void startRepeatingTimer(double, TimerCallback, void* data) {}
@@ -209,6 +212,22 @@ class V8_EXPORT V8InspectorClient {
   // TODO(dgozman): this was added to support service worker shadow page. We
   // should not connect at all.
   virtual bool canExecuteScripts(int contextGroupId) { return true; }
+
+  virtual void maxAsyncCallStackDepthChanged(int depth) {}
+};
+
+// These stack trace ids are intended to be passed between debuggers and be
+// resolved later. This allows to track cross-debugger calls and step between
+// them if a single client connects to multiple debuggers.
+struct V8_EXPORT V8StackTraceId {
+  uintptr_t id;
+  std::pair<int64_t, int64_t> debugger_id;
+
+  V8StackTraceId();
+  V8StackTraceId(uintptr_t id, const std::pair<int64_t, int64_t> debugger_id);
+  ~V8StackTraceId() = default;
+
+  bool IsInvalid() const;
 };
 
 class V8_EXPORT V8Inspector {
@@ -222,8 +241,6 @@ class V8_EXPORT V8Inspector {
   virtual void resetContextGroup(int contextGroupId) = 0;
 
   // Various instrumentation.
-  virtual void willExecuteScript(v8::Local<v8::Context>, int scriptId) = 0;
-  virtual void didExecuteScript(v8::Local<v8::Context>) = 0;
   virtual void idleStarted() = 0;
   virtual void idleFinished() = 0;
 
@@ -234,6 +251,11 @@ class V8_EXPORT V8Inspector {
   virtual void asyncTaskStarted(void* task) = 0;
   virtual void asyncTaskFinished(void* task) = 0;
   virtual void allAsyncTasksCanceled() = 0;
+
+  virtual V8StackTraceId storeCurrentStackTrace(
+      const StringView& description) = 0;
+  virtual void externalAsyncTaskStarted(const V8StackTraceId& parent) = 0;
+  virtual void externalAsyncTaskFinished(const V8StackTraceId& parent) = 0;
 
   // Exceptions instrumentation.
   virtual unsigned exceptionThrown(
