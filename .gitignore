@@ -3,3 +3,4 @@ dist
 .externalNativeBuild
 build
 libs
+bintray.properties
