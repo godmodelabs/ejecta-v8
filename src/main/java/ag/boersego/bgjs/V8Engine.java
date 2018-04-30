@@ -46,8 +46,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	private final boolean mIsTablet;
     private final String mStoragePath;
     protected Handler mHandler;
-	private AssetManager assetManager;
-	private boolean mReady;
+    private boolean mReady;
 	private ArrayList<V8EngineHandler> mHandlers = null;
 	private final SparseArray<V8Timeout> mTimeouts = new SparseArray<>(50);
 	private int mLastTimeoutId = 1;
@@ -61,10 +60,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
 	private static final String TAG = "V8Engine";
 	@SuppressWarnings("PointlessBooleanExpression")
-    private static boolean DEBUG = false && BuildConfig.DEBUG;
-    private V8UrlCache mCache;
-	private ThreadPoolExecutor mTPExecutor;
-    private OkHttpClient mHttpClient;
+    private boolean mDebug = false && BuildConfig.DEBUG;
     private final ArrayList<Runnable> mNextTickQueue = new ArrayList<>();
     private boolean mJobQueueActive = false;
     private final Runnable mQueueWaitRunnable = () -> {
@@ -93,8 +89,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     };
 	private boolean mPaused;
 
-    public static void doDebug (boolean debug) {
-        DEBUG = debug;
+    public void doDebug (boolean debug) {
+        mDebug = debug;
     }
 
 	public void unpause() {
@@ -203,7 +199,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 				}
 				return;
 			}
-			if (DEBUG) { Log.d (TAG, "timeout ready (id " + id + ") to " + timeout + ", now calling cb " + jsCbPtr); }
+			if (mDebug) { Log.d (TAG, "timeout ready (id " + id + ") to " + timeout + ", now calling cb " + jsCbPtr); }
 			// synchronized(BGJSPushHelper.getInstance(null)) {
 				ClientAndroid.timeoutCB(V8Engine.this, jsCbPtr, thisObjPtr, false, true);
 			// }
@@ -217,13 +213,13 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 				}
 				if (!recurring) {
 					mTimeouts.remove(id);
-					if (DEBUG) {
+					if (mDebug) {
 						Log.d (TAG, "timeout deleted cb id " + id + ", " + jsCbPtr);
 					}
 					mTimeoutsToGC.add(this);
 				} else {
 					mHandler.postDelayed(this, timeout);
-					if (DEBUG) {
+					if (mDebug) {
 						Log.d (TAG, "Re-posting recurring timer id " + id + ", " + jsCbPtr);
 					}
 				}
@@ -232,6 +228,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	}
 
 	protected V8Engine(Application application) {
+        final AssetManager assetManager;
         if (application != null) {
             assetManager = application.getAssets();
             final Resources r = application.getResources();
@@ -268,19 +265,16 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         // start thread
         initializeV8(assetManager);
 
-        assetManager = null;
 		jsThread = new Thread(new V8EngineRunnable());
 		jsThread.setName("EjectaV8JavaScriptContext");
 		jsThread.start();
 	}
 
     public void setUrlCache (V8UrlCache cache) {
-        mCache = cache;
         BGJSModuleAjax.getInstance().setUrlCache(cache);
     }
 
 	public void setTPExecutor(final ThreadPoolExecutor executor) {
-		mTPExecutor = executor;
         BGJSModuleAjax.getInstance().setExecutor(executor);
 	}
 
@@ -314,10 +308,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		}
 		Log.d(TAG, "Initializing V8Engine");
 		final int maxHeapSizeForV8 = (int)(Runtime.getRuntime().maxMemory() / 1024 / 1024 / 3);
-		if (DEBUG) {
+		if (mDebug) {
 			Log.d(TAG, "Max heap size for v8 is " + maxHeapSizeForV8 + " MB");
 		}
-		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", BuildConfig.DEBUG, maxHeapSizeForV8);
+		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", mDebug, BuildConfig.BUILD_TYPE.startsWith("release"), maxHeapSizeForV8);
     }
 
     public native void registerModule(JNIV8Module module);
@@ -384,7 +378,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             mInstance.mEvents.put(event, eventList);
         }
 
-        if (DEBUG) {
+        if (mDebug) {
             Log.d (TAG, "Adding on " + event + ", " + cbPtr + ", " + thisPtr);
         }
         V8EventCB cb = mInstance.new V8EventCB(cbPtr, thisPtr, event);
@@ -455,7 +449,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			for (V8Timeout to : timeOutCopy) {
 				ClientAndroid.timeoutCB(this, to.jsCbPtr, to.thisObjPtr, true, false);
 			}
-			if (DEBUG) {
+			if (mDebug) {
 				Log.d (TAG, "Cleaned up " + count + " timeouts");
 			}
 		} catch (Exception ex) {
@@ -478,7 +472,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			V8Timeout to = new V8Timeout(jsCbPtr, thisObjPtr, timeout, recurring, id);
 			mTimeouts.append(id, to);
 			mHandler.postDelayed(to, timeout);
-			if (DEBUG) { Log.d (TAG, "setTimeout added instance " + to + ", to " + timeout + ", id " + id + ", recurring " + recurring); }
+			if (mDebug) { Log.d (TAG, "setTimeout added instance " + to + ", to " + timeout + ", id " + id + ", recurring " + recurring); }
 			return id;
 		}
 	}
@@ -497,7 +491,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 			if (to != null) {
 				to.setAsDead();
 				mHandler.removeCallbacks(to, null);
-				if (DEBUG) {
+				if (mDebug) {
 					Log.d (TAG, "Removed timeout (clearTimeout) " + id);
 				}
 				mTimeouts.remove(id);
@@ -515,7 +509,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 	}
 
 	public void setHttpClient(final OkHttpClient client) {
-		mHttpClient = client;
 		BGJSModuleAjax.getInstance().setHttpClient(client);
         registerModule(new BGJSModuleWebSocket(client));
 	}

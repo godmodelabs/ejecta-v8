@@ -579,6 +579,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
         moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
 		moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
         moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
 
         module(this, moduleObj);
         result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
@@ -697,6 +698,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 		moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
         moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
 
         Handle<Value> fnModuleInitializerArgs[] = {
                 exportsObj,                                      // exports
@@ -1161,6 +1163,10 @@ float BGJSV8Engine::getDensity() const {
 
 void BGJSV8Engine::setDebug(bool debug) {
     _debug = debug;
+}
+
+void BGJSV8Engine::setIsStoreBuild(bool isStoreBuild) {
+    _isStoreBuild = isStoreBuild;
 }
 
 /**
