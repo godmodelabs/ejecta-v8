@@ -1269,6 +1269,11 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
     LOG(LOG_INFO, "%s", str.str().c_str());
 }
 
+/**
+ * Check an assertion. A failed assertion is logged but does not throw an Exception. This is the same behaviour that browsers
+ * have, and not how assertions behave in node.
+ * @param args
+ */
 void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
     v8::Isolate* isolate = args.GetIsolate();
     if (args.Length() < 1) {
