@@ -50,9 +50,9 @@ public class AjaxRequest implements Runnable {
     }
 
     public interface AjaxListener {
-		void success(String data, int code, AjaxRequest request);
+		void success(String data, int code, @NonNull AjaxRequest request);
 
-		void error(String data, int code, Throwable tr, AjaxRequest request);
+		void error(String data, int code, Throwable tr, @NonNull AjaxRequest request);
 	}
 
 	public Headers getResponseHeaders() {
