@@ -111,6 +111,8 @@ public:
 
     void setIsStoreBuild(bool isStoreBuild);
 
+    void doAssert(const v8::FunctionCallbackInfo<v8::Value> &info);
+
 private:
 	// called by JNIWrapper
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
