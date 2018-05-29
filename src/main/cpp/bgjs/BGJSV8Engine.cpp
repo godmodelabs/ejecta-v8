@@ -1022,7 +1022,6 @@ void BGJSV8Engine::createContext() {
                  v8::FunctionTemplate::New(_isolate, AssertCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
     console->Set(String::NewFromUtf8(_isolate, "trace"),
                  v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
 
 	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
 
