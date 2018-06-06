@@ -121,6 +121,16 @@ static void TraceCallback(const v8::FunctionCallbackInfo<Value>& args) {
     ctx->trace(args);
 }
 
+static void AssertCallback(const v8::FunctionCallbackInfo<Value>& args) {
+    if (args.Length() < 1) {
+        return;
+    }
+
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+
+    ctx->doAssert(args);
+}
+
 static void DebugCallback(const v8::FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().SetUndefined();
 	if (args.Length() < 1) {
@@ -1008,9 +1018,10 @@ void BGJSV8Engine::createContext() {
 				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
 	console->Set(String::NewFromUtf8(_isolate, "warn"),
 				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    console->Set(String::NewFromUtf8(_isolate, "assert"),
+                 v8::FunctionTemplate::New(_isolate, AssertCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
     console->Set(String::NewFromUtf8(_isolate, "trace"),
                  v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	// console->Set("assert", v8::FunctionTemplate::New(AssertCallback)); // TODO
 
 	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
 
@@ -1255,6 +1266,48 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
     }
 
     LOG(LOG_INFO, "%s", str.str().c_str());
+}
+
+/**
+ * Check an assertion. A failed assertion is logged but does not throw an Exception. This is the same behaviour that browsers
+ * have, and not how assertions behave in node.
+ * @param args
+ */
+void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
+    v8::Isolate* isolate = args.GetIsolate();
+    if (args.Length() < 1) {
+        isolate->ThrowException(
+                v8::Exception::ReferenceError(
+                        v8::String::NewFromUtf8(isolate, "assert: Needs at least one parameter")));
+        return;
+    }
+
+    v8::Locker locker(isolate);
+    HandleScope scope(isolate);
+
+    Local<Boolean> assertion = args[0]->ToBoolean(isolate);
+
+    if (!assertion->Value()) {
+        if (args.Length() > 1) {
+            const char* assertionMessage;
+            assertionMessage = JNIV8Marshalling::v8string2string(args[1]->ToString()).c_str();
+            LOG(LOG_ERROR, "Assertion failed: %s", assertionMessage);
+        } else {
+            LOG(LOG_ERROR, "Assertion failed");
+        }
+
+        std::stringstream str;
+
+        Local<StackTrace> stackTrace = StackTrace::CurrentStackTrace(args.GetIsolate(), 15);
+        int l = stackTrace->GetFrameCount();
+        for (int i = 0; i < l; i++) {
+            const Local<StackFrame> &frame = stackTrace->GetFrame(i);
+            str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " (" << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber() << ")\n";
+        }
+
+        LOG(LOG_ERROR, "%s", str.str().c_str());
+
+    }
 }
 
 /////////////// Heap dump functions
