@@ -48,7 +48,7 @@ final public class JNIV8GenericObject extends JNIV8Object {
                 final JNIV8GenericObject innerInstance = JNIV8GenericObject.fromMap(engine, (Map<String, Object>)value);
                 instance.setV8Field(entry.getKey(), innerInstance);
             } else {
-                instance.setV8Field(entry.getKey(), entry.getValue());
+                instance.setV8Field(entry.getKey(), value);
             }
         }
 
