@@ -27,16 +27,6 @@ final public class JNIV8GenericObject extends JNIV8Object {
         super(engine, jsObjPtr, arguments);
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (!(obj instanceof JNIV8GenericObject)) {
-            return super.equals(obj);
-        }
-
-        final JNIV8GenericObject other = (JNIV8GenericObject)obj;
-        return other.getV8Fields().equals(other.getV8Fields());
-    }
-
     public static JNIV8GenericObject fromMap(final V8Engine engine, @NonNull final Map<String, Object> map) {
         final JNIV8GenericObject instance = Create(engine);
 

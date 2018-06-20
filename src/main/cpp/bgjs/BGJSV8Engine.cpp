@@ -707,6 +707,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
         Local<Object> moduleObj = Object::New(_isolate);
 		moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
 		moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
         moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
         moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
