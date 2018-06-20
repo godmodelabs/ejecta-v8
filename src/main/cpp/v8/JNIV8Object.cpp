@@ -75,6 +75,8 @@ void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // IF we do, we have to make a strong reference to the java object again and also register this callback for
     // the provided JS object reference!
     jniV8Object->_jsObject.ClearWeak();
+    jniV8Object->_jsObject.MarkActive();
+
 
     // we are only holding the object because java/native is still alive, v8 can not gc it anymore
     // => adjust external memory counter
@@ -90,6 +92,8 @@ void JNIV8Object::makeWeak() {
     // they can be destroyed / gced from java at any time, and there can exist multiple
     if(_v8ClassInfo->container->type == JNIV8ObjectType::kWrapper || _jsObject.IsWeak()) return;
     _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kFinalizer);
+    _jsObject.MarkIndependent();
+
     // create a strong reference to the java object as long as the JS object is referenced from somewhere
     retainJObject();
 

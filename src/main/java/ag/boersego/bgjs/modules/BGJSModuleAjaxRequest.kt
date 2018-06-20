@@ -14,6 +14,7 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import java.net.SocketTimeoutException
 import java.net.URLEncoder
+import java.util.*
 import java.util.concurrent.ThreadPoolExecutor
 
 /**
@@ -262,17 +263,27 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 if (body is JNIV8Object && requestIsJson != true) {
                     val formBody = FormBody.Builder()
                     val bodyMap = body.v8Fields
+                    val debugMap = if (DEBUG) HashMap<String, String>() else null
 
                     for (entry in bodyMap.entries) {
                         // Encoded as form fields, undefined or null are represented as empty
-                        val stringValue = when (entry.value) {
+                        val value = entry.value
+                        val stringValue = when (value) {
                             is JNIV8Undefined -> ""
+                            is Double -> if (value.rem(1.0) == 0.0) value.toInt().toString() else value.toString()
+                            is Float -> if (value.rem(1.0) == 0.0) value.toInt().toString() else value.toString()
+                            is Boolean -> if (value) "1" else "0"
                             null -> ""
                             else -> entry.value.toString()
                         }
                         formBody.add(entry.key, stringValue)
+                        debugMap?.put(entry.key, stringValue)
                     }
                     this.formBody = formBody.build()
+
+                    if (DEBUG && debugMap != null) {
+                        Log.d(TAG, "formbody is " + (Arrays.toString(debugMap.entries.toTypedArray())))
+                    }
                 } else if (body is String) {
                     this.body = body
                 } else {
@@ -306,7 +317,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         }
 
         if (DEBUG) {
-            Log.d(TAG, "ajax ${this.method} request for ${this.url} with type $outputType and body $body")
+            Log.d(TAG, "ajax ${this.method} request for ${this.url} with type $outputType and body ${this.body}")
         }
 
     }
@@ -314,7 +325,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
     companion object {
         private var httpAdditionalHeaders: HashMap<String, String>
         val TAG:String = BGJSModuleAjaxRequest::class.java.simpleName
-        private val DEBUG = BuildConfig.DEBUG && false
+        private val DEBUG = BuildConfig.DEBUG && true
 
         init {
             JNIV8Object.RegisterV8Class(BGJSModuleAjaxRequest::class.java)

@@ -54,7 +54,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 		JNIEnv * env, jobject obj, jobject assetManager, jobject v8Engine, jstring locale, jstring lang,
-        jstring timezone, jfloat density, jstring deviceClass, jboolean debug, jint maxHeapSize) {
+        jstring timezone, jfloat density, jstring deviceClass, jboolean debug, jboolean isStoreBuild, jint maxHeapSize) {
 
 	auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
 	ct->setAssetManager(assetManager);
@@ -66,6 +66,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_ClientAndroid_initialize(
 	ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
 	ct->setDensity(density);
 	ct->setDebug(debug);
+    ct->setIsStoreBuild(isStoreBuild);
 	ct->setMaxHeapSize(maxHeapSize);
 	env->ReleaseStringUTFChars(locale, localeStr);
 	env->ReleaseStringUTFChars(lang, langStr);

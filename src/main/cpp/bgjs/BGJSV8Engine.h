@@ -109,6 +109,10 @@ public:
 
     void setMaxHeapSize(int maxHeapSize);
 
+    void setIsStoreBuild(bool isStoreBuild);
+
+    void doAssert(const v8::FunctionCallbackInfo<v8::Value> &info);
+
 private:
 	// called by JNIWrapper
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
@@ -152,6 +156,7 @@ private:
 	char *_tz;			// Europe/Berlin
 	char *_deviceClass; // "phone"/"tablet"
 	int _maxHeapSize;	// in MB
+    bool _isStoreBuild;
 
 	float _density;
 
