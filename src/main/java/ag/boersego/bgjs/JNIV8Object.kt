@@ -10,7 +10,7 @@ inline fun <reified T> JNIV8Object.applyV8Method(name: String, arguments: Array<
 }
 
 inline fun <reified T> JNIV8Object.callV8Method(name: String, vararg arguments: Any?, flags: Int = V8Flags.Default): T {
-    return callV8MethodTyped(name, flags, T::class.java, arguments) as T
+    return applyV8MethodTyped(name, flags, T::class.java, arguments) as T
 }
 
 inline fun <reified T> JNIV8Object.getV8Field(name: String, flags: Int = V8Flags.Default) : T {
