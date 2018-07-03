@@ -503,14 +503,35 @@ MaybeLocal<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
 	return scope.Escape(result.ToLocalChecked());
 }
 
-MaybeLocal<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source) const {
+// utility method to convert v8 values to readable strings for debugging
+const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
+    Handle<Value> stringValue;
+    if(source->IsObject()) {
+        MaybeLocal<Value> maybeValue = stringifyJSON(source.As<Object>(), true);
+        if(!maybeValue.IsEmpty()) {
+            stringValue = maybeValue.ToLocalChecked();
+        }
+    }
+    if(stringValue.IsEmpty()) {
+        stringValue = source->ToString();
+    }
+    return JNIV8Marshalling::v8string2string(stringValue);
+}
+
+MaybeLocal<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source, bool pretty) const {
     EscapableHandleScope scope(Isolate::GetCurrent());
     Local<Context> context = getContext();
 
-	Handle<Value> args[] = { source };
+    Handle<Value> format;
+    if(pretty) {
+        format = Number::New(Isolate::GetCurrent(), 4);
+    } else {
+        format = Null(Isolate::GetCurrent());
+    }
+	Handle<Value> args[] = { source , format};
 
     Local<Function> jsonStringifyFn = Local<Function>::New(_isolate, _jsonStringifyFn);
-	MaybeLocal<Value> result = jsonStringifyFn->Call(context, context->Global(), 1, args);
+	MaybeLocal<Value> result = jsonStringifyFn->Call(context, context->Global(), 2, args);
     if(result.IsEmpty()) {
         return result;
     }
@@ -1140,7 +1161,7 @@ void BGJSV8Engine::createContext() {
                         Script::Compile(
                                 context,
                                 String::NewFromOneByte(Isolate::GetCurrent(),
-                                                       (const uint8_t*)"(function stringifyJSON(source) { return JSON.stringify(source); })", NewStringType::kInternalized).ToLocalChecked(),
+                                                       (const uint8_t*)"(function stringifyJSON(source, space) { return JSON.stringify(source, null, space); })", NewStringType::kInternalized).ToLocalChecked(),
                                 new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:stringifyJSON", NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
     }
@@ -1153,7 +1174,7 @@ void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>
 	std::stringstream str;
 	int l = args.Length();
 	for (int i = 0; i < l; i++) {
-		str << " " << JNIV8Marshalling::v8string2string(args[i]->ToString());
+		str << " " << toDebugString(args[i]);
 	}
 
 	LOG(debugLevel, "%s", str.str().c_str());
@@ -1258,7 +1279,7 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
     HandleScope scope(args.GetIsolate());
 
     std::stringstream str;
-    str << " " << JNIV8Marshalling::v8string2string(args[0]->ToString()) << "\n";
+    str << " " << toDebugString(args[0]) << "\n";
 
     Local<StackTrace> stackTrace = StackTrace::CurrentStackTrace(args.GetIsolate(), 15);
     int l = stackTrace->GetFrameCount();
@@ -1291,9 +1312,8 @@ void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
 
     if (!assertion->Value()) {
         if (args.Length() > 1) {
-            const char* assertionMessage;
-            assertionMessage = JNIV8Marshalling::v8string2string(args[1]->ToString()).c_str();
-            LOG(LOG_ERROR, "Assertion failed: %s", assertionMessage);
+            const std::string assertionMessage = toDebugString(args[1]);
+            LOG(LOG_ERROR, "Assertion failed: %s", assertionMessage.c_str());
         } else {
             LOG(LOG_ERROR, "Assertion failed");
         }

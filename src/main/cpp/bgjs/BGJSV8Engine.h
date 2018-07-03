@@ -64,8 +64,6 @@ public:
 	bool forwardJNIExceptionToV8() const;
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
 
-	static void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
-
 	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
 	void setDensity(float density);
 	float getDensity() const;
@@ -92,7 +90,7 @@ public:
 	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
 
 	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
-	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source) const;
+	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source, bool pretty = false) const;
 
     const char* enqueueMemoryDump(const char *basePath);
 
@@ -104,6 +102,8 @@ public:
     static void initJNICache();
 
     void trace(const v8::FunctionCallbackInfo<v8::Value> &info);
+	void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
+	void doAssert(const v8::FunctionCallbackInfo<v8::Value> &info);
 
     bool _debug;
 
@@ -111,9 +111,10 @@ public:
 
     void setIsStoreBuild(bool isStoreBuild);
 
-    void doAssert(const v8::FunctionCallbackInfo<v8::Value> &info);
-
 private:
+	// utility method to convert v8 values to readable strings for debugging
+	const std::string toDebugString(v8::Handle<v8::Value> source) const;
+
 	// called by JNIWrapper
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
 
