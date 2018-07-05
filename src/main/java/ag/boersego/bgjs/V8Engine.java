@@ -227,7 +227,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		}
 	}
 
-	protected V8Engine(Application application) {
+	protected V8Engine(Application application, boolean isStoreBuild) {
         final AssetManager assetManager;
         if (application != null) {
             assetManager = application.getAssets();
@@ -263,7 +263,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         registerModule(new BGJSModuleLocalStorage(application.getApplicationContext()));
 
         // start thread
-        initializeV8(assetManager);
+        initializeV8(assetManager, isStoreBuild);
 
 		jsThread = new Thread(new V8EngineRunnable());
 		jsThread.setName("EjectaV8JavaScriptContext");
@@ -282,25 +282,25 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		return getInstance().mReady;
 	}
 
-	public synchronized static V8Engine getInstance(Application app) {
+	public synchronized static V8Engine getInstance(Application app, boolean isStoreBuild) {
 		if (mInstance == null) {
             if(app == null) {
                 throw new RuntimeException("V8Engine hasn't been initialized");
             }
-			mInstance = new V8Engine(app);
+			mInstance = new V8Engine(app, isStoreBuild);
 		}
 		return mInstance;
 	}
 
 	public static V8Engine getInstance() {
-		return getInstance(null);
+		return getInstance(null, true);
 	}
 
     public static V8Engine getCachedInstance() {
         return mInstance;
     }
 
-    public void initializeV8(AssetManager assetManager) {
+    public void initializeV8(AssetManager assetManager, boolean isStoreBuild) {
 		try {
 			Thread.sleep(100);
 		} catch (InterruptedException e) {
@@ -311,7 +311,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 		if (mDebug) {
 			Log.d(TAG, "Max heap size for v8 is " + maxHeapSizeForV8 + " MB");
 		}
-		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", mDebug, BuildConfig.BUILD_TYPE.startsWith("release"), maxHeapSizeForV8);
+
+		ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", mDebug, isStoreBuild,  maxHeapSizeForV8);
     }
 
     public native void registerModule(JNIV8Module module);
