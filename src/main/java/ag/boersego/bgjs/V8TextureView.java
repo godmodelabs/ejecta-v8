@@ -27,302 +27,293 @@ import javax.microedition.khronos.egl.EGLSurface;
 // import org.jetbrains.annotations.NotNull;
 
 // TextureView is ICS+ only
+
 /**
  * V8TextureView wraps an Android TextureView in a way that OpenGL calls from V8 can draw on it
- * @author kread
  *
+ * @author kread
  */
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 abstract public class V8TextureView extends TextureView implements TextureView.SurfaceTextureListener {
 
     private final V8Engine mEngine;
     protected RenderThread mRenderThread;
-	private final MotionEvent.PointerCoords[] mTouches = new MotionEvent.PointerCoords[MAX_NUM_TOUCHES];
-	private final boolean[] mTouchesThere = new boolean[MAX_NUM_TOUCHES];
-	private int mNumTouches = 0;
-	private double mTouchDistance;
+    private final MotionEvent.PointerCoords[] mTouches = new MotionEvent.PointerCoords[MAX_NUM_TOUCHES];
+    private final boolean[] mTouchesThere = new boolean[MAX_NUM_TOUCHES];
+    private int mNumTouches = 0;
+    private double mTouchDistance;
     protected static float mScaling;
-	private boolean mInteractive;
-	private PointerCoords mTouchStart;
-	private final float mTouchSlop;
+    private boolean mInteractive;
+    private PointerCoords mTouchStart;
+    private final float mTouchSlop;
     protected IV8GLViewOnRender mCallback;
-	private Rect mViewRect;
-	private boolean mFinished = false;
+    private Rect mViewRect;
+    private boolean mFinished = false;
 
 
-	protected boolean DEBUG;
-	private static final boolean LOG_FPS = false && BuildConfig.DEBUG;
-	private static final int MAX_NUM_TOUCHES = 10;
-	private static final int TOUCH_SLOP = 5;
-	private static final String TAG = "V8TextureView";
+    protected boolean DEBUG;
+    private static final boolean LOG_FPS = false && BuildConfig.DEBUG;
+    private static final int MAX_NUM_TOUCHES = 10;
+    private static final int TOUCH_SLOP = 5;
+    private static final String TAG = "V8TextureView";
     private int[] mEglVersion;
     private float mClearRed, mClearGreen, mClearBlue, mClearAlpha;
     private boolean mClearColorSet;
-	protected boolean mDontClearOnFlip;
+    protected boolean mDontClearOnFlip;
     private BGJSGLView mBGJSGLView;
-    // True if the TextureView was already detached and the surface can now be released
-    private boolean mIsDetached;
 
     /**
-	 * Create a new V8TextureView instance
-	 * @param context Context instance
-	 * @param engine the V8Engine to use
-	 */
-	public V8TextureView(Context context, @NonNull final V8Engine engine) {
-		super(context);
-		mEngine = engine;
+     * Create a new V8TextureView instance
+     *
+     * @param context Context instance
+     * @param engine  the V8Engine to use
+     */
+    public V8TextureView(Context context, @NonNull final V8Engine engine) {
+        super(context);
+        mEngine = engine;
         final Resources r = getResources();
         if (r != null) {
-		    mScaling = r.getDisplayMetrics().density;
+            mScaling = r.getDisplayMetrics().density;
         }
-		mTouchSlop = TOUCH_SLOP * mScaling;
-		setSurfaceTextureListener(this);
-	}
+        mTouchSlop = TOUCH_SLOP * mScaling;
+        setSurfaceTextureListener(this);
+    }
 
-	public V8Engine getEngine() {
-	    return mEngine;
+    public V8Engine getEngine() {
+        return mEngine;
     }
 
     public void doDebug(boolean debug) {
         DEBUG = debug;
     }
 
-    abstract public void onGLCreated (BGJSGLView jsViewObject);
+    abstract public void onGLCreated(BGJSGLView jsViewObject);
 
-    public void onGLRecreated (BGJSGLView jsViewObject) {
+    public void onGLRecreated(BGJSGLView jsViewObject) {
         if (mBGJSGLView != null) {
             mBGJSGLView.onResize();
         }
     }
 
-    abstract public void onGLCreateError (Exception ex);
+    abstract public void onGLCreateError(Exception ex);
 
-    protected void onFrameRendered (BGJSGLView jsViewObject) {
+    protected void onFrameRendered(BGJSGLView jsViewObject) {
 
     }
 
-	@Override
-	public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-		// It is possible that the containing view wants to kill this before we have even been able to start the render thread
-		if (mFinished) {
-			return;
-		}
-		mRenderThread = new RenderThread(surface);
-		if (DEBUG) {
-			Log.d(TAG, "Starting render thread");
-		}
-
-		mRenderThread.start();
-	}
-
-	/**
-	 * Interactive views absorb touches
-	 */
-	public void setInteractive(boolean interactive) {
-		mInteractive = interactive;
-	}
-
-	/**
-	 * Request a redraw
-	 */
-	public void requestRender() {
-		if (mRenderThread != null) {
-			mRenderThread.requestRender();
-		}
-	}
-
     @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
+    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+        // It is possible that the containing view wants to kill this before we have even been able to start the render thread
+        if (mFinished) {
+            return;
+        }
+        mRenderThread = new RenderThread(surface);
+        if (DEBUG) {
+            Log.d(TAG, "Starting render thread");
+        }
 
-        mIsDetached = true;
+        mRenderThread.start();
+    }
+
+    /**
+     * Interactive views absorb touches
+     */
+    public void setInteractive(boolean interactive) {
+        mInteractive = interactive;
+    }
+
+    /**
+     * Request a redraw
+     */
+    public void requestRender() {
         if (mRenderThread != null) {
-            mRenderThread.canReleaseSurface();
+            mRenderThread.requestRender();
         }
     }
 
     @Override
-	public boolean onTouchEvent(/* @NotNull */ MotionEvent ev) {
-		// Non-interactive surfaces don't handle touch but pass it on
-		if (!mInteractive) {
-			return super.onTouchEvent(ev);
-		}
-		final int action = ev.getActionMasked();
-		final int index = ev.getActionIndex();
-		final int count = ev.getPointerCount();
+    public boolean onTouchEvent(/* @NotNull */ MotionEvent ev) {
+        // Non-interactive surfaces don't handle touch but pass it on
+        if (!mInteractive) {
+            return super.onTouchEvent(ev);
+        }
+        final int action = ev.getActionMasked();
+        final int index = ev.getActionIndex();
+        final int count = ev.getPointerCount();
 
-		if (DEBUG) {
-			Log.d(TAG,
-					"Action " + action + ", index " + index + ", x " + ev.getX(index) + ", id "
-							+ ev.getPointerId(index));
-		}
-		switch (action) {
-		case MotionEvent.ACTION_DOWN:
-		case MotionEvent.ACTION_POINTER_DOWN: {
-			// Initialize the size of this view on touch start so we can use it to detect when the fingers exit the surface
-	        mViewRect = new Rect(getLeft(), getTop(), getRight(), getBottom());
+        if (DEBUG) {
+            Log.d(TAG,
+                    "Action " + action + ", index " + index + ", x " + ev.getX(index) + ", id "
+                            + ev.getPointerId(index));
+        }
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+            case MotionEvent.ACTION_POINTER_DOWN: {
+                // Initialize the size of this view on touch start so we can use it to detect when the fingers exit the surface
+                mViewRect = new Rect(getLeft(), getTop(), getRight(), getBottom());
 
-			final int id = ev.getPointerId(index);
-			// As long as we are in a gesture we don't want any view parents to handle touch events
-            final ViewParent vp = getParent();
-            if (vp != null) {
-			    vp.requestDisallowInterceptTouchEvent(true);
-            }
-
-			// We have a limit on the number of touch points that we pass to JS
-			if (id < MAX_NUM_TOUCHES) {
-				if (mTouches[id] == null) {
-					mTouches[id] = new MotionEvent.PointerCoords();
-				}
-				ev.getPointerCoords(index, mTouches[id]);
-				// Scale the touch pointers to logical pixels. JS doesn't know about dpi
-				mTouches[id].x = (int) (mTouches[id].x / mScaling);
-				mTouches[id].y = (int) (mTouches[id].y / mScaling);
-
-				// If this is the first pointer of a potential multi touch gesture, record the start position
-				// of the gesture
-				if (action == MotionEvent.ACTION_DOWN) {
-					mTouchStart = new PointerCoords(mTouches[id]);
-				}
-				// Mark the pointer index as valid
-                mTouchesThere[id] = true;
-
-                // For pinch-zoom, calculate the distance
-				if (count == 2 && mTouches[0] != null && mTouches[1] != null) {
-					mTouchDistance = Math.sqrt((mTouches[0].x - mTouches[1].x) * (mTouches[0].x - mTouches[1].x)
-							+ (mTouches[0].y - mTouches[1].y) * (mTouches[0].y - mTouches[1].y));
-				}
-				mNumTouches = count;
-				if (mEngine == null || mRenderThread == null) {
-					return false;
-				}
-				// And pass the touch event to JS
-				if (mBGJSGLView != null) {
-                    mBGJSGLView.setTouchPosition((int) mTouches[id].x, (int) mTouches[id].y);
+                final int id = ev.getPointerId(index);
+                // As long as we are in a gesture we don't want any view parents to handle touch events
+                final ViewParent vp = getParent();
+                if (vp != null) {
+                    vp.requestDisallowInterceptTouchEvent(true);
                 }
 
-			}
+                // We have a limit on the number of touch points that we pass to JS
+                if (id < MAX_NUM_TOUCHES) {
+                    if (mTouches[id] == null) {
+                        mTouches[id] = new MotionEvent.PointerCoords();
+                    }
+                    ev.getPointerCoords(index, mTouches[id]);
+                    // Scale the touch pointers to logical pixels. JS doesn't know about dpi
+                    mTouches[id].x = (int) (mTouches[id].x / mScaling);
+                    mTouches[id].y = (int) (mTouches[id].y / mScaling);
 
-			sendTouchEvent("touchstart");
-			break;
-		}
-		case MotionEvent.ACTION_MOVE: {
-			boolean touchDirty = false;
-			for (int i = 0; i < count; i++) {
-				final int id = ev.getPointerId(i);
-				if (id < MAX_NUM_TOUCHES) {
-					final int oldX = (int) mTouches[id].x;
-					final int oldY = (int) mTouches[id].y;
-					ev.getPointerCoords(i, mTouches[id]);
-					mTouches[id].x = (int) (mTouches[id].x / mScaling);
-					mTouches[id].y = (int) (mTouches[id].y / mScaling);
+                    // If this is the first pointer of a potential multi touch gesture, record the start position
+                    // of the gesture
+                    if (action == MotionEvent.ACTION_DOWN) {
+                        mTouchStart = new PointerCoords(mTouches[id]);
+                    }
+                    // Mark the pointer index as valid
+                    mTouchesThere[id] = true;
 
-					// If the touch hasn't moved yet, check if we are over the
-					// slop before we report moves
-					if (mTouchStart != null) {
-						final float touchDiffX = mTouches[id].x - mTouchStart.x;
-						final float touchDiffY = mTouches[id].y - mTouchStart.y;
-						if (touchDiffX > mTouchSlop || touchDiffY > mTouchSlop || touchDiffX < -mTouchSlop
-								|| touchDiffY < -mTouchSlop) {
-							touchDirty = true;
-							mTouchStart = null;
-						}
-					} else {
-						if (mTouches[id].x != oldX || mTouches[id].y != oldY) {
-							touchDirty = true;
-						}
-					}
-					
-					if (touchDirty && mBGJSGLView != null) {
+                    // For pinch-zoom, calculate the distance
+                    if (count == 2 && mTouches[0] != null && mTouches[1] != null) {
+                        mTouchDistance = Math.sqrt((mTouches[0].x - mTouches[1].x) * (mTouches[0].x - mTouches[1].x)
+                                + (mTouches[0].y - mTouches[1].y) * (mTouches[0].y - mTouches[1].y));
+                    }
+                    mNumTouches = count;
+                    if (mEngine == null || mRenderThread == null) {
+                        return false;
+                    }
+                    // And pass the touch event to JS
+                    if (mBGJSGLView != null) {
                         mBGJSGLView.setTouchPosition((int) mTouches[id].x, (int) mTouches[id].y);
                     }
-				}
-			}
-			
-			String touchEvent = "touchmove";
-			boolean endThisTouch = false;
-			// If the pointer leaves the surface when moving, end the touch
-			if(!mViewRect.contains(getLeft() + (int) ev.getX(), getTop() + (int) ev.getY())) {
-				touchEvent = "touchend";
-				endThisTouch = true;
-			}
 
-			// We only send touch events to JS if there is a signifcant change in pointer coords
-			if (touchDirty) {
-				sendTouchEvent(touchEvent);
-			}
-			if (endThisTouch) {
-				return false;
-			}
-			break;
-		}
-		
-		case MotionEvent.ACTION_UP:
-		case MotionEvent.ACTION_POINTER_UP:
-		case MotionEvent.ACTION_CANCEL: {
-			final int id = ev.getPointerId(index);
-			if (id < MAX_NUM_TOUCHES) {
-				mTouchesThere[id] = false;
-			}
-			sendTouchEvent("touchend");
-			break;
-		}
-		}
-		return true;
-	}
+                }
 
-	/**
-	 * Send a normalized touch event to JS
-	 * @param type the type of event: touchstart, touchmove or touchend
-	 */
-	private void sendTouchEvent(String type) {
-		if (mRenderThread == null) {
-			return;
-		}
+                sendTouchEvent("touchstart");
+                break;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                boolean touchDirty = false;
+                for (int i = 0; i < count; i++) {
+                    final int id = ev.getPointerId(i);
+                    if (id < MAX_NUM_TOUCHES) {
+                        final int oldX = (int) mTouches[id].x;
+                        final int oldY = (int) mTouches[id].y;
+                        ev.getPointerCoords(i, mTouches[id]);
+                        mTouches[id].x = (int) (mTouches[id].x / mScaling);
+                        mTouches[id].y = (int) (mTouches[id].y / mScaling);
 
-		// This is actually the pointer to the BGJSView and could have been cleared because
+                        // If the touch hasn't moved yet, check if we are over the
+                        // slop before we report moves
+                        if (mTouchStart != null) {
+                            final float touchDiffX = mTouches[id].x - mTouchStart.x;
+                            final float touchDiffY = mTouches[id].y - mTouchStart.y;
+                            if (touchDiffX > mTouchSlop || touchDiffY > mTouchSlop || touchDiffX < -mTouchSlop
+                                    || touchDiffY < -mTouchSlop) {
+                                touchDirty = true;
+                                mTouchStart = null;
+                            }
+                        } else {
+                            if (mTouches[id].x != oldX || mTouches[id].y != oldY) {
+                                touchDirty = true;
+                            }
+                        }
+
+                        if (touchDirty && mBGJSGLView != null) {
+                            mBGJSGLView.setTouchPosition((int) mTouches[id].x, (int) mTouches[id].y);
+                        }
+                    }
+                }
+
+                String touchEvent = "touchmove";
+                boolean endThisTouch = false;
+                // If the pointer leaves the surface when moving, end the touch
+                if (!mViewRect.contains(getLeft() + (int) ev.getX(), getTop() + (int) ev.getY())) {
+                    touchEvent = "touchend";
+                    endThisTouch = true;
+                }
+
+                // We only send touch events to JS if there is a signifcant change in pointer coords
+                if (touchDirty) {
+                    sendTouchEvent(touchEvent);
+                }
+                if (endThisTouch) {
+                    return false;
+                }
+                break;
+            }
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_POINTER_UP:
+            case MotionEvent.ACTION_CANCEL: {
+                final int id = ev.getPointerId(index);
+                if (id < MAX_NUM_TOUCHES) {
+                    mTouchesThere[id] = false;
+                }
+                sendTouchEvent("touchend");
+                break;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Send a normalized touch event to JS
+     *
+     * @param type the type of event: touchstart, touchmove or touchend
+     */
+    private void sendTouchEvent(String type) {
+        if (mRenderThread == null) {
+            return;
+        }
+
+        // This is actually the pointer to the BGJSView and could have been cleared because
         // it was closed.
 
-		if (mBGJSGLView == null) {
-		    return;
+        if (mBGJSGLView == null) {
+            return;
         }
-		int count = 0;
-		for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
-			if (mTouchesThere[i]) {
-				count++;
-			}
-		}
-		mNumTouches = count;
+        int count = 0;
+        for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
+            if (mTouchesThere[i]) {
+                count++;
+            }
+        }
+        mNumTouches = count;
 
-		// We need to calculate the scale of a pinch-zoom gesture from touches 1 & 2
-		double x1 = 0, y1 = 0, x2 = 0, y2 = 0, scale;
-		// Also create a WhatWG compatible touch event object per touch
-		final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[mNumTouches];
-		int j = 0;
-		for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
-			if (mTouchesThere[i]) {
-				final float x = mTouches[i].x;
-				final float y = mTouches[i].y;
-				if (j == 0) {
-					x1 = x;
-					y1 = y;
-				} else if (j == 1) {
-					x2 = x;
-					y2 = y;
-				}
-				final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
+        // We need to calculate the scale of a pinch-zoom gesture from touches 1 & 2
+        double x1 = 0, y1 = 0, x2 = 0, y2 = 0, scale;
+        // Also create a WhatWG compatible touch event object per touch
+        final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[mNumTouches];
+        int j = 0;
+        for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
+            if (mTouchesThere[i]) {
+                final float x = mTouches[i].x;
+                final float y = mTouches[i].y;
+                if (j == 0) {
+                    x1 = x;
+                    y1 = y;
+                } else if (j == 1) {
+                    x2 = x;
+                    y2 = y;
+                }
+                final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
                 touchObj.setV8Field("clientX", x);
                 touchObj.setV8Field("clientY", y);
                 touchObjs[j] = touchObj;
-				j++;
-			}
-		}
-		if (mNumTouches == 2) {
-			scale = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) / mTouchDistance;
-		} else {
-			scale = 1f;
-		}
-		if (DEBUG) {
+                j++;
+            }
+        }
+        if (mNumTouches == 2) {
+            scale = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) / mTouchDistance;
+        } else {
+            scale = 1f;
+        }
+        if (DEBUG) {
             Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale "
                     + scale);
         }
@@ -337,13 +328,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mBGJSGLView.onEvent(touchEventObj);
 
         for (final JNIV8GenericObject touch : touchObjs) {
-        	touch.dispose();
+            touch.dispose();
         }
         touches.dispose();
         touchEventObj.dispose();
-	}
+    }
 
-	public void setClearColor(final int color) {
+    public void setClearColor(final int color) {
         try {
             // Convert to long to make unsigned
             long c = color & 0x00000000ffffffffL;
@@ -370,84 +361,85 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mClearColorSet = false;
     }
 
-	/**
-	 * Reset all touch information
-	 */
+    /**
+     * Reset all touch information
+     */
     void resetTouches() {
-		mNumTouches = 0;
-		for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
-			mTouchesThere[i] = false;
-		}
-		mTouchDistance = 0;
-	}
+        mNumTouches = 0;
+        for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
+            mTouchesThere[i] = false;
+        }
+        mTouchDistance = 0;
+    }
 
-	public void dontClearOnFlip(boolean dontClear) {
-		mDontClearOnFlip = dontClear;
-	}
+    public void dontClearOnFlip(boolean dontClear) {
+        mDontClearOnFlip = dontClear;
+    }
 
-	private static class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
+    private static class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
 
-		private static final String TAG = "V8ConfigChooser";
-		private static final boolean DEBUG = false;
+        private static final String TAG = "V8ConfigChooser";
+        private static final boolean DEBUG = false;
         private final int[] mEglVersion;
         private final boolean mDontTouchSwap;
 
         public ConfigChooser(int r, int g, int b, int a, int depth, int stencil, int[] version) {
-			mRedSize = r;
-			mGreenSize = g;
-			mBlueSize = b;
-			mAlphaSize = a;
-			mDepthSize = depth;
-			mStencilSize = stencil;
+            mRedSize = r;
+            mGreenSize = g;
+            mBlueSize = b;
+            mAlphaSize = a;
+            mDepthSize = depth;
+            mStencilSize = stencil;
             mEglVersion = version;
             mDontTouchSwap = isEmulator();
             if (DEBUG) {
                 Log.d(TAG, "EGL version " + version[0] + "." + version[1]);
             }
-		}
+        }
 
-		/*
-		 * This EGL config specification is used to specify 1.1 rendering. We
-		 * use a minimum size of 4 bits for red/green/blue, but will perform
-		 * actual matching in chooseConfig() below.
-		 */
-		// private static int EGL_OPENGL_ES2_BIT = 4;
-		private static final int[] s_configAttribs2 = { EGL10.EGL_RED_SIZE, 4, EGL10.EGL_GREEN_SIZE, 4, EGL10.EGL_BLUE_SIZE,
-				4, EGL10.EGL_NONE };
+        /*
+         * This EGL config specification is used to specify 1.1 rendering. We
+         * use a minimum size of 4 bits for red/green/blue, but will perform
+         * actual matching in chooseConfig() below.
+         */
+        // private static int EGL_OPENGL_ES2_BIT = 4;
+        private static final int[] s_configAttribs2 = {EGL10.EGL_RED_SIZE, 4, EGL10.EGL_GREEN_SIZE, 4, EGL10.EGL_BLUE_SIZE,
+                4, EGL10.EGL_NONE};
 
-		public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
+        @Override
+        public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
 
-			/*
-			 * Get the number of minimally matching EGL configurations
-			 */
-			int[] num_config = new int[1];
-			egl.eglChooseConfig(display, s_configAttribs2, null, 0, num_config);
+            /*
+             * Get the number of minimally matching EGL configurations
+             */
+            int[] num_config = new int[1];
+            egl.eglChooseConfig(display, s_configAttribs2, null, 0, num_config);
 
-			int numConfigs = num_config[0];
+            int numConfigs = num_config[0];
 
-			if (numConfigs <= 0) {
-				throw new IllegalArgumentException("No configs match configSpec");
-			}
+            if (numConfigs <= 0) {
+                throw new IllegalArgumentException("No configs match configSpec");
+            }
 
-			/*
-			 * Allocate then read the array of minimally matching EGL configs
-			 */
-			EGLConfig[] configs = new EGLConfig[numConfigs];
-			egl.eglChooseConfig(display, s_configAttribs2, configs, numConfigs, num_config);
+            /*
+             * Allocate then read the array of minimally matching EGL configs
+             */
+            EGLConfig[] configs = new EGLConfig[numConfigs];
+            egl.eglChooseConfig(display, s_configAttribs2, configs, numConfigs, num_config);
 
-			if (DEBUG) {
-				printConfigs(egl, display, configs);
-			}
-			/*
-			 * Now return the "best" one
-			 */
-			return chooseConfig(egl, display, configs);
-		}
+            if (DEBUG) {
+                printConfigs(egl, display, configs);
+            }
+            /*
+             * Now return the "best" one
+             */
+            return chooseConfig(egl, display, configs);
+        }
 
-		EGLConfig chooseConfig(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
-			EGLConfig bestConfig = null;
-			int bestDepth = 128;
-			for (EGLConfig config : configs) {
+        EGLConfig chooseConfig(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
+            EGLConfig bestConfig = null;
+            int bestDepth = 128;
+            for (EGLConfig config : configs) {
                 boolean hasSwap = false;
                 if (!mDontTouchSwap && mEglVersion[0] > 1 || mEglVersion[1] >= 4) {
                     final int surfaceType = findConfigAttrib(egl, display, config, EGL14.EGL_SURFACE_TYPE, 0);
@@ -455,353 +447,356 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         hasSwap = true;
                     }
                     if (DEBUG) {
-						Log.d(TAG, "surfaceType " + surfaceType + " has preserved bit " + hasSwap);
+                        Log.d(TAG, "surfaceType " + surfaceType + " has preserved bit " + hasSwap);
                     }
                 }
 
-				// Get depth and stencil sizes
-				int d = findConfigAttrib(egl, display, config, EGL10.EGL_DEPTH_SIZE, 0);
-				int s = findConfigAttrib(egl, display, config, EGL10.EGL_STENCIL_SIZE, 0);
+                // Get depth and stencil sizes
+                int d = findConfigAttrib(egl, display, config, EGL10.EGL_DEPTH_SIZE, 0);
+                int s = findConfigAttrib(egl, display, config, EGL10.EGL_STENCIL_SIZE, 0);
 
-				// We need at least mDepthSize and mStencilSize bits
-				if (s < mStencilSize) {
-					if (DEBUG) {
-						Log.d(TAG, "Not good enough: stencil " + s);
-					}
-					continue;
-				}
+                // We need at least mDepthSize and mStencilSize bits
+                if (s < mStencilSize) {
+                    if (DEBUG) {
+                        Log.d(TAG, "Not good enough: stencil " + s);
+                    }
+                    continue;
+                }
 
-				// We also want at least a minimum size for red/green/blue/alpha
-				int r = findConfigAttrib(egl, display, config, EGL10.EGL_RED_SIZE, 0);
-				int g = findConfigAttrib(egl, display, config, EGL10.EGL_GREEN_SIZE, 0);
-				int b = findConfigAttrib(egl, display, config, EGL10.EGL_BLUE_SIZE, 0);
-				int a = findConfigAttrib(egl, display, config, EGL10.EGL_ALPHA_SIZE, 0);
+                // We also want at least a minimum size for red/green/blue/alpha
+                int r = findConfigAttrib(egl, display, config, EGL10.EGL_RED_SIZE, 0);
+                int g = findConfigAttrib(egl, display, config, EGL10.EGL_GREEN_SIZE, 0);
+                int b = findConfigAttrib(egl, display, config, EGL10.EGL_BLUE_SIZE, 0);
+                int a = findConfigAttrib(egl, display, config, EGL10.EGL_ALPHA_SIZE, 0);
 
-				if (r <= mRedSize && g <= mGreenSize && b <= mBlueSize && a >= mAlphaSize) {
-					// But we'll try to figure out which configuration matches best
-					int distance = (a - mAlphaSize) + mStencilSize - s + mDepthSize - d + (mRedSize - r) + (mGreenSize - g) + (mBlueSize - b) + (hasSwap ? 4 : 0);
-					if (DEBUG) {
-						Log.d(TAG, "Good enough: " + r + ", " + g + ", " + b + ", depth " + d + ", stencil " + s
-								+ ", alpha " + a + ", distance " + distance);
-					}
-					// If this configuration is a better match than the best to date, replace it
-					if (distance < bestDepth) {
-						bestConfig = config;
-						bestDepth = distance;
-					}
-				} else {
-					if (DEBUG) {
-						Log.d(TAG, "Not good enough: " + r + ", " + g + ", " + b + ", depth " + d + ", stencil " + s
-								+ ", alpha " + a);
-					}
-				}
-			}
-			// Lets hope we found at least one acceptable config
-			if (bestConfig != null) {
-				if (DEBUG) {
-					Log.d(TAG, "Best config");
-					printConfig(egl, display, bestConfig);
-				}
-				return bestConfig;
-			}
+                if (r <= mRedSize && g <= mGreenSize && b <= mBlueSize && a >= mAlphaSize) {
+                    // But we'll try to figure out which configuration matches best
+                    int distance = (a - mAlphaSize) + mStencilSize - s + mDepthSize - d + (mRedSize - r) + (mGreenSize - g) + (mBlueSize - b) + (hasSwap ? 4 : 0);
+                    if (DEBUG) {
+                        Log.d(TAG, "Good enough: " + r + ", " + g + ", " + b + ", depth " + d + ", stencil " + s
+                                + ", alpha " + a + ", distance " + distance);
+                    }
+                    // If this configuration is a better match than the best to date, replace it
+                    if (distance < bestDepth) {
+                        bestConfig = config;
+                        bestDepth = distance;
+                    }
+                } else {
+                    if (DEBUG) {
+                        Log.d(TAG, "Not good enough: " + r + ", " + g + ", " + b + ", depth " + d + ", stencil " + s
+                                + ", alpha " + a);
+                    }
+                }
+            }
+            // Lets hope we found at least one acceptable config
+            if (bestConfig != null) {
+                if (DEBUG) {
+                    Log.d(TAG, "Best config");
+                    printConfig(egl, display, bestConfig);
+                }
+                return bestConfig;
+            }
 
-			return null;
-		}
+            return null;
+        }
 
-		private int findConfigAttrib(EGL10 egl, EGLDisplay display, EGLConfig config, int attribute, int defaultValue) {
+        private int findConfigAttrib(EGL10 egl, EGLDisplay display, EGLConfig config, int attribute, int defaultValue) {
 
-			if (egl.eglGetConfigAttrib(display, config, attribute, mValue)) {
-				return mValue[0];
-			}
-			return defaultValue;
-		}
+            if (egl.eglGetConfigAttrib(display, config, attribute, mValue)) {
+                return mValue[0];
+            }
+            return defaultValue;
+        }
 
-		/**
-		 * Pretty-print OpenGL configs
-		 * @param egl egl instance
-		 * @param display egl display
-		 * @param configs the list of configs to print
-		 */
-		private void printConfigs(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
-			int numConfigs = configs.length;
-			Log.w(TAG, String.format("%d configurations", numConfigs));
-			for (int i = 0; i < numConfigs; i++) {
-				Log.w(TAG, String.format("Configuration %d:\n", i));
-				printConfig(egl, display, configs[i]);
-			}
-		}
+        /**
+         * Pretty-print OpenGL configs
+         *
+         * @param egl     egl instance
+         * @param display egl display
+         * @param configs the list of configs to print
+         */
+        private void printConfigs(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
+            int numConfigs = configs.length;
+            Log.w(TAG, String.format("%d configurations", numConfigs));
+            for (int i = 0; i < numConfigs; i++) {
+                Log.w(TAG, String.format("Configuration %d:\n", i));
+                printConfig(egl, display, configs[i]);
+            }
+        }
 
-		/**
-		 * Pretty-print one OpenGL config
-		 * @param egl egl instance
-		 * @param display egl display
-		 * @param config the config to print
-		 */
-		private void printConfig(EGL10 egl, EGLDisplay display, EGLConfig config) {
-			int[] attributes = { EGL10.EGL_BUFFER_SIZE, EGL10.EGL_ALPHA_SIZE, EGL10.EGL_BLUE_SIZE,
-					EGL10.EGL_GREEN_SIZE, EGL10.EGL_RED_SIZE, EGL10.EGL_DEPTH_SIZE, EGL10.EGL_STENCIL_SIZE,
-					EGL10.EGL_CONFIG_CAVEAT, EGL10.EGL_CONFIG_ID, EGL10.EGL_LEVEL, EGL10.EGL_MAX_PBUFFER_HEIGHT,
-					EGL10.EGL_MAX_PBUFFER_PIXELS, EGL10.EGL_MAX_PBUFFER_WIDTH,
-					EGL10.EGL_NATIVE_RENDERABLE,
-					EGL10.EGL_NATIVE_VISUAL_ID,
-					EGL10.EGL_NATIVE_VISUAL_TYPE,
-					0x3030, // EGL10.EGL_PRESERVED_RESOURCES,
-					EGL10.EGL_SAMPLES, EGL10.EGL_SAMPLE_BUFFERS, EGL10.EGL_SURFACE_TYPE, EGL10.EGL_TRANSPARENT_TYPE,
-					EGL10.EGL_TRANSPARENT_RED_VALUE, EGL10.EGL_TRANSPARENT_GREEN_VALUE,
-					EGL10.EGL_TRANSPARENT_BLUE_VALUE,
-					0x3039, // EGL10.EGL_BIND_TO_TEXTURE_RGB,
-					0x303A, // EGL10.EGL_BIND_TO_TEXTURE_RGBA,
-					0x303B, // EGL10.EGL_MIN_SWAP_INTERVAL,
-					0x303C, // EGL10.EGL_MAX_SWAP_INTERVAL,
-					EGL10.EGL_LUMINANCE_SIZE, EGL10.EGL_ALPHA_MASK_SIZE, EGL10.EGL_COLOR_BUFFER_TYPE,
-					EGL10.EGL_RENDERABLE_TYPE, 0x3042 // EGL10.EGL_CONFORMANT
-			};
-			String[] names = { "EGL_BUFFER_SIZE", "EGL_ALPHA_SIZE", "EGL_BLUE_SIZE", "EGL_GREEN_SIZE", "EGL_RED_SIZE",
-					"EGL_DEPTH_SIZE", "EGL_STENCIL_SIZE", "EGL_CONFIG_CAVEAT", "EGL_CONFIG_ID", "EGL_LEVEL",
-					"EGL_MAX_PBUFFER_HEIGHT", "EGL_MAX_PBUFFER_PIXELS", "EGL_MAX_PBUFFER_WIDTH",
-					"EGL_NATIVE_RENDERABLE", "EGL_NATIVE_VISUAL_ID", "EGL_NATIVE_VISUAL_TYPE",
-					"EGL_PRESERVED_RESOURCES", "EGL_SAMPLES", "EGL_SAMPLE_BUFFERS", "EGL_SURFACE_TYPE",
-					"EGL_TRANSPARENT_TYPE", "EGL_TRANSPARENT_RED_VALUE", "EGL_TRANSPARENT_GREEN_VALUE",
-					"EGL_TRANSPARENT_BLUE_VALUE", "EGL_BIND_TO_TEXTURE_RGB", "EGL_BIND_TO_TEXTURE_RGBA",
-					"EGL_MIN_SWAP_INTERVAL", "EGL_MAX_SWAP_INTERVAL", "EGL_LUMINANCE_SIZE", "EGL_ALPHA_MASK_SIZE",
-					"EGL_COLOR_BUFFER_TYPE", "EGL_RENDERABLE_TYPE", "EGL_CONFORMANT" };
-			int[] value = new int[1];
-			for (int i = 0; i < attributes.length; i++) {
-				int attribute = attributes[i];
-				String name = names[i];
-				if (egl.eglGetConfigAttrib(display, config, attribute, value)) {
-					Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
-				} else {
-					// Log.w(TAG, String.format("  %s: failed\n", name));
-					while (egl.eglGetError() != EGL10.EGL_SUCCESS)
-						;
-				}
-			}
-		}
+        /**
+         * Pretty-print one OpenGL config
+         *
+         * @param egl     egl instance
+         * @param display egl display
+         * @param config  the config to print
+         */
+        private void printConfig(EGL10 egl, EGLDisplay display, EGLConfig config) {
+            int[] attributes = {EGL10.EGL_BUFFER_SIZE, EGL10.EGL_ALPHA_SIZE, EGL10.EGL_BLUE_SIZE,
+                    EGL10.EGL_GREEN_SIZE, EGL10.EGL_RED_SIZE, EGL10.EGL_DEPTH_SIZE, EGL10.EGL_STENCIL_SIZE,
+                    EGL10.EGL_CONFIG_CAVEAT, EGL10.EGL_CONFIG_ID, EGL10.EGL_LEVEL, EGL10.EGL_MAX_PBUFFER_HEIGHT,
+                    EGL10.EGL_MAX_PBUFFER_PIXELS, EGL10.EGL_MAX_PBUFFER_WIDTH,
+                    EGL10.EGL_NATIVE_RENDERABLE,
+                    EGL10.EGL_NATIVE_VISUAL_ID,
+                    EGL10.EGL_NATIVE_VISUAL_TYPE,
+                    0x3030, // EGL10.EGL_PRESERVED_RESOURCES,
+                    EGL10.EGL_SAMPLES, EGL10.EGL_SAMPLE_BUFFERS, EGL10.EGL_SURFACE_TYPE, EGL10.EGL_TRANSPARENT_TYPE,
+                    EGL10.EGL_TRANSPARENT_RED_VALUE, EGL10.EGL_TRANSPARENT_GREEN_VALUE,
+                    EGL10.EGL_TRANSPARENT_BLUE_VALUE,
+                    0x3039, // EGL10.EGL_BIND_TO_TEXTURE_RGB,
+                    0x303A, // EGL10.EGL_BIND_TO_TEXTURE_RGBA,
+                    0x303B, // EGL10.EGL_MIN_SWAP_INTERVAL,
+                    0x303C, // EGL10.EGL_MAX_SWAP_INTERVAL,
+                    EGL10.EGL_LUMINANCE_SIZE, EGL10.EGL_ALPHA_MASK_SIZE, EGL10.EGL_COLOR_BUFFER_TYPE,
+                    EGL10.EGL_RENDERABLE_TYPE, 0x3042 // EGL10.EGL_CONFORMANT
+            };
+            String[] names = {"EGL_BUFFER_SIZE", "EGL_ALPHA_SIZE", "EGL_BLUE_SIZE", "EGL_GREEN_SIZE", "EGL_RED_SIZE",
+                    "EGL_DEPTH_SIZE", "EGL_STENCIL_SIZE", "EGL_CONFIG_CAVEAT", "EGL_CONFIG_ID", "EGL_LEVEL",
+                    "EGL_MAX_PBUFFER_HEIGHT", "EGL_MAX_PBUFFER_PIXELS", "EGL_MAX_PBUFFER_WIDTH",
+                    "EGL_NATIVE_RENDERABLE", "EGL_NATIVE_VISUAL_ID", "EGL_NATIVE_VISUAL_TYPE",
+                    "EGL_PRESERVED_RESOURCES", "EGL_SAMPLES", "EGL_SAMPLE_BUFFERS", "EGL_SURFACE_TYPE",
+                    "EGL_TRANSPARENT_TYPE", "EGL_TRANSPARENT_RED_VALUE", "EGL_TRANSPARENT_GREEN_VALUE",
+                    "EGL_TRANSPARENT_BLUE_VALUE", "EGL_BIND_TO_TEXTURE_RGB", "EGL_BIND_TO_TEXTURE_RGBA",
+                    "EGL_MIN_SWAP_INTERVAL", "EGL_MAX_SWAP_INTERVAL", "EGL_LUMINANCE_SIZE", "EGL_ALPHA_MASK_SIZE",
+                    "EGL_COLOR_BUFFER_TYPE", "EGL_RENDERABLE_TYPE", "EGL_CONFORMANT"};
+            int[] value = new int[1];
+            for (int i = 0; i < attributes.length; i++) {
+                int attribute = attributes[i];
+                String name = names[i];
+                if (egl.eglGetConfigAttrib(display, config, attribute, value)) {
+                    Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
+                } else {
+                    // Log.w(TAG, String.format("  %s: failed\n", name));
+                    while (egl.eglGetError() != EGL10.EGL_SUCCESS)
+                        ;
+                }
+            }
+        }
 
-		// Subclasses can adjust these values:
+        // Subclasses can adjust these values:
         final int mRedSize;
-		final int mGreenSize;
-		final int mBlueSize;
-		final int mAlphaSize;
-		final int mDepthSize;
-		final int mStencilSize;
-		private final int[] mValue = new int[1];
-	}
+        final int mGreenSize;
+        final int mBlueSize;
+        final int mAlphaSize;
+        final int mDepthSize;
+        final int mStencilSize;
+        private final int[] mValue = new int[1];
+    }
 
-	public void setRenderCallback(IV8GLViewOnRender listener) {
-		mCallback = listener;
-	}
+    public void setRenderCallback(IV8GLViewOnRender listener) {
+        mCallback = listener;
+    }
 
-	/**
-	 * Pause rendering. Will tell render thread to sleep.
-	 */
-	public void pause() {
-		if (mRenderThread != null) {
-			mRenderThread.pause();
-		}
-	}
+    /**
+     * Pause rendering. Will tell render thread to sleep.
+     */
+    public void pause() {
+        if (mRenderThread != null) {
+            mRenderThread.pause();
+        }
+    }
 
-	/**
-	 * Resume rendering. Will wake render thread up.
-	 */
-	public void unpause() {
-		if (mRenderThread != null) {
-			mRenderThread.unpause();
-		}
-	}
+    /**
+     * Resume rendering. Will wake render thread up.
+     */
+    public void unpause() {
+        if (mRenderThread != null) {
+            mRenderThread.unpause();
+        }
+    }
 
     /**
      * Create the JNI side of OpenGL init. Can be overriden by subclasses to instantiate other BGJSGLView subclasses
+     *
      * @return pointer to JNI object
      */
-    protected BGJSGLView createGL () {
+    protected BGJSGLView createGL() {
         final BGJSGLView glView = new BGJSGLView(mEngine, this);
         glView.setViewData(mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
 
         return glView;
     }
 
-	/**
-	 * The thread were the actual rendering is done. In Android OpenGL operations are always done on a background thread.
-	 * @author kread
-	 *
-	 */
-	private class RenderThread extends Thread {
-		private static final String TAG = "V8RenderThread";
+    /**
+     * The thread were the actual rendering is done. In Android OpenGL operations are always done on a background thread.
+     *
+     * @author kread
+     */
+    private class RenderThread extends Thread {
+        private static final String TAG = "V8RenderThread";
 
-		static final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
+        static final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
 
-		private volatile boolean mFinished = false;	// If the thread is finished and quit
-		private final SurfaceTexture mSurface;
+        private volatile boolean mFinished = false;    // If the thread is finished and quit
+        private final SurfaceTexture mSurface;
 
-		private EGL10 mEgl;
-		private EGLDisplay mEglDisplay;
-		private EGLConfig mEglConfig;
-		private EGLContext mEglContext;
-		private EGLSurface mEglSurface;
-
-
-		private long mLastRenderSec;	// Used to calculate FPS
-		private int mRenderCnt;
-
-		private boolean mRenderPending;
-		private boolean mReinitPending;
+        private EGL10 mEgl;
+        private EGLDisplay mEglDisplay;
+        private EGLConfig mEglConfig;
+        private EGLContext mEglContext;
+        private EGLSurface mEglSurface;
 
 
-		private boolean mPaused;
+        private long mLastRenderSec;    // Used to calculate FPS
+        private int mRenderCnt;
+
+        private boolean mRenderPending;
+        private boolean mReinitPending;
+
+
+        private boolean mPaused;
         private int[] mEglVersion;
         // True if this surface can preserve color buffer contents on swap
         private boolean mHasSwap;
-        // True if rendering is done and the surface can be released once the view has been detached
-        private boolean mShouldReleaseSurface;
 
 
         RenderThread(SurfaceTexture surface) {
-			mSurface = surface;
-		}
+            mSurface = surface;
+        }
 
-		/**
-		 * Unset paused state and wake up thread
-		 */
-		public void unpause() {
-			synchronized (this) {
-				mPaused = false;
-				this.notifyAll();
-				if (DEBUG) {
-					Log.d(TAG, "Requested unpause");
-				}
-			}
-		}
+        /**
+         * Unset paused state and wake up thread
+         */
+        public void unpause() {
+            synchronized (this) {
+                mPaused = false;
+                this.notifyAll();
+                if (DEBUG) {
+                    Log.d(TAG, "Requested unpause");
+                }
+            }
+        }
 
-		/**
-		 * Set paused state and wake up thread
-		 */
-		synchronized void pause() {
-			synchronized (this) {
-				mPaused = true;
-				this.notifyAll();
-				if (DEBUG) {
-					Log.d(TAG, "Requested pause");
-				}
-			}
-		}
+        /**
+         * Set paused state and wake up thread
+         */
+        synchronized void pause() {
+            synchronized (this) {
+                mPaused = true;
+                this.notifyAll();
+                if (DEBUG) {
+                    Log.d(TAG, "Requested pause");
+                }
+            }
+        }
 
         void requestRender() {
-			synchronized (this) {
-				mRenderPending = true;
-				this.notifyAll();
-				if (DEBUG) {
-					Log.d(TAG, "Requested render mJSID " + mBGJSGLView);
-				}
-			}
-		}
+            synchronized (this) {
+                mRenderPending = true;
+                this.notifyAll();
+                if (DEBUG) {
+                    Log.d(TAG, "Requested render mJSID " + mBGJSGLView);
+                }
+            }
+        }
 
         void reinitGl() {
-			synchronized (this) {
-				mReinitPending = true;
-				this.notifyAll();
-				if (DEBUG) {
-					Log.d(TAG, "Requested reinit");
-				}
-			}
-		}
+            synchronized (this) {
+                mReinitPending = true;
+                this.notifyAll();
+                if (DEBUG) {
+                    Log.d(TAG, "Requested reinit");
+                }
+            }
+        }
 
-		@Override
-		public void run() {
-			// This thread might ultimately house Handlers, so initialize a looper
-			Looper.prepare();
-			if (DEBUG) {
-				Log.d(TAG, "Thread running");
-			}
+        @Override
+        public void run() {
+            // This thread might ultimately house Handlers, so initialize a looper
+            Looper.prepare();
+            if (DEBUG) {
+                Log.d(TAG, "Thread running");
+            }
 
             // We try to initialize the OpenGL stack with a valid config
-			try {
-				initGL();
-			} catch (Exception ex) {
-				// If we cannot initialize OpenGL, log it and then quit
+            try {
+                initGL();
+            } catch (Exception ex) {
+                // If we cannot initialize OpenGL, log it and then quit
                 V8TextureView.this.onGLCreateError(ex);
-				try {
-					finishGL();
-				} catch (Exception ignored) {
-				}
-				return;
-			}
+                try {
+                    finishGL();
+                } catch (Exception ignored) {
+                }
+                return;
+            }
 
-			if (DEBUG) {
-				Log.d(TAG, "GL init done");
-			}
+            if (DEBUG) {
+                Log.d(TAG, "GL init done");
+            }
 
             if (mClearColorSet) {
                 GLES10.glClearColor(mClearRed, mClearGreen, mClearBlue, mClearAlpha);
                 GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
             }
 
-			// Create a C instance of GLView and record the native ID
-			mBGJSGLView = createGL();
+            // Create a C instance of GLView and record the native ID
+            mBGJSGLView = createGL();
 
             V8TextureView.this.onGLCreated(mBGJSGLView);
 
-			if (mCallback != null) {
-				// Tell clients that rendering has started
-				mCallback.renderStarted(V8TextureView.this);
-			}
+            if (mCallback != null) {
+                // Tell clients that rendering has started
+                mCallback.renderStarted(V8TextureView.this);
+            }
 
-			while (!mFinished) {
+            while (!mFinished) {
 
-				synchronized (this) {
-					while (mPaused && !mFinished) {
-						if (!mRenderPending) {
-							if (DEBUG) {
-								Log.d(TAG, "Paused");
-							}
-							try {
-								wait();
-							} catch (InterruptedException e) {
-								// Ignore
-							}
-							if (DEBUG) {
-								Log.d(TAG, "Pause done");
-							}
-						} else {
-							Log.d(TAG, "Paused, but resuming becquse rp " + (mRenderPending ? "true" : "false"));
-							break;
-						}
-					}
-				}
-				if (mFinished) {
-				    break;
+                synchronized (this) {
+                    while (mPaused && !mFinished) {
+                        if (!mRenderPending) {
+                            if (DEBUG) {
+                                Log.d(TAG, "Paused");
+                            }
+                            try {
+                                wait();
+                            } catch (InterruptedException e) {
+                                // Ignore
+                            }
+                            if (DEBUG) {
+                                Log.d(TAG, "Pause done");
+                            }
+                        } else {
+                            Log.d(TAG, "Paused, but resuming becquse rp " + (mRenderPending ? "true" : "false"));
+                            break;
+                        }
+                    }
                 }
-				checkCurrent();
+                if (mFinished) {
+                    break;
+                }
+                checkCurrent();
 
-				// Draw here
-				final long startRender = System.currentTimeMillis();
-				final long now = startRender / 1000;
-				if (now != mLastRenderSec) {
-					if (LOG_FPS) { Log.d (TAG, "FPS: " + mRenderCnt); }
-					mRenderCnt = 0;
-					mLastRenderSec = now;
-				}
-				if (DEBUG) {
-					Log.d(TAG, "Will now draw frame");
-				}
+                // Draw here
+                final long startRender = System.currentTimeMillis();
+                final long now = startRender / 1000;
+                if (now != mLastRenderSec) {
+                    if (LOG_FPS) {
+                        Log.d(TAG, "FPS: " + mRenderCnt);
+                    }
+                    mRenderCnt = 0;
+                    mLastRenderSec = now;
+                }
+                if (DEBUG) {
+                    Log.d(TAG, "Will now draw frame");
+                }
 
 
-				if (mBGJSGLView != null) {
-					mBGJSGLView.onRedraw();
-				}
+                if (mBGJSGLView != null) {
+                    mBGJSGLView.onRedraw();
+                }
 
                 /* if (DEBUG) {
                     Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
                 } */
 
-				mRenderCnt++;
+                mRenderCnt++;
 
-				if (mFinished) {
-					break;
-				}
-				
-				// We don't swap buffers here. Because we don't want to clear buffers on buffer swap, we need to do it in native code.
+                if (mFinished) {
+                    break;
+                }
+
+                // We don't swap buffers here. Because we don't want to clear buffers on buffer swap, we need to do it in native code.
                 // This is important because JS Canvas also doesn't clear except via fillRect
                 /* if (!mHasSwap && didDraw) {
                     mEgl.eglSwapBuffers(mEglDisplay, mEglSurface);
@@ -814,77 +809,71 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
                 }
 
-				synchronized (this) {
+                synchronized (this) {
                     if (mFinished) {
                         break;
                     }
-					// If no rendering or other changes are pending, sleep till the next request
-					if (!mRenderPending && !mFinished) {
-						if (DEBUG) {
-							Log.d(TAG, "No work pending, sleeping");
-						}
-						try {
+                    // If no rendering or other changes are pending, sleep till the next request
+                    if (!mRenderPending && !mFinished) {
+                        if (DEBUG) {
+                            Log.d(TAG, "No work pending, sleeping");
+                        }
+                        try {
 
-							wait(100000);
-						} catch (InterruptedException e) {
-							// Ignore
-						}
-					}
+                            wait(100000);
+                        } catch (InterruptedException e) {
+                            // Ignore
+                        }
+                    }
 
                     if (mFinished) {
                         break;
                     }
 
-					final long renderDone = System.currentTimeMillis();
+                    final long renderDone = System.currentTimeMillis();
 
-					// To achieve a max of 60 fps we will sleep a tad more if we didn't sleep just now
-					if (renderDone - startRender < 16) {
-						if (DEBUG) {
-							Log.d(TAG, "Last frame was less than 16ms ago, sleeping for "
-									+ (16 - (renderDone - startRender)));
-						}
-						try {
-							Thread.sleep(16 - (renderDone - startRender));
-						} catch (InterruptedException ignored) {
-						}
-					}
-				}
+                    // To achieve a max of 60 fps we will sleep a tad more if we didn't sleep just now
+                    if (renderDone - startRender < 16) {
+                        if (DEBUG) {
+                            Log.d(TAG, "Last frame was less than 16ms ago, sleeping for "
+                                    + (16 - (renderDone - startRender)));
+                        }
+                        try {
+                            Thread.sleep(16 - (renderDone - startRender));
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                }
                 if (mFinished) {
                     break;
                 }
 
-				mRenderPending = false;
-				if (mReinitPending && !mFinished) {
-					if (DEBUG) {
-						Log.d(TAG, "Reinit pending executing");
-					}
-					reinitGL();
+                mRenderPending = false;
+                if (mReinitPending && !mFinished) {
+                    if (DEBUG) {
+                        Log.d(TAG, "Reinit pending executing");
+                    }
+                    reinitGL();
                     V8TextureView.this.onGLRecreated(mBGJSGLView);
-					mReinitPending = false;
-				}
+                    mReinitPending = false;
+                }
 
                 // The party that created V8TextureView might want to be notified once we have rendered a frame
                 V8TextureView.this.onFrameRendered(mBGJSGLView);
-			}
-			
-			if (mCallback != null) {
-				mCallback.renderThreadClosed(V8TextureView.this);
-			}
-
-			if (mBGJSGLView != null) {
-                mBGJSGLView.onClose();
             }
 
-            if (mIsDetached) {
-                mSurface.release();
-            } else {
-                mShouldReleaseSurface = true;
+            if (mCallback != null) {
+                mCallback.renderThreadClosed(V8TextureView.this);
+            }
+
+            if (mBGJSGLView != null) {
+                mBGJSGLView.onClose();
             }
 
             mBGJSGLView = null;
 
-			finishGL();
-			// Exit the Looper we started
+            finishGL();
+            // Exit the Looper we started
             Looper looper = Looper.myLooper();
             if (looper != null) {
                 if (Build.VERSION.SDK_INT >= 18) {
@@ -896,161 +885,155 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 Log.w(TAG, "Renderthread has no looper!");
             }
             mRenderThread = null;
-		}
+        }
 
-		@SuppressWarnings("unused")
+        @SuppressWarnings("unused")
         private void checkEglError(String prompt) {
-			int error;
-			while ((error = mEgl.eglGetError()) != EGL10.EGL_SUCCESS) {
-				Log.e(TAG, String.format("%s: EGL error: 0x%x", prompt, error));
-			}
-		}
+            int error;
+            while ((error = mEgl.eglGetError()) != EGL10.EGL_SUCCESS) {
+                Log.e(TAG, String.format("%s: EGL error: 0x%x", prompt, error));
+            }
+        }
 
-		private void finishGL() {
-			mEgl.eglMakeCurrent(mEglDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
-			
-			mEgl.eglDestroyContext(mEglDisplay, mEglContext);
-			mEgl.eglDestroySurface(mEglDisplay, mEglSurface);
-			mEglSurface = null;
-			mEglContext = null;
-		}
+        private void finishGL() {
+            mEgl.eglMakeCurrent(mEglDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
 
-		private void checkCurrent() {
-			if (!mEglContext.equals(mEgl.eglGetCurrentContext())
-					|| !mEglSurface.equals(mEgl.eglGetCurrentSurface(EGL10.EGL_DRAW))) {
-				if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
-					int error = mEgl.eglGetError();
-					if (error == EGL10.EGL_SUCCESS) {
-						return;
-					}
-					throw new RuntimeException("eglMakeCurrent failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
-				}
-			}
-		}
+            mEgl.eglDestroyContext(mEglDisplay, mEglContext);
+            mEgl.eglDestroySurface(mEglDisplay, mEglSurface);
+            mEglSurface = null;
+            mEglContext = null;
+        }
 
-		private void reinitGL() {
-			mEgl.eglDestroySurface(mEglDisplay, mEglSurface);
+        private void checkCurrent() {
+            if (!mEglContext.equals(mEgl.eglGetCurrentContext())
+                    || !mEglSurface.equals(mEgl.eglGetCurrentSurface(EGL10.EGL_DRAW))) {
+                if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
+                    int error = mEgl.eglGetError();
+                    if (error == EGL10.EGL_SUCCESS) {
+                        return;
+                    }
+                    throw new RuntimeException("eglMakeCurrent failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
+                }
+            }
+        }
 
-			mEgl.eglMakeCurrent(mEglDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
+        private void reinitGL() {
+            mEgl.eglDestroySurface(mEglDisplay, mEglSurface);
 
-			mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
+            mEgl.eglMakeCurrent(mEglDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
 
-			if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
-				int error = mEgl.eglGetError();
-				if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
-					Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
-					return;
-				}
-				throw new RuntimeException("createWindowSurface failed " + GLUtils.getEGLErrorString(error));
-			}
+            mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
 
-			if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
-				throw new RuntimeException("eglMakeCurrent failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
-			}
-		}
+            if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
+                int error = mEgl.eglGetError();
+                if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
+                    Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
+                    return;
+                }
+                throw new RuntimeException("createWindowSurface failed " + GLUtils.getEGLErrorString(error));
+            }
 
-		private void initGL() {
-			mEgl = (EGL10) EGLContext.getEGL();
+            if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
+                throw new RuntimeException("eglMakeCurrent failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
+            }
+        }
 
-			mEglDisplay = mEgl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
-			if (mEglDisplay == EGL10.EGL_NO_DISPLAY) {
-				throw new RuntimeException("eglGetDisplay failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
-			}
+        private void initGL() {
+            mEgl = (EGL10) EGLContext.getEGL();
 
-			int[] version = new int[2];
-			if (!mEgl.eglInitialize(mEglDisplay, version)) {
-				throw new RuntimeException("eglInitialize failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
-			}
+            mEglDisplay = mEgl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+            if (mEglDisplay == EGL10.EGL_NO_DISPLAY) {
+                throw new RuntimeException("eglGetDisplay failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
+            }
+
+            int[] version = new int[2];
+            if (!mEgl.eglInitialize(mEglDisplay, version)) {
+                throw new RuntimeException("eglInitialize failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
+            }
             mEglVersion = version;
             this.mEglVersion = version;
 
-			ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8, version);
-			mEglConfig = chooser.chooseConfig(mEgl, mEglDisplay);
-			if (mEglConfig == null) {
-				throw new RuntimeException("eglConfig not initialized");
-			}
+            ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8, version);
+            mEglConfig = chooser.chooseConfig(mEgl, mEglDisplay);
+            if (mEglConfig == null) {
+                throw new RuntimeException("eglConfig not initialized");
+            }
 
-			mEglContext = createContext(mEgl, mEglDisplay, mEglConfig);
+            mEglContext = createContext(mEgl, mEglDisplay, mEglConfig);
 
-			mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
+            mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
 
-			final int[] surfaceSwapValues = new int[2];
-			if (mEgl.eglGetConfigAttrib(mEglDisplay, mEglConfig, EGL14.EGL_SURFACE_TYPE, surfaceSwapValues)) {
+            final int[] surfaceSwapValues = new int[2];
+            if (mEgl.eglGetConfigAttrib(mEglDisplay, mEglConfig, EGL14.EGL_SURFACE_TYPE, surfaceSwapValues)) {
                 if ((surfaceSwapValues[0] & EGL14.EGL_SWAP_BEHAVIOR_PRESERVED_BIT) != 0) {
                     mHasSwap = true;
                 }
             }
 
-			if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
-				int error = mEgl.eglGetError();
-				if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
-					Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
-					return;
-				}
-				throw new RuntimeException("createWindowSurface failed " + GLUtils.getEGLErrorString(error));
-			}
-
-			if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
-				if (mEgl.eglGetError() != EGL10.EGL_SUCCESS) {
-					throw new RuntimeException("eglMakeCurrent failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
-				}
-			}
-			
-			GLES10.glClearColor(1, 1, 1, 0);
-			GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
-		}
-
-		EGLContext createContext(EGL10 egl, EGLDisplay eglDisplay, EGLConfig eglConfig) {
-			int[] attrib_list = { EGL_CONTEXT_CLIENT_VERSION, 1, EGL10.EGL_NONE };
-			return egl.eglCreateContext(eglDisplay, eglConfig, EGL10.EGL_NO_CONTEXT, attrib_list);
-		}
-
-		void finish() {
-			mFinished = true;
-			synchronized (this) {
-				this.notifyAll();
-			}
-		}
-
-		SurfaceTexture getSurface() {
-			return mSurface;
-		}
-
-        void canReleaseSurface() {
-            if (mShouldReleaseSurface) {
-                mSurface.release();
+            if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
+                int error = mEgl.eglGetError();
+                if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
+                    Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
+                    return;
+                }
+                throw new RuntimeException("createWindowSurface failed " + GLUtils.getEGLErrorString(error));
             }
+
+            if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
+                if (mEgl.eglGetError() != EGL10.EGL_SUCCESS) {
+                    throw new RuntimeException("eglMakeCurrent failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
+                }
+            }
+
+            GLES10.glClearColor(1, 1, 1, 0);
+            GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
+        }
+
+        EGLContext createContext(EGL10 egl, EGLDisplay eglDisplay, EGLConfig eglConfig) {
+            int[] attrib_list = {EGL_CONTEXT_CLIENT_VERSION, 1, EGL10.EGL_NONE};
+            return egl.eglCreateContext(eglDisplay, eglConfig, EGL10.EGL_NO_CONTEXT, attrib_list);
+        }
+
+        void finish() {
+            mFinished = true;
+            synchronized (this) {
+                this.notifyAll();
+            }
+        }
+
+        SurfaceTexture getSurface() {
+            return mSurface;
         }
     }
 
-	@Override
-	public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-		if (DEBUG) {
-			Log.d(TAG, "Finishing thread");
-		}
+    @Override
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+        if (DEBUG) {
+            Log.d(TAG, "Finishing thread");
+        }
         final RenderThread renderthread = mRenderThread;
-		if (renderthread != null) {
+        if (renderthread != null) {
             renderthread.finish();
-            return false;
+
         }
 
         // If there is no rendering happening we can just release the surface immediately
         return true;
-	}
-
-	public void finish() {
-	    // Mark this finished in any case, even when there is no render thread running yet
-	    mFinished = true;
-	    if (mRenderThread != null) {
-	        mRenderThread.finish();
-	    }
     }
 
-	@Override
-	public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-		if (DEBUG) {
-			Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
-		}
+    public void finish() {
+        // Mark this finished in any case, even when there is no render thread running yet
+        mFinished = true;
+        if (mRenderThread != null) {
+            mRenderThread.finish();
+        }
+    }
+
+    @Override
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+        if (DEBUG) {
+            Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
+        }
 
         final RenderThread renderthread = mRenderThread;
         if (renderthread != null) {
@@ -1058,10 +1041,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             V8TextureView.this.resetTouches();
         }
 
-	}
+    }
 
-	@Override
-	public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-	}
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+    }
 
 }
