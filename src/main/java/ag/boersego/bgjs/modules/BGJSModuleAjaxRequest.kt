@@ -57,8 +57,8 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
     @V8Function
     fun fail(cb: JNIV8Function?): BGJSModuleAjaxRequest {
         if (cb != null) {
-        callbacks.add(Pair(CallbackType.FAIL, cb))
-    }
+            callbacks.add(Pair(CallbackType.FAIL, cb))
+        }
         return this
     }
 
@@ -84,22 +84,35 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
     private val headers: HashMap<String, String> = HashMap(Companion.httpAdditionalHeaders)
     private var body: String? = null
     private var aborted: Boolean = false
+    private var abortable = true
     private var outputType: String? = null
 
     @V8Function
     fun abort(): Boolean {
+        var success = false
         // TODO: Why does this need a parameter?
         v8Engine.runLocked {
-            aborted = true
-            val failDetails = HttpResponseDetails(v8Engine)
-            failDetails.setReturnData(500, null)
-            val returnObject = JNIV8GenericObject.Create(v8Engine)
-            callCallbacks(CallbackType.FAIL, returnObject, "abort", failDetails, 500)
+            if (!abortable) {
+                if (DEBUG) {
+                    Log.d(TAG, "ajax ${method} for ${url} cannot  abort", RuntimeException("ajax abort impossible"));
+                }
+                success = false
+            } else {
+                if (DEBUG) {
+                    Log.d(TAG, "ajax ${method} for ${url} was aborted", RuntimeException("ajax abort"));
+                }
+                aborted = true
+                val failDetails = HttpResponseDetails(v8Engine)
+                failDetails.setReturnData(500, null)
+                val returnObject = JNIV8GenericObject.Create(v8Engine)
+                callCallbacks(CallbackType.FAIL, returnObject, "abort", failDetails, 500)
 
-            callbacks.forEach { it.second.dispose() }
-            callbacks.clear()
+                callbacks.forEach { it.second.dispose() }
+                callbacks.clear()
+                success = true
+            }
         }
-        return true
+        return success
     }
 
     override fun run() {
@@ -108,6 +121,11 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
             override fun run() {
                 super.run()
 
+                abortable = false
+
+                if (aborted) {
+                    return
+                }
                 v8Engine.runLocked {
 
                     if (!aborted) {
@@ -181,7 +199,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         request.setCacheInstance(cache)
         request.setHeaders(headers)
         request.doRunOnUiThread(false)
-         request.setHttpClient(client)
+        request.setHttpClient(client)
         if (formBody != null) {
             request.setFormBody(formBody!!)
         }
@@ -197,14 +215,13 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 @Suppress("NON_EXHAUSTIVE_WHEN")
                 when (cb.first) {
                     CallbackType.ALWAYS ->
-                            cb.second.callAsV8Function(returnObject, errorCode, info)
+                        cb.second.callAsV8Function(returnObject, errorCode, info)
                     type ->
-                            cb.second.callAsV8Function(returnObject, info, details)
+                        cb.second.callAsV8Function(returnObject, info, details)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Exception thrown when calling ajax " + cb.first + " callback", e)
             }
-            cb.second.dispose()
         }
         callbacks.clear()
     }
@@ -324,7 +341,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     companion object {
         private var httpAdditionalHeaders: HashMap<String, String>
-        val TAG:String = BGJSModuleAjaxRequest::class.java.simpleName
+        val TAG: String = BGJSModuleAjaxRequest::class.java.simpleName
         private val DEBUG = BuildConfig.DEBUG && true
 
         init {
