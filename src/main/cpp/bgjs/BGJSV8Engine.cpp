@@ -23,12 +23,12 @@
 #include "BGJSGLView.h"
 #include "v8-profiler.h"
 
-#define LOG_TAG	"BGJSV8Engine-jni"
+#define LOG_TAG    "BGJSV8Engine-jni"
 
 using namespace v8;
 
 // We can only dump one Isolate's heap at a time
-char* _nextProfileDumpPath = NULL;
+char *_nextProfileDumpPath = NULL;
 
 BGJS_JNI_LINK(BGJSV8Engine, "ag/boersego/bgjs/V8Engine")
 
@@ -37,81 +37,79 @@ BGJS_JNI_LINK(BGJSV8Engine, "ag/boersego/bgjs/V8Engine")
 //-----------------------------------------------------------
 
 std::vector<std::string> &split(const std::string &s, char delim,
-								std::vector<std::string> &elems) {
-	std::stringstream ss(s);
-	std::string item;
-	while (std::getline(ss, item, delim)) {
-		elems.push_back(item);
-	}
-	return elems;
+                                std::vector<std::string> &elems) {
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+    return elems;
 }
 
-std::string normalize_path(std::string& path) {
-	std::vector < std::string > pathParts;
-	std::stringstream ss(path);
-	std::string item;
-	while (std::getline(ss, item, '/')) {
-		pathParts.push_back(item);
-	}
-	std::string outPath;
+std::string normalize_path(std::string &path) {
+    std::vector<std::string> pathParts;
+    std::stringstream ss(path);
+    std::string item;
+    while (std::getline(ss, item, '/')) {
+        pathParts.push_back(item);
+    }
+    std::string outPath;
 
-	int length = pathParts.size();
-	int i = 0;
-	if (length > 0 && pathParts.at(0).compare("..") == 0) {
-		i = 1;
-	}
-	for (; i < length - 1; i++) {
-		std::string pathPart = pathParts.at(i + 1);
-		if (pathPart.compare("..") != 0) {
-			std::string nextSegment = pathParts.at(i);
-			if (nextSegment.compare(".") == 0) {
-				continue;
-			}
-			if (outPath.length() > 0) {
-				outPath.append("/");
-			}
-			outPath.append(pathParts.at(i));
-		} else {
-			i++;
-		}
-	}
-	outPath.append("/").append(pathParts.at(length - 1));
-	return outPath;
+    int length = pathParts.size();
+    int i = 0;
+    if (length > 0 && pathParts.at(0).compare("..") == 0) {
+        i = 1;
+    }
+    for (; i < length - 1; i++) {
+        std::string pathPart = pathParts.at(i + 1);
+        if (pathPart.compare("..") != 0) {
+            std::string nextSegment = pathParts.at(i);
+            if (nextSegment.compare(".") == 0) {
+                continue;
+            }
+            if (outPath.length() > 0) {
+                outPath.append("/");
+            }
+            outPath.append(pathParts.at(i));
+        } else {
+            i++;
+        }
+    }
+    outPath.append("/").append(pathParts.at(length - 1));
+    return outPath;
 }
 
-std::string getPathName(std::string& path) {
-	size_t found = path.find_last_of("/");
+std::string getPathName(std::string &path) {
+    size_t found = path.find_last_of("/");
 
-	if (found == string::npos) {
-		return path;
-	}
-	return path.substr(0, found);
+    if (found == string::npos) {
+        return path;
+    }
+    return path.substr(0, found);
 }
 
-void find_and_replace(std::string& source, std::string const& find, std::string const& replace)
-{
-	for(std::string::size_type i = 0; (i = source.find(find, i)) != std::string::npos;)
-	{
-		source.replace(i, find.length(), replace);
-		i += replace.length();
-	}
+void find_and_replace(std::string &source, std::string const &find, std::string const &replace) {
+    for (std::string::size_type i = 0; (i = source.find(find, i)) != std::string::npos;) {
+        source.replace(i, find.length(), replace);
+        i += replace.length();
+    }
 }
 
 //-----------------------------------------------------------
 // V8 function callbacks
 //-----------------------------------------------------------
 
-static void LogCallback(const v8::FunctionCallbackInfo<Value>& args) {
-	if (args.Length() < 1) {
-		return;
-	}
+static void LogCallback(const v8::FunctionCallbackInfo<Value> &args) {
+    if (args.Length() < 1) {
+        return;
+    }
 
-	BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
 
-	ctx->log(LOG_INFO, args);
+    ctx->log(LOG_INFO, args);
 }
 
-static void TraceCallback(const v8::FunctionCallbackInfo<Value>& args) {
+static void TraceCallback(const v8::FunctionCallbackInfo<Value> &args) {
     if (args.Length() < 1) {
         return;
     }
@@ -121,7 +119,7 @@ static void TraceCallback(const v8::FunctionCallbackInfo<Value>& args) {
     ctx->trace(args);
 }
 
-static void AssertCallback(const v8::FunctionCallbackInfo<Value>& args) {
+static void AssertCallback(const v8::FunctionCallbackInfo<Value> &args) {
     if (args.Length() < 1) {
         return;
     }
@@ -131,54 +129,54 @@ static void AssertCallback(const v8::FunctionCallbackInfo<Value>& args) {
     ctx->doAssert(args);
 }
 
-static void DebugCallback(const v8::FunctionCallbackInfo<Value>& args) {
+static void DebugCallback(const v8::FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().SetUndefined();
-	if (args.Length() < 1) {
-		return;
-	}
+    if (args.Length() < 1) {
+        return;
+    }
 
-	BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-	ctx->log(LOG_DEBUG, args);
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+    ctx->log(LOG_DEBUG, args);
 }
 
-static void InfoCallback(const v8::FunctionCallbackInfo<Value>& args) {
+static void InfoCallback(const v8::FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().SetUndefined();
-	if (args.Length() < 1) {
-		return;
-	}
+    if (args.Length() < 1) {
+        return;
+    }
 
-	BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
 
-	ctx->log(LOG_INFO, args);
+    ctx->log(LOG_INFO, args);
 }
 
-static void ErrorCallback(const v8::FunctionCallbackInfo<Value>& args) {
+static void ErrorCallback(const v8::FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().SetUndefined();
-	if (args.Length() < 1) {
-		return;
-	}
+    if (args.Length() < 1) {
+        return;
+    }
 
-	BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
 
-	ctx->log(LOG_ERROR, args);
+    ctx->log(LOG_ERROR, args);
 }
 
-static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
-	Isolate *isolate = args.GetIsolate();
+static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    Isolate *isolate = args.GetIsolate();
 
-	// argument must be exactly one string
-	if (args.Length() < 1 || !args[0]->IsString()) {
-		args.GetReturnValue().SetUndefined();
-		return;
-	}
+    // argument must be exactly one string
+    if (args.Length() < 1 || !args[0]->IsString()) {
+        args.GetReturnValue().SetUndefined();
+        return;
+    }
 
-	EscapableHandleScope scope(isolate);
+    EscapableHandleScope scope(isolate);
 
-	BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
+    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
 
-	MaybeLocal<Value> result = engine->require(
+    MaybeLocal<Value> result = engine->require(
             JNIV8Marshalling::v8string2string(args[0]->ToString()));
-    if(!result.IsEmpty()) {
+    if (!result.IsEmpty()) {
         args.GetReturnValue().Set(scope.Escape(result.ToLocalChecked()));
     }
 }
@@ -201,10 +199,10 @@ struct BGJSV8EngineJavaErrorHolder {
     jthrowable throwable;
 };
 
-void BGJSV8EngineJavaErrorHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void>& data) {
+void BGJSV8EngineJavaErrorHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    BGJSV8EngineJavaErrorHolder *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder*>(data.GetParameter());
+    BGJSV8EngineJavaErrorHolder *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder *>(data.GetParameter());
     env->DeleteGlobalRef(holder->throwable);
 
     holder->persistent.Reset();
@@ -214,14 +212,15 @@ void BGJSV8EngineJavaErrorHolderWeakPersistentCallback(const v8::WeakCallbackInf
 /**
  * returns the engine instance for the specified isolate
  */
-BGJSV8Engine* BGJSV8Engine::GetInstance(v8::Isolate *isolate) {
-    return reinterpret_cast<BGJSV8Engine*>(isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(EBGJSV8EngineEmbedderData::kContext));
+BGJSV8Engine *BGJSV8Engine::GetInstance(v8::Isolate *isolate) {
+    return reinterpret_cast<BGJSV8Engine *>(isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(
+            EBGJSV8EngineEmbedderData::kContext));
 }
 
 bool BGJSV8Engine::forwardJNIExceptionToV8() const {
     JNIEnv *env = JNIWrapper::getEnvironment();
     jthrowable e = env->ExceptionOccurred();
-    if(!e) return false;
+    if (!e) return false;
     env->ExceptionClear();
 
     HandleScope scope(_isolate);
@@ -238,12 +237,13 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() const {
     Local<Function> makeJavaErrorFn = Local<Function>::New(_isolate, _makeJavaErrorFn);
     Local<Object> result = makeJavaErrorFn->Call(context->Global(), 0, args).As<Object>();
 
-	auto privateKey = v8::Private::ForApi(_isolate, v8::String::NewFromUtf8(_isolate, "JavaErrorExternal"));
-	result->SetPrivate(context, privateKey, External::New(_isolate, holder));
+    auto privateKey = v8::Private::ForApi(_isolate, v8::String::NewFromUtf8(_isolate, "JavaErrorExternal"));
+    result->SetPrivate(context, privateKey, External::New(_isolate, holder));
 
-	holder->throwable = (jthrowable)env->NewGlobalRef(e);
+    holder->throwable = (jthrowable) env->NewGlobalRef(e);
     holder->persistent.Reset(_isolate, result);
-    holder->persistent.SetWeak((void*)holder, BGJSV8EngineJavaErrorHolderWeakPersistentCallback, v8::WeakCallbackType::kParameter);
+    holder->persistent.SetWeak((void *) holder, BGJSV8EngineJavaErrorHolderWeakPersistentCallback,
+                               v8::WeakCallbackType::kParameter);
 
     _isolate->ThrowException(result);
 
@@ -259,8 +259,8 @@ V = JNIV8Marshalling::v8string2jstring(value.As<String>());\
 }\
 }
 
-bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
-    if(!try_catch->HasCaught()) {
+bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
+    if (!try_catch->HasCaught()) {
         return false;
     }
 
@@ -281,7 +281,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
     // the only way to keep it would be to use yet another type of Java exception that contains both the original java exception and the first created JavaError
     Local<Value> exception = try_catch->Exception();
     Local<Object> exceptionObj;
-    if(exception->IsObject()) {
+    if (exception->IsObject()) {
         exceptionObj = exception.As<Object>();
         auto privateKey = v8::Private::ForApi(_isolate, v8::String::NewFromUtf8(_isolate,
                                                                                 "JavaErrorExternal"));
@@ -289,7 +289,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
         if (maybeValue.ToLocal(&value) && value->IsExternal()) {
             BGJSV8EngineJavaErrorHolder *holder = static_cast<BGJSV8EngineJavaErrorHolder *>(value.As<External>()->Value());
 
-            if(!env->IsInstanceOf(holder->throwable, _jniV8Exception.clazz)) {
+            if (!env->IsInstanceOf(holder->throwable, _jniV8Exception.clazz)) {
                 // if the wrapped java exception was not of type V8Exception
                 // then we need to wrap it to preserve the v8 call stack
                 causeException = env->NewLocalRef(holder->throwable);
@@ -309,19 +309,21 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
 
     jobjectArray stackTrace = nullptr;
     bool error = false;
-    if(exception->IsObject()) {
+    if (exception->IsObject()) {
         // retrieve message (toString contains typename, we don't want that..)
         std::string strExceptionMessage;
-        maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "message", NewStringType::kInternalized).ToLocalChecked());
-        if(maybeValue.ToLocal(&value) && value->IsString()) {
+        maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "message",
+                                                                                 NewStringType::kInternalized).ToLocalChecked());
+        if (maybeValue.ToLocal(&value) && value->IsString()) {
             strExceptionMessage = JNIV8Marshalling::v8string2string(
                     maybeValue.ToLocalChecked()->ToString());
         }
 
         // retrieve error name (e.g. "SyntaxError")
         std::string strErrorName;
-        maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "name", NewStringType::kInternalized).ToLocalChecked());
-        if(maybeValue.ToLocal(&value) && value->IsString()) {
+        maybeValue = exception.As<Object>()->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "name",
+                                                                                 NewStringType::kInternalized).ToLocalChecked());
+        if (maybeValue.ToLocal(&value) && value->IsString()) {
             strErrorName = JNIV8Marshalling::v8string2string(
                     maybeValue.ToLocalChecked()->ToString());
         }
@@ -330,18 +332,18 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
         // and neither does the message
         // so we have to append that manually
         // for errors thrown from native code it might not be available though
-        if(strErrorName == "SyntaxError") {
+        if (strErrorName == "SyntaxError") {
             int lineNumber = -1;
             Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
-            if(!maybeLineNumber.IsNothing()) {
+            if (!maybeLineNumber.IsNothing()) {
                 lineNumber = maybeLineNumber.ToChecked();
             }
             Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
-            if(jsScriptResourceName->IsString()) {
+            if (jsScriptResourceName->IsString()) {
                 strExceptionMessage =
                         JNIV8Marshalling::v8string2string(jsScriptResourceName.As<String>()) +
-                                      (lineNumber > 0 ? ":" + std::to_string(lineNumber) : "") +
-                                      " - " + strExceptionMessage;
+                        (lineNumber > 0 ? ":" + std::to_string(lineNumber) : "") +
+                        " - " + strExceptionMessage;
             }
         }
 
@@ -357,9 +359,9 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
             stackTrace = env->NewObjectArray(size, _jniStackTraceElement.clazz, nullptr);
 
             jobject stackTraceElement;
-            for(uint32_t i=0; i<size; i++) {
+            for (uint32_t i = 0; i < size; i++) {
                 maybeValue = array->Get(context, i);
-                if(maybeValue.ToLocal(&value) && value->IsObject()) {
+                if (maybeValue.ToLocal(&value) && value->IsObject()) {
                     Local<Object> callSite = value.As<Object>();
 
                     jstring fileName = nullptr;
@@ -373,19 +375,22 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
                     CALLSITE_STRING(callSite, "getFunctionName", functionName);
                     CALLSITE_STRING(callSite, "getTypeName", typeName);
 
-                    maybeValue = callSite->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "getLineNumber", NewStringType::kInternalized).ToLocalChecked());
-                    if(maybeValue.ToLocal(&value) && value->IsFunction()) {
+                    maybeValue = callSite->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) "getLineNumber",
+                                                                               NewStringType::kInternalized).ToLocalChecked());
+                    if (maybeValue.ToLocal(&value) && value->IsFunction()) {
                         maybeValue = value.As<Function>()->Call(context, callSite, 0, nullptr);
-                        if(maybeValue.ToLocal(&value) && value->IsNumber()) {
-                            lineNumber = (jint)value.As<Number>()->IntegerValue();
+                        if (maybeValue.ToLocal(&value) && value->IsNumber()) {
+                            lineNumber = (jint) value.As<Number>()->IntegerValue();
                         }
                     }
 
                     stackTraceElement = env->NewObject(_jniStackTraceElement.clazz, _jniStackTraceElement.initId,
                                                        typeName ? typeName : JNIWrapper::string2jstring("<unknown>"),
-                                                       !methodName && !functionName ? JNIWrapper::string2jstring("<anonymous>"): methodName ? methodName : functionName,
+                                                       !methodName && !functionName ? JNIWrapper::string2jstring(
+                                                               "<anonymous>") : methodName ? methodName : functionName,
                                                        fileName, // fileName can be zero => maps to "Unknown Source" or "Native Method" (Depending on line numer)
-                                                       fileName ? (lineNumber >= 1 ? lineNumber : -1) : -2); // -1 is unknown, -2 means native
+                                                       fileName ? (lineNumber >= 1 ? lineNumber : -1)
+                                                                : -2); // -1 is unknown, -2 means native
                     env->SetObjectArrayElement(stackTrace, i, stackTraceElement);
                 } else {
                     error = true;
@@ -396,17 +401,17 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
     }
 
     // if no stack trace was provided by v8, or if there was an error converting it, we still have to show something
-    if(error || !stackTrace) {
+    if (error || !stackTrace) {
         int lineNumber = -1;
         Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
-        if(!maybeLineNumber.IsNothing()) {
+        if (!maybeLineNumber.IsNothing()) {
             lineNumber = maybeLineNumber.ToChecked();
         }
 
         // script resource might not be set if the exception came from native code
         jstring fileName;
         Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
-        if(jsScriptResourceName->IsString()) {
+        if (jsScriptResourceName->IsString()) {
             fileName = JNIV8Marshalling::v8string2jstring(jsScriptResourceName.As<String>());
         } else {
             fileName = nullptr;
@@ -422,29 +427,32 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const {
     }
 
     // if exception was not an Error object, or if .message is not set for some reason => use toString()
-    if(!exceptionMessage) {
+    if (!exceptionMessage) {
         exceptionMessage = JNIV8Marshalling::v8string2jstring(exception->ToString());
     }
 
     // apply trace to js exception
-    v8JSException = env->NewObject(_jniV8JSException.clazz, _jniV8JSException.initId, exceptionMessage, exceptionAsObject, causeException);
+    v8JSException = env->NewObject(_jniV8JSException.clazz, _jniV8JSException.initId, exceptionMessage,
+                                   exceptionAsObject, causeException);
     env->CallVoidMethod(v8JSException, _jniV8JSException.setStackTraceId, stackTrace);
 
     // throw final exception
-    env->Throw((jthrowable)env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId, JNIWrapper::string2jstring("An exception was thrown in JavaScript"), v8JSException));
+    env->Throw((jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId,
+                                           JNIWrapper::string2jstring("An exception was thrown in JavaScript"),
+                                           v8JSException));
 
     return true;
 }
 
 // Register
-bool BGJSV8Engine::registerModule(const char* name, requireHook requireFn) {
-	// v8::Locker l(Isolate::GetCurrent());
-	// HandleScope scope(Isolate::GetCurrent());
-	// module->initWithContext(this);
-	_modules[name] = requireFn;
-	// _modules.insert(std::pair<char const*, BGJSModule*>(module->getName(), module));
+bool BGJSV8Engine::registerModule(const char *name, requireHook requireFn) {
+    // v8::Locker l(Isolate::GetCurrent());
+    // HandleScope scope(Isolate::GetCurrent());
+    // module->initWithContext(this);
+    _modules[name] = requireFn;
+    // _modules.insert(std::pair<char const*, BGJSModule*>(module->getName(), module));
 
-	return true;
+    return true;
 }
 
 void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8::Object> target) {
@@ -452,35 +460,37 @@ void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8
     JNILocalFrame localFrame(env, 2);
 
     Isolate *isolate = engine->getIsolate();
-	HandleScope scope(isolate);
-	Local<Context> context = engine->getContext();
+    HandleScope scope(isolate);
+    Local<Context> context = engine->getContext();
 
-	MaybeLocal<Value> maybeLocal = target->Get(context, String::NewFromUtf8(isolate, "id"));
-	if(maybeLocal.IsEmpty()) {
-		return;
-	}
-	std::string moduleId = JNIV8Marshalling::v8string2string(
+    MaybeLocal<Value> maybeLocal = target->Get(context, String::NewFromUtf8(isolate, "id"));
+    if (maybeLocal.IsEmpty()) {
+        return;
+    }
+    std::string moduleId = JNIV8Marshalling::v8string2string(
             maybeLocal.ToLocalChecked()->ToString());
 
-	jobject module = engine->_javaModules.at(moduleId);
+    jobject module = engine->_javaModules.at(moduleId);
 
-	env->CallVoidMethod(module, _jniV8Module.requireId, engine->getJObject(),
+    env->CallVoidMethod(module, _jniV8Module.requireId, engine->getJObject(),
                         JNIV8Wrapper::wrapObject<JNIV8GenericObject>(target)->getJObject());
 }
 
 bool BGJSV8Engine::registerJavaModule(jobject module) {
-	JNIEnv *env = JNIWrapper::getEnvironment();
-	if(!_jniV8Module.clazz) {
-		_jniV8Module.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Module"));
-		_jniV8Module.getNameId = env->GetMethodID(_jniV8Module.clazz, "getName", "()Ljava/lang/String;");
-		_jniV8Module.requireId = env->GetMethodID(_jniV8Module.clazz, "Require", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8GenericObject;)V");
-	}
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    if (!_jniV8Module.clazz) {
+        _jniV8Module.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/JNIV8Module"));
+        _jniV8Module.getNameId = env->GetMethodID(_jniV8Module.clazz, "getName", "()Ljava/lang/String;");
+        _jniV8Module.requireId = env->GetMethodID(_jniV8Module.clazz, "Require",
+                                                  "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8GenericObject;)V");
+    }
 
-	std::string strModuleName = JNIWrapper::jstring2string((jstring)env->CallObjectMethod(module, _jniV8Module.getNameId));
-	_javaModules[strModuleName] = env->NewGlobalRef(module);
-	_modules[strModuleName] = (requireHook)&BGJSV8Engine::JavaModuleRequireCallback;
+    std::string strModuleName = JNIWrapper::jstring2string(
+            (jstring) env->CallObjectMethod(module, _jniV8Module.getNameId));
+    _javaModules[strModuleName] = env->NewGlobalRef(module);
+    _modules[strModuleName] = (requireHook) &BGJSV8Engine::JavaModuleRequireCallback;
 
-	return true;
+    return true;
 }
 
 uint8_t BGJSV8Engine::requestEmbedderDataIndex() {
@@ -493,26 +503,26 @@ uint8_t BGJSV8Engine::requestEmbedderDataIndex() {
 MaybeLocal<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
     EscapableHandleScope scope(_isolate);
     Local<Context> context = getContext();
-    Handle<Value> args[] = { source };
+    Handle<Value> args[] = {source};
 
     Local<Function> jsonParseFn = Local<Function>::New(_isolate, _jsonParseFn);
-	MaybeLocal<Value> result = jsonParseFn->Call(context, context->Global(), 1, args);
-    if(result.IsEmpty()) {
+    MaybeLocal<Value> result = jsonParseFn->Call(context, context->Global(), 1, args);
+    if (result.IsEmpty()) {
         return result;
     }
-	return scope.Escape(result.ToLocalChecked());
+    return scope.Escape(result.ToLocalChecked());
 }
 
 // utility method to convert v8 values to readable strings for debugging
 const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
     Handle<Value> stringValue;
-    if(source->IsObject()) {
+    if (source->IsObject()) {
         MaybeLocal<Value> maybeValue = stringifyJSON(source.As<Object>(), true);
-        if(!maybeValue.IsEmpty()) {
+        if (!maybeValue.IsEmpty()) {
             stringValue = maybeValue.ToLocalChecked();
         }
     }
-    if(stringValue.IsEmpty()) {
+    if (stringValue.IsEmpty()) {
         stringValue = source->ToString();
     }
     return JNIV8Marshalling::v8string2string(stringValue);
@@ -523,16 +533,16 @@ MaybeLocal<Value> BGJSV8Engine::stringifyJSON(Handle<Object> source, bool pretty
     Local<Context> context = getContext();
 
     Handle<Value> format;
-    if(pretty) {
+    if (pretty) {
         format = Number::New(Isolate::GetCurrent(), 4);
     } else {
         format = Null(Isolate::GetCurrent());
     }
-	Handle<Value> args[] = { source , format};
+    Handle<Value> args[] = {source, format};
 
     Local<Function> jsonStringifyFn = Local<Function>::New(_isolate, _jsonStringifyFn);
-	MaybeLocal<Value> result = jsonStringifyFn->Call(context, context->Global(), 2, args);
-    if(result.IsEmpty()) {
+    MaybeLocal<Value> result = jsonStringifyFn->Call(context, context->Global(), 2, args);
+    if (result.IsEmpty()) {
         return result;
     }
     return scope.Escape(result.ToLocalChecked());
@@ -543,7 +553,7 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
     EscapableHandleScope handle_scope(_isolate);
     Local<Function> makeRequireFn, baseRequireFn;
 
-    if(_makeRequireFn.IsEmpty()) {
+    if (_makeRequireFn.IsEmpty()) {
         const char *szJSRequireCode =
                 "(function(internalRequire, prefix) {"
                         "   return function require(path) {"
@@ -551,12 +561,14 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
                         "   };"
                         "})";
 
-        ScriptOrigin origin = ScriptOrigin(String::NewFromOneByte(_isolate, (const uint8_t *) "binding:makeRequireFn", NewStringType::kInternalized).ToLocalChecked());
+        ScriptOrigin origin = ScriptOrigin(String::NewFromOneByte(_isolate, (const uint8_t *) "binding:makeRequireFn",
+                                                                  NewStringType::kInternalized).ToLocalChecked());
         makeRequireFn =
                 Local<Function>::Cast(
                         Script::Compile(
                                 context,
-                                String::NewFromOneByte(_isolate, (const uint8_t *) szJSRequireCode, NewStringType::kNormal).ToLocalChecked(),
+                                String::NewFromOneByte(_isolate, (const uint8_t *) szJSRequireCode,
+                                                       NewStringType::kNormal).ToLocalChecked(),
                                 &origin
                         ).ToLocalChecked()->Run()
                 );
@@ -568,7 +580,7 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
         baseRequireFn = Local<Function>::New(_isolate, _requireFn);
     }
 
-    Handle<Value> args[] = { baseRequireFn, String::NewFromUtf8(_isolate, pathName.c_str()) };
+    Handle<Value> args[] = {baseRequireFn, String::NewFromUtf8(_isolate, pathName.c_str())};
     Local<Value> result = makeRequireFn->Call(context->Global(), 2, args);
     return handle_scope.Escape(Local<Function>::Cast(result));
 }
@@ -579,13 +591,13 @@ if(it != _moduleCache.end()) { \
     return handle_scope.Escape(Local<Value>::New(_isolate, it->second)); \
 }
 
-MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
+MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     Local<Context> context = _isolate->GetCurrentContext();
     EscapableHandleScope handle_scope(_isolate);
 
-	Local<Value> result;
+    Local<Value> result;
 
-    if(baseNameStr.find("./") == 0) {
+    if (baseNameStr.find("./") == 0) {
         baseNameStr = baseNameStr.substr(2);
         find_and_replace(baseNameStr, std::string("/./"), std::string("/"));
         baseNameStr = normalize_path(baseNameStr);
@@ -598,18 +610,18 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 
     // Source of JS file if external code
     Handle<String> source;
-    const char* buf = 0;
+    const char *buf = 0;
 
     // Check if this is an internal module
     requireHook module = _modules[baseNameStr];
-	
+
     if (module) {
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
-		moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, baseNameStr.c_str()));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, baseNameStr.c_str()));
         moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
-		moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
-		moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+        moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
         moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
 
@@ -643,7 +655,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
                     // No JS file, but maybe JSON?
                     fileName = baseNameStr + ".json";
                     buf = loadFile(fileName.c_str());
-					
+
                     if (buf) {
                         isJson = true;
                     }
@@ -677,14 +689,15 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
                 }
             }
         }
-    } else if(baseNameStr.find(".json") == baseNameStr.length() - 5) {
+    } else if (baseNameStr.find(".json") == baseNameStr.length() - 5) {
         isJson = true;
     }
 
     MaybeLocal<Value> maybeLocal;
 
     if (!buf) {
-        _isolate->ThrowException(v8::Exception::Error(String::NewFromUtf8(_isolate, (const char*)("Cannot find module '"+baseNameStr+"'").c_str())));
+        _isolate->ThrowException(v8::Exception::Error(
+                String::NewFromUtf8(_isolate, (const char *) ("Cannot find module '" + baseNameStr + "'").c_str())));
         return maybeLocal;
     }
 
@@ -692,8 +705,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
         // Create a string containing the JSON source
         source = String::NewFromUtf8(_isolate, buf);
         MaybeLocal<Value> res = parseJSON(source);
-        free((void*) buf);
-        if(res.IsEmpty()) return res;
+        free((void *) buf);
+        if (res.IsEmpty()) return res;
         return handle_scope.Escape(res.ToLocalChecked());
     }
 
@@ -709,14 +722,14 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
             ),
             String::NewFromUtf8(_isolate, szSourcePostfix)
     );
-    free((void*) buf);
+    free((void *) buf);
 
     // compile script
     Handle<Script> scriptR = Script::Compile(source, String::NewFromUtf8(_isolate, baseNameStr.c_str()));
 
     // run script; this will effectively return a function if everything worked
     // if not, something went wrong
-    if(!scriptR.IsEmpty()) {
+    if (!scriptR.IsEmpty()) {
         result = scriptR->Run();
     }
 
@@ -726,8 +739,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
 
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
-		moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
-		moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
+        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
         moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
@@ -743,9 +756,9 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
         Local<Function> fnModuleInitializer = Local<Function>::Cast(result);
         maybeLocal = fnModuleInitializer->Call(context, context->Global(), 5, fnModuleInitializerArgs);
 
-        if(!maybeLocal.IsEmpty()) {
+        if (!maybeLocal.IsEmpty()) {
             result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
-			_moduleCache[fileName].Reset(_isolate, result);
+            _moduleCache[fileName].Reset(_isolate, result);
 
             return handle_scope.Escape(result);
         }
@@ -756,8 +769,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr){
     return maybeLocal;
 }
 
-v8::Isolate* BGJSV8Engine::getIsolate() const {
-    if(_isolate == nullptr) {
+v8::Isolate *BGJSV8Engine::getIsolate() const {
+    if (_isolate == nullptr) {
         JNIEnv *env = JNIWrapper::getEnvironment();
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
                       "V8Engine has not been initialized yet");
@@ -766,48 +779,48 @@ v8::Isolate* BGJSV8Engine::getIsolate() const {
 }
 
 v8::Local<v8::Context> BGJSV8Engine::getContext() const {
-	EscapableHandleScope scope(_isolate);
-	return scope.Escape(Local<Context>::New(_isolate, _context));
+    EscapableHandleScope scope(_isolate);
+    return scope.Escape(Local<Context>::New(_isolate, _context));
 }
 
 void BGJSV8Engine::js_global_getLocale(Local<String> property,
-		const v8::PropertyCallbackInfo<v8::Value>& info) {
-	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
+                                       const v8::PropertyCallbackInfo<v8::Value> &info) {
+    EscapableHandleScope scope(Isolate::GetCurrent());
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
 
-	if (ctx->_locale) {
-		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_locale)));
-	} else {
-	    info.GetReturnValue().SetNull();
-	}
+    if (ctx->_locale) {
+        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_locale)));
+    } else {
+        info.GetReturnValue().SetNull();
+    }
 }
 
 void BGJSV8Engine::js_global_getLang(Local<String> property,
-		const v8::PropertyCallbackInfo<v8::Value>& info) {
-	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
+                                     const v8::PropertyCallbackInfo<v8::Value> &info) {
+    EscapableHandleScope scope(Isolate::GetCurrent());
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
 
-	if (ctx->_lang) {
-		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_lang)));
-	} else {
-		info.GetReturnValue().SetNull();
-	}
+    if (ctx->_lang) {
+        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_lang)));
+    } else {
+        info.GetReturnValue().SetNull();
+    }
 }
 
 void BGJSV8Engine::js_global_getTz(Local<String> property,
-		const v8::PropertyCallbackInfo<v8::Value>& info) {
-	EscapableHandleScope scope(Isolate::GetCurrent());
-	BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
+                                   const v8::PropertyCallbackInfo<v8::Value> &info) {
+    EscapableHandleScope scope(Isolate::GetCurrent());
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
 
-	if (ctx->_tz) {
-		info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_tz)));
-	} else {
-		info.GetReturnValue().SetNull();
-	}
+    if (ctx->_tz) {
+        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_tz)));
+    } else {
+        info.GetReturnValue().SetNull();
+    }
 }
 
 void BGJSV8Engine::js_global_getDeviceClass(Local<String> property,
-                                           const v8::PropertyCallbackInfo<v8::Value>& info) {
+                                            const v8::PropertyCallbackInfo<v8::Value> &info) {
     EscapableHandleScope scope(Isolate::GetCurrent());
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
 
@@ -819,32 +832,33 @@ void BGJSV8Engine::js_global_getDeviceClass(Local<String> property,
 }
 
 void BGJSV8Engine::js_global_requestAnimationFrame(
-		const v8::FunctionCallbackInfo<v8::Value>& args) {
+        const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-	v8::Locker l(args.GetIsolate());
-	HandleScope scope(args.GetIsolate());
+    v8::Locker l(args.GetIsolate());
+    HandleScope scope(args.GetIsolate());
 
-	if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
-	    Local<Object> localFunc = args[0]->ToObject();
+    if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
+        Local<Object> localFunc = args[0]->ToObject();
 
         auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
         jobject functionWrapped = JNIV8Marshalling::v8value2jobject(localFunc);
         args.GetReturnValue().Set(view->callJavaIntMethod("requestAnimationFrame", functionWrapped));
         JNIWrapper::getEnvironment()->DeleteLocalRef(functionWrapped);
-	} else {
-	    LOGI("requestAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
-	        args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
-	        args[0]->IsObject(), args.Length() >= 2 ? args[1]->IsObject() : false,
-	        args[0]->IsNull(), args.Length() >= 2 ? args[1]->IsNull() : false);
+    } else {
+        LOGI("requestAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
+             args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
+             args[0]->IsObject(), args.Length() >= 2 ? args[1]->IsObject() : false,
+             args[0]->IsNull(), args.Length() >= 2 ? args[1]->IsNull() : false);
         ctx->getIsolate()->ThrowException(
-				v8::Exception::ReferenceError(
-					v8::String::NewFromUtf8(ctx->getIsolate(), "requestAnimationFrame: Wrong number or type of parameters")));
-		return;
-	}
-	args.GetReturnValue().Set(-1);
+                v8::Exception::ReferenceError(
+                        v8::String::NewFromUtf8(ctx->getIsolate(),
+                                                "requestAnimationFrame: Wrong number or type of parameters")));
+        return;
+    }
+    args.GetReturnValue().Set(-1);
 }
 
-void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
 
     if (args.Length() >= 2 && args[0]->IsFunction()) {
@@ -853,105 +867,106 @@ void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value>
 }
 
 void BGJSV8Engine::js_global_cancelAnimationFrame(
-		const v8::FunctionCallbackInfo<v8::Value>& args) {
+        const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-	v8::Locker l(ctx->getIsolate());
+    v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
-	if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
+    if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
 
-		int id = (int) (Local<Number>::Cast(args[0])->Value());
+        int id = (int) (Local<Number>::Cast(args[0])->Value());
         auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
         view->callJavaVoidMethod("cancelAnimationFrame", id);
-	} else {
+    } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(), "cancelAnimationFrame: Wrong number or type of parameters")));
+                        v8::String::NewFromUtf8(ctx->getIsolate(),
+                                                "cancelAnimationFrame: Wrong number or type of parameters")));
     }
 
-	args.GetReturnValue().SetUndefined();
+    args.GetReturnValue().SetUndefined();
 }
 
-void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value>& args) {
-	setTimeoutInt(args, false);
+void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    setTimeoutInt(args, false);
 }
 
-void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Value>& args) {
-	setTimeoutInt(args, true);
+void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    setTimeoutInt(args, true);
 }
 
-void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args,
-		bool recurring) {
+void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value> &args,
+                                 bool recurring) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-	v8::Locker l(args.GetIsolate());
-	HandleScope scope(args.GetIsolate());
+    v8::Locker l(args.GetIsolate());
+    HandleScope scope(args.GetIsolate());
 
 
-	if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsNumber()) {
-		Local<v8::Function> callback = Local<Function>::Cast(args[0]);
+    if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsNumber()) {
+        Local<v8::Function> callback = Local<Function>::Cast(args[0]);
 
-		WrapPersistentFunc* ws = new WrapPersistentFunc();
-		BGJS_RESET_PERSISTENT(ctx->getIsolate(), ws->callbackFunc, callback);
-		WrapPersistentObj* wo = new WrapPersistentObj();
-		BGJS_RESET_PERSISTENT(ctx->getIsolate(), wo->obj, args.This());
+        WrapPersistentFunc *ws = new WrapPersistentFunc();
+        BGJS_RESET_PERSISTENT(ctx->getIsolate(), ws->callbackFunc, callback);
+        WrapPersistentObj *wo = new WrapPersistentObj();
+        BGJS_RESET_PERSISTENT(ctx->getIsolate(), wo->obj, args.This());
 
-		jlong timeout = (jlong)(Local<Number>::Cast(args[1])->Value());
+        jlong timeout = (jlong) (Local<Number>::Cast(args[1])->Value());
 
-		JNIEnv* env = JNIWrapper::getEnvironment();
-		if (env == NULL) {
-			LOGE("Cannot execute setTimeout with no envCache");
-			args.GetReturnValue().SetUndefined();
-			return;
-		}
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        if (env == NULL) {
+            LOGE("Cannot execute setTimeout with no envCache");
+            args.GetReturnValue().SetUndefined();
+            return;
+        }
 
-		assert(ctx->_jniV8Engine.setTimeoutId);
-		assert(ctx->_jniV8Engine.clazz);
-		int subId = env->CallStaticIntMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.setTimeoutId, (jlong) ws,
-				(jlong) wo, timeout, (jboolean) recurring);
+        assert(ctx->_jniV8Engine.setTimeoutId);
+        assert(ctx->_jniV8Engine.clazz);
+        int subId = env->CallStaticIntMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.setTimeoutId, (jlong) ws,
+                                             (jlong) wo, timeout, (jboolean) recurring);
         args.GetReturnValue().Set(subId);
-	} else {
+    } else {
         ctx->getIsolate()->ThrowException(
-				v8::Exception::ReferenceError(
-						v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
-	}
-	return;
+                v8::Exception::ReferenceError(
+                        v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
+    }
+    return;
 }
 
-void BGJSV8Engine::js_global_clearInterval(const v8::FunctionCallbackInfo<v8::Value>& args) {
-	clearTimeoutInt(args);
+void BGJSV8Engine::js_global_clearInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    clearTimeoutInt(args);
 }
 
-void BGJSV8Engine::js_global_clearTimeout(const v8::FunctionCallbackInfo<v8::Value>& args) {
-	clearTimeoutInt(args);
+void BGJSV8Engine::js_global_clearTimeout(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    clearTimeoutInt(args);
 }
 
-void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-	v8::Locker l(ctx->getIsolate());
+    v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
 
-	args.GetReturnValue().SetUndefined();
+    args.GetReturnValue().SetUndefined();
 
-	if (args.Length() == 1) {
+    if (args.Length() == 1) {
 
-		int id = (int) ((Local<Integer>::Cast(args[0]))->Value());
+        int id = (int) ((Local<Integer>::Cast(args[0]))->Value());
 
-		if (id == 0) {
-			return;
-		}
+        if (id == 0) {
+            return;
+        }
 
-		JNIEnv* env = JNIWrapper::getEnvironment();
-		if (env == NULL) {
-			LOGE("Cannot execute setTimeout with no envCache");
-			return;
-		}
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        if (env == NULL) {
+            LOGE("Cannot execute setTimeout with no envCache");
+            return;
+        }
 
-		env->CallStaticVoidMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.removeTimeoutId, (jint) id);
-	} else {
+        env->CallStaticVoidMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.removeTimeoutId, (jint) id);
+    } else {
         ctx->getIsolate()->ThrowException(
-    				v8::Exception::ReferenceError(
-    						v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong arguments for clearTimeout")));
-		LOGE("Wrong arguments for clearTimeout");
-	}
+                v8::Exception::ReferenceError(
+                        v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong arguments for clearTimeout")));
+        LOGE("Wrong arguments for clearTimeout");
+    }
 }
 
 /**
@@ -960,22 +975,22 @@ void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& ar
 void BGJSV8Engine::initJNICache() {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    _jniV8JSException.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8JSException"));
+    _jniV8JSException.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8JSException"));
     _jniV8JSException.initId = env->GetMethodID(_jniV8JSException.clazz, "<init>",
                                                 "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Throwable;)V");
     _jniV8JSException.setStackTraceId = env->GetMethodID(_jniV8JSException.clazz, "setStackTrace",
                                                          "([Ljava/lang/StackTraceElement;)V");
 
-    _jniV8Exception.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Exception"));
+    _jniV8Exception.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Exception"));
     _jniV8Exception.initId = env->GetMethodID(_jniV8Exception.clazz, "<init>",
                                               "(Ljava/lang/String;Ljava/lang/Throwable;)V");
 
-    _jniStackTraceElement.clazz = (jclass)env->NewGlobalRef(env->FindClass("java/lang/StackTraceElement"));
+    _jniStackTraceElement.clazz = (jclass) env->NewGlobalRef(env->FindClass("java/lang/StackTraceElement"));
     _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
                                                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
-    _jniV8Engine.clazz = (jclass)env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
+    _jniV8Engine.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
     _jniV8Engine.enqueueOnNextTick = env->GetMethodID(_jniV8Engine.clazz, "enqueueOnNextTick",
-                                            "(Lag/boersego/bgjs/JNIV8Function;)Z");
+                                                      "(Lag/boersego/bgjs/JNIV8Function;)Z");
     _jniV8Engine.setTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "setTimeout",
                                                        "(JJJZ)I");
     _jniV8Engine.removeTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "removeTimeout",
@@ -983,8 +998,8 @@ void BGJSV8Engine::initJNICache() {
 }
 
 BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
-	_nextTimerId = 1;
-	_locale = NULL;
+    _nextTimerId = 1;
+    _locale = NULL;
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
     _javaAssetManager = nullptr;
     _isolate = NULL;
@@ -1000,95 +1015,113 @@ void BGJSV8Engine::setAssetManager(jobject jAssetManager) {
 }
 
 void BGJSV8Engine::createContext() {
-	static bool isPlatformInitialized = false;
+    static bool isPlatformInitialized = false;
 
-	if(!isPlatformInitialized) {
-		isPlatformInitialized = true;
-		LOGI("Creating default platform");
-		v8::Platform *platform = v8::platform::CreateDefaultPlatform();
-		LOGD("Created default platform %p", platform);
-		v8::V8::InitializePlatform(platform);
-		LOGD("Initialized platform");
-		v8::V8::Initialize();
+    if (!isPlatformInitialized) {
+        isPlatformInitialized = true;
+        LOGI("Creating default platform");
+        v8::Platform *platform = v8::platform::CreateDefaultPlatform();
+        LOGD("Created default platform %p", platform);
+        v8::V8::InitializePlatform(platform);
+        LOGD("Initialized platform");
+        v8::V8::Initialize();
         std::string flags = "--expose_gc --max_old_space_size=";
         flags = flags + std::to_string(_maxHeapSize);
-        v8::V8::SetFlagsFromString(flags.c_str(), (int)flags.length());
-		LOGD("Initialized v8: %s", v8::V8::GetVersion());
-	}
+        v8::V8::SetFlagsFromString(flags.c_str(), (int) flags.length());
+        LOGD("Initialized v8: %s", v8::V8::GetVersion());
+    }
 
-	v8::Isolate::CreateParams create_params;
-	create_params.array_buffer_allocator =
-			v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+    v8::Isolate::CreateParams create_params;
+    create_params.array_buffer_allocator =
+            v8::ArrayBuffer::Allocator::NewDefaultAllocator();
 
-	_isolate = v8::Isolate::New(create_params);
+    _isolate = v8::Isolate::New(create_params);
 
-	v8::Locker l(_isolate);
-	Isolate::Scope isolate_scope(_isolate);
-	HandleScope scope(_isolate);
+    v8::Locker l(_isolate);
+    Isolate::Scope isolate_scope(_isolate);
+    HandleScope scope(_isolate);
 
-	// Create global object template
-	v8::Local<v8::ObjectTemplate> globalObjTpl = v8::ObjectTemplate::New(_isolate);
+    // Create global object template
+    v8::Local<v8::ObjectTemplate> globalObjTpl = v8::ObjectTemplate::New(_isolate);
 
-	// Add methods to console function
-	v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(_isolate);
-	console->Set(String::NewFromUtf8(_isolate, "log"),
-				 v8::FunctionTemplate::New(_isolate, LogCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	console->Set(String::NewFromUtf8(_isolate, "debug"),
-				 v8::FunctionTemplate::New(_isolate, DebugCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	console->Set(String::NewFromUtf8(_isolate, "info"),
-				 v8::FunctionTemplate::New(_isolate, InfoCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	console->Set(String::NewFromUtf8(_isolate, "error"),
-				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	console->Set(String::NewFromUtf8(_isolate, "warn"),
-				 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    // Add methods to console function
+    v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(_isolate);
+    console->Set(String::NewFromUtf8(_isolate, "log"),
+                 v8::FunctionTemplate::New(_isolate, LogCallback, Local<Value>(), Local<Signature>(), 0,
+                                           ConstructorBehavior::kThrow));
+    console->Set(String::NewFromUtf8(_isolate, "debug"),
+                 v8::FunctionTemplate::New(_isolate, DebugCallback, Local<Value>(), Local<Signature>(), 0,
+                                           ConstructorBehavior::kThrow));
+    console->Set(String::NewFromUtf8(_isolate, "info"),
+                 v8::FunctionTemplate::New(_isolate, InfoCallback, Local<Value>(), Local<Signature>(), 0,
+                                           ConstructorBehavior::kThrow));
+    console->Set(String::NewFromUtf8(_isolate, "error"),
+                 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0,
+                                           ConstructorBehavior::kThrow));
+    console->Set(String::NewFromUtf8(_isolate, "warn"),
+                 v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0,
+                                           ConstructorBehavior::kThrow));
     console->Set(String::NewFromUtf8(_isolate, "assert"),
-                 v8::FunctionTemplate::New(_isolate, AssertCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+                 v8::FunctionTemplate::New(_isolate, AssertCallback, Local<Value>(), Local<Signature>(), 0,
+                                           ConstructorBehavior::kThrow));
     console->Set(String::NewFromUtf8(_isolate, "trace"),
-                 v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+                 v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0,
+                                           ConstructorBehavior::kThrow));
 
-	globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
+    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
 
     // Add methods to process function
     v8::Local<v8::FunctionTemplate> process = v8::FunctionTemplate::New(_isolate);
     process->Set(String::NewFromUtf8(_isolate, "nextTick"),
-                 v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_process_nextTick, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+                 v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_process_nextTick, Local<Value>(),
+                                           Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process"), process);
 
-	// environment variables
-	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
-                              BGJSV8Engine::js_global_getLocale, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
-	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"),
-                              BGJSV8Engine::js_global_getLang, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
-	globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_tz"),
-                              BGJSV8Engine::js_global_getTz, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
+    // environment variables
+    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
+                              BGJSV8Engine::js_global_getLocale, 0, Local<Value>(), AccessControl::DEFAULT,
+                              PropertyAttribute::ReadOnly);
+    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"),
+                              BGJSV8Engine::js_global_getLang, 0, Local<Value>(), AccessControl::DEFAULT,
+                              PropertyAttribute::ReadOnly);
+    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_tz"),
+                              BGJSV8Engine::js_global_getTz, 0, Local<Value>(), AccessControl::DEFAULT,
+                              PropertyAttribute::ReadOnly);
     globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_deviceClass"),
-                              BGJSV8Engine::js_global_getDeviceClass, 0, Local<Value>(), AccessControl::DEFAULT, PropertyAttribute::ReadOnly);
+                              BGJSV8Engine::js_global_getDeviceClass, 0, Local<Value>(), AccessControl::DEFAULT,
+                              PropertyAttribute::ReadOnly);
 
-	// global functions
-	globalObjTpl->Set(String::NewFromUtf8(_isolate, "requestAnimationFrame"),
-				v8::FunctionTemplate::New(_isolate,
-										  BGJSV8Engine::js_global_requestAnimationFrame, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	globalObjTpl->Set(String::NewFromUtf8(_isolate, "cancelAnimationFrame"),
-				v8::FunctionTemplate::New(_isolate,
-										  BGJSV8Engine::js_global_cancelAnimationFrame, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	globalObjTpl->Set(String::NewFromUtf8(_isolate, "setInterval"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeout, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
-	globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval"),
-				v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearInterval, Local<Value>(), Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    // global functions
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "requestAnimationFrame"),
+                      v8::FunctionTemplate::New(_isolate,
+                                                BGJSV8Engine::js_global_requestAnimationFrame, Local<Value>(),
+                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "cancelAnimationFrame"),
+                      v8::FunctionTemplate::New(_isolate,
+                                                BGJSV8Engine::js_global_cancelAnimationFrame, Local<Value>(),
+                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout"),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout, Local<Value>(),
+                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "setInterval"),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval, Local<Value>(),
+                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout"),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeout, Local<Value>(),
+                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval"),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearInterval, Local<Value>(),
+                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
 
-	// Create a new context.
+    // Create a new context.
     Local<Context> context = v8::Context::New(_isolate, NULL, globalObjTpl);
-	context->SetAlignedPointerInEmbedderData(EBGJSV8EngineEmbedderData::kContext, this);
+    context->SetAlignedPointerInEmbedderData(EBGJSV8EngineEmbedderData::kContext, this);
 
     // register global object for all required modules
     v8::Context::Scope ctxScope(context);
     context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
 
-	_context.Reset(_isolate, context);
+    _context.Reset(_isolate, context);
 
     //----------------------------------------
     // create bindings
@@ -1098,12 +1131,14 @@ void BGJSV8Engine::createContext() {
 
     // init error creation binding
     {
-        ScriptOrigin makeJavaErrorOrigin = ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:makeJavaError", NewStringType::kInternalized).ToLocalChecked());
+        ScriptOrigin makeJavaErrorOrigin = ScriptOrigin(
+                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t *) "binding:makeJavaError",
+                                       NewStringType::kInternalized).ToLocalChecked());
         Local<Function> makeJavaErrorFn_ =
                 Local<Function>::Cast(
                         Script::Compile(
                                 context,
-                                String::NewFromOneByte(Isolate::GetCurrent(),(const uint8_t*)
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t *)
                                         "(function() {"
                                                 "function makeJavaError(message) { return new JavaError(message); };"
                                                 "function JavaError(message) {"
@@ -1117,8 +1152,7 @@ void BGJSV8Engine::createContext() {
                                                 "JavaError.prototype = Object.create(Error.prototype);"
                                                 "JavaError.prototype.constructor = JavaError;"
                                                 "return makeJavaError;"
-                                                "}())"
-                                        , NewStringType::kInternalized).ToLocalChecked(),
+                                                "}())", NewStringType::kInternalized).ToLocalChecked(),
                                 &makeJavaErrorOrigin).ToLocalChecked()->Run());
         _makeJavaErrorFn.Reset(_isolate, makeJavaErrorFn_);
     }
@@ -1129,16 +1163,17 @@ void BGJSV8Engine::createContext() {
                 Local<Function>::Cast(
                         Script::Compile(
                                 context,
-                                String::NewFromOneByte(Isolate::GetCurrent(),(const uint8_t*)
+                                String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t *)
                                         "(function(e) {"
                                                 "const _ = Error.prepareStackTrace;"
                                                 "Error.prepareStackTrace = (_, stack) => stack;"
                                                 "const stack = e.stack;"
                                                 "Error.prepareStackTrace = _;"
                                                 "return stack;"
-                                                "})"
-                                        , NewStringType::kInternalized).ToLocalChecked(),
-                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:getStackTrace", NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
+                                                "})", NewStringType::kInternalized).ToLocalChecked(),
+                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
+                                                                        (const uint8_t *) "binding:getStackTrace",
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
         _getStackTraceFn.Reset(_isolate, getStackTraceFn_);
     }
 
@@ -1149,8 +1184,11 @@ void BGJSV8Engine::createContext() {
                         Script::Compile(
                                 context,
                                 String::NewFromOneByte(Isolate::GetCurrent(),
-                                                       (const uint8_t*)"(function parseJSON(source) { return JSON.parse(source); })", NewStringType::kInternalized).ToLocalChecked(),
-                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:parseJSON", NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
+                                                       (const uint8_t *) "(function parseJSON(source) { return JSON.parse(source); })",
+                                                       NewStringType::kInternalized).ToLocalChecked(),
+                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
+                                                                        (const uint8_t *) "binding:parseJSON",
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
         _jsonParseFn.Reset(_isolate, jsonParseMethod_);
     }
 
@@ -1161,36 +1199,40 @@ void BGJSV8Engine::createContext() {
                         Script::Compile(
                                 context,
                                 String::NewFromOneByte(Isolate::GetCurrent(),
-                                                       (const uint8_t*)"(function stringifyJSON(source, space) { return JSON.stringify(source, null, space); })", NewStringType::kInternalized).ToLocalChecked(),
-                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(), (const uint8_t*)"binding:stringifyJSON", NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
+                                                       (const uint8_t *) "(function stringifyJSON(source, space) { return JSON.stringify(source, null, space); })",
+                                                       NewStringType::kInternalized).ToLocalChecked(),
+                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
+                                                                        (const uint8_t *) "binding:stringifyJSON",
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
     }
 }
 
-void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>& args) {
-	v8::Locker locker(args.GetIsolate());
-	HandleScope scope(args.GetIsolate());
+void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value> &args) {
+    v8::Locker locker(args.GetIsolate());
+    HandleScope scope(args.GetIsolate());
 
-	std::stringstream str;
-	int l = args.Length();
-	for (int i = 0; i < l; i++) {
-		str << " " << toDebugString(args[i]);
-	}
+    std::stringstream str;
+    int l = args.Length();
+    for (int i = 0; i < l; i++) {
+        str << " " << toDebugString(args[i]);
+    }
 
-	LOG(debugLevel, "%s", str.str().c_str());
+    LOG(debugLevel, "%s", str.str().c_str());
 }
 
-void BGJSV8Engine::setLocale(const char* locale, const char* lang,
-                             const char* tz, const char* deviceClass) {
+void BGJSV8Engine::setLocale(const char *locale, const char *lang,
+                             const char *tz, const char *deviceClass) {
     _locale = strdup(locale);
-	_lang = strdup(lang);
-	_tz = strdup(tz);
+    _lang = strdup(lang);
+    _tz = strdup(tz);
     _deviceClass = strdup(deviceClass);
 }
 
 void BGJSV8Engine::setDensity(float density) {
     _density = density;
 }
+
 float BGJSV8Engine::getDensity() const {
     return _density;
 }
@@ -1211,20 +1253,20 @@ void BGJSV8Engine::setMaxHeapSize(int maxHeapSize) {
     _maxHeapSize = maxHeapSize;
 }
 
-char* BGJSV8Engine::loadFile(const char* path, unsigned int* length) const {
-    JNIEnv* env = JNIWrapper::getEnvironment();
-    AAssetManager* mgr = AAssetManager_fromJava(env, _javaAssetManager);
-    AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
+char *BGJSV8Engine::loadFile(const char *path, unsigned int *length) const {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    AAssetManager *mgr = AAssetManager_fromJava(env, _javaAssetManager);
+    AAsset *asset = AAssetManager_open(mgr, path, AASSET_MODE_UNKNOWN);
 
     if (!asset) {
         return nullptr;
     }
 
-    const size_t count = (unsigned int)AAsset_getLength(asset);
-    if(length) {
-        *length = (unsigned int)count;
+    const size_t count = (unsigned int) AAsset_getLength(asset);
+    if (length) {
+        *length = (unsigned int) count;
     }
-    char *buf = (char*) malloc(count + 1), *ptr = buf;
+    char *buf = (char *) malloc(count + 1), *ptr = buf;
     bzero(buf, count + 1);
     int bytes_read = 0;
     size_t bytes_to_read = count;
@@ -1240,13 +1282,13 @@ char* BGJSV8Engine::loadFile(const char* path, unsigned int* length) const {
 }
 
 BGJSV8Engine::~BGJSV8Engine() {
-	LOGI("Cleaning up");
+    LOGI("Cleaning up");
 
-    JNIEnv* env = JNIWrapper::getEnvironment();
+    JNIEnv *env = JNIWrapper::getEnvironment();
     env->DeleteGlobalRef(_javaAssetManager);
 
-	// clear persistent references
-	_context.Reset();
+    // clear persistent references
+    _context.Reset();
     _requireFn.Reset();
     _makeRequireFn.Reset();
     _jsonParseFn.Reset();
@@ -1254,23 +1296,23 @@ BGJSV8Engine::~BGJSV8Engine() {
     _makeJavaErrorFn.Reset();
     _getStackTraceFn.Reset();
 
-	if (_locale) {
-		free(_locale);
-	}
+    if (_locale) {
+        free(_locale);
+    }
     _isolate->Exit();
 
-	for(auto &it : _javaModules) {
-		env->DeleteGlobalRef(it.second);
-	}
+    for (auto &it : _javaModules) {
+        env->DeleteGlobalRef(it.second);
+    }
 
-	JNIV8Wrapper::cleanupV8Engine(this);
+    JNIV8Wrapper::cleanupV8Engine(this);
 }
 
-void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    JNI_ASSERT(args.Length()>=1 && args[0]->IsFunction(), "enqueueNextTick must be called with a callback function");
+void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    JNI_ASSERT(args.Length() >= 1 && args[0]->IsFunction(), "enqueueNextTick must be called with a callback function");
     HandleScope scope(args.GetIsolate());
     const auto wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
-    JNIEnv* env = JNIWrapper::getEnvironment();
+    JNIEnv *env = JNIWrapper::getEnvironment();
     env->CallBooleanMethod(getJObject(), _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
 }
 
@@ -1285,7 +1327,8 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
     int l = stackTrace->GetFrameCount();
     for (int i = 0; i < l; i++) {
         const Local<StackFrame> &frame = stackTrace->GetFrame(i);
-        str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " (" << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber() << ")\n";
+        str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " ("
+            << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber() << ")\n";
     }
 
     LOG(LOG_INFO, "%s", str.str().c_str());
@@ -1297,7 +1340,7 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
  * @param args
  */
 void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
-    v8::Isolate* isolate = args.GetIsolate();
+    v8::Isolate *isolate = args.GetIsolate();
     if (args.Length() < 1) {
         isolate->ThrowException(
                 v8::Exception::ReferenceError(
@@ -1324,7 +1367,9 @@ void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
         int l = stackTrace->GetFrameCount();
         for (int i = 0; i < l; i++) {
             const Local<StackFrame> &frame = stackTrace->GetFrame(i);
-            str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " (" << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber() << ")\n";
+            str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " ("
+                << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber()
+                << ")\n";
         }
 
         LOG(LOG_ERROR, "%s", str.str().c_str());
@@ -1337,7 +1382,7 @@ void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
 
 class FileOutputStream : public OutputStream {
 public:
-    FileOutputStream(FILE* stream) : stream_(stream) {}
+    FileOutputStream(FILE *stream) : stream_(stream) {}
 
     virtual int GetChunkSize() {
         return 65536;  // big chunks == faster
@@ -1345,7 +1390,7 @@ public:
 
     virtual void EndOfStream() {}
 
-    virtual WriteResult WriteAsciiChunk(char* data, int size) {
+    virtual WriteResult WriteAsciiChunk(char *data, int size) {
         const size_t len = static_cast<size_t>(size);
         size_t off = 0;
 
@@ -1356,43 +1401,43 @@ public:
     }
 
 private:
-    FILE* stream_;
+    FILE *stream_;
 };
 
-inline bool WriteSnapshotHelper(Isolate* isolate, const char* filename) {
-    FILE* fp = fopen(filename, "w");
+inline bool WriteSnapshotHelper(Isolate *isolate, const char *filename) {
+    FILE *fp = fopen(filename, "w");
     if (fp == NULL) return false;
 
-    const HeapSnapshot* const snap = isolate->GetHeapProfiler()->TakeHeapSnapshot();
+    const HeapSnapshot *const snap = isolate->GetHeapProfiler()->TakeHeapSnapshot();
     FileOutputStream stream(fp);
     snap->Serialize(&stream, HeapSnapshot::kJSON);
     fclose(fp);
     // Work around a deficiency in the API.  The HeapSnapshot object is const
     // but we cannot call HeapProfiler::DeleteAllHeapSnapshots() because that
     // invalidates _all_ snapshots, including those created by other tools.
-    const_cast<HeapSnapshot*>(snap)->Delete();
+    const_cast<HeapSnapshot *>(snap)->Delete();
     return true;
 }
 
-void BGJSV8Engine::OnGCCompletedForDump(Isolate* isolate, GCType type,
-                          GCCallbackFlags flags) {
+void BGJSV8Engine::OnGCCompletedForDump(Isolate *isolate, GCType type,
+                                        GCCallbackFlags flags) {
 
 
     if (_nextProfileDumpPath == NULL) {
         return;
     }
-    const char* dumpPath = _nextProfileDumpPath;
+    const char *dumpPath = _nextProfileDumpPath;
     _nextProfileDumpPath = NULL;
     LOGI("GC completed, now dumping to %s", dumpPath);
 
     WriteSnapshotHelper(isolate, dumpPath);
-    free ((void *) dumpPath);
-    isolate->RemoveGCEpilogueCallback((const v8::Isolate::GCCallback)&(BGJSV8Engine::OnGCCompletedForDump));
+    free((void *) dumpPath);
+    isolate->RemoveGCEpilogueCallback((const v8::Isolate::GCCallback) &(BGJSV8Engine::OnGCCompletedForDump));
 
     LOGI("heap dump to %s done", dumpPath);
 }
 
-const char* BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
+const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
     v8::Isolate *isolate = getIsolate();
     v8::Locker l(isolate);
 
@@ -1400,14 +1445,14 @@ const char* BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
         return NULL;
     }
 
-    char* filename = static_cast<char *>(malloc(512));
+    char *filename = static_cast<char *>(malloc(512));
     std::time_t result = std::time(nullptr);
     snprintf(filename, 512, "%s/heapdump-%lu.heapsnapshot", basePath, result);
     LOGI("Enqueueing heap dump to %s", filename);
 
     _nextProfileDumpPath = filename;
 
-    isolate->AddGCEpilogueCallback((v8::Isolate::GCCallback)&OnGCCompletedForDump);
+    isolate->AddGCEpilogueCallback((v8::Isolate::GCCallback) &OnGCCompletedForDump);
     isolate->RequestGarbageCollectionForTesting(Isolate::GarbageCollectionType::kFullGarbageCollection);
 
     return filename;
@@ -1421,7 +1466,7 @@ Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathTo
 
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
-    const char* outPath = engine->enqueueMemoryDump(path);
+    const char *outPath = engine->enqueueMemoryDump(path);
 
     env->ReleaseStringUTFChars(pathToSaveIn, path);
 
@@ -1436,7 +1481,7 @@ JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
-    v8::Isolate* isolate = engine->getIsolate();
+    v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
@@ -1445,7 +1490,7 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json)
 
     v8::TryCatch try_catch(isolate);
     v8::MaybeLocal<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
-    if(value.IsEmpty()) {
+    if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
@@ -1456,7 +1501,7 @@ JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
-    v8::Isolate* isolate = engine->getIsolate();
+    v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
@@ -1467,7 +1512,7 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
 
     v8::MaybeLocal<v8::Value> value = engine->require(JNIWrapper::jstring2string(file));
 
-    if(value.IsEmpty()) {
+    if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
@@ -1481,14 +1526,14 @@ Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker *locker = new Locker(isolate);
 
-    return (jlong)locker;
+    return (jlong) locker;
 }
 
 JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
-    v8::Isolate* isolate = engine->getIsolate();
+    v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
@@ -1501,14 +1546,14 @@ Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
 JNIEXPORT void JNICALL
 Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
     v8::Locker *locker = reinterpret_cast<Locker *>(lockerPtr);
-    delete(locker);
+    delete (locker);
 }
 
 JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring script, jstring name) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
-    v8::Isolate* isolate = engine->getIsolate();
+    v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
@@ -1517,15 +1562,17 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
 
     v8::TryCatch try_catch(isolate);
 
-    ScriptOrigin origin = ScriptOrigin(String::NewFromOneByte(isolate, (const uint8_t*)("script:"+JNIWrapper::jstring2string(name)).c_str(), NewStringType::kNormal).ToLocalChecked());
+    ScriptOrigin origin = ScriptOrigin(
+            String::NewFromOneByte(isolate, (const uint8_t *) ("script:" + JNIWrapper::jstring2string(name)).c_str(),
+                                   NewStringType::kNormal).ToLocalChecked());
     v8::MaybeLocal<v8::Value> value =
-    Script::Compile(
-            context,
-            JNIV8Marshalling::jstring2v8string(script),
-            &origin
-    ).ToLocalChecked()->Run(context);
+            Script::Compile(
+                    context,
+                    JNIV8Marshalling::jstring2v8string(script),
+                    &origin
+            ).ToLocalChecked()->Run(context);
 
-    if(value.IsEmpty()) {
+    if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
     }
@@ -1542,17 +1589,17 @@ JNIEXPORT jobject JNICALL
 Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jstring canonicalName) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
-	v8::Isolate* isolate = engine->getIsolate();
-	v8::Locker l(isolate);
-	v8::Isolate::Scope isolateScope(isolate);
-	v8::HandleScope scope(isolate);
-	v8::Local<v8::Context> context = engine->getContext();
-	v8::Context::Scope ctxScope(context);
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
 
     std::string strCanonicalName = JNIWrapper::jstring2string(canonicalName);
     std::replace(strCanonicalName.begin(), strCanonicalName.end(), '.', '/');
 
-	return JNIV8Wrapper::wrapObject<JNIV8Function>(
+    return JNIV8Wrapper::wrapObject<JNIV8Function>(
             JNIV8Wrapper::getJSConstructor(engine.get(), strCanonicalName))->getJObject();
 }
 }
