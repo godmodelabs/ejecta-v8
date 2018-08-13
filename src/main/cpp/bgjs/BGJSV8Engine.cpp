@@ -517,6 +517,8 @@ MaybeLocal<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
 const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
     Handle<Value> stringValue;
     if (source->IsObject()) {
+        // stringify might throw an exception because of circular references, which is non-fatal
+        v8::TryCatch try_catch(Isolate::GetCurrent());
         MaybeLocal<Value> maybeValue = stringifyJSON(source.As<Object>(), true);
         if (!maybeValue.IsEmpty()) {
             stringValue = maybeValue.ToLocalChecked();
