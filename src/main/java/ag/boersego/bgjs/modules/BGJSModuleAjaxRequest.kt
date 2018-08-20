@@ -130,7 +130,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
                     if (!aborted) {
                         val contentType = responseHeaders?.get("content-type")
-                        _responseIsJson = contentType?.startsWith("application/json") ?: false
+                            _responseIsJson = contentType?.startsWith("application/json") ?: false
 
                         if (mSuccessData != null) {
                             if (DEBUG) {
@@ -160,10 +160,9 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             var failDetails: HttpResponseDetails? = null
                             if (mErrorThrowable != null) {
                                 info = if (mErrorThrowable is SocketTimeoutException) "timeout" else "error"
-                            } else {
-                                failDetails = HttpResponseDetails(v8Engine)
-                                failDetails.setReturnData(mErrorCode, responseHeaders)
                             }
+                            failDetails = HttpResponseDetails(v8Engine)
+                            failDetails.setReturnData(mErrorCode, responseHeaders)
 
                             if (DEBUG) {
                                 Log.d(TAG, "ajax ${method} error response $mErrorCode for ${url} with type $contentType and body $mErrorData")
@@ -184,8 +183,8 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                                 errorObj.setV8Field("responseJSON", parsedResponse)
                                 callCallbacks(CallbackType.FAIL, errorObj, null, failDetails, mErrorCode)
                             } else {
-                                val returnObject = mErrorData ?: JNIV8GenericObject.Create(v8Engine)
-                                callCallbacks(CallbackType.FAIL, returnObject, info, failDetails, mErrorCode)
+                                errorObj.setV8Field("responseJSON", null)
+                                callCallbacks(CallbackType.FAIL, errorObj, info, failDetails, mErrorCode)
                             }
                         }
                     }
