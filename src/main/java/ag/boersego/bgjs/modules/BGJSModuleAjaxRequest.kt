@@ -14,6 +14,7 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import java.net.SocketTimeoutException
 import java.net.URLEncoder
+import java.net.UnknownHostException
 import java.util.*
 import java.util.concurrent.ThreadPoolExecutor
 
@@ -130,7 +131,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
                     if (!aborted) {
                         val contentType = responseHeaders?.get("content-type")
-                            _responseIsJson = contentType?.startsWith("application/json") ?: false
+                        _responseIsJson = contentType?.startsWith("application/json") ?: false
 
                         if (mSuccessData != null) {
                             if (DEBUG) {
@@ -159,7 +160,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             var info: String? = null
                             var failDetails: HttpResponseDetails? = null
                             if (mErrorThrowable != null) {
-                                info = if (mErrorThrowable is SocketTimeoutException) "timeout" else "error"
+                                info = if (mErrorThrowable is SocketTimeoutException || mErrorThrowable is UnknownHostException) "timeout" else "error"
                             }
                             failDetails = HttpResponseDetails(v8Engine)
                             failDetails.setReturnData(mErrorCode, responseHeaders)
