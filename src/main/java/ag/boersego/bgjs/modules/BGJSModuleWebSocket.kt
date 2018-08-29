@@ -186,7 +186,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     }
 }
 
-class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module("websocket") {
+class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module("websocket"), JNIV8Module.IJNIV8Suspendable {
 
     private val sockets = ArrayList<BGJSWebSocket>()
 
@@ -223,11 +223,15 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
         private val TAG = BGJSModuleWebSocket::class.java.simpleName
     }
 
-    fun onSuspend() {
+    override fun onSuspend() {
         for (socket in sockets) {
             socket.closeForSuspend()
         }
         sockets.clear()
+    }
+
+    override fun onResume() {
+        // Nothing to do
     }
 
 }

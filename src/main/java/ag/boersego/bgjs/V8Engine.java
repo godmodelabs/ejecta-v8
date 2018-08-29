@@ -92,8 +92,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     };
 
-    private BGJSModuleWebSocket mWebsocketModule;
     private ArrayList<V8Timeout> mTimeoutsToAddAfterPause = new ArrayList<>();
+    private ArrayList<JNIV8Module> mModules = new ArrayList<>();
 
     public void doDebug(boolean debug) {
         mDebug = debug;
@@ -104,6 +104,12 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
         if (mHandler != null) {
             mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
+        }
+
+        for (final JNIV8Module module : mModules) {
+            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
+                ((JNIV8Module.IJNIV8Suspendable) module).onResume();
+            }
         }
 
         synchronized (mTimeouts) {
@@ -137,6 +143,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 mHandler.postAtFrontOfQueue(mQueueWaitRunnable);
             }
         }
+
     }
 
     public void pause() {
@@ -144,8 +151,11 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         if (mHandler != null) {
             mHandler.removeMessages(MSG_CLEANUP);
         }
-        if (mWebsocketModule != null) {
-            mWebsocketModule.onSuspend();
+
+        for (final JNIV8Module module : mModules) {
+            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
+                ((JNIV8Module.IJNIV8Suspendable) module).onSuspend();
+            }
         }
 
         if (mQueueWaitRunnable != null && mHandler != null) {
@@ -371,7 +381,12 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", mDebug, isStoreBuild, maxHeapSizeForV8);
     }
 
-    public native void registerModule(JNIV8Module module);
+    private native void registerModuleNative(JNIV8Module module);
+
+    public void registerModule(JNIV8Module module) {
+        registerModuleNative(module);
+        mModules.add(module);
+    }
 
     public JNIV8Function getConstructor(Class<? extends JNIV8Object> jniv8class) {
         return getConstructor(jniv8class.getCanonicalName());
@@ -581,8 +596,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     public void setHttpClient(final OkHttpClient client) {
         BGJSModuleAjax.getInstance().setHttpClient(client);
-        mWebsocketModule = new BGJSModuleWebSocket(client);
-        registerModule(mWebsocketModule);
+        registerModule(new BGJSModuleWebSocket(client));
     }
 
 

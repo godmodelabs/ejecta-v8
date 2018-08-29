@@ -1582,7 +1582,7 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
 }
 
 JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_registerModule(JNIEnv *env, jobject obj, jobject module) {
+Java_ag_boersego_bgjs_V8Engine_registerModuleNative(JNIEnv *env, jobject obj, jobject module) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     engine->registerJavaModule(module);
 }
