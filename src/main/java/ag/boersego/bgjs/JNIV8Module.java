@@ -7,6 +7,16 @@ import android.support.annotation.NonNull;
  */
 
 abstract public class JNIV8Module {
+
+    /**
+     * A JNIV8Module that wants to be informed by the V8Engine about engine suspension and resuming
+     */
+    public interface IJNIV8Suspendable {
+        void onSuspend();
+
+        void onResume();
+    }
+
     private String name;
 
     public JNIV8Module(String name) {
@@ -20,6 +30,7 @@ abstract public class JNIV8Module {
     /**
      * Implement class logic here. This is called when this module is required. Call setV8Field on
      * the module.
+     *
      * @param engine
      * @param module
      */

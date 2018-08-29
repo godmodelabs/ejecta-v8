@@ -27,9 +27,12 @@ class BGJSWebSocket : JNIV8Object, Runnable {
 
     override fun run() {
         val request = Request.Builder().url(_url).build()
-        socket = httpClient.newWebSocket(request, object: WebSocketListener() {
+        socket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 super.onOpen(webSocket, response)
+                if (_readyState == ReadyState.CLOSING || _readyState == ReadyState.CLOSED) {
+                    return
+                }
                 v8Engine.runLocked {
                     _readyState = ReadyState.OPEN
                     onopen?.callAsV8Function()
@@ -46,8 +49,15 @@ class BGJSWebSocket : JNIV8Object, Runnable {
                     _readyState = ReadyState.CLOSED
 
                     onerror?.callAsV8Function()
-                    onClosed(webSocket, 0, "error")
+                    // It is safe to call onClose, since onFailure will not call any other callback
+                    val closeEvent = JNIV8GenericObject.Create(v8Engine)
+                    closeEvent.setV8Field("code", 1000)
+                    closeEvent.setV8Field("reason", "timeout")
+                    onclose?.callAsV8Function(closeEvent)
+                    closeEvent.dispose()
                 }
+                onClose()
+                socket = null
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -72,6 +82,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
                         closeEvent.dispose()
                     }
                     _readyState = ReadyState.CLOSED
+                    onClose()
                     socket = null
                 }
             }
@@ -87,9 +98,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     @V8Function
     @JvmOverloads
     fun close(code: Int = 1000, @V8UndefinedIsNull reason: String? = null) {
-        if (socket != null) {
-            socket?.close(code, reason)
-        }
+        socket?.close(code, reason)
     }
 
     @V8Function
@@ -142,40 +151,87 @@ class BGJSWebSocket : JNIV8Object, Runnable {
 
     private lateinit var _url: String
 
-    fun setData(okHttpClient: OkHttpClient, url: String) {
+    private lateinit var onClose: () -> Unit
+
+    fun setData(okHttpClient: OkHttpClient, url: String, onClose: () -> Unit) {
         this.httpClient = okHttpClient
         this._url = url
+        this.onClose = onClose
+    }
+
+
+    fun closeForSuspend() {
+        if (_readyState != ReadyState.CLOSED) {
+            _readyState = ReadyState.CLOSING
+            v8Engine.runLocked {
+
+                if (onclose != null) {
+                    val closeEvent = JNIV8GenericObject.Create(v8Engine)
+                    closeEvent.setV8Field("code", 1013)
+                    closeEvent.setV8Field("reason", "suspend")
+                    onclose?.callAsV8Function(closeEvent)
+                    closeEvent.dispose()
+                }
+                _readyState = ReadyState.CLOSED
+
+                socket?.close(1000, "")
+            }
+        }
     }
 
     companion object {
         val TAG = BGJSWebSocket::class.java.simpleName!!
         @Suppress("SimplifyBooleanWithConstants")
-        val DEBUG = true && BuildConfig.DEBUG
+        val DEBUG = false && BuildConfig.DEBUG
     }
 }
 
-class BGJSModuleWebSocket (private var okHttpClient: OkHttpClient) : JNIV8Module("websocket") {
+class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module("websocket"), JNIV8Module.IJNIV8Suspendable {
+
+    private val sockets = ArrayList<BGJSWebSocket>()
 
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         val exports = JNIV8GenericObject.Create(engine)
 
-        exports.setV8Field("WebSocket", JNIV8Function.Create(engine, { _, arguments ->
+        exports.setV8Field("WebSocket", JNIV8Function.Create(engine) { _, arguments ->
             if (arguments.isEmpty() || arguments[0] !is String) {
                 throw IllegalArgumentException("create needs one string argument (url)")
             }
             val websocket = BGJSWebSocket(engine)
-            websocket.setData(okHttpClient, arguments[0] as String)
+
+            websocket.setData(okHttpClient, arguments[0] as String, {
+                sockets.remove(websocket)
+                Unit
+            })
+
+            // Add to list of all sockets so we can shut them down when the V8Engine pauses
+            sockets.add(websocket)
+
             engine.enqueueOnNextTick(websocket)
 
             websocket
-        }))
+        })
 
         module?.setV8Field("exports", exports)
     }
+
     companion object {
         init {
             JNIV8Object.RegisterV8Class(BGJSWebSocket::class.java)
         }
+
+        private val TAG = BGJSModuleWebSocket::class.java.simpleName
+    }
+
+    override fun onSuspend() {
+        for (socket in sockets) {
+            socket.closeForSuspend()
+        }
+        sockets.clear()
+    }
+
+    override fun onResume() {
+        // Nothing to do
     }
 
 }
