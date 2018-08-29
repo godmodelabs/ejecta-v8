@@ -49,8 +49,15 @@ class BGJSWebSocket : JNIV8Object, Runnable {
                     _readyState = ReadyState.CLOSED
 
                     onerror?.callAsV8Function()
-                    onClosed(webSocket, 0, "error")
+                    // It is safe to call onClose, since onFailure will not call any other callback
+                    val closeEvent = JNIV8GenericObject.Create(v8Engine)
+                    closeEvent.setV8Field("code", 1000)
+                    closeEvent.setV8Field("reason", "timeout")
+                    onclose?.callAsV8Function(closeEvent)
+                    closeEvent.dispose()
                 }
+                onClose()
+                socket = null
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -175,7 +182,7 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     companion object {
         val TAG = BGJSWebSocket::class.java.simpleName!!
         @Suppress("SimplifyBooleanWithConstants")
-        val DEBUG = true && BuildConfig.DEBUG
+        val DEBUG = false && BuildConfig.DEBUG
     }
 }
 
@@ -186,21 +193,24 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         val exports = JNIV8GenericObject.Create(engine)
 
-        exports.setV8Field("WebSocket", JNIV8Function.Create(engine, { _, arguments ->
+        exports.setV8Field("WebSocket", JNIV8Function.Create(engine) { _, arguments ->
             if (arguments.isEmpty() || arguments[0] !is String) {
                 throw IllegalArgumentException("create needs one string argument (url)")
             }
             val websocket = BGJSWebSocket(engine)
+
             websocket.setData(okHttpClient, arguments[0] as String, {
                 sockets.remove(websocket)
                 Unit
             })
 
+            // Add to list of all sockets so we can shut them down when the V8Engine pauses
             sockets.add(websocket)
+
             engine.enqueueOnNextTick(websocket)
 
             websocket
-        }))
+        })
 
         module?.setV8Field("exports", exports)
     }
@@ -215,7 +225,6 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
 
     fun onSuspend() {
         for (socket in sockets) {
-            // Timber.tag(TAG).d("suspending %s", socket)
             socket.closeForSuspend()
         }
         sockets.clear()

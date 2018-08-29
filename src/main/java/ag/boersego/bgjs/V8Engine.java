@@ -56,8 +56,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     private final String mTimeZone;
     private final HashMap<String, ArrayList<V8EventCB>> mEvents = new HashMap<>();
     private float mDensity;
+    private boolean mPaused;
 
-    private static final String TAG = "V8Engine";
+    private static final String TAG = V8Engine.class.getSimpleName();
+
     @SuppressWarnings("PointlessBooleanExpression")
     private boolean mDebug = false && BuildConfig.DEBUG;
     private final ArrayList<Runnable> mNextTickQueue = new ArrayList<>();
@@ -66,7 +68,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         while (true) {
             synchronized (mNextTickQueue) {
                 mJobQueueActive = true;
-                if (mNextTickQueue.isEmpty()) {
+                if (mNextTickQueue.isEmpty() || mPaused) {
+                    if (mDebug && mPaused) {
+                        Log.d(TAG, "enqueued jobs quit early because of suspend");
+                    }
                     mJobQueueActive = false;
                     return;
                 }
@@ -86,8 +91,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             unlock(v8Locker);
         }
     };
-    private boolean mPaused;
+
     private BGJSModuleWebSocket mWebsocketModule;
+    private ArrayList<V8Timeout> mTimeoutsToAddAfterPause = new ArrayList<>();
 
     public void doDebug(boolean debug) {
         mDebug = debug;
@@ -95,8 +101,41 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     public void unpause() {
         mPaused = false;
+
         if (mHandler != null) {
             mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
+        }
+
+        synchronized (mTimeouts) {
+            // Check if there timeouts that were requested after we went into pause state
+            for (final V8Timeout to : mTimeoutsToAddAfterPause) {
+                mTimeouts.append(to.id, to);
+                mHandler.postDelayed(to, to.timeout);
+                if (mDebug) {
+                    Log.d(TAG, "setTimeout unpaused added instance " + to + ", to " + to.timeout + ", id " + to.id + ", recurring " + to.recurring);
+                }
+            }
+            mTimeoutsToAddAfterPause.clear();
+        }
+
+        // Check if we need to enqueue functions on a next tick, since these were not enqueued if the
+        // engine was already paused.
+        final boolean startBusyWaiting;
+        synchronized (mNextTickQueue) {
+            startBusyWaiting = !mNextTickQueue.isEmpty() && !mJobQueueActive;
+        }
+
+        if (mDebug) {
+            Log.d(TAG, "unpause: starting enqueued jobs");
+        }
+
+        if (startBusyWaiting) {
+            if (Thread.currentThread() == V8Engine.this.jsThread) {
+                // We cannot really enqueue on our own thread!!
+                new Thread(mQueueWaitRunnable).start();
+            } else {
+                mHandler.postAtFrontOfQueue(mQueueWaitRunnable);
+            }
         }
     }
 
@@ -107,6 +146,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
         if (mWebsocketModule != null) {
             mWebsocketModule.onSuspend();
+        }
+
+        if (mQueueWaitRunnable != null && mHandler != null) {
+            mHandler.removeCallbacks(mQueueWaitRunnable);
         }
     }
 
@@ -137,7 +180,12 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             startBusyWaiting = mNextTickQueue.isEmpty() && !mJobQueueActive;
             mNextTickQueue.add(runnable);
         }
-        if (startBusyWaiting) {
+
+        if (startBusyWaiting && mPaused && mDebug) {
+            Log.d(TAG, "enqueueOnNextTick: not starting job queue because paused");
+        }
+        // Only enqueue more jobs when not paused
+        if (startBusyWaiting && !mPaused) {
             if (Thread.currentThread() == V8Engine.this.jsThread) {
                 // We cannot really enqueue on our own thread!!
                 new Thread(mQueueWaitRunnable).start();
@@ -486,10 +534,14 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         synchronized (mTimeouts) {
             int id = mLastTimeoutId++;
             V8Timeout to = new V8Timeout(jsCbPtr, thisObjPtr, timeout, recurring, id);
-            mTimeouts.append(id, to);
-            mHandler.postDelayed(to, timeout);
-            if (mDebug) {
-                Log.d(TAG, "setTimeout added instance " + to + ", to " + timeout + ", id " + id + ", recurring " + recurring);
+            if (mPaused) {
+                mTimeoutsToAddAfterPause.add(to);
+            } else {
+                mTimeouts.append(id, to);
+                mHandler.postDelayed(to, timeout);
+                if (mDebug) {
+                    Log.d(TAG, "setTimeout added instance " + to + ", to " + timeout + ", id " + id + ", recurring " + recurring);
+                }
             }
             return id;
         }
@@ -512,6 +564,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 if (mDebug) {
                     Log.d(TAG, "Removed timeout (clearTimeout) " + id);
                 }
+                mTimeoutsToAddAfterPause.remove(to);
                 mTimeouts.remove(id);
 
                 if (mRunningTO != to) {
