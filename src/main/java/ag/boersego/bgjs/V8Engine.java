@@ -7,6 +7,7 @@ import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -126,9 +127,17 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
         // Check if we need to enqueue functions on a next tick, since these were not enqueued if the
         // engine was already paused.
+        enqueueAndStartProcessing(null);
+    }
+
+    private boolean enqueueAndStartProcessing(@Nullable final Runnable jobToEnqueue) {
+        final boolean startOnEmptyQueue = jobToEnqueue != null;
         final boolean startBusyWaiting;
         synchronized (mNextTickQueue) {
-            startBusyWaiting = !mNextTickQueue.isEmpty() && !mJobQueueActive;
+            startBusyWaiting = mNextTickQueue.isEmpty() == startOnEmptyQueue && !mJobQueueActive;
+            if (jobToEnqueue != null) {
+                mNextTickQueue.add(jobToEnqueue);
+            }
         }
 
         if (mDebug) {
@@ -143,7 +152,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 mHandler.postAtFrontOfQueue(mQueueWaitRunnable);
             }
         }
-
+        return startBusyWaiting;
     }
 
     public void pause() {
@@ -185,24 +194,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
      * @return true if it had to be scheduled, false if other functions were queued already
      */
     public boolean enqueueOnNextTick(final Runnable runnable) {
-        final boolean startBusyWaiting;
-        synchronized (mNextTickQueue) {
-            startBusyWaiting = mNextTickQueue.isEmpty() && !mJobQueueActive;
-            mNextTickQueue.add(runnable);
-        }
-
-        if (startBusyWaiting && mPaused && mDebug) {
-            Log.d(TAG, "enqueueOnNextTick: not starting job queue because paused");
-        }
-        // Only enqueue more jobs when not paused
-        if (startBusyWaiting && !mPaused) {
-            if (Thread.currentThread() == V8Engine.this.jsThread) {
-                // We cannot really enqueue on our own thread!!
-                new Thread(mQueueWaitRunnable).start();
-            } else {
-                mHandler.postAtFrontOfQueue(mQueueWaitRunnable);
-            }
-        }
+        final boolean startBusyWaiting = enqueueAndStartProcessing(runnable);
 
         return startBusyWaiting;
     }
