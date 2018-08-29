@@ -87,6 +87,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     };
     private boolean mPaused;
+    private BGJSModuleWebSocket mWebsocketModule;
 
     public void doDebug(boolean debug) {
         mDebug = debug;
@@ -103,6 +104,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         mPaused = true;
         if (mHandler != null) {
             mHandler.removeMessages(MSG_CLEANUP);
+        }
+        if (mWebsocketModule != null) {
+            mWebsocketModule.onSuspend();
         }
     }
 
@@ -524,7 +528,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     public void setHttpClient(final OkHttpClient client) {
         BGJSModuleAjax.getInstance().setHttpClient(client);
-        registerModule(new BGJSModuleWebSocket(client));
+        mWebsocketModule = new BGJSModuleWebSocket(client);
+        registerModule(mWebsocketModule);
     }
 
 
