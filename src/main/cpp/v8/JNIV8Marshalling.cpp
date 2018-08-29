@@ -339,12 +339,16 @@ v8::Local<v8::Value> JNIV8Marshalling::callJavaMethod(JNIEnv *env, JNIV8JavaValu
     switch(valueType) {
         case JNIV8JavaValueType::kString:
         case JNIV8JavaValueType::kObject: {
+            jobject jresult;
             if (object) {
-                result = JNIV8Marshalling::jobject2v8value(
-                        env->CallObjectMethodA(object, methodId, args));
+                jresult = env->CallObjectMethodA(object, methodId, args);
             } else {
-                result = JNIV8Marshalling::jobject2v8value(
-                        env->CallStaticObjectMethodA(clazz, methodId, args));
+                jresult = env->CallStaticObjectMethodA(clazz, methodId, args);
+            }
+            if(!env->ExceptionCheck()) {
+                result = JNIV8Marshalling::jobject2v8value(jresult);
+            } else {
+                result = v8::Undefined(isolate);
             }
             break;
         }
