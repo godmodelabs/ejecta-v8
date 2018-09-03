@@ -5,6 +5,7 @@ import ag.boersego.v8annotations.*
 import android.annotation.SuppressLint
 import android.util.Log
 import okhttp3.*
+import java.util.*
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 23.11.17 for myrmecophaga-2.0.
@@ -224,10 +225,12 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
     }
 
     override fun onSuspend() {
-        for (socket in sockets) {
+        // Let's deal with concurrent modification in a lazy manner, as it is not a problem here.
+        val socketsToClose = ArrayList(sockets)
+        sockets.clear()
+        for (socket in socketsToClose) {
             socket.closeForSuspend()
         }
-        sockets.clear()
     }
 
     override fun onResume() {
