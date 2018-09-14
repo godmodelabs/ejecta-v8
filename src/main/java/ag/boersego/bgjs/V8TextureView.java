@@ -61,6 +61,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private boolean mClearColorSet;
     protected boolean mDontClearOnFlip;
     private BGJSGLView mBGJSGLView;
+    private int mSurfaceWidth;
+    private int mSurfaceHeight;
 
     /**
      * Create a new V8TextureView instance
@@ -68,7 +70,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * @param context Context instance
      * @param engine  the V8Engine to use
      */
-    public V8TextureView(Context context, @NonNull final V8Engine engine) {
+    public V8TextureView(final Context context, @NonNull final V8Engine engine) {
         super(context);
         mEngine = engine;
         final Resources r = getResources();
@@ -83,13 +85,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         return mEngine;
     }
 
-    public void doDebug(boolean debug) {
+    public void doDebug(final boolean debug) {
         DEBUG = debug;
     }
 
     abstract public void onGLCreated(BGJSGLView jsViewObject);
 
-    public void onGLRecreated(BGJSGLView jsViewObject) {
+    public void onGLRecreated(final BGJSGLView jsViewObject) {
         if (mBGJSGLView != null) {
             mBGJSGLView.onResize();
         }
@@ -97,12 +99,12 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
     abstract public void onGLCreateError(Exception ex);
 
-    protected void onFrameRendered(BGJSGLView jsViewObject) {
+    protected void onFrameRendered(final BGJSGLView jsViewObject) {
 
     }
 
     @Override
-    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+    public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width, final int height) {
         // It is possible that the containing view wants to kill this before we have even been able to start the render thread
         if (mFinished) {
             return;
@@ -112,13 +114,16 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             Log.d(TAG, "Starting render thread");
         }
 
+        mSurfaceWidth = width;
+        mSurfaceHeight = height;
+
         mRenderThread.start();
     }
 
     /**
      * Interactive views absorb touches
      */
-    public void setInteractive(boolean interactive) {
+    public void setInteractive(final boolean interactive) {
         mInteractive = interactive;
     }
 
@@ -132,7 +137,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     }
 
     @Override
-    public boolean onTouchEvent(/* @NotNull */ MotionEvent ev) {
+    public boolean onTouchEvent(/* @NotNull */ final MotionEvent ev) {
         // Non-interactive surfaces don't handle touch but pass it on
         if (!mInteractive) {
             return super.onTouchEvent(ev);
@@ -266,7 +271,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      *
      * @param type the type of event: touchstart, touchmove or touchend
      */
-    private void sendTouchEvent(String type) {
+    private void sendTouchEvent(final String type) {
         if (mRenderThread == null) {
             return;
         }
@@ -286,7 +291,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mNumTouches = count;
 
         // We need to calculate the scale of a pinch-zoom gesture from touches 1 & 2
-        double x1 = 0, y1 = 0, x2 = 0, y2 = 0, scale;
+        double x1 = 0;
+        double y1 = 0;
+        double x2 = 0;
+        double y2 = 0;
+        final double scale;
         // Also create a WhatWG compatible touch event object per touch
         final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[mNumTouches];
         int j = 0;
@@ -318,7 +327,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     + scale);
         }
 
-        JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
+        final JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
 
         final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(mEngine);
         touchEventObj.setV8Field("type", type);
@@ -337,7 +346,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     public void setClearColor(final int color) {
         try {
             // Convert to long to make unsigned
-            long c = color & 0x00000000ffffffffL;
+            final long c = color & 0x00000000ffffffffL;
             mClearAlpha = (float) ((c & 0xff000000L) >> 24) / 256f;
             mClearRed = (float) ((c & 0x00ff0000L) >> 16) / 256f;
             mClearGreen = (float) ((c & 0x0000ff00L) >> 8) / 256f;
@@ -372,7 +381,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mTouchDistance = 0;
     }
 
-    public void dontClearOnFlip(boolean dontClear) {
+    public void dontClearOnFlip(final boolean dontClear) {
         mDontClearOnFlip = dontClear;
     }
 
@@ -383,7 +392,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         private final int[] mEglVersion;
         private final boolean mDontTouchSwap;
 
-        public ConfigChooser(int r, int g, int b, int a, int depth, int stencil, int[] version) {
+        public ConfigChooser(final int r, final int g, final int b, final int a, final int depth, final int stencil, final int[] version) {
             mRedSize = r;
             mGreenSize = g;
             mBlueSize = b;
@@ -407,15 +416,15 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 4, EGL10.EGL_NONE};
 
         @Override
-        public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
+        public EGLConfig chooseConfig(final EGL10 egl, final EGLDisplay display) {
 
             /*
              * Get the number of minimally matching EGL configurations
              */
-            int[] num_config = new int[1];
+            final int[] num_config = new int[1];
             egl.eglChooseConfig(display, s_configAttribs2, null, 0, num_config);
 
-            int numConfigs = num_config[0];
+            final int numConfigs = num_config[0];
 
             if (numConfigs <= 0) {
                 throw new IllegalArgumentException("No configs match configSpec");
@@ -424,7 +433,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             /*
              * Allocate then read the array of minimally matching EGL configs
              */
-            EGLConfig[] configs = new EGLConfig[numConfigs];
+            final EGLConfig[] configs = new EGLConfig[numConfigs];
             egl.eglChooseConfig(display, s_configAttribs2, configs, numConfigs, num_config);
 
             if (DEBUG) {
@@ -436,10 +445,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             return chooseConfig(egl, display, configs);
         }
 
-        EGLConfig chooseConfig(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
+        EGLConfig chooseConfig(final EGL10 egl, final EGLDisplay display, final EGLConfig[] configs) {
             EGLConfig bestConfig = null;
             int bestDepth = 128;
-            for (EGLConfig config : configs) {
+            for (final EGLConfig config : configs) {
                 boolean hasSwap = false;
                 if (!mDontTouchSwap && mEglVersion[0] > 1 || mEglVersion[1] >= 4) {
                     final int surfaceType = findConfigAttrib(egl, display, config, EGL14.EGL_SURFACE_TYPE, 0);
@@ -452,8 +461,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 }
 
                 // Get depth and stencil sizes
-                int d = findConfigAttrib(egl, display, config, EGL10.EGL_DEPTH_SIZE, 0);
-                int s = findConfigAttrib(egl, display, config, EGL10.EGL_STENCIL_SIZE, 0);
+                final int d = findConfigAttrib(egl, display, config, EGL10.EGL_DEPTH_SIZE, 0);
+                final int s = findConfigAttrib(egl, display, config, EGL10.EGL_STENCIL_SIZE, 0);
 
                 // We need at least mDepthSize and mStencilSize bits
                 if (s < mStencilSize) {
@@ -464,14 +473,14 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 }
 
                 // We also want at least a minimum size for red/green/blue/alpha
-                int r = findConfigAttrib(egl, display, config, EGL10.EGL_RED_SIZE, 0);
-                int g = findConfigAttrib(egl, display, config, EGL10.EGL_GREEN_SIZE, 0);
-                int b = findConfigAttrib(egl, display, config, EGL10.EGL_BLUE_SIZE, 0);
-                int a = findConfigAttrib(egl, display, config, EGL10.EGL_ALPHA_SIZE, 0);
+                final int r = findConfigAttrib(egl, display, config, EGL10.EGL_RED_SIZE, 0);
+                final int g = findConfigAttrib(egl, display, config, EGL10.EGL_GREEN_SIZE, 0);
+                final int b = findConfigAttrib(egl, display, config, EGL10.EGL_BLUE_SIZE, 0);
+                final int a = findConfigAttrib(egl, display, config, EGL10.EGL_ALPHA_SIZE, 0);
 
                 if (r <= mRedSize && g <= mGreenSize && b <= mBlueSize && a >= mAlphaSize) {
                     // But we'll try to figure out which configuration matches best
-                    int distance = (a - mAlphaSize) + mStencilSize - s + mDepthSize - d + (mRedSize - r) + (mGreenSize - g) + (mBlueSize - b) + (hasSwap ? 4 : 0);
+                    final int distance = (a - mAlphaSize) + mStencilSize - s + mDepthSize - d + (mRedSize - r) + (mGreenSize - g) + (mBlueSize - b) + (hasSwap ? 4 : 0);
                     if (DEBUG) {
                         Log.d(TAG, "Good enough: " + r + ", " + g + ", " + b + ", depth " + d + ", stencil " + s
                                 + ", alpha " + a + ", distance " + distance);
@@ -500,7 +509,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             return null;
         }
 
-        private int findConfigAttrib(EGL10 egl, EGLDisplay display, EGLConfig config, int attribute, int defaultValue) {
+        private int findConfigAttrib(final EGL10 egl, final EGLDisplay display, final EGLConfig config, final int attribute, final int defaultValue) {
 
             if (egl.eglGetConfigAttrib(display, config, attribute, mValue)) {
                 return mValue[0];
@@ -515,8 +524,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
          * @param display egl display
          * @param configs the list of configs to print
          */
-        private void printConfigs(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
-            int numConfigs = configs.length;
+        private void printConfigs(final EGL10 egl, final EGLDisplay display, final EGLConfig[] configs) {
+            final int numConfigs = configs.length;
             Log.w(TAG, String.format("%d configurations", numConfigs));
             for (int i = 0; i < numConfigs; i++) {
                 Log.w(TAG, String.format("Configuration %d:\n", i));
@@ -531,8 +540,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
          * @param display egl display
          * @param config  the config to print
          */
-        private void printConfig(EGL10 egl, EGLDisplay display, EGLConfig config) {
-            int[] attributes = {EGL10.EGL_BUFFER_SIZE, EGL10.EGL_ALPHA_SIZE, EGL10.EGL_BLUE_SIZE,
+        private void printConfig(final EGL10 egl, final EGLDisplay display, final EGLConfig config) {
+            final int[] attributes = {EGL10.EGL_BUFFER_SIZE, EGL10.EGL_ALPHA_SIZE, EGL10.EGL_BLUE_SIZE,
                     EGL10.EGL_GREEN_SIZE, EGL10.EGL_RED_SIZE, EGL10.EGL_DEPTH_SIZE, EGL10.EGL_STENCIL_SIZE,
                     EGL10.EGL_CONFIG_CAVEAT, EGL10.EGL_CONFIG_ID, EGL10.EGL_LEVEL, EGL10.EGL_MAX_PBUFFER_HEIGHT,
                     EGL10.EGL_MAX_PBUFFER_PIXELS, EGL10.EGL_MAX_PBUFFER_WIDTH,
@@ -550,7 +559,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     EGL10.EGL_LUMINANCE_SIZE, EGL10.EGL_ALPHA_MASK_SIZE, EGL10.EGL_COLOR_BUFFER_TYPE,
                     EGL10.EGL_RENDERABLE_TYPE, 0x3042 // EGL10.EGL_CONFORMANT
             };
-            String[] names = {"EGL_BUFFER_SIZE", "EGL_ALPHA_SIZE", "EGL_BLUE_SIZE", "EGL_GREEN_SIZE", "EGL_RED_SIZE",
+            final String[] names = {"EGL_BUFFER_SIZE", "EGL_ALPHA_SIZE", "EGL_BLUE_SIZE", "EGL_GREEN_SIZE", "EGL_RED_SIZE",
                     "EGL_DEPTH_SIZE", "EGL_STENCIL_SIZE", "EGL_CONFIG_CAVEAT", "EGL_CONFIG_ID", "EGL_LEVEL",
                     "EGL_MAX_PBUFFER_HEIGHT", "EGL_MAX_PBUFFER_PIXELS", "EGL_MAX_PBUFFER_WIDTH",
                     "EGL_NATIVE_RENDERABLE", "EGL_NATIVE_VISUAL_ID", "EGL_NATIVE_VISUAL_TYPE",
@@ -559,10 +568,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     "EGL_TRANSPARENT_BLUE_VALUE", "EGL_BIND_TO_TEXTURE_RGB", "EGL_BIND_TO_TEXTURE_RGBA",
                     "EGL_MIN_SWAP_INTERVAL", "EGL_MAX_SWAP_INTERVAL", "EGL_LUMINANCE_SIZE", "EGL_ALPHA_MASK_SIZE",
                     "EGL_COLOR_BUFFER_TYPE", "EGL_RENDERABLE_TYPE", "EGL_CONFORMANT"};
-            int[] value = new int[1];
+            final int[] value = new int[1];
             for (int i = 0; i < attributes.length; i++) {
-                int attribute = attributes[i];
-                String name = names[i];
+                final int attribute = attributes[i];
+                final String name = names[i];
                 if (egl.eglGetConfigAttrib(display, config, attribute, value)) {
                     Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
                 } else {
@@ -583,7 +592,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         private final int[] mValue = new int[1];
     }
 
-    public void setRenderCallback(IV8GLViewOnRender listener) {
+    public void setRenderCallback(final IV8GLViewOnRender listener) {
         mCallback = listener;
     }
 
@@ -650,7 +659,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         private boolean mHasSwap;
 
 
-        RenderThread(SurfaceTexture surface) {
+        RenderThread(final SurfaceTexture surface) {
             mSurface = surface;
         }
 
@@ -660,7 +669,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         public void unpause() {
             synchronized (this) {
                 mPaused = false;
-                this.notifyAll();
+                notifyAll();
                 if (DEBUG) {
                     Log.d(TAG, "Requested unpause");
                 }
@@ -673,7 +682,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         synchronized void pause() {
             synchronized (this) {
                 mPaused = true;
-                this.notifyAll();
+                notifyAll();
                 if (DEBUG) {
                     Log.d(TAG, "Requested pause");
                 }
@@ -683,7 +692,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         void requestRender() {
             synchronized (this) {
                 mRenderPending = true;
-                this.notifyAll();
+                notifyAll();
                 if (DEBUG) {
                     Log.d(TAG, "Requested render mJSID " + mBGJSGLView);
                 }
@@ -693,7 +702,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         void reinitGl() {
             synchronized (this) {
                 mReinitPending = true;
-                this.notifyAll();
+                notifyAll();
                 if (DEBUG) {
                     Log.d(TAG, "Requested reinit");
                 }
@@ -711,12 +720,12 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             // We try to initialize the OpenGL stack with a valid config
             try {
                 initGL();
-            } catch (Exception ex) {
+            } catch (final Exception ex) {
                 // If we cannot initialize OpenGL, log it and then quit
-                V8TextureView.this.onGLCreateError(ex);
+                onGLCreateError(ex);
                 try {
                     finishGL();
-                } catch (Exception ignored) {
+                } catch (final Exception ignored) {
                 }
                 return;
             }
@@ -733,7 +742,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             // Create a C instance of GLView and record the native ID
             mBGJSGLView = createGL();
 
-            V8TextureView.this.onGLCreated(mBGJSGLView);
+            onGLCreated(mBGJSGLView);
 
             if (mCallback != null) {
                 // Tell clients that rendering has started
@@ -750,7 +759,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                             }
                             try {
                                 wait();
-                            } catch (InterruptedException e) {
+                            } catch (final InterruptedException e) {
                                 // Ignore
                             }
                             if (DEBUG) {
@@ -821,7 +830,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         try {
 
                             wait(100000);
-                        } catch (InterruptedException e) {
+                        } catch (final InterruptedException e) {
                             // Ignore
                         }
                     }
@@ -840,7 +849,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         }
                         try {
                             Thread.sleep(16 - (renderDone - startRender));
-                        } catch (InterruptedException ignored) {
+                        } catch (final InterruptedException ignored) {
                         }
                     }
                 }
@@ -853,13 +862,21 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     if (DEBUG) {
                         Log.d(TAG, "Reinit pending executing");
                     }
-                    reinitGL();
-                    V8TextureView.this.onGLRecreated(mBGJSGLView);
+                    try {
+                        reinitGL();
+                    } catch (final Exception e) {
+                        if (mFinished) {
+                            // The surface went away while we were reinitializing, ignore
+                            break;
+                        }
+                        // For now, we assume that this is not fatal but log it
+                    }
+                    onGLRecreated(mBGJSGLView);
                     mReinitPending = false;
                 }
 
                 // The party that created V8TextureView might want to be notified once we have rendered a frame
-                V8TextureView.this.onFrameRendered(mBGJSGLView);
+                onFrameRendered(mBGJSGLView);
             }
 
             if (mCallback != null) {
@@ -874,7 +891,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
             finishGL();
             // Exit the Looper we started
-            Looper looper = Looper.myLooper();
+            final Looper looper = Looper.myLooper();
             if (looper != null) {
                 if (Build.VERSION.SDK_INT >= 18) {
                     looper.quitSafely();
@@ -888,7 +905,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         }
 
         @SuppressWarnings("unused")
-        private void checkEglError(String prompt) {
+        private void checkEglError(final String prompt) {
             int error;
             while ((error = mEgl.eglGetError()) != EGL10.EGL_SUCCESS) {
                 Log.e(TAG, String.format("%s: EGL error: 0x%x", prompt, error));
@@ -908,7 +925,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             if (!mEglContext.equals(mEgl.eglGetCurrentContext())
                     || !mEglSurface.equals(mEgl.eglGetCurrentSurface(EGL10.EGL_DRAW))) {
                 if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
-                    int error = mEgl.eglGetError();
+                    final int error = mEgl.eglGetError();
                     if (error == EGL10.EGL_SUCCESS) {
                         return;
                     }
@@ -925,7 +942,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
 
             if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
-                int error = mEgl.eglGetError();
+                final int error = mEgl.eglGetError();
                 if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
                     Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
                     return;
@@ -946,14 +963,14 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 throw new RuntimeException("eglGetDisplay failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
             }
 
-            int[] version = new int[2];
+            final int[] version = new int[2];
             if (!mEgl.eglInitialize(mEglDisplay, version)) {
                 throw new RuntimeException("eglInitialize failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
             }
             mEglVersion = version;
-            this.mEglVersion = version;
+            mEglVersion = version;
 
-            ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8, version);
+            final ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8, version);
             mEglConfig = chooser.chooseConfig(mEgl, mEglDisplay);
             if (mEglConfig == null) {
                 throw new RuntimeException("eglConfig not initialized");
@@ -971,7 +988,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             }
 
             if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
-                int error = mEgl.eglGetError();
+                final int error = mEgl.eglGetError();
                 if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
                     Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
                     return;
@@ -1007,7 +1024,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     }
 
     @Override
-    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+    public boolean onSurfaceTextureDestroyed(final SurfaceTexture surface) {
         if (DEBUG) {
             Log.d(TAG, "Finishing thread");
         }
@@ -1030,21 +1047,23 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     }
 
     @Override
-    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-        if (DEBUG) {
-            Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface());
+    public void onSurfaceTextureSizeChanged(final SurfaceTexture surface, final int width, final int height) {
+        Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface() + ", new width " + width + ", new height " + height + ", old width " + mSurfaceWidth + " height " + mSurfaceHeight);
+
+        if (mSurfaceWidth == width && mSurfaceHeight == height) {
+            return;
         }
 
         final RenderThread renderthread = mRenderThread;
         if (renderthread != null) {
             renderthread.reinitGl();
-            V8TextureView.this.resetTouches();
+            resetTouches();
         }
 
     }
 
     @Override
-    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+    public void onSurfaceTextureUpdated(final SurfaceTexture surface) {
     }
 
 }
