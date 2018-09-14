@@ -989,15 +989,15 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             GLES10.glClear(GLES10.GL_COLOR_BUFFER_BIT);
         }
 
-        EGLContext createContext(EGL10 egl, EGLDisplay eglDisplay, EGLConfig eglConfig) {
-            int[] attrib_list = {EGL_CONTEXT_CLIENT_VERSION, 1, EGL10.EGL_NONE};
+        EGLContext createContext(final EGL10 egl, final EGLDisplay eglDisplay, final EGLConfig eglConfig) {
+            final int[] attrib_list = {EGL_CONTEXT_CLIENT_VERSION, 1, EGL10.EGL_NONE};
             return egl.eglCreateContext(eglDisplay, eglConfig, EGL10.EGL_NO_CONTEXT, attrib_list);
         }
 
         void finish() {
             mFinished = true;
             synchronized (this) {
-                this.notifyAll();
+                interrupt();
             }
         }
 
