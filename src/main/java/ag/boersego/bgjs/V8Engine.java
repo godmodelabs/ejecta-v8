@@ -96,7 +96,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     private ArrayList<V8Timeout> mTimeoutsToAddAfterPause = new ArrayList<>();
     private ArrayList<JNIV8Module> mModules = new ArrayList<>();
 
-    public void doDebug(boolean debug) {
+    public void doDebug(final boolean debug) {
         mDebug = debug;
     }
 
@@ -145,7 +145,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
 
         if (startBusyWaiting) {
-            if (Thread.currentThread() == V8Engine.this.jsThread) {
+            if (Thread.currentThread() == jsThread) {
                 // We cannot really enqueue on our own thread!!
                 new Thread(mQueueWaitRunnable).start();
             } else {
@@ -218,7 +218,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         final long thisPtr;
         public final String event;
 
-        V8EventCB(long cbPtr, long thisPtr, String event) {
+        V8EventCB(final long cbPtr, final long thisPtr, final String event) {
             this.cbPtr = cbPtr;
             this.thisPtr = thisPtr;
             this.event = event;
@@ -233,7 +233,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         private final int id;
         private boolean dead;
 
-        V8Timeout(long jsCbPtr, long thisObjPtr, long timeout, boolean recurring, int id) {
+        V8Timeout(final long jsCbPtr, final long thisObjPtr, final long timeout, final boolean recurring, final int id) {
             this.jsCbPtr = jsCbPtr;
             this.thisObjPtr = thisObjPtr;
             this.timeout = timeout;
@@ -242,13 +242,13 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
 
         void setAsDead() {
-            this.dead = true;
+            dead = true;
         }
 
         @Override
         public void run() {
             mRunningTO = this;
-            if (this.dead) {
+            if (dead) {
                 mTimeoutsToGC.add(this);
                 if (!mHandler.hasMessages(MSG_CLEANUP)) {
                     mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
@@ -262,7 +262,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             ClientAndroid.timeoutCB(V8Engine.this, jsCbPtr, thisObjPtr, false, true);
             // }
             synchronized (mTimeouts) {
-                if (this.dead) {
+                if (dead) {
                     mTimeoutsToGC.add(this);
                     if (!mHandler.hasMessages(MSG_CLEANUP)) {
                         mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
@@ -285,7 +285,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
-    protected V8Engine(Application application, boolean isStoreBuild) {
+    protected V8Engine(final Application application, final boolean isStoreBuild) {
         final AssetManager assetManager;
         if (application != null) {
             assetManager = application.getAssets();
@@ -306,8 +306,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         } else {
             throw new RuntimeException("Application is null");
         }
-        Locale locale = Locale.getDefault();
-        String country = locale.getCountry();
+        final Locale locale = Locale.getDefault();
+        final String country = locale.getCountry();
         if (country.isEmpty()) {
             mLocale = locale.getLanguage();
         } else {
@@ -328,7 +328,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         jsThread.start();
     }
 
-    public void setUrlCache(V8UrlCache cache) {
+    public void setUrlCache(final V8UrlCache cache) {
         BGJSModuleAjax.getInstance().setUrlCache(cache);
     }
 
@@ -340,7 +340,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         return getInstance().mReady;
     }
 
-    public synchronized static V8Engine getInstance(Application app, boolean isStoreBuild) {
+    public synchronized static V8Engine getInstance(final Application app, final boolean isStoreBuild) {
         if (mInstance == null) {
             if (app == null) {
                 throw new RuntimeException("V8Engine hasn't been initialized");
@@ -358,10 +358,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         return mInstance;
     }
 
-    public void initializeV8(AssetManager assetManager, boolean isStoreBuild) {
+    public void initializeV8(final AssetManager assetManager, final boolean isStoreBuild) {
         try {
             Thread.sleep(100);
-        } catch (InterruptedException e) {
+        } catch (final InterruptedException e) {
             e.printStackTrace();
         }
         Log.d(TAG, "Initializing V8Engine");
@@ -375,12 +375,12 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     private native void registerModuleNative(JNIV8Module module);
 
-    public void registerModule(JNIV8Module module) {
+    public void registerModule(final JNIV8Module module) {
         registerModuleNative(module);
         mModules.add(module);
     }
 
-    public JNIV8Function getConstructor(Class<? extends JNIV8Object> jniv8class) {
+    public JNIV8Function getConstructor(final Class<? extends JNIV8Object> jniv8class) {
         return getConstructor(jniv8class.getCanonicalName());
     }
 
@@ -441,7 +441,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
-    private void onFromJsInstance(String event, long cbPtr, long thisPtr) {
+    private void onFromJsInstance(final String event, final long cbPtr, final long thisPtr) {
         ArrayList<V8EventCB> eventList = mInstance.mEvents.get(event);
         if (eventList == null) {
             eventList = new ArrayList<>();
@@ -451,17 +451,17 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         if (mDebug) {
             Log.d(TAG, "Adding on " + event + ", " + cbPtr + ", " + thisPtr);
         }
-        V8EventCB cb = mInstance.new V8EventCB(cbPtr, thisPtr, event);
+        final V8EventCB cb = mInstance.new V8EventCB(cbPtr, thisPtr, event);
         eventList.add(cb);
     }
 
-    public static void onFromJS(String event, long cbPtr, long thisPtr) {
+    public static void onFromJS(final String event, final long cbPtr, final long thisPtr) {
         synchronized (mInstance.mEvents) {
             mInstance.onFromJsInstance(event, cbPtr, thisPtr);
         }
     }
 
-    public synchronized void addStatusHandler(V8EngineHandler h) {
+    public synchronized void addStatusHandler(final V8EngineHandler h) {
         if (mReady) {
             h.onReady();
             return;
@@ -480,14 +480,14 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     }
 
     @Override
-    public boolean handleMessage(Message msg) {
+    public boolean handleMessage(final Message msg) {
         switch (msg.what) {
             case MSG_CLEANUP:
                 cleanup();
                 mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
                 return true;
             case MSG_QUIT:
-                Looper looper = Looper.myLooper();
+                final Looper looper = Looper.myLooper();
                 if (looper != null) {
                     looper.quit();
                 }
@@ -497,7 +497,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             case MSG_READY:
                 mReady = true;
                 if (mHandlers != null) {
-                    for (V8EngineHandler h : mHandlers) {
+                    for (final V8EngineHandler h : mHandlers) {
                         h.onReady();
                     }
                     mHandlers.clear();
@@ -517,18 +517,18 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
         try {
             final int count = mTimeoutsToGC.size();
-            for (V8Timeout to : timeOutCopy) {
+            for (final V8Timeout to : timeOutCopy) {
                 ClientAndroid.timeoutCB(this, to.jsCbPtr, to.thisObjPtr, true, false);
             }
             if (mDebug) {
                 Log.d(TAG, "Cleaned up " + count + " timeouts");
             }
-        } catch (Exception ex) {
+        } catch (final Exception ex) {
             Log.i(TAG, "Couldn't clear timeoutsGC", ex);
         }
     }
 
-    public static int setTimeout(long jsCbPtr, long thisObjPtr, long timeout, boolean recurring) {
+    public static int setTimeout(final long jsCbPtr, final long thisObjPtr, final long timeout, final boolean recurring) {
         if (mInstance != null) {
             return mInstance.setTimeoutInst(jsCbPtr, thisObjPtr, timeout, recurring);
         } else {
@@ -537,10 +537,10 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         return -1;
     }
 
-    private int setTimeoutInst(long jsCbPtr, long thisObjPtr, long timeout, boolean recurring) {
+    private int setTimeoutInst(final long jsCbPtr, final long thisObjPtr, final long timeout, final boolean recurring) {
         synchronized (mTimeouts) {
-            int id = mLastTimeoutId++;
-            V8Timeout to = new V8Timeout(jsCbPtr, thisObjPtr, timeout, recurring, id);
+            final int id = mLastTimeoutId++;
+            final V8Timeout to = new V8Timeout(jsCbPtr, thisObjPtr, timeout, recurring, id);
             if (mPaused) {
                 mTimeoutsToAddAfterPause.add(to);
             } else {
@@ -554,7 +554,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
-    public static void removeTimeout(int id) {
+    public static void removeTimeout(final int id) {
         if (mInstance != null) {
             mInstance.removeTimeoutInst(id);
         } else {
@@ -562,9 +562,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
-    private void removeTimeoutInst(int id) {
+    private void removeTimeoutInst(final int id) {
         synchronized (mTimeouts) {
-            V8Timeout to = mTimeouts.get(id);
+            final V8Timeout to = mTimeouts.get(id);
             if (to != null) {
                 to.setAsDead();
                 mHandler.removeCallbacks(to, null);
