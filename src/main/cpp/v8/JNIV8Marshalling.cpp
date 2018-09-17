@@ -290,7 +290,8 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
                     return JNIV8MarshallingError::kWrongType;
                 numberValue = v8Value->NumberValue();
                 jfloat value = (jfloat) numberValue;
-                if (value != numberValue) return JNIV8MarshallingError::kOutOfRange;
+                // Comparing a double and float can lead to unexpected false negatives. We accept that some precision
+                // can be lost here and do not do the kOutOfRange check.
                 AutoboxArgument(Float, f);
                 break;
             }
