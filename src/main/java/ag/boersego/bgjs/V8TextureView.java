@@ -760,7 +760,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                             try {
                                 wait();
                             } catch (final InterruptedException e) {
-                                // Ignore
+                                // the surface was destroyed
+                                break;
                             }
                             if (DEBUG) {
                                 Log.d(TAG, "Pause done");
@@ -831,7 +832,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
                             wait(100000);
                         } catch (final InterruptedException e) {
-                            // Ignore
+                            // End the loop
+                            break;
                         }
                     }
 
