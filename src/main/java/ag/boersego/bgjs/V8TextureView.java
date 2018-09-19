@@ -278,8 +278,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
         // This is actually the pointer to the BGJSView and could have been cleared because
         // it was closed.
+        final BGJSGLView jsGLView = mBGJSGLView;
 
-        if (mBGJSGLView == null) {
+        if (jsGLView == null) {
             return;
         }
         int count = 0;
@@ -334,7 +335,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         touchEventObj.setV8Field("scale", scale);
         touchEventObj.setV8Field("touches", touches);
 
-        mBGJSGLView.onEvent(touchEventObj);
+        // Just double check that it hasn't been removed since
+        if (mBGJSGLView != null) {
+            jsGLView.onEvent(touchEventObj);
+        }
 
         for (final JNIV8GenericObject touch : touchObjs) {
             touch.dispose();
