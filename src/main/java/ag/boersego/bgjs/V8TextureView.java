@@ -1050,7 +1050,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
     @Override
     public void onSurfaceTextureSizeChanged(final SurfaceTexture surface, final int width, final int height) {
-        Log.d(TAG, "Surface changed " + surface + ", old " + mRenderThread.getSurface() + ", new width " + width + ", new height " + height + ", old width " + mSurfaceWidth + " height " + mSurfaceHeight);
 
         if (mSurfaceWidth == width && mSurfaceHeight == height) {
             return;
@@ -1058,6 +1057,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
         final RenderThread renderthread = mRenderThread;
         if (renderthread != null) {
+            if (DEBUG) {
+                Log.d(TAG, "Surface changed " + surface + ", old " + renderthread.getSurface() + ", new width " + width + ", new height " + height + ", old width " + mSurfaceWidth + " height " + mSurfaceHeight);
+            }
             renderthread.reinitGl();
             resetTouches();
         }
