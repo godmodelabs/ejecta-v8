@@ -1323,10 +1323,14 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
     HandleScope scope(args.GetIsolate());
 
     std::stringstream str;
-    str << " " << toDebugString(args[0]) << "\n";
+    int l = args.Length();
+    for (int i = 0; i < l; i++) {
+        str << " " << toDebugString(args[i]);
+    }
+    str << "\n";
 
     Local<StackTrace> stackTrace = StackTrace::CurrentStackTrace(args.GetIsolate(), 15);
-    int l = stackTrace->GetFrameCount();
+    l = stackTrace->GetFrameCount();
     for (int i = 0; i < l; i++) {
         const Local<StackFrame> &frame = stackTrace->GetFrame(i);
         str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " ("
