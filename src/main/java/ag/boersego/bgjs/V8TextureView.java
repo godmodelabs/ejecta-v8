@@ -63,6 +63,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private BGJSGLView mBGJSGLView;
     private int mSurfaceWidth;
     private int mSurfaceHeight;
+    /// True if this view is in the process of being removed and we should no longer process events
+    private boolean mIsShuttingDown;
 
     /**
      * Create a new V8TextureView instance
@@ -106,7 +108,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     @Override
     public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width, final int height) {
         // It is possible that the containing view wants to kill this before we have even been able to start the render thread
-        if (mFinished) {
+        if (mFinished || mIsShuttingDown) {
             return;
         }
         mRenderThread = new RenderThread(surface);
@@ -131,13 +133,16 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * Request a redraw
      */
     public void requestRender() {
-        if (mRenderThread != null) {
+        if (mRenderThread != null && !mIsShuttingDown) {
             mRenderThread.requestRender();
         }
     }
 
     @Override
-    public boolean onTouchEvent(/* @NotNull */ final MotionEvent ev) {
+    public boolean onTouchEvent(final MotionEvent ev) {
+        if (mIsShuttingDown) {
+            return false;
+        }
         // Non-interactive surfaces don't handle touch but pass it on
         if (!mInteractive) {
             return super.onTouchEvent(ev);
@@ -272,7 +277,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * @param type the type of event: touchstart, touchmove or touchend
      */
     private void sendTouchEvent(final String type) {
-        if (mRenderThread == null) {
+        if (mRenderThread == null || mIsShuttingDown) {
             return;
         }
 
@@ -387,6 +392,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
     public void dontClearOnFlip(final boolean dontClear) {
         mDontClearOnFlip = dontClear;
+    }
+
+    public void shutdown() {
+        mIsShuttingDown = true;
     }
 
     private static class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
@@ -694,6 +703,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         }
 
         void requestRender() {
+            if (mIsShuttingDown) {
+                return;
+            }
             synchronized (this) {
                 mRenderPending = true;
                 notifyAll();
