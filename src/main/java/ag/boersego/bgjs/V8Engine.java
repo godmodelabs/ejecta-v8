@@ -102,6 +102,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     }
 
     public void unpause() {
+        if (!mPaused) {
+            return;
+        }
         mPaused = false;
 
         if (mHandler != null) {
