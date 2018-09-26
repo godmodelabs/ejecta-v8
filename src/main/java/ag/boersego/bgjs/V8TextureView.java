@@ -1070,6 +1070,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         if (mSurfaceWidth == width && mSurfaceHeight == height) {
             return;
         }
+        mSurfaceWidth = width;
+        mSurfaceHeight = height;
 
         final RenderThread renderthread = mRenderThread;
         if (renderthread != null) {
