@@ -49,7 +49,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     @V8Function
     fun done(cb: JNIV8Function?): BGJSModuleAjaxRequest {
-        if (cb != null) {
+        if (cb != null && requestNotFinal) {
             callbacks.add(Pair(CallbackType.DONE, cb))
         }
         return this
@@ -57,7 +57,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     @V8Function
     fun fail(cb: JNIV8Function?): BGJSModuleAjaxRequest {
-        if (cb != null) {
+        if (cb != null && requestNotFinal) {
             callbacks.add(Pair(CallbackType.FAIL, cb))
         }
         return this
@@ -65,7 +65,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     @V8Function
     fun always(cb: JNIV8Function?): BGJSModuleAjaxRequest {
-        if (cb != null) {
+        if (cb != null && requestNotFinal) {
             callbacks.add(Pair(CallbackType.ALWAYS, cb))
         }
         return this
@@ -85,15 +85,15 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
     private val headers: HashMap<String, String> = HashMap(Companion.httpAdditionalHeaders)
     private var body: String? = null
     private var aborted: Boolean = false
-    private var abortable = true
+    // True when we are start executing callbacks and adding new callbacks or aborting has no effect
+    private var requestNotFinal = true
     private var outputType: String? = null
 
     @V8Function
     fun abort(): Boolean {
         var success = false
-        // TODO: Why does this need a parameter?
         v8Engine.runLocked {
-            if (!abortable) {
+            if (!requestNotFinal) {
                 if (DEBUG) {
                     Log.d(TAG, "ajax ${method} for ${url} cannot  abort", RuntimeException("ajax abort impossible"));
                 }
@@ -122,7 +122,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
             override fun run() {
                 super.run()
 
-                abortable = false
+                requestNotFinal = false
 
                 if (aborted) {
                     return
