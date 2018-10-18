@@ -23,9 +23,9 @@ repositories {
 }
 
 dependencies {
-    compile project(':ejecta-v8:v8annotations')
-    compile 'com.squareup:javapoet:1.9.0'
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    implementation project(':ejecta-v8:v8annotations')
+    implementation 'com.squareup:javapoet:1.9.0'
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 }
 
 // Upload to bintray
