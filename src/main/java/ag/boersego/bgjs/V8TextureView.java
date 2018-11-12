@@ -692,7 +692,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         /**
          * Set paused state and wake up thread
          */
-        synchronized void pause() {
+        void pause() {
             synchronized (this) {
                 mPaused = true;
                 notifyAll();
