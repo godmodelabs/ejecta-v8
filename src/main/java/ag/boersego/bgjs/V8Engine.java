@@ -79,18 +79,20 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 }
             }
             final long v8Locker = lock();
-            final ArrayList<Runnable> jobsToRun;
+            try {
+                final ArrayList<Runnable> jobsToRun;
 
-            synchronized (mNextTickQueue) {
-                jobsToRun = new ArrayList<>(mNextTickQueue);
-                mNextTickQueue.clear();
+                synchronized (mNextTickQueue) {
+                    jobsToRun = new ArrayList<>(mNextTickQueue);
+                    mNextTickQueue.clear();
+                }
+
+                for (final Runnable r : jobsToRun) {
+                    r.run();
+                }
+            } finally {
+                unlock(v8Locker);
             }
-
-            for (final Runnable r : jobsToRun) {
-                r.run();
-            }
-
-            unlock(v8Locker);
         }
     };
 
