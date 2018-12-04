@@ -3,10 +3,7 @@ package ag.boersego.bgjs.modules
 import ag.boersego.bgjs.*
 import ag.boersego.bgjs.data.AjaxRequest
 import ag.boersego.bgjs.data.V8UrlCache
-import ag.boersego.v8annotations.V8Class
-import ag.boersego.v8annotations.V8ClassCreationPolicy
-import ag.boersego.v8annotations.V8Function
-import ag.boersego.v8annotations.V8Getter
+import ag.boersego.v8annotations.*
 import android.annotation.SuppressLint
 import android.util.Log
 import okhttp3.FormBody
@@ -273,7 +270,11 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 if (body is String) {
                     this.body = body
                 } else {
-                    this.body = v8Engine.getGlobalObject().getV8Field<JNIV8Object>("JSON").callV8Method("stringify", body) as String
+                    if (body == null) {
+                        this.body = null
+                    } else {
+                        this.body = v8Engine.getGlobalObject().getV8Field<JNIV8Object>("JSON", V8Flags.UndefinedIsNull).callV8Method("stringify", body) as String?
+                    }
                 }
             } else {
                 // We're sending a form object
