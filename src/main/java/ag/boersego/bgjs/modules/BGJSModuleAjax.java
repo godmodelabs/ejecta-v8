@@ -31,7 +31,7 @@ public class BGJSModuleAjax extends JNIV8Module {
         super("ajax");
     }
 
-    public void setUrlCache (V8UrlCache cache) {
+    public void setUrlCache(V8UrlCache cache) {
         mCache = cache;
     }
 
@@ -46,7 +46,7 @@ public class BGJSModuleAjax extends JNIV8Module {
             if (!(arguments[0] instanceof String)) {
                 throw new RuntimeException("request: first argument is url and must be a String");
             }
-            final String url = (String) arguments[0];
+            final String url = ((String) arguments[0]).replace(" ", "%20");
 
             final String method;
             if (arguments[1] == null || arguments[1] instanceof JNIV8Undefined) {
@@ -55,12 +55,12 @@ public class BGJSModuleAjax extends JNIV8Module {
                 if (!(arguments[1] instanceof String)) {
                     throw new RuntimeException("request: second argument is method and must be a String of the form [GET|POST|DELETE|HEAD|PUT]");
                 }
-            method = (String) arguments[1];
+                method = (String) arguments[1];
             }
             final JNIV8GenericObject headers;
 
             if (arguments.length >= 3) {
-                if (arguments[2] instanceof JNIV8GenericObject ) {
+                if (arguments[2] instanceof JNIV8GenericObject) {
                     headers = (JNIV8GenericObject) arguments[2];
                 } else if (arguments[2] != null && !(arguments[2] instanceof JNIV8Undefined)) {
                     throw new RuntimeException("request: third argument must be undefined or an object and not " + arguments[2]);
@@ -85,16 +85,14 @@ public class BGJSModuleAjax extends JNIV8Module {
                 }
                 if (arguments.length >= 5) {
                     if (arguments[4] instanceof Number) {
-                        timeoutMs = ((Number)arguments[4]).intValue();
+                        timeoutMs = ((Number) arguments[4]).intValue();
                     } else if (arguments[4] instanceof String) {
-                        timeoutMs = Integer.valueOf((String)arguments[4]);
+                        timeoutMs = Integer.valueOf((String) arguments[4]);
                     }
                 }
             } else {
                 body = null;
             }
-
-
 
 
             final BGJSModuleAjaxRequest request = new BGJSModuleAjaxRequest(engine);
