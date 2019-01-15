@@ -1,5 +1,6 @@
 package ag.boersego.bgjs;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Resources;
@@ -34,6 +35,7 @@ import javax.microedition.khronos.egl.EGLSurface;
  * @author kread
  */
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+@SuppressLint("LogNotTimber")
 abstract public class V8TextureView extends TextureView implements TextureView.SurfaceTextureListener {
 
     private final V8Engine mEngine;
@@ -52,6 +54,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
 
     protected boolean DEBUG;
+    @SuppressWarnings("PointlessBooleanExpression")
     private static final boolean LOG_FPS = false && BuildConfig.DEBUG;
     private static final int MAX_NUM_TOUCHES = 10;
     private static final int TOUCH_SLOP = 5;
@@ -727,6 +730,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
         @Override
         public void run() {
+            if (mFinished) {
+                return;
+            }
             // This thread might ultimately house Handlers, so initialize a looper
             Looper.prepare();
             if (DEBUG) {
@@ -735,6 +741,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
             // We try to initialize the OpenGL stack with a valid config
             try {
+                if (mFinished) {
+                    return;
+                }
                 initGL();
             } catch (final Exception ex) {
                 // If we cannot initialize OpenGL, log it and then quit
@@ -748,6 +757,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
             if (DEBUG) {
                 Log.d(TAG, "GL init done");
+            }
+
+            if (mFinished) {
+                return;
             }
 
             if (mClearColorSet) {
@@ -986,7 +999,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 throw new RuntimeException("eglInitialize failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
             }
             mEglVersion = version;
-            mEglVersion = version;
 
             final ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8, version);
             mEglConfig = chooser.chooseConfig(mEgl, mEglDisplay);
@@ -1061,6 +1073,12 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mFinished = true;
         if (mRenderThread != null) {
             mRenderThread.finish();
+
+            try {
+                mRenderThread.join();
+            } catch (InterruptedException e) {
+                Log.d(TAG, "Cannot join render thread", e);
+            }
         }
     }
 
