@@ -104,7 +104,7 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<Name> property, Local<Va
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
                     ThrowV8RangeError("assigned value '"+
-                                      JNIV8Marshalling::v8string2string(value->ToString())+"' is out of range for property '" + cb->propertyName + "'");
+                                      JNIV8Marshalling::v8string2string(value->ToString(isolate))+"' is out of range for property '" + cb->propertyName + "'");
                     break;
             }
             return;
@@ -219,7 +219,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
                             break;
                         case JNIV8MarshallingError::kOutOfRange:
                             ThrowV8RangeError("value '"+
-                                              JNIV8Marshalling::v8string2string(value->ToString())+"' is out of range for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
+                                              JNIV8Marshalling::v8string2string(value->ToString(isolate))+"' is out of range for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
                             break;
                     }
                     return;

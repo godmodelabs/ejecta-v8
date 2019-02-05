@@ -175,7 +175,7 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
 
     MaybeLocal<Value> result = engine->require(
-            JNIV8Marshalling::v8string2string(args[0]->ToString()));
+            JNIV8Marshalling::v8string2string(args[0]->ToString(isolate)));
     if (!result.IsEmpty()) {
         args.GetReturnValue().Set(scope.Escape(result.ToLocalChecked()));
     }
@@ -316,7 +316,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
                                                                                  NewStringType::kInternalized).ToLocalChecked());
         if (maybeValue.ToLocal(&value) && value->IsString()) {
             strExceptionMessage = JNIV8Marshalling::v8string2string(
-                    maybeValue.ToLocalChecked()->ToString());
+                    maybeValue.ToLocalChecked()->ToString(_isolate));
         }
 
         // retrieve error name (e.g. "SyntaxError")
@@ -325,7 +325,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
                                                                                  NewStringType::kInternalized).ToLocalChecked());
         if (maybeValue.ToLocal(&value) && value->IsString()) {
             strErrorName = JNIV8Marshalling::v8string2string(
-                    maybeValue.ToLocalChecked()->ToString());
+                    maybeValue.ToLocalChecked()->ToString(_isolate));
         }
 
         // the stack trace for syntax errors does not contain the location of the actual error
@@ -380,7 +380,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
                     if (maybeValue.ToLocal(&value) && value->IsFunction()) {
                         maybeValue = value.As<Function>()->Call(context, callSite, 0, nullptr);
                         if (maybeValue.ToLocal(&value) && value->IsNumber()) {
-                            lineNumber = (jint) value.As<Number>()->IntegerValue();
+                            lineNumber = (jint) value.As<Number>()->IntegerValue(context).FromJust();
                         }
                     }
 
@@ -428,7 +428,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
 
     // if exception was not an Error object, or if .message is not set for some reason => use toString()
     if (!exceptionMessage) {
-        exceptionMessage = JNIV8Marshalling::v8string2jstring(exception->ToString());
+        exceptionMessage = JNIV8Marshalling::v8string2jstring(exception->ToString(_isolate));
     }
 
     // apply trace to js exception
@@ -467,8 +467,7 @@ void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8
     if (maybeLocal.IsEmpty()) {
         return;
     }
-    std::string moduleId = JNIV8Marshalling::v8string2string(
-            maybeLocal.ToLocalChecked()->ToString());
+    std::string moduleId = JNIV8Marshalling::v8string2string(maybeLocal.ToLocalChecked()->ToString(isolate));
 
     jobject module = engine->_javaModules.at(moduleId);
 
@@ -525,7 +524,7 @@ const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
         }
     }
     if (stringValue.IsEmpty()) {
-        stringValue = source->ToString();
+        stringValue = source->ToString(Isolate::GetCurrent());
     }
     return JNIV8Marshalling::v8string2string(stringValue);
 }
@@ -572,7 +571,7 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
                                 String::NewFromOneByte(_isolate, (const uint8_t *) szJSRequireCode,
                                                        NewStringType::kNormal).ToLocalChecked(),
                                 &origin
-                        ).ToLocalChecked()->Run()
+                        ).ToLocalChecked()->Run(context).ToLocalChecked()
                 );
         baseRequireFn = v8::FunctionTemplate::New(_isolate, RequireCallback)->GetFunction();
         _makeRequireFn.Reset(_isolate, makeRequireFn);
@@ -671,8 +670,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
             MaybeLocal<Value> maybeRes = parseJSON(source);
             Handle<String> mainStr = String::NewFromUtf8(_isolate, (const char *) "main");
             if (maybeRes.ToLocal(&res) && res->IsObject() && res.As<Object>()->Has(mainStr)) {
-                Handle<String> jsFileName = res.As<Object>()->Get(mainStr)->ToString();
-                String::Utf8Value jsFileNameC(jsFileName);
+                Handle<String> jsFileName = res.As<Object>()->Get(mainStr)->ToString(_isolate);
+                String::Utf8Value jsFileNameC(_isolate, jsFileName);
 
                 fileName = baseNameStr + "/" + *jsFileNameC;
                 if (buf) {
@@ -717,8 +716,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     // wrap source in anonymous function to set up an isolated scope
     const char *szSourcePrefix = "(function (exports, require, module, __filename, __dirname) {";
     const char *szSourcePostfix = "})";
-    source = String::Concat(
-            String::Concat(
+    source = String::Concat(_isolate,
+            String::Concat(_isolate,
                     String::NewFromUtf8(_isolate, szSourcePrefix),
                     String::NewFromUtf8(_isolate, buf)
             ),
@@ -726,13 +725,17 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     );
     free((void *) buf);
 
+    // Create script origin
+    v8::ScriptOrigin* origin = new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
+                                            (const uint8_t *) baseNameStr.c_str(),
+                                            NewStringType::kInternalized).ToLocalChecked());
     // compile script
-    Handle<Script> scriptR = Script::Compile(source, String::NewFromUtf8(_isolate, baseNameStr.c_str()));
+    MaybeLocal<Script> scriptR = Script::Compile(context, source, origin);
 
     // run script; this will effectively return a function if everything worked
     // if not, something went wrong
     if (!scriptR.IsEmpty()) {
-        result = scriptR->Run();
+        result = scriptR.ToLocalChecked()->Run(context).ToLocalChecked();
     }
 
     // if we received a function, run it!
@@ -840,9 +843,9 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
     HandleScope scope(args.GetIsolate());
 
     if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
-        Local<Object> localFunc = args[0]->ToObject();
+        Local<Object> localFunc = args[0]->ToObject(args.GetIsolate());
 
-        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
+        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject(args.GetIsolate()));
         jobject functionWrapped = JNIV8Marshalling::v8value2jobject(localFunc);
         args.GetReturnValue().Set(view->callJavaIntMethod("requestAnimationFrame", functionWrapped));
         JNIWrapper::getEnvironment()->DeleteLocalRef(functionWrapped);
@@ -876,7 +879,7 @@ void BGJSV8Engine::js_global_cancelAnimationFrame(
     if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
 
         int id = (int) (Local<Number>::Cast(args[0])->Value());
-        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject());
+        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject(ctx->getIsolate()));
         view->callJavaVoidMethod("cancelAnimationFrame", id);
     } else {
         ctx->getIsolate()->ThrowException(
@@ -1155,7 +1158,7 @@ void BGJSV8Engine::createContext() {
                                                 "JavaError.prototype.constructor = JavaError;"
                                                 "return makeJavaError;"
                                                 "}())", NewStringType::kInternalized).ToLocalChecked(),
-                                &makeJavaErrorOrigin).ToLocalChecked()->Run());
+                                &makeJavaErrorOrigin).ToLocalChecked()->Run(context).ToLocalChecked());
         _makeJavaErrorFn.Reset(_isolate, makeJavaErrorFn_);
     }
 
@@ -1175,7 +1178,7 @@ void BGJSV8Engine::createContext() {
                                                 "})", NewStringType::kInternalized).ToLocalChecked(),
                                 new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
                                                                         (const uint8_t *) "binding:getStackTrace",
-                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
         _getStackTraceFn.Reset(_isolate, getStackTraceFn_);
     }
 
@@ -1190,7 +1193,7 @@ void BGJSV8Engine::createContext() {
                                                        NewStringType::kInternalized).ToLocalChecked(),
                                 new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
                                                                         (const uint8_t *) "binding:parseJSON",
-                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
         _jsonParseFn.Reset(_isolate, jsonParseMethod_);
     }
 
@@ -1205,7 +1208,7 @@ void BGJSV8Engine::createContext() {
                                                        NewStringType::kInternalized).ToLocalChecked(),
                                 new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
                                                                         (const uint8_t *) "binding:stringifyJSON",
-                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run());
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
     }
 }
@@ -1313,7 +1316,7 @@ BGJSV8Engine::~BGJSV8Engine() {
 void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
     JNI_ASSERT(args.Length() >= 1 && args[0]->IsFunction(), "enqueueNextTick must be called with a callback function");
     HandleScope scope(args.GetIsolate());
-    const auto wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject());
+    const auto wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject(args.GetIsolate()));
     JNIEnv *env = JNIWrapper::getEnvironment();
     env->CallBooleanMethod(getJObject(), _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
 }
@@ -1332,7 +1335,7 @@ void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
     Local<StackTrace> stackTrace = StackTrace::CurrentStackTrace(args.GetIsolate(), 15);
     l = stackTrace->GetFrameCount();
     for (int i = 0; i < l; i++) {
-        const Local<StackFrame> &frame = stackTrace->GetFrame(i);
+        const Local<StackFrame> &frame = stackTrace->GetFrame(args.GetIsolate(), i);
         str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " ("
             << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber() << ")\n";
     }
@@ -1372,7 +1375,7 @@ void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
         Local<StackTrace> stackTrace = StackTrace::CurrentStackTrace(args.GetIsolate(), 15);
         int l = stackTrace->GetFrameCount();
         for (int i = 0; i < l; i++) {
-            const Local<StackFrame> &frame = stackTrace->GetFrame(i);
+            const Local<StackFrame> &frame = stackTrace->GetFrame(isolate, i);
             str << "    " << JNIV8Marshalling::v8string2string(frame->GetScriptName()) << " ("
                 << JNIV8Marshalling::v8string2string(frame->GetFunctionName()) << ":" << frame->GetLineNumber()
                 << ")\n";
