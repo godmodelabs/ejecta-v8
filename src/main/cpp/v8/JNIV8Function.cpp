@@ -143,7 +143,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     memset(&jval, 0, sizeof(jvalue));
     JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, resultRef, arg, &jval);
     if(res != JNIV8MarshallingError::kOk) {
-        std::string strMethodName = JNIV8Marshalling::v8string2string(ptr->getJSObject().As<v8::Function>()->GetDebugName()->ToString());
+        std::string strMethodName = JNIV8Marshalling::v8string2string(ptr->getJSObject().As<v8::Function>()->GetDebugName()->ToString(isolate));
         switch(res) {
             default:
             case JNIV8MarshallingError::kWrongType:
@@ -163,7 +163,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
                 break;
             case JNIV8MarshallingError::kOutOfRange:
                 ThrowV8RangeError("return value '"+
-                                  JNIV8Marshalling::v8string2string(resultRef->ToString())+"' is out of range for method '" + strMethodName + "'");
+                                  JNIV8Marshalling::v8string2string(resultRef->ToString(isolate))+"' is out of range for method '" + strMethodName + "'");
                 break;
         }
         return nullptr;
@@ -178,7 +178,7 @@ v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     v8::Local<v8::Context> context = isolate->GetCurrentContext();
 
     v8::MaybeLocal<v8::Function> maybeFuncRef;
-    v8::MaybeLocal<v8::Value> maybeLocalRef;
+    v8::MaybeLocal<v8::Value> maybeLocalRef, maybeLocalScriptRef;
     v8::Local<v8::Function> baseFuncRef, funcRef;
     v8::Local<v8::Value> localRef;
 
@@ -204,12 +204,18 @@ v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     // second function: this one introduces the External (x)
     // third function: the actual function for a specific JNIV8Function instance. Forwards all of its arguments to x (native function) prepended with y (external).
     v8::ScriptOrigin origin = v8::ScriptOrigin(v8::String::NewFromOneByte(v8::Isolate::GetCurrent(), (const uint8_t*)"binding:JNIV8Function", v8::NewStringType::kInternalized).ToLocalChecked());
-    funcRef = v8::Local<v8::Function>::Cast(
+    maybeLocalScriptRef =
             v8::Script::Compile(
                     context,
                     v8::String::NewFromOneByte(isolate, (const uint8_t*)"(function(x){return function(y){return function(...args){return x(y,...args);}}})", v8::NewStringType::kInternalized).ToLocalChecked(),
                     &origin)
-            .ToLocalChecked()->Run());
+            .ToLocalChecked()->Run(context);
+
+    if (maybeLocalScriptRef.IsEmpty()) {
+        return v8::MaybeLocal<v8::Function>();
+    }
+
+    funcRef = maybeLocalScriptRef.ToLocalChecked().As<v8::Function>();
 
     maybeLocalRef = funcRef->Call(context, context->Global(), 1, (v8::Local<v8::Value>*)&baseFuncRef);
     if (!maybeLocalRef.ToLocal(&localRef) || !localRef->IsFunction()) {

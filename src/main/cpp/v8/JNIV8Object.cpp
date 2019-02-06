@@ -237,7 +237,7 @@ jobject JNIV8Object::jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstri
                 break;
             case JNIV8MarshallingError::kOutOfRange:
                 ThrowJNICastError("assigned value '"+
-                                  JNIV8Marshalling::v8string2string(valueRef.ToLocalChecked()->ToString())+"' is out of range for field '" + strFieldName + "'");
+                                  JNIV8Marshalling::v8string2string(valueRef.ToLocalChecked()->ToString(context).ToLocalChecked())+"' is out of range for field '" + strFieldName + "'");
                 break;
         }
         return nullptr;
@@ -355,7 +355,7 @@ jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jst
                 break;
             case JNIV8MarshallingError::kOutOfRange:
                 ThrowJNICastError("return value '"+
-                                  JNIV8Marshalling::v8string2string(resultRef->ToString())+"' is out of range for method '" + strMethodName + "'");
+                                  JNIV8Marshalling::v8string2string(resultRef->ToString(context).ToLocalChecked())+"' is out of range for method '" + strMethodName + "'");
                 break;
         }
         return nullptr;
@@ -399,7 +399,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        string = JNIV8Marshalling::v8string2jstring(valueRef->ToString());
+        string = JNIV8Marshalling::v8string2jstring(valueRef->ToString(isolate));
         if(!result) {
             result = env->NewObjectArray(n, _jniString.clazz, string);
         } else {
@@ -438,7 +438,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        keyRef = valueRef->ToString();
+        keyRef = valueRef->ToString(isolate);
 
         maybeValueRef = localRef->Get(context, keyRef);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
@@ -468,7 +468,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
                     ThrowJNICastError("value '"+
-                                      JNIV8Marshalling::v8string2string(valueRef->ToString())+"' is out of range for property '" + strPropertyName + "'");
+                                      JNIV8Marshalling::v8string2string(valueRef->ToString(context).ToLocalChecked())+"' is out of range for property '" + strPropertyName + "'");
                     break;
             }
             return nullptr;

@@ -47,7 +47,7 @@ if (!args.This()->IsObject()) { \
 	LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function"))); \
 } \
-BGJSCanvasContext *__context = BGJSClass::externalToClassPtr<BGJSV8Engine2dGL>(args.This()->ToObject()->GetInternalField(0))->context; \
+BGJSCanvasContext *__context = BGJSClass::externalToClassPtr<BGJSV8Engine2dGL>(args.This()->ToObject(isolate)->GetInternalField(0))->context; \
 if (!__context->_isRendering) { \
 	LOGI("Context is not in rendering phase in method '%s'", __PRETTY_FUNCTION__); \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run when not in rendering phase"))); \
@@ -199,7 +199,7 @@ static void js_context_set_textAlign(Local<String> property, Local<Value> value,
 		LOGE("set textAlign expects string");
 		return;
 	}
-	String::Utf8Value utf8(value);
+	String::Utf8Value utf8(isolate, value);
 
 	const char *str = *utf8;
 
@@ -250,7 +250,7 @@ static void js_context_set_globalCompositeOperation(Local<String> property, Loca
 		LOGE("set globalCompositeOperation expects string");
 		return;
 	}
-	String::Utf8Value utf8(value);
+	String::Utf8Value utf8(isolate, value);
 
 	const char *str = *utf8;
 
@@ -304,7 +304,7 @@ static void js_context_set_textBaseline(Local<String> property,
 		return;
 	}
 
-	String::Utf8Value utf8(value);
+	String::Utf8Value utf8(isolate, value);
 	const char *str = *utf8;
 
 	// top, hanging, middle, alphabetic, ideographic, bottom
@@ -342,7 +342,7 @@ static void js_context_set_font(Local<String> property, Local<Value> value,
 		return;
 	}
 
-	String::Utf8Value utf8(value);
+	String::Utf8Value utf8(isolate, value);
 	const char *str = *utf8;
 
 	__context->setFont((char*)str);
@@ -414,7 +414,7 @@ static void js_context_set_lineJoin(Local<String> property, Local<Value> value,
 		return;
 	}
 
-	String::Utf8Value utf8(value);
+	String::Utf8Value utf8(isolate, value);
 	const char *str = *utf8;
 
 	if (strcmp(str, "round") == 0) {
@@ -455,7 +455,7 @@ static void js_context_set_lineCap(Local<String> property, Local<Value> value,
 		return;
 	}
 
-	String::Utf8Value utf8(value);
+	String::Utf8Value utf8(isolate, value);
 	const char *str = *utf8;
 
 	if (strcmp(str, "butt") == 0) {
@@ -767,7 +767,7 @@ static void js_context_arc(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	float radius = Local<Number>::Cast(args[2])->Value();
 	float startAngle = Local<Number>::Cast(args[3])->Value();
 	float endAngle = Local<Number>::Cast(args[4])->Value();
-	bool antiClockWise = args[5]->BooleanValue();
+	bool antiClockWise = args[5]->BooleanValue(isolate);
 	__context->arcX(x, y, radius, startAngle, endAngle, antiClockWise);
 	// [__context arcX:(float)JSValueToNumber(ctx,arguments[0],exception) y:(float)JSValueToNumber(ctx,arguments[1],exception) radius:(float)JSValueToNumber(ctx,arguments[2],exception) startAngle:(float)JSValueToNumber(ctx,arguments[3],exception) endAngle:(float)JSValueToNumber(ctx,arguments[4],exception) antiClockwise:JSValueToBoolean(ctx,arguments[5])];
 	args.GetReturnValue().SetUndefined();
@@ -860,7 +860,7 @@ static void js_context_strokeText(const v8::FunctionCallbackInfo<v8::Value>& arg
 	 */
 	//assert(argumentCount==3||argumentCount==4);
 	Handle<String> text = Local<String>::Cast(args[0]);
-	String::Utf8Value utf8(text);
+	String::Utf8Value utf8(isolate, text);
 	float x = Local<Number>::Cast(args[1])->Value();
 	float y = Local<Number>::Cast(args[2])->Value();
 
@@ -876,7 +876,7 @@ static void js_context_fillText(const v8::FunctionCallbackInfo<v8::Value>& args)
 	 */
 	//assert(argumentCount==3||argumentCount==4);
 	Handle<String> text = Local<String>::Cast(args[0]);
-	String::Utf8Value utf8(text);
+	String::Utf8Value utf8(isolate, text);
 	float x = Local<Number>::Cast(args[1])->Value();
 	float y = Local<Number>::Cast(args[2])->Value();
 
@@ -892,7 +892,7 @@ static void js_context_measureText(const v8::FunctionCallbackInfo<v8::Value>& ar
 	CONTEXT_FETCH_ESCAPABLE();
 
 	Local<String> text = Local<String>::Cast(args[0]);
-	String::Utf8Value utf8(text);
+	String::Utf8Value utf8(isolate, text);
 	float stringWidth = __context->measureText(*utf8);
 
 	Local<Object> objRef = Object::New(isolate);
@@ -979,13 +979,13 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 	}
 	if (!args[0]->IsObject()) {
 		LOGE(
-				"js_canvas_constructor got non-object as first type: %s", *(String::Utf8Value(args[0]->ToString())));
+				"js_canvas_constructor got non-object as first type: %s", *(String::Utf8Value(isolate, args[0]->ToString(isolate))));
 		args.GetReturnValue().SetUndefined();
         return;
 	}
-	Local<Object> obj = args[0]->ToObject();
+	Local<Object> obj = args[0]->ToObject(isolate);
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
-	canvas->_view = JNIRetainedRef<BGJSGLView>::New(JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject()));
+	canvas->_view = JNIRetainedRef<BGJSGLView>::New(JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject(isolate)));
 
 	MaybeLocal<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance(BGJSV8Engine::GetInstance(isolate)->getContext());
     if (fn.IsEmpty()) {
@@ -1012,7 +1012,7 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 		return;
 	}
 
-	Local<External> external = Local<External>::Cast(args.This()->ToObject()->GetInternalField(0));
+	Local<External> external = Local<External>::Cast(args.This()->ToObject(isolate)->GetInternalField(0));
 	BGJSCanvasGL *canvas = reinterpret_cast<BGJSCanvasGL*>(external->Value());
 
 	if (canvas->_context2d) {

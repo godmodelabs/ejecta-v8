@@ -215,6 +215,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             return JNIV8MarshallingError::kNotNullable;
         }
     } else {
+        v8::Isolate* isolate = v8::Isolate::GetCurrent();
         switch (arg.valueType) {
             case JNIV8JavaValueType::kObject:
                 target->l = JNIV8Marshalling::v8value2jobject(v8Value);
@@ -234,14 +235,14 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kBoolean: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsBoolean())
                     return JNIV8MarshallingError::kWrongType;
-                jboolean value = (jboolean) v8Value->ToBoolean()->BooleanValue();
+                jboolean value = (jboolean) v8Value->ToBoolean(isolate)->BooleanValue(isolate);
                 AutoboxArgument(Boolean, z);
                 break;
             }
             case JNIV8JavaValueType::kByte: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
                     return JNIV8MarshallingError::kWrongType;
-                numberValue = v8Value->NumberValue();
+                numberValue = v8Value->NumberValue(isolate->GetCurrentContext()).FromMaybe(FP_NAN);
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jbyte value = (jbyte) numberValue;
                 if (value != numberValue) return JNIV8MarshallingError::kOutOfRange;
@@ -251,14 +252,14 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kCharacter: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsString())
                     return JNIV8MarshallingError::kWrongType;
-                jchar value = (jchar) JNIV8Marshalling::v8string2string(v8Value->ToString())[0];
+                jchar value = (jchar) JNIV8Marshalling::v8string2string(v8Value->ToString(isolate))[0];
                 AutoboxArgument(Character, c);
                 break;
             }
             case JNIV8JavaValueType::kShort: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
                     return JNIV8MarshallingError::kWrongType;
-                numberValue = v8Value->NumberValue();
+                numberValue = v8Value->NumberValue(isolate->GetCurrentContext()).FromMaybe(FP_NAN);
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jshort value = (jshort) numberValue;
                 if (value != numberValue) return JNIV8MarshallingError::kOutOfRange;
@@ -268,7 +269,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kInteger: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
                     return JNIV8MarshallingError::kWrongType;
-                numberValue = v8Value->NumberValue();
+                numberValue = v8Value->NumberValue(isolate->GetCurrentContext()).FromMaybe(FP_NAN);
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jint value = (jint) numberValue;
                 if (value != numberValue) return JNIV8MarshallingError::kOutOfRange;
@@ -278,7 +279,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kLong: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
                     return JNIV8MarshallingError::kWrongType;
-                numberValue = v8Value->NumberValue();
+                numberValue = v8Value->NumberValue(isolate->GetCurrentContext()).FromMaybe(FP_NAN);
                 if (std::isnan(numberValue)) return JNIV8MarshallingError::kNoNaN;
                 jlong value = (jlong) numberValue;
                 if (value != numberValue) return JNIV8MarshallingError::kOutOfRange;
@@ -288,7 +289,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kFloat: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
                     return JNIV8MarshallingError::kWrongType;
-                numberValue = v8Value->NumberValue();
+                numberValue = v8Value->NumberValue(isolate->GetCurrentContext()).FromMaybe(FP_NAN);
                 jfloat value = (jfloat) numberValue;
                 // Comparing a double and float can lead to unexpected false negatives. We accept that some precision
                 // can be lost here and do not do the kOutOfRange check.
@@ -298,7 +299,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kDouble: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsNumber())
                     return JNIV8MarshallingError::kWrongType;
-                numberValue = v8Value->NumberValue();
+                numberValue = v8Value->NumberValue(isolate->GetCurrentContext()).FromMaybe(FP_NAN);
                 jdouble value = (jdouble) numberValue;
                 AutoboxArgument(Double, d);
                 break;
@@ -306,7 +307,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kString: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsString())
                     return JNIV8MarshallingError::kWrongType;
-                target->l = JNIV8Marshalling::v8value2jobject(v8Value->ToString());
+                target->l = JNIV8Marshalling::v8value2jobject(v8Value->ToString(isolate));
                 break;
             }
             case JNIV8JavaValueType::kVoid: {
@@ -440,7 +441,7 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
 
     // string pointers can also be null
     if(env->IsSameObject(string, NULL)) {
-        return scope.Escape(v8::Null(isolate)->ToString());
+        return scope.Escape(v8::Null(isolate)->ToString(isolate));
     }
 
     len = env->GetStringLength(string);
@@ -467,7 +468,7 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
  */
 jstring JNIV8Marshalling::v8string2jstring(v8::Local<v8::String> string) {
     JNIEnv *env = JNIWrapper::getEnvironment();
-    return env->NewString(*v8::String::Value(string), string->Length()); // returns "" when called with NULL,0
+    return env->NewString(*v8::String::Value(v8::Isolate::GetCurrent(), string), string->Length()); // returns "" when called with NULL,0
 }
 
 /**
@@ -494,11 +495,11 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
             return JNIV8Wrapper::wrapObject<JNIV8GenericObject>(objectRef)->getJObject();
         }
     } else if(valueRef->IsNumber()) {
-        return env->CallStaticObjectMethod(_jniDouble.clazz, _jniDouble.valueOfId, valueRef->NumberValue());
+        return env->CallStaticObjectMethod(_jniDouble.clazz, _jniDouble.valueOfId, valueRef->NumberValue(isolate->GetCurrentContext()).FromJust());
     } else if(valueRef->IsString()) {
         return JNIV8Marshalling::v8string2jstring(valueRef.As<v8::String>());
     } else if(valueRef->IsBoolean()) {
-        return env->CallStaticObjectMethod(_jniBoolean.clazz, _jniBoolean.valueOfId, valueRef->BooleanValue());
+        return env->CallStaticObjectMethod(_jniBoolean.clazz, _jniBoolean.valueOfId, valueRef->BooleanValue(isolate));
     } else if(valueRef->IsUndefined()) {
         return env->NewLocalRef(_undefined);
     } else if(valueRef->IsSymbol()) {
@@ -559,5 +560,6 @@ jobject JNIV8Marshalling::undefinedInJava() {
  * convert a v8::String to a std::string
  */
 std::string JNIV8Marshalling::v8string2string(v8::Local<v8::Value> value) {
-    return (value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(value->ToString())));
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    return (value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(isolate, value->ToString(isolate))));
 }

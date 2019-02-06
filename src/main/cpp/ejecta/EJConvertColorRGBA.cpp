@@ -337,7 +337,7 @@ EJColorRGBA JSValueToColorRGBA(v8::Local<v8::Value> value) {
     }
 
 
-    String::Utf8Value utf8(value);
+    String::Utf8Value utf8(Isolate::GetCurrent(), value);
     size_t length = utf8.length();
     const char* jsc = *utf8;
     color = bufferToColorRBGA(jsc, length);
