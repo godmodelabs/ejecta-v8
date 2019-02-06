@@ -1,10 +1,8 @@
 package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
-import ag.boersego.v8annotations.V8Function
-import ag.boersego.v8annotations.V8Getter
-import java.util.*
-import kotlin.collections.ArrayList
+import ag.boersego.bgjs.modules.fetch.BGJSModuleFetchRequest
+import java.net.URL
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 06.02.19 for JSNext-android.
@@ -13,187 +11,73 @@ import kotlin.collections.ArrayList
 
 class BGJSModuleFetch : JNIV8Module("fetch") {
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        val exports = JNIV8GenericObject.Create(engine)
+
+        // exports.setV8Field("fetch", )
+
+        module?.setV8Field("exports", JNIV8Function.Create(engine) { receiver, arguments ->
+            if (arguments == null || arguments.size < 1) {
+                throw RuntimeException("fetch needs at least one argument: input")
+            }
+            val input = arguments[0]
+
+            val request:BGJSModuleFetchRequest
+            if (input is String) {
+                val url = URL(input)
+                request = BGJSModuleFetchRequest(engine)
+                request.url = input
+            } else if (input is BGJSModuleFetchRequest) {
+                request = input
+            } else {
+                throw RuntimeException("fetch first argument (input) must be a string or Request object")
+            }
+
+            if (arguments.size > 1) {
+                val init = arguments[1] as? JNIV8Object?
+                if (init != null) {
+                    initRequest(request, init)
+                }
+
+            }
+
+        })
     }
 
-}
+    private fun initRequest(request: BGJSModuleFetchRequest, init: JNIV8Object) {
+        val fields = init.v8Fields
+        request.method = fields["method"] as? String? ?: "GET"
 
-class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
-
-    private val headers = HashMap<String, ArrayList<Any>>()
-
-    private fun normalizePotentialValue(ptValue: String): String {
-        return ptValue.trim()
-    }
-
-    private fun normalizeName(name: String): String {
-        return name.trim().toLowerCase(Locale.ROOT)
-    }
-
-    @V8Function
-    fun append(rawName: String, rawValue: String) {
-        val value = normalizePotentialValue(rawValue)
-        if (value.contains(ZERO_BYTE) || value.contains('\n') || value.contains('\r')) {
-            throw RuntimeException("TypeError: illegal character in value")
-        }
-        val name = normalizeName(rawName)
-
-        var currentList = headers[name]
-
-        if (currentList == null) {
-            currentList = ArrayList()
-            headers.put(name, currentList)
-        }
-        currentList.add(value)
-    }
-
-    /**
-     * Overwrite a header in the header list
-     */
-    @V8Function
-    fun set(rawName: String, rawValue: String) {
-        val value = normalizePotentialValue(rawValue)
-        if (value.contains(ZERO_BYTE) || value.contains('\n') || value.contains('\r')) {
-            throw RuntimeException("TypeError: illegal character in value")
-        }
-        val name = normalizeName(rawName)
-
-        var currentList = headers[name]
-
-        if (currentList == null) {
-            currentList = ArrayList()
-            headers.put(name, currentList)
-        } else {
-            currentList.clear()
-        }
-        currentList.add(value)
-    }
-
-    @V8Function
-    fun delete(name: String) {
-        headers.remove(normalizeName(name))
-    }
-
-    @V8Function
-    fun get(name: String): Any? {
-        return headers.get(normalizeName(name))
-    }
-
-    @V8Function
-    fun has(name: String): Boolean {
-        return headers.containsKey(normalizeName(name))
-    }
-
-    @V8Function
-    fun entries(): List<List<String>> {
-        val valueList = ArrayList<List<String>>()
-        for (header in headers) {
-            val innerList = ArrayList<String>()
-            innerList.add(header.key)
-            innerList.add(header.value.joinToString(", "))
+        if (fields.containsKey("headers")) {
+            val headerRaw = fields["headers"]
+            if (headerRaw is BGJSModuleFetchHeaders) {
+                request.headers = headerRaw
+            } else if(headerRaw is JNIV8Object) {
+                request.headers = BGJSModuleFetchHeaders.createFrom(headerRaw)
+            } else {
+                throw RuntimeException("TypeError: init.headers is not an object of Headers instance")
+            }
         }
 
-        return valueList
-    }
+        if (fields.containsKey("body")) {
+            val bodyRaw = fields["body"]
 
-    @V8Function
-    fun keys(): List<String> {
-        val keyList = ArrayList<String>(headers.keys)
-
-        return keyList
-    }
-
-    @V8Function
-    fun values(): List<Any> {
-        val valueList = ArrayList<Any>()
-        for (header in headers.values) {
-            valueList.add(header.joinToString(","))
+            if (bodyRaw is String) {
+                request.body = bodyRaw
+            } else {
+                // TODO: implement FormData, Buffer, URLSearchParams
+                throw RuntimeException("TypeError: fetch init.body must be of a valid type")
+            }
         }
-
-        return valueList
+        request.mode = fields["mode"] as? String? ?: "omit"
     }
 
     companion object {
-        val ZERO_BYTE = '\u0000'
-    }
-}
-
-abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
-    var body: String? = null
-        internal set
-        @V8Getter get
-
-    var bodyUsed = false
-        internal set
-        @V8Getter get
-
-    @V8Function
-    fun json(): JNIV8Object {
-        // TODO: parse
-        return JNIV8GenericObject.Create(v8Engine)
-    }
-}
-
-class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : BGJSModuleFetchBody(v8Engine, jsPtr, args) {
-
-    var status: Int = -1
-        internal set
-        @V8Getter get
-
-    var statusText: String? = null
-        internal set
-        @V8Getter get
-
-    var headers: BGJSModuleFetchHeaders? = null
-        internal set
-        @V8Getter get
-
-    val ok: Boolean
-        @V8Getter get() = status in 200..299
-
-    var redirect = false
-        internal set
-        @V8Getter get
-
-    var type = ""
-        internal set
-        @V8Getter get
-
-    var url = ""
-        internal set
-        @V8Getter get
-
-    var useFinalURL = false
-        internal set
-        @V8Getter get
-
-
-    init {
-        if (args != null) {
-            if (args.size > 0) {
-                // First argument: body
-                val bodyRaw = args[0]
-                // TODO: According to spec, this should be a Blob!
-                if (bodyRaw is String) {
-                    body = bodyRaw
-                }
-            }
-
-            if (args.size > 1 && args[1] is JNIV8Object) {
-                val options = args[1] as JNIV8Object
-                if (options.hasV8Field("status")) {
-                    status = options.getV8Field<Int>("status")
-                }
-                if (options.hasV8Field("statusText")) {
-                    statusText = options.getV8Field<String>("statusText")
-                }
-                if (options.hasV8Field("headers")) {
-                    val headersRaw = options.getV8Field("headers")
-                    headers = headersRaw as? BGJSModuleFetchHeaders
-                }
-            }
+        init {
+            JNIV8Object.RegisterV8Class(BGJSModuleFetchHeaders::class.java)
+            JNIV8Object.RegisterV8Class(BGJSModuleFetchResponse::class.java)
+            JNIV8Object.RegisterV8Class(BGJSModuleFetchRequest::class.java)
         }
     }
 
-
 }
+
