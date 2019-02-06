@@ -12,7 +12,7 @@ import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.os.Build;
 import android.os.Looper;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.MotionEvent.PointerCoords;

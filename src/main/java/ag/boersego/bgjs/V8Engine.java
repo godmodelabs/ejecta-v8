@@ -1,30 +1,25 @@
 package ag.boersego.bgjs;
 
+import ag.boersego.bgjs.data.V8UrlCache;
+import ag.boersego.bgjs.modules.BGJSModuleAjax;
+import ag.boersego.bgjs.modules.BGJSModuleLocalStorage;
+import ag.boersego.bgjs.modules.BGJSModuleWebSocket;
 import android.annotation.SuppressLint;
-import android.app.Application;
+import android.content.Context;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.SparseArray;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import okhttp3.OkHttpClient;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
-
-import ag.boersego.bgjs.data.V8UrlCache;
-import ag.boersego.bgjs.modules.BGJSModuleAjax;
-import ag.boersego.bgjs.modules.BGJSModuleLocalStorage;
-import ag.boersego.bgjs.modules.BGJSModuleWebSocket;
-import okhttp3.OkHttpClient;
 
 /**
  * v8Engine
@@ -291,27 +286,22 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
-    protected V8Engine(final Application application, final boolean isStoreBuild) {
-        final AssetManager assetManager;
-        if (application != null) {
-            assetManager = application.getAssets();
-            final Resources r = application.getResources();
-            if (r != null) {
-                mDensity = r.getDisplayMetrics().density;
-                mIsTablet = r.getBoolean(R.bool.isTablet);
-            } else {
-                throw new RuntimeException("No resources available");
-            }
-
-            // Lets check of external storage is available, otherwise let's use internal storage
-            File cacheDir = application.getExternalCacheDir();
-            if (cacheDir == null) {
-                cacheDir = application.getCacheDir();
-            }
-            mStoragePath = cacheDir.toString();
+    public V8Engine(final @NonNull Context application, final boolean isStoreBuild) {
+        final AssetManager assetManager = application.getAssets();
+        final Resources r = application.getResources();
+        if (r != null) {
+            mDensity = r.getDisplayMetrics().density;
+            mIsTablet = r.getBoolean(R.bool.isTablet);
         } else {
-            throw new RuntimeException("Application is null");
+            throw new RuntimeException("No resources available");
         }
+
+        // Lets check of external storage is available, otherwise let's use internal storage
+        File cacheDir = application.getExternalCacheDir();
+        if (cacheDir == null) {
+            cacheDir = application.getCacheDir();
+        }
+        mStoragePath = cacheDir.toString();
         final Locale locale = Locale.getDefault();
         final String country = locale.getCountry();
         if (country.isEmpty()) {
@@ -326,10 +316,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         registerModule(BGJSModuleAjax.getInstance());
         registerModule(new BGJSModuleLocalStorage(application.getApplicationContext()));
 
-        // start thread
-        initializeV8(assetManager, isStoreBuild);
-
-        jsThread = new Thread(new V8EngineRunnable());
+        jsThread = new Thread(new V8EngineRunnable(assetManager, isStoreBuild));
         jsThread.setName("EjectaV8JavaScriptContext");
         jsThread.start();
     }
@@ -342,43 +329,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         BGJSModuleAjax.getInstance().setExecutor(executor);
     }
 
-    public static boolean isReady() {
-        return getInstance().mReady;
-    }
-
-    public synchronized static V8Engine getInstance(final Application app, final boolean isStoreBuild) {
-        if (mInstance == null) {
-            if (app == null) {
-                throw new RuntimeException("V8Engine hasn't been initialized");
-            }
-            mInstance = new V8Engine(app, isStoreBuild);
-        }
-        return mInstance;
-    }
-
-    @NonNull
-    public static V8Engine getInstance() {
-        return getInstance(null, true);
-    }
-
-    @Nullable
-    public static V8Engine getCachedInstance() {
-        return mInstance;
-    }
-
-    public void initializeV8(final AssetManager assetManager, final boolean isStoreBuild) {
-        try {
-            Thread.sleep(100);
-        } catch (final InterruptedException e) {
-            e.printStackTrace();
-        }
-        Log.d(TAG, "Initializing V8Engine");
-        final int maxHeapSizeForV8 = (int) (Runtime.getRuntime().maxMemory() / 1024 / 1024 / 3);
-        if (mDebug) {
-            Log.d(TAG, "Max heap size for v8 is " + maxHeapSizeForV8 + " MB");
-        }
-
-        ClientAndroid.initialize(assetManager, this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", mDebug, isStoreBuild, maxHeapSizeForV8);
+    public boolean isReady() {
+        return mReady;
     }
 
     private native void registerModuleNative(JNIV8Module module);
@@ -435,11 +387,31 @@ public class V8Engine extends JNIObject implements Handler.Callback {
      * This Runnable is the main loop of a separate Thread where v8 code is executed.
      */
     class V8EngineRunnable implements Runnable {
-        V8EngineRunnable() {
+        private final boolean isStoreBuild;
+        private AssetManager assetManager;
+
+        V8EngineRunnable(AssetManager assetManager, boolean isStoreBuild) {
+            this.assetManager = assetManager;
+            this.isStoreBuild = isStoreBuild;
         }
 
         @Override
         public void run() {
+
+            try {
+                Thread.sleep(100);
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            }
+            Log.d(TAG, "Initializing V8Engine");
+            final int maxHeapSizeForV8 = (int) (Runtime.getRuntime().maxMemory() / 1024 / 1024 / 3);
+            if (mDebug) {
+                Log.d(TAG, "Max heap size for v8 is " + maxHeapSizeForV8 + " MB");
+            }
+
+            ClientAndroid.initialize(assetManager, V8Engine.this, mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", mDebug, isStoreBuild, maxHeapSizeForV8);
+            assetManager = null;
+
             Looper.prepare();
             mHandler = new Handler(V8Engine.this);
 
@@ -504,6 +476,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 return true;
             case MSG_READY:
                 mReady = true;
+                onReady();
                 if (mHandlers != null) {
                     for (final V8EngineHandler h : mHandlers) {
                         h.onReady();
@@ -513,6 +486,13 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 return true;
         }
         return false;
+    }
+
+    /**
+     * Override to be notified once the engine is ready
+     */
+    public void onReady() {
+
     }
 
 

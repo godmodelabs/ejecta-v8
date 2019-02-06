@@ -1,6 +1,6 @@
 package ag.boersego.bgjs;
 
-import android.support.annotation.Keep;
+import androidx.annotation.Keep;
 
 /**
  * Created by martin on 27.09.17.

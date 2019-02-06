@@ -1,6 +1,6 @@
 package ag.boersego.bgjs;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * Created by martin on 29.09.17.
