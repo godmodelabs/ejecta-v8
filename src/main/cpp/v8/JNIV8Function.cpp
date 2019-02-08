@@ -201,7 +201,7 @@ v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     // the usual: a function returning a function returning a function calling a function!
     // Idea: in the end we want a function that calls a native function with an External containing the java reference
     // first function: the native function is always the same, but we have to get it "into the script" somehow (x). This is what happens here
-    // second function: this one introduces the External (x)
+    // second function: this one introduces the External (y)
     // third function: the actual function for a specific JNIV8Function instance. Forwards all of its arguments to x (native function) prepended with y (external).
     v8::ScriptOrigin origin = v8::ScriptOrigin(v8::String::NewFromOneByte(v8::Isolate::GetCurrent(), (const uint8_t*)"binding:JNIV8Function", v8::NewStringType::kInternalized).ToLocalChecked());
     maybeLocalScriptRef =
@@ -239,6 +239,23 @@ jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jo
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
 
+    v8::Local<v8::Function> funcRef;
+    auto maybeFuncRef = createJavaBackedFunction(engine, handler);
+    if (!maybeFuncRef.ToLocal(&funcRef)) {
+        // exception will already have been thrown at this point
+        return nullptr;
+    }
+
+    return JNIV8Wrapper::wrapObject<JNIV8Function>(funcRef)->getJObject();
+}
+
+v8::MaybeLocal<v8::Function> JNIV8Function::createJavaBackedFunction(JNILocalRef<BGJSV8Engine> engine, jobject handler) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::EscapableHandleScope scope(isolate);
+
     v8::MaybeLocal<v8::Value> maybeLocalRef;
     v8::Local<v8::Value> localRef;
     v8::Local<v8::Function> funcRef;
@@ -255,14 +272,14 @@ jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jo
     if (!maybeFuncRef.ToLocal(&funcRef)) {
         delete holder;
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "Failed to retrieve JNIV8Function wrapper function");
-        return nullptr;
+        return v8::MaybeLocal<v8::Function>();
     }
 
     // generate an instance specific function from the base function
     maybeLocalRef = funcRef->Call(context, context->Global(), 1, (v8::Local<v8::Value>*)&data);
     if (!maybeLocalRef.ToLocal(&localRef) || !localRef->IsFunction()) {
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "V8 failed to create function");
-        return nullptr;
+        return v8::MaybeLocal<v8::Function>();
     }
     funcRef = v8::Local<v8::Function>::Cast(localRef);
 
@@ -270,5 +287,5 @@ jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jo
     holder->persistent.Reset(isolate, funcRef);
     holder->persistent.SetWeak((void*)holder, JNIV8FunctionWeakPersistentCallback, v8::WeakCallbackType::kParameter);
 
-    return JNIV8Wrapper::wrapObject<JNIV8Function>(funcRef)->getJObject();
+    return scope.Escape(funcRef);
 }

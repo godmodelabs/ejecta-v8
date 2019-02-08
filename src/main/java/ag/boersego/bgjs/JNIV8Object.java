@@ -1,5 +1,6 @@
 package ag.boersego.bgjs;
 import ag.boersego.v8annotations.V8Flags;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -208,14 +209,14 @@ abstract public class JNIV8Object extends JNIObject {
     public JNIV8Object(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(true);
         _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine, jsObjPtr);
+        initNativeJNIV8Object(getClass().getName(), engine, jsObjPtr);
         initAutomaticDisposure();
     }
 
     public JNIV8Object(V8Engine engine) {
         super(true);
         _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine, 0);
+        initNativeJNIV8Object(getClass().getName(), engine, 0);
         initAutomaticDisposure();
     }
 

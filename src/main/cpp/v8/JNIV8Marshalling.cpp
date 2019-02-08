@@ -9,6 +9,7 @@
 #include "JNIV8Wrapper.h"
 
 #include "JNIV8Function.h"
+#include "JNIV8Promise.h"
 #include "JNIV8Array.h"
 #include "JNIV8GenericObject.h"
 
@@ -487,6 +488,8 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
             return JNIV8Wrapper::wrapObject<JNIV8Function>(objectRef)->getJObject();
         } else if (valueRef->IsArray()) {
             return JNIV8Wrapper::wrapObject<JNIV8Array>(objectRef)->getJObject();
+        } else if(valueRef->IsPromise()) {
+            return JNIV8Wrapper::wrapObject<JNIV8Promise>(objectRef)->getJObject();
         }
         auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(objectRef);
         if (ptr) {

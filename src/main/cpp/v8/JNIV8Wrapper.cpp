@@ -9,6 +9,7 @@ using namespace v8;
 #include "JNIV8Array.h"
 #include "JNIV8GenericObject.h"
 #include "JNIV8Function.h"
+#include "JNIV8Promise.h"
 #include "v8.h"
 
 #include <string>
@@ -38,6 +39,8 @@ void JNIV8Wrapper::init() {
     JNIV8Wrapper::registerObject<JNIV8Array>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8GenericObject>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8Function>(JNIV8ObjectType::kWrapper);
+    JNIV8Wrapper::registerObject<JNIV8Promise>(JNIV8ObjectType::kWrapper);
+    JNIV8Wrapper::registerObject<JNIV8PromiseResolver>(JNIV8ObjectType::kWrapper);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 
