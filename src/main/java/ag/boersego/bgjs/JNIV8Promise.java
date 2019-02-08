@@ -31,13 +31,38 @@ public class JNIV8Promise extends JNIV8Object {
         if(promise == null) throw new NullPointerException();
         return promise;
     }
-    public @NonNull JNIV8Promise onCatch(@NonNull JNIV8Function.Handler handler) {
+    public @NonNull JNIV8Promise onCatch(@NonNull JNIV8Function handler) {
         JNIV8Promise promise = callV8MethodTyped("catch", V8Flags.NonNull, JNIV8Promise.class, handler);
         if(promise == null) throw new NullPointerException();
         return promise;
     }
-    public @NonNull JNIV8Promise onFinally(@NonNull JNIV8Function.Handler handler) {
+    public @NonNull JNIV8Promise onFinally(@NonNull JNIV8Function handler) {
         JNIV8Promise promise = callV8MethodTyped("finally", V8Flags.NonNull, JNIV8Promise.class, handler);
+        if(promise == null) throw new NullPointerException();
+        return promise;
+    }
+
+    public @NonNull JNIV8Promise then(@NonNull JNIV8Function.Handler resolvedHandler) {
+        V8Engine engine = getV8Engine();
+        JNIV8Promise promise = callV8MethodTyped("then", V8Flags.NonNull, JNIV8Promise.class, JNIV8Function.Create(engine, resolvedHandler));
+        if(promise == null) throw new NullPointerException();
+        return promise;
+    }
+    public @NonNull JNIV8Promise then(@NonNull JNIV8Function.Handler resolvedHandler, @Nullable JNIV8Function.Handler rejectedHandler) {
+        V8Engine engine = getV8Engine();
+        JNIV8Promise promise = callV8MethodTyped("then", V8Flags.NonNull, JNIV8Promise.class, JNIV8Function.Create(engine, resolvedHandler), JNIV8Function.Create(engine, rejectedHandler));
+        if(promise == null) throw new NullPointerException();
+        return promise;
+    }
+    public @NonNull JNIV8Promise onCatch(@NonNull JNIV8Function.Handler handler) {
+        V8Engine engine = getV8Engine();
+        JNIV8Promise promise = callV8MethodTyped("catch", V8Flags.NonNull, JNIV8Promise.class, JNIV8Function.Create(engine, handler));
+        if(promise == null) throw new NullPointerException();
+        return promise;
+    }
+    public @NonNull JNIV8Promise onFinally(@NonNull JNIV8Function.Handler handler) {
+        V8Engine engine = getV8Engine();
+        JNIV8Promise promise = callV8MethodTyped("finally", V8Flags.NonNull, JNIV8Promise.class, JNIV8Function.Create(engine, handler));
         if(promise == null) throw new NullPointerException();
         return promise;
     }

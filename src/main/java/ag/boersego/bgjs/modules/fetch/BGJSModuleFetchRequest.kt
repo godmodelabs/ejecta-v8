@@ -1,10 +1,14 @@
 package ag.boersego.bgjs.modules.fetch
 
+import ag.boersego.bgjs.JNIV8Function
+import ag.boersego.bgjs.JNIV8GenericObject
 import ag.boersego.bgjs.V8Engine
 import ag.boersego.bgjs.modules.BGJSModuleFetchBody
 import ag.boersego.bgjs.modules.BGJSModuleFetchHeaders
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
+import ag.boersego.v8annotations.V8Symbols
+import android.util.Log
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 06.02.19 for JSNext-android.
@@ -12,6 +16,42 @@ import ag.boersego.v8annotations.V8Getter
  */
 
 class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : BGJSModuleFetchBody(v8Engine, jsPtr, args) {
+/*
+    val iterator : JNIV8Function
+        @V8Getter(symbol = V8Symbols.ITERATOR) get() {
+            return JNIV8Function.Create(v8Engine) { _, _ ->
+                var x = 0
+                val next = JNIV8Function.Create(v8Engine) { _, _ ->
+                    val result = JNIV8GenericObject.Create(v8Engine)
+                    if (x < 10) {
+                        result.setV8Field("value", x)
+                    }
+                    result.setV8Field("done", x >= 10)
+                    x++
+                    return@Create result
+                }
+                val obj = JNIV8GenericObject.Create(v8Engine)
+                obj.setV8Field("next", next)
+                return@Create obj
+            }
+        }
+*/
+    @V8Function(symbol = V8Symbols.ITERATOR)
+    fun iterator() : JNIV8GenericObject {
+        var x = 0
+        val next = JNIV8Function.Create(v8Engine) { _, _ ->
+            val result = JNIV8GenericObject.Create(v8Engine)
+            if (x < 10) {
+                result.setV8Field("value", x)
+            }
+            result.setV8Field("done", x >= 10)
+            x++
+            return@Create result
+        }
+        val obj = JNIV8GenericObject.Create(v8Engine)
+        obj.setV8Field("next", next)
+        return obj
+    }
 
     var cache = "default"
         internal set(value) {

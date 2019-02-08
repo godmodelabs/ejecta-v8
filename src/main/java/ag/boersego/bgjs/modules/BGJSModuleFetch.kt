@@ -40,6 +40,7 @@ class BGJSModuleFetch : JNIV8Module("fetch") {
 
             }
 
+            return@Create request
         })
     }
 

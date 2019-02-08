@@ -3,7 +3,6 @@
 //
 
 #include "JNIV8Promise.h"
-#include "JNIV8Function.h"
 
 #include <stdlib.h>
 

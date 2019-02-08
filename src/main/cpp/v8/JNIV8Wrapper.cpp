@@ -10,6 +10,7 @@ using namespace v8;
 #include "JNIV8GenericObject.h"
 #include "JNIV8Function.h"
 #include "JNIV8Promise.h"
+#include "JNIV8ArrayBuffer.h"
 #include "v8.h"
 
 #include <string>
@@ -41,6 +42,7 @@ void JNIV8Wrapper::init() {
     JNIV8Wrapper::registerObject<JNIV8Function>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8Promise>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8PromiseResolver>(JNIV8ObjectType::kWrapper);
+    JNIV8Wrapper::registerObject<JNIV8ArrayBuffer>(JNIV8ObjectType::kWrapper);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 

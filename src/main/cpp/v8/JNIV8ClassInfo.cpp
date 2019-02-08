@@ -12,6 +12,31 @@
 
 using namespace v8;
 
+static bool startsWith(const std::string& s, const std::string& prefix) {
+    return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
+}
+
+Local<Name> JNIV8ClassInfo::_makeName(std::string name) {
+    Isolate* isolate = engine->getIsolate();
+    EscapableHandleScope handleScope(isolate);
+    Local<Name> nameRef;
+
+    if(startsWith(name, "string:")) {
+        nameRef = String::NewFromUtf8(isolate, name.c_str() + 7,
+                                      v8::NewStringType::kNormal).ToLocalChecked().As<Name>();
+    } else if(startsWith(name, "symbol:")) {
+        if(name == "symbol:ITERATOR") {
+            nameRef = Symbol::GetIterator(isolate);
+        } else if(name == "symbol:ASYNC_ITERATOR") {
+            nameRef = Symbol::GetAsyncIterator(isolate);
+        }
+    }
+
+    JNI_ASSERTF(!nameRef.IsEmpty(), "Encountered invalid property name '%s'", name.c_str());
+
+    return handleScope.Escape(nameRef);
+}
+
 decltype(JNIV8ClassInfo::_jniObject) JNIV8ClassInfo::_jniObject = {0};
 
 /**
@@ -497,9 +522,11 @@ void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) 
 
     Local<External> data = External::New(isolate, (void*)holder);
 
+    Local<Name> nameRef = _makeName(holder->methodName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
+        f->Set(nameRef, FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -508,10 +535,11 @@ void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) 
         // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
-        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()),
+        instanceTpl->Set(nameRef,
                          FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
     }
 }
+
 
 void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder) {
     Isolate* isolate = engine->getIsolate();
@@ -533,14 +561,16 @@ void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder
         settings = v8::PropertyAttribute::ReadOnly;
     }
 
+    Local<Name> nameRef = _makeName(holder->propertyName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->SetAccessor(engine->getContext(), String::NewFromUtf8(isolate, holder->propertyName.c_str(), v8::NewStringType::kNormal).ToLocalChecked().As<Name>(),
+        f->SetAccessor(engine->getContext(), nameRef,
                        v8JavaAccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
     } else {
         Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
-        instanceTpl->SetAccessor(String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        instanceTpl->SetAccessor(nameRef,
                                  v8JavaAccessorGetterCallback, finalSetter,
                                  data, DEFAULT, settings);
     }
@@ -555,9 +585,11 @@ void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     callbackHolders.push_back(holder);
     Local<External> data = External::New(isolate, (void*)holder);
 
+    Local<Name> nameRef = _makeName(holder->methodName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()),
+        f->Set(nameRef,
                FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
@@ -567,7 +599,7 @@ void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
         // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
-        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
+        instanceTpl->Set(nameRef, FunctionTemplate::New(isolate, v8MethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
     }
 }
 
@@ -588,14 +620,16 @@ void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
         settings = v8::PropertyAttribute::ReadOnly;
     }
 
+    Local<Name> nameRef = _makeName(holder->propertyName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->SetAccessor(engine->getContext(), String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        f->SetAccessor(engine->getContext(), nameRef,
                        v8AccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
     } else {
         Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
-        instanceTpl->SetAccessor(String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        instanceTpl->SetAccessor(nameRef,
                                  v8AccessorGetterCallback, finalSetter,
                                  data, DEFAULT, settings);
     }

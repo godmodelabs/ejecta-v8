@@ -144,6 +144,8 @@ private:
     void registerJavaAccessor(const std::string& propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId, jmethodID setterId);
     void registerStaticJavaAccessor(const std::string& propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId, jmethodID setterId);
 
+    v8::Local<v8::Name> _makeName(std::string name);
+
     void _registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder);
     void _registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder);
     void _registerMethod(JNIV8ObjectCallbackHolder *holder);

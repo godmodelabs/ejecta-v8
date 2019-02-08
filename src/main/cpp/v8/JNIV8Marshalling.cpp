@@ -11,6 +11,7 @@
 #include "JNIV8Function.h"
 #include "JNIV8Promise.h"
 #include "JNIV8Array.h"
+#include "JNIV8ArrayBuffer.h"
 #include "JNIV8GenericObject.h"
 
 JNIV8JavaValueType getArgumentType(const std::string& type) {
@@ -441,7 +442,7 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
     jsize len;
 
     // string pointers can also be null
-    if(env->IsSameObject(string, NULL)) {
+    if(env->IsSameObject(string, nullptr)) {
         return scope.Escape(v8::Null(isolate)->ToString(isolate));
     }
 
@@ -490,6 +491,8 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
             return JNIV8Wrapper::wrapObject<JNIV8Array>(objectRef)->getJObject();
         } else if(valueRef->IsPromise()) {
             return JNIV8Wrapper::wrapObject<JNIV8Promise>(objectRef)->getJObject();
+        } else if(valueRef->IsArrayBuffer()) {
+            return JNIV8Wrapper::wrapObject<JNIV8ArrayBuffer>(objectRef)->getJObject();
         }
         auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(objectRef);
         if (ptr) {
@@ -527,7 +530,7 @@ v8::Local<v8::Value> JNIV8Marshalling::jobject2v8value(jobject object) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     // jobject referencing "null" can actually be non-null..
-    if(env->IsSameObject(object, NULL) || !object) {
+    if(env->IsSameObject(object, nullptr) || !object) {
         resultRef = v8::Null(isolate);
     } else if(env->IsInstanceOf(object, _jniString.clazz)) {
         resultRef = JNIV8Marshalling::jstring2v8string((jstring)object);

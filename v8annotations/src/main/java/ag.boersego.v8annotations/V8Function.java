@@ -10,4 +10,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface V8Function {
     String property() default "";
+    V8Symbols symbol() default V8Symbols.NONE;
 }
