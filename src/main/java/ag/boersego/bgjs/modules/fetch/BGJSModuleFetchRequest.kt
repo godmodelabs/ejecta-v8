@@ -2,6 +2,7 @@ package ag.boersego.bgjs.modules.fetch
 
 import ag.boersego.bgjs.JNIV8Function
 import ag.boersego.bgjs.JNIV8GenericObject
+import ag.boersego.bgjs.JNIV8Iterator
 import ag.boersego.bgjs.V8Engine
 import ag.boersego.bgjs.modules.BGJSModuleFetchBody
 import ag.boersego.bgjs.modules.BGJSModuleFetchHeaders
@@ -20,37 +21,13 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     val iterator : JNIV8Function
         @V8Getter(symbol = V8Symbols.ITERATOR) get() {
             return JNIV8Function.Create(v8Engine) { _, _ ->
-                var x = 0
-                val next = JNIV8Function.Create(v8Engine) { _, _ ->
-                    val result = JNIV8GenericObject.Create(v8Engine)
-                    if (x < 10) {
-                        result.setV8Field("value", x)
-                    }
-                    result.setV8Field("done", x >= 10)
-                    x++
-                    return@Create result
-                }
-                val obj = JNIV8GenericObject.Create(v8Engine)
-                obj.setV8Field("next", next)
-                return@Create obj
+                return JNIV8Iterator(this.v8Engine, setOf("pen", "cup", "dog", "spectacles"))
             }
         }
 */
     @V8Function(symbol = V8Symbols.ITERATOR)
-    fun iterator() : JNIV8GenericObject {
-        var x = 0
-        val next = JNIV8Function.Create(v8Engine) { _, _ ->
-            val result = JNIV8GenericObject.Create(v8Engine)
-            if (x < 10) {
-                result.setV8Field("value", x)
-            }
-            result.setV8Field("done", x >= 10)
-            x++
-            return@Create result
-        }
-        val obj = JNIV8GenericObject.Create(v8Engine)
-        obj.setV8Field("next", next)
-        return obj
+    fun iterator() : JNIV8Iterator {
+        return JNIV8Iterator(this.v8Engine, setOf("pen", "cup", "dog", "spectacles"))
     }
 
     var cache = "default"
