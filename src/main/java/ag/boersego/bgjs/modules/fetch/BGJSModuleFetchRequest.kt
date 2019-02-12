@@ -432,9 +432,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
      */
     fun updateFrom(call: Call, httpResponse: Response): BGJSModuleFetchResponse {
         val status = httpResponse.code()
-        if (status == 206 && )
+        // if (status == 206 && )
         val response = BGJSModuleFetchResponse(v8Engine)
         response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
+
+        return response
     }
 
     companion object {
