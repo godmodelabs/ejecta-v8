@@ -120,6 +120,9 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     if(asConstructor) {
         v8::MaybeLocal<v8::Object> maybeLocal;
         maybeLocal = ptr->getJSObject().As<v8::Function>()->NewInstance(context, numArgs, args);
+        if(args) {
+            free(args);
+        }
         if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
@@ -129,14 +132,13 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
         maybeLocal = ptr->getJSObject().As<v8::Function>()->Call(context,
                                                         JNIV8Marshalling::jobject2v8value(receiver),
                                                         numArgs, args);
+        if(args) {
+            free(args);
+        }
         if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-    }
-
-    if(args) {
-        free(args);
     }
 
     jvalue jval;

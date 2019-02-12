@@ -83,6 +83,7 @@ private:
     static void initializeV8Bindings(JNIV8ClassInfo *info);
 
     // jni callbacks
+    static jobject jniCreate(JNIEnv *env, jobject obj, jobject engine, jstring name, jobjectArray arguments);
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
     static jobject jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType);
     static void jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value);
