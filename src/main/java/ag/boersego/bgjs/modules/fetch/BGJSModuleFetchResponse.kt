@@ -83,13 +83,7 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
 
     @V8Function
     fun error(): BGJSModuleFetchResponse {
-        val response = BGJSModuleFetchResponse(v8Engine)
-        response.type = "error"
-        response.status = 0
-        response.statusText = ""
-        response.body = null
-
-        return response
+        return Companion.error(v8Engine)
     }
 
     /**
@@ -112,6 +106,18 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
         response.headers?.append("Location", url)
 
         return response
+    }
+
+    companion object {
+        fun error(v8Engine: V8Engine): BGJSModuleFetchResponse {
+            val response = BGJSModuleFetchResponse(v8Engine)
+            response.type = "error"
+            response.status = 0
+            response.statusText = ""
+            response.body = null
+
+            return response
+        }
     }
 
 }

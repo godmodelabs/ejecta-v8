@@ -1,9 +1,15 @@
 package ag.boersego.bgjs.modules
 
+import ag.boersego.bgjs.JNIV8Array
+import ag.boersego.bgjs.JNIV8Iterator
 import ag.boersego.bgjs.JNIV8Object
 import ag.boersego.bgjs.V8Engine
 import ag.boersego.v8annotations.V8Function
+import ag.boersego.v8annotations.V8Symbols
+import okhttp3.Headers
+import okhttp3.Request
 import java.util.*
+import kotlin.collections.HashMap
 
 class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
 
@@ -62,8 +68,8 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     @V8Function
-    fun get(name: String): Any? {
-        return headers.get(normalizeName(name))
+    fun get(name: String): String? {
+        return headers.get(normalizeName(name))?.joinToString(",")
     }
 
     @V8Function
@@ -83,6 +89,39 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         return valueList
     }
 
+    @V8Function(symbol = V8Symbols.ITERATOR)
+    fun iterator() : JNIV8Iterator {
+        val it = headers.entries.iterator()
+        return JNIV8Iterator(v8Engine, object: Iterator<Any> {
+            override fun hasNext(): Boolean {
+                return it.hasNext()
+            }
+
+            override fun next(): Any {
+                val nextVal = it.next()
+                return JNIV8Array.CreateWithElements(v8Engine, nextVal.key, nextVal.value.joinToString(", "))
+            }
+
+        })
+//
+//
+//        val next = JNIV8Function.Create(v8Engine) { _, _ ->
+//            val result = JNIV8GenericObject.Create(v8Engine)
+//            if (it.hasNext()) {
+//                val nextVal = it.next()
+//                val arr = JNIV8Array.CreateWithElements(v8Engine, nextVal.key, nextVal.value.joinToString(", "))
+//                result.setV8Field("value", arr)
+//                result.setV8Field("done", false)
+//            } else {
+//                result.setV8Field("done", true)
+//            }
+//            return@Create result
+//        }
+//        val obj = JNIV8GenericObject.Create(v8Engine)
+//        obj.setV8Field("next", next)
+//        return obj
+    }
+
     @V8Function
     fun keys(): List<String> {
         val keyList = ArrayList<String>(headers.keys)
@@ -100,6 +139,19 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         return valueList
     }
 
+    fun clone(): BGJSModuleFetchHeaders {
+        val clone = BGJSModuleFetchHeaders(v8Engine)
+        clone.headers.putAll(headers)
+
+        return clone
+    }
+
+    fun applyToRequest(builder: Request.Builder) {
+        for (header in headers.entries) {
+            builder.addHeader(header.key, header.value.joinToString(","))
+        }
+    }
+
     companion object {
         fun createFrom(headerRaw: JNIV8Object): BGJSModuleFetchHeaders {
             val fields = headerRaw.v8Fields
@@ -115,6 +167,16 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             return headers
         }
 
+        fun createFrom(v8Engine: V8Engine, httpHeaders: Headers): BGJSModuleFetchHeaders {
+            val headers = BGJSModuleFetchHeaders(v8Engine)
+            for (entry in httpHeaders.toMultimap()) {
+                headers.headers.set(entry.key, ArrayList<Any>(entry.value))
+            }
+
+            return headers
+        }
+
         val ZERO_BYTE = '\u0000'
+        val CONTENT_TYPE = "content-type"
     }
 }
