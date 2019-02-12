@@ -53,6 +53,7 @@ add_library( # Sets the name of the library.
              src/main/cpp/v8/JNIV8Function.cpp
              src/main/cpp/v8/JNIV8Promise.cpp
              src/main/cpp/v8/JNIV8ArrayBuffer.cpp
+             src/main/cpp/v8/JNIV8Symbol.cpp
              )
 
 #--------------------------------------------------

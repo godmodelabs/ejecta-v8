@@ -26,9 +26,27 @@ Local<Name> JNIV8ClassInfo::_makeName(std::string name) {
                                       v8::NewStringType::kNormal).ToLocalChecked().As<Name>();
     } else if(startsWith(name, "symbol:")) {
         if(name == "symbol:ITERATOR") {
-            nameRef = Symbol::GetIterator(isolate);
+            nameRef = v8::Symbol::GetIterator(isolate);
         } else if(name == "symbol:ASYNC_ITERATOR") {
-            nameRef = Symbol::GetAsyncIterator(isolate);
+            nameRef = v8::Symbol::GetAsyncIterator(isolate);
+        } else if(name == "symbol:MATCH") {
+            nameRef = v8::Symbol::GetMatch(isolate);
+        } else if(name == "symbol:REPLACE") {
+            nameRef = v8::Symbol::GetReplace(isolate);
+        } else if(name == "symbol:SEARCH") {
+            nameRef = v8::Symbol::GetSearch(isolate);
+        } else if(name == "symbol:SPLIT") {
+            nameRef = v8::Symbol::GetSplit(isolate);
+        } else if(name == "symbol:HAS_INSTANCE") {
+            nameRef = v8::Symbol::GetHasInstance(isolate);
+        } else if(name == "symbol:IS_CONCAT_SPREADABLE") {
+            nameRef = v8::Symbol::GetIsConcatSpreadable(isolate);
+        } else if(name == "symbol:UNSCOPABLES") {
+            nameRef = v8::Symbol::GetUnscopables(isolate);
+        } else if(name == "symbol:TO_PRIMITIVE") {
+            nameRef = v8::Symbol::GetToPrimitive(isolate);
+        } else if(name == "symbol:TO_STRING_TAG") {
+            nameRef = v8::Symbol::GetToStringTag(isolate);
         }
     }
 

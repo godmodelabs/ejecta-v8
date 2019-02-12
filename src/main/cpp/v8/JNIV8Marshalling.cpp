@@ -12,6 +12,7 @@
 #include "JNIV8Promise.h"
 #include "JNIV8Array.h"
 #include "JNIV8ArrayBuffer.h"
+#include "JNIV8Symbol.h"
 #include "JNIV8GenericObject.h"
 
 JNIV8JavaValueType getArgumentType(const std::string& type) {
@@ -509,7 +510,8 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
     } else if(valueRef->IsUndefined()) {
         return env->NewLocalRef(_undefined);
     } else if(valueRef->IsSymbol()) {
-        JNI_ASSERT(0, "Symbols are not supported");
+        v8::Local<v8::SymbolObject> symbolObjRef = v8::SymbolObject::New(isolate, valueRef.As<v8::Symbol>()).As<v8::SymbolObject>();
+        return JNIV8Wrapper::wrapObject<JNIV8Symbol>(symbolObjRef)->getJObject();
     } else {
         JNI_ASSERT(0, "Encountered unexpected v8 type");
     }
@@ -548,6 +550,10 @@ v8::Local<v8::Value> JNIV8Marshalling::jobject2v8value(jobject object) {
         resultRef = v8::Boolean::New(isolate, b);
     } else if(env->IsInstanceOf(object, _jniV8Object.clazz)) {
         resultRef = JNIV8Wrapper::wrapObject<JNIV8Object>(object)->getJSObject();
+        // unwrap symbols
+        if(resultRef->IsSymbolObject()) {
+            resultRef = resultRef.As<v8::SymbolObject>()->ValueOf();
+        }
     }
     if(resultRef.IsEmpty()) {
         resultRef = v8::Undefined(isolate);
