@@ -1,9 +1,6 @@
 package ag.boersego.bgjs.modules.fetch
 
-import ag.boersego.bgjs.JNIV8GenericObject
-import ag.boersego.bgjs.JNIV8Object
-import ag.boersego.bgjs.JNIV8Undefined
-import ag.boersego.bgjs.V8Engine
+import ag.boersego.bgjs.*
 import ag.boersego.bgjs.modules.BGJSModuleFetchBody
 import ag.boersego.bgjs.modules.BGJSModuleFetchHeaders
 import ag.boersego.bgjs.modules.BGJSModuleFetchResponse
@@ -35,7 +32,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
                 || value == "force-cache" || value == "only-if-cached") {
                 field = value
             } else {
-                throw RuntimeException("invalid cache: '$value'")
+                throw V8JSException(v8Engine, "TypeError", "invalid cache: '$value'")
             }
         }
         @V8Getter get
@@ -435,8 +432,29 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         // if (status == 206 && )
         val response = BGJSModuleFetchResponse(v8Engine)
         response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
+        response.status = response.status
+        response.body = httpResponse.body()?.string()
+
+        // TODO: fill in all the other fields of response
+        // TODO: handle redirection types
 
         return response
+    }
+
+    // Since ejecta-v8 currently cannot register abstract classes we have to override these methods here and just call super
+
+    override var bodyUsed = false
+        internal set
+        @V8Getter get
+
+    @V8Function
+    override fun json(): JNIV8Object {
+        return super.json()
+    }
+
+    @V8Function
+    override fun text(): JNIV8Promise {
+        return super.text()
     }
 
     companion object {

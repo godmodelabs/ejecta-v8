@@ -1,6 +1,7 @@
 package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.JNIV8Object
+import ag.boersego.bgjs.JNIV8Promise
 import ag.boersego.bgjs.V8Engine
 import ag.boersego.bgjs.getV8Field
 import ag.boersego.v8annotations.V8Function
@@ -106,6 +107,22 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
         response.headers?.append("Location", url)
 
         return response
+    }
+
+    // Since ejecta-v8 currently cannot register abstract classes we have to override these methods here and just call super
+
+    override var bodyUsed = false
+        internal set
+        @V8Getter get
+
+    @V8Function
+    override fun json(): JNIV8Object {
+        return super.json()
+    }
+
+    @V8Function
+    override fun text(): JNIV8Promise {
+        return super.text()
     }
 
     companion object {

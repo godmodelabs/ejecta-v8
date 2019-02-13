@@ -61,11 +61,15 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                     }
 
                     override fun onResponse(call: Call, response: Response) {
-                        resolver.resolve(request.updateFrom(call, response))
+                        try {
+                            resolver.resolve(request.updateFrom(call, response))
+                        } catch (e: Exception) {
+                            resolver.reject(JNIV8Object.Create(v8Engine, "Error", "Error parsing data"))
+                        }
                     }
                 })
             } catch (e: Exception) {
-                resolver.reject("error")
+                resolver.reject(JNIV8Object.Create(v8Engine, "Error", "Error parsing data"))
             }
         }
     }

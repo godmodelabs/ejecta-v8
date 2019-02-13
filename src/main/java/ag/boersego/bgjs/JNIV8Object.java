@@ -1,6 +1,5 @@
 package ag.boersego.bgjs;
 import ag.boersego.v8annotations.V8Flags;
-import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -19,7 +18,7 @@ abstract public class JNIV8Object extends JNIObject {
     static private native void RegisterAliasForPrimitive(int aliasType, int primitiveType);
 
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
-        if(Modifier.isAbstract(derivedClass.getModifiers())) {
+        if (Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
         }
 
