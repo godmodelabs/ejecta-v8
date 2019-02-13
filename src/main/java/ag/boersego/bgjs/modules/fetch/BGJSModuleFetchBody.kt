@@ -2,6 +2,7 @@ package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.JNIV8GenericObject
 import ag.boersego.bgjs.JNIV8Object
+import ag.boersego.bgjs.JNIV8Promise
 import ag.boersego.bgjs.V8Engine
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
@@ -19,13 +20,23 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
     @V8Function
     fun json(): JNIV8Object {
         // TODO: parse
-        // TODO: create promis
+        // TODO: create promise
         return JNIV8GenericObject.Create(v8Engine)
     }
 
     @V8Function
-    fun text(): String? {
-        // TODO: create promise
-        return body
+    fun text(): JNIV8Promise {
+        val resolver = JNIV8Promise.CreateResolver(v8Engine)
+
+        v8Engine.enqueueOnNextTick {
+            if (body != null) {
+                resolver.resolve(body)
+            } else {
+                resolver.reject("")
+            }
+        }
+
+
+        return resolver.promise
     }
 }

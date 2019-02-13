@@ -78,15 +78,15 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     @V8Function
-    fun entries(): List<List<String>> {
-        val valueList = ArrayList<List<String>>()
+    fun entries(): JNIV8Array {
+        val result = arrayOfNulls<JNIV8Array>(headers.size)
+        var i = 0
         for (header in headers) {
-            val innerList = ArrayList<String>()
-            innerList.add(header.key)
-            innerList.add(header.value.joinToString(", "))
+            val innerList = JNIV8Array.CreateWithElements(v8Engine, header.key, header.value.joinToString(", "))
+            result[i++] = innerList
         }
 
-        return valueList
+        return JNIV8Array.CreateWithArray(v8Engine, result)
     }
 
     @V8Function(symbol = V8Symbols.ITERATOR)
@@ -123,20 +123,18 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     @V8Function
-    fun keys(): List<String> {
-        val keyList = ArrayList<String>(headers.keys)
-
-        return keyList
+    fun keys(): JNIV8Array {
+        return JNIV8Array.CreateWithArray(v8Engine, headers.keys.toTypedArray())
     }
 
     @V8Function
-    fun values(): List<Any> {
+    fun values(): JNIV8Array {
         val valueList = ArrayList<Any>()
         for (header in headers.values) {
             valueList.add(header.joinToString(","))
         }
 
-        return valueList
+        return JNIV8Array.CreateWithArray(v8Engine, valueList.toTypedArray())
     }
 
     fun clone(): BGJSModuleFetchHeaders {

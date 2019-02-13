@@ -2,6 +2,7 @@ package ag.boersego.bgjs;
 
 import ag.boersego.bgjs.data.V8UrlCache;
 import ag.boersego.bgjs.modules.BGJSModuleAjax;
+import ag.boersego.bgjs.modules.BGJSModuleFetch;
 import ag.boersego.bgjs.modules.BGJSModuleLocalStorage;
 import ag.boersego.bgjs.modules.BGJSModuleWebSocket;
 import android.annotation.SuppressLint;
@@ -578,6 +579,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     public void setHttpClient(final OkHttpClient client) {
         BGJSModuleAjax.getInstance().setHttpClient(client);
         registerModule(new BGJSModuleWebSocket(client));
+        registerModule(new BGJSModuleFetch(client));
     }
 
 
