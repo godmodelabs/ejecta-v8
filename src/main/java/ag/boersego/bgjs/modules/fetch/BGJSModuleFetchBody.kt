@@ -18,6 +18,8 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
     open fun json(): JNIV8Object {
         // TODO: parse
         // TODO: create promise
+        // TODO: fail if body has been consumed
+        // TODO: mark body as consumed
         return JNIV8GenericObject.Create(v8Engine)
     }
 
@@ -25,13 +27,15 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
     open fun text(): JNIV8Promise {
         val resolver = JNIV8Promise.CreateResolver(v8Engine)
 
-        v8Engine.enqueueOnNextTick {
-            if (body != null) {
-                resolver.resolve(body)
-            } else {
-                resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "no body"))
-            }
+        // TODO: fail if body has been consumed
+
+        if (body != null) {
+            resolver.resolve(body)
+        } else {
+            resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "no body"))
         }
+
+        // TODO: mark body as consumed
 
         return resolver.promise
     }

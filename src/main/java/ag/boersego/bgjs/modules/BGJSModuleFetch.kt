@@ -35,7 +35,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
             }
 
             if (arguments.size > 1) {
-                val init = arguments[1] as? JNIV8Object?
+                val init = arguments[1] as? JNIV8GenericObject?
                 if (init != null) {
                     request.initRequest(init, true)
                 }
@@ -50,27 +50,25 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
     }
 
     private fun startRequest(v8Engine: V8Engine, resolver: JNIV8Promise.Resolver, request: BGJSModuleFetchRequest) {
-        v8Engine.enqueueOnNextTick {
-            val httpRequest = request.execute(okHttpClient)
-            try {
-                okHttpClient.newCall(httpRequest).enqueue(object: Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        Log.d(TAG, "onFailure", e)
-                        // network error or timeout
-                        resolver.resolve(BGJSModuleFetchResponse.error(v8Engine))
-                    }
+        val httpRequest = request.execute(okHttpClient)
+        try {
+            okHttpClient.newCall(httpRequest).enqueue(object: Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    Log.d(TAG, "onFailure", e)
+                    // network error or timeout
+                    resolver.resolve(BGJSModuleFetchResponse.error(v8Engine))
+                }
 
-                    override fun onResponse(call: Call, response: Response) {
-                        try {
-                            resolver.resolve(request.updateFrom(call, response))
-                        } catch (e: Exception) {
-                            resolver.reject(JNIV8Object.Create(v8Engine, "Error", "Error parsing data"))
-                        }
+                override fun onResponse(call: Call, response: Response) {
+                    try {
+                        resolver.resolve(request.updateFrom(call, response))
+                    } catch (e: Exception) {
+                        resolver.reject(JNIV8Object.Create(v8Engine, "Error", "Error parsing data"))
                     }
-                })
-            } catch (e: Exception) {
-                resolver.reject(JNIV8Object.Create(v8Engine, "Error", "Error parsing data"))
-            }
+                }
+            })
+        } catch (e: Exception) {
+            resolver.reject(JNIV8Object.Create(v8Engine, "Error", "Error parsing data"))
         }
     }
 

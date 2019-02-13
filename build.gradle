@@ -72,7 +72,7 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     kapt project(path: ':ejecta-v8:v8annotations-compiler')
     api project(path: ':ejecta-v8:v8annotations')
-    implementation 'com.github.franmontiel:PersistentCookieJar:v1.0.1'
+    api 'com.github.franmontiel:PersistentCookieJar:v1.0.1'
 }
 
 task distributeDebug() {

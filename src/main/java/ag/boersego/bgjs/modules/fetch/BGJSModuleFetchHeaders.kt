@@ -103,23 +103,6 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             }
 
         })
-//
-//
-//        val next = JNIV8Function.Create(v8Engine) { _, _ ->
-//            val result = JNIV8GenericObject.Create(v8Engine)
-//            if (it.hasNext()) {
-//                val nextVal = it.next()
-//                val arr = JNIV8Array.CreateWithElements(v8Engine, nextVal.key, nextVal.value.joinToString(", "))
-//                result.setV8Field("value", arr)
-//                result.setV8Field("done", false)
-//            } else {
-//                result.setV8Field("done", true)
-//            }
-//            return@Create result
-//        }
-//        val obj = JNIV8GenericObject.Create(v8Engine)
-//        obj.setV8Field("next", next)
-//        return obj
     }
 
     @V8Function

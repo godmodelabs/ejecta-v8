@@ -24,7 +24,7 @@ abstract public class JNIObject {
     }
 
     static public void RegisterClass(Class<? extends JNIObject> derivedClass) {
-        if(Modifier.isAbstract(derivedClass.getModifiers())) {
+        if (Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
         }
 

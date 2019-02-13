@@ -207,11 +207,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         if (fields.containsKey(KEY_HEADERS)) {
             val headerRaw = fields[KEY_HEADERS]
             if (headerRaw is BGJSModuleFetchHeaders) {
-                headers = headerRaw
+                headers = headerRaw.clone()
             } else if(headerRaw is JNIV8Object) {
                 headers = BGJSModuleFetchHeaders.createFrom(headerRaw)
             } else {
-                throw RuntimeException("TypeError: init.headers is not an object of Headers instance")
+                throw V8JSException(v8Engine, "TypeError", "init.headers is not an object or Header instance")
             }
         }
 
@@ -273,45 +273,9 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         if (headers?.has("user-agent") == false) {
             headers?.set("user-agent", "ejecta-v8")
         }
+
+        // TODO: this is probably complete, check spec
     }
-/*
-    val iterator : JNIV8Function
-        @V8Getter(symbol = V8Symbols.ITERATOR) get() {
-            return JNIV8Function.Create(v8Engine) { _, _ ->
-                var x = 0
-                val next = JNIV8Function.Create(v8Engine) { _, _ ->
-                    val result = JNIV8GenericObject.Create(v8Engine)
-                    if (x < 10) {
-                        result.setV8Field("value", x)
-                    }
-                    result.setV8Field("done", x >= 10)
-                    x++
-                    return@Create result
-                }
-                val obj = JNIV8GenericObject.Create(v8Engine)
-                obj.setV8Field("next", next)
-                return@Create obj
-            }
-        }
-*/
-//    @V8Function(symbol = V8Symbols.ITERATOR)
-//    fun iterator() : JNIV8GenericObject {
-//        var x = 0
-//        val next = JNIV8Function.Create(v8Engine) { _, _ ->
-//            val result = JNIV8GenericObject.Create(v8Engine)
-//            if (x < 10) {
-//                result.setV8Field("value", x)
-//            }
-//            result.setV8Field("done", x >= 10)
-//            x++
-//            return@Create result
-//        }
-//        val obj = JNIV8GenericObject.Create(v8Engine)
-//        obj.setV8Field("next", next)
-//        return obj
-//    }
-
-
 
     /**
      * The clone() method of the Request interface creates a copy of the current Request object.
@@ -358,12 +322,32 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     fun execute(okHttpClient: OkHttpClient): Request {
         val builder = Request.Builder().url(url)
 
-        // TODO: do we need origin?
+        // Idea: see what node-fetch does here: https://github.com/bitinn/node-fetch/blob/master/src/request.js
+
+        // Chapter 4: Fetch
+        // 3. If request’s header list does not contain `Accept`, then
+        if (headers?.has("accept") == false) {
+            headers?.append("accept", "*/*")
+        }
+
+        // 4.1. Main fetch
+
+        // 5. If response is null, then set response to the result of running the steps corresponding to the first matching statement:
+        // TODO: request’s mode is "navigate" or "websocket"
+        // TODO: request’s mode is "no-cors"
+        // TODO: decide which scheme fetch to do
+
+
+        return builder.build()
+    }
+
+    private fun doHttpNetworkOrCacheFetch(builder: Request.Builder) {
+        // See whatwg spec: chapter 4.5
 
         // 12. If httpRequest’s cache mode is "default" and httpRequest’s header list contains `If-Modified-Since`, `If-None-Match`, `If-Unmodified-Since`, `If-Match`, or `If-Range`, then set httpRequest’s cache mode to "no-store"
         if (cache == "default" &&
             (headers?.has("if-modified-since") == true || headers?.has("if-none-match") == true
-            || headers?.has("If-Unmodified-Since") == true || headers?.has("if-match") == true || headers?.has("if-range") == true)) {
+                    || headers?.has("If-Unmodified-Since") == true || headers?.has("if-match") == true || headers?.has("if-range") == true)) {
             cache = "no-store"
         }
 
@@ -391,6 +375,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
 
         // TODO: cookies
+        // test okhttp cookie jar
 
         // TODO: 19. If httpRequest’s cache mode is neither "no-store" nor "reload", then:
         // Set storedResponse to the result of selecting a response from the HTTP cache, possibly needing validation, as per the "Constructing Responses from Caches" chapter of HTTP Caching [HTTP-CACHING], if any.
@@ -421,7 +406,8 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             builder.method(method, RequestBody.create(mediaType, body))
         }
 
-        return builder.build()
+
+
     }
 
     /**
