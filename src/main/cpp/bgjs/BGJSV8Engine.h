@@ -133,6 +133,7 @@ private:
 		jclass clazz;
 		jmethodID initId;
 		jmethodID setStackTraceId;
+		jmethodID getV8ExceptionId;
 	} _jniV8JSException;
 
 	static struct {

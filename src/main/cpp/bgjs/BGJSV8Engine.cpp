@@ -229,7 +229,22 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() const {
     /*
      * `e` could be an instance of V8Exception containing a v8 error
      * but we do NOT unwrap it and use the existing error because then we would loose some additional java stack trace entries
+     * Example: Java (0) -> JS (1) -> Java (2) -> JS (3)
+     * If an exception is raised on #3, then it will first be converted to a JNI exception on #2 (V8Exception containing a V8JSException as cause);
+     * when it is passed to v8 again at #1 we COULD unwrap the original exception, but then we would lose the info that the code went through #2.
+     *
+     * however, if `e` is an instance of V8JSException we DO unwrap it.
+     * These exceptions are only thrown in java with the purpose of raising a specific javascript exception
+     * Example: Java (0) -> JS (1) -> Java (2)
+     * The java code at #2 wants to raise a special kind of v8 exception (e.g. a RangeError, because a parameter was invalid).
+     * To do that it throws a V8JSException containing the desired v8 object => We HAVE to unwrap here.
      */
+
+    if(env->IsInstanceOf(e, _jniV8JSException.clazz)) {
+        jobject v8Exception = env->CallObjectMethod(e, _jniV8JSException.getV8ExceptionId);
+        _isolate->ThrowException(JNIV8Marshalling::jobject2v8value(v8Exception));
+        return true;
+    }
 
     BGJSV8EngineJavaErrorHolder *holder = new BGJSV8EngineJavaErrorHolder();
     Handle<Value> args[] = {};
@@ -981,6 +996,7 @@ void BGJSV8Engine::initJNICache() {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     _jniV8JSException.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8JSException"));
+    _jniV8JSException.getV8ExceptionId = env->GetMethodID(_jniV8JSException.clazz, "getV8Exception", "()Ljava/lang/Object;");
     _jniV8JSException.initId = env->GetMethodID(_jniV8JSException.clazz, "<init>",
                                                 "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Throwable;)V");
     _jniV8JSException.setStackTraceId = env->GetMethodID(_jniV8JSException.clazz, "setStackTrace",
