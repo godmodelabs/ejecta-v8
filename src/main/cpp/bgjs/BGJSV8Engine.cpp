@@ -879,10 +879,8 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
 }
 
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-
     if (args.Length() >= 2 && args[0]->IsFunction()) {
-        ctx->enqueueNextTick(args);
+        args.GetIsolate()->EnqueueMicrotask(args[0].As<v8::Function>());
     }
 }
 
@@ -1010,8 +1008,6 @@ void BGJSV8Engine::initJNICache() {
     _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
                                                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
     _jniV8Engine.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
-    _jniV8Engine.enqueueOnNextTick = env->GetMethodID(_jniV8Engine.clazz, "enqueueOnNextTick",
-                                                      "(Lag/boersego/bgjs/JNIV8Function;)Z");
     _jniV8Engine.setTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "setTimeout",
                                                        "(JJJZ)I");
     _jniV8Engine.removeTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "removeTimeout",
@@ -1227,6 +1223,28 @@ void BGJSV8Engine::createContext() {
                                                                         NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
     }
+
+    // Init unhandled promise rejection handler
+    _isolate->SetPromiseRejectCallback(&BGJSV8Engine::PromiseRejectionHandler);
+    _isolate->AddMicrotasksCompletedCallback(&BGJSV8Engine::OnMicrotasksCompleted);
+}
+
+void BGJSV8Engine::OnMicrotasksCompleted(v8::Isolate* isolate) {
+    BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
+    // @TODO: loop through queue containing promises with unhandled rejections
+}
+
+void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
+    v8::Isolate *isolate = Isolate::GetCurrent();
+    // See https://gist.github.com/domenic/9b40029f59f29b822f3b#promise-error-handling-hooks-rough-spec-algorithm
+    // "Host environment algorithm"
+    // Chromium Implementation: https://chromium.googlesource.com/chromium/blink/+/master/Source/bindings/core/v8/RejectedPromises.cpp
+    if(message.GetEvent() == kPromiseRejectWithNoHandler) {
+
+        // @TODO add promise to queue
+    } else if(message.GetEvent() == kPromiseHandlerAddedAfterReject) {
+        // @TODO check if promise is in queue; if yes, remove it
+    }
 }
 
 void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value> &args) {
@@ -1327,14 +1345,6 @@ BGJSV8Engine::~BGJSV8Engine() {
     }
 
     JNIV8Wrapper::cleanupV8Engine(this);
-}
-
-void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    JNI_ASSERT(args.Length() >= 1 && args[0]->IsFunction(), "enqueueNextTick must be called with a callback function");
-    HandleScope scope(args.GetIsolate());
-    const auto wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject(args.GetIsolate()));
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    env->CallBooleanMethod(getJObject(), _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
 }
 
 void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
@@ -1500,6 +1510,22 @@ Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathTo
     } else {
         return NULL;
     }
+}
+
+JNIEXPORT void JNICALL
+Java_ag_boersego_bgjs_V8Engine_enqueueOnNextTick(JNIEnv *env, jobject obj, jobject function) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    auto funcRef = JNIV8Wrapper::wrapObject<JNIV8Function>(function)->getJSObject().As<v8::Function>();
+
+    isolate->EnqueueMicrotask(funcRef);
 }
 
 JNIEXPORT jobject JNICALL

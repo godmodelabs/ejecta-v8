@@ -123,6 +123,10 @@ private:
     static void OnGCCompletedForDump(v8::Isolate* isolate, v8::GCType type,
                                      v8::GCCallbackFlags flags);
 
+    static void PromiseRejectionHandler(v8::PromiseRejectMessage message);
+
+    static void OnMicrotasksCompleted(v8::Isolate* isolate);
+
 	static struct {
 		jclass clazz;
 		jmethodID getNameId;
@@ -150,7 +154,6 @@ private:
 		jclass clazz;
 		jmethodID removeTimeoutId;
 		jmethodID setTimeoutId;
-		jmethodID enqueueOnNextTick;
 	} _jniV8Engine;
 
 	char *_locale;		// de_DE
@@ -164,8 +167,6 @@ private:
 
     uint8_t _nextEmbedderDataIndex;
 	jobject _javaObject, _javaAssetManager;
-
-    void enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>&);
 
 	v8::Persistent<v8::Context> _context;
 

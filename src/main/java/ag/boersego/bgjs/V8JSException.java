@@ -31,9 +31,23 @@ import ag.boersego.bgjs.V8Exception;
  */
 
 public class V8JSException extends RuntimeException {
+    /**
+     * can be used in Java to throw a new instance of object specified as `type` in JavaScript
+     * The optional arguments are forwarded to that constructor
+     * See JNIV8Object.Create for details
+     */
     public V8JSException(V8Engine engine, String type, Object... arguments) {
         super("A javascript call encountered an exception of type " + type);
         this.v8Exception = JNIV8Object.Create(engine, type, arguments);
+        this.causedByJS = false;
+    }
+
+    /**
+     * can be used in Java to throw the specified object in JavaScript
+     */
+    public V8JSException(Object jsException) {
+        super("A javascript call encountered an exception");
+        this.v8Exception = jsException;
         this.causedByJS = false;
     }
 

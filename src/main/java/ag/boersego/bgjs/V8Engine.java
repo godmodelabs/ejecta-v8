@@ -61,37 +61,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
     @SuppressWarnings("PointlessBooleanExpression")
     private boolean mDebug = false && BuildConfig.DEBUG;
-    private final ArrayList<Runnable> mNextTickQueue = new ArrayList<>();
-    private boolean mJobQueueActive = false;
-    private final Runnable mQueueWaitRunnable = () -> {
-        while (true) {
-            synchronized (mNextTickQueue) {
-                mJobQueueActive = true;
-                if (mNextTickQueue.isEmpty() || mPaused) {
-                    if (mDebug && mPaused) {
-                        Log.d(TAG, "enqueued jobs quit early because of suspend");
-                    }
-                    mJobQueueActive = false;
-                    return;
-                }
-            }
-            final long v8Locker = lock();
-            try {
-                final ArrayList<Runnable> jobsToRun;
-
-                synchronized (mNextTickQueue) {
-                    jobsToRun = new ArrayList<>(mNextTickQueue);
-                    mNextTickQueue.clear();
-                }
-
-                for (final Runnable r : jobsToRun) {
-                    r.run();
-                }
-            } finally {
-                unlock(v8Locker);
-            }
-        }
-    };
 
     private ArrayList<V8Timeout> mTimeoutsToAddAfterPause = new ArrayList<>();
     private ArrayList<JNIV8Module> mModules = new ArrayList<>();
@@ -127,36 +96,8 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             }
             mTimeoutsToAddAfterPause.clear();
         }
-
-        // Check if we need to enqueue functions on a next tick, since these were not enqueued if the
-        // engine was already paused.
-        enqueueAndStartProcessing(null);
     }
 
-    private boolean enqueueAndStartProcessing(@Nullable final Runnable jobToEnqueue) {
-        final boolean startOnEmptyQueue = jobToEnqueue != null;
-        final boolean startBusyWaiting;
-        synchronized (mNextTickQueue) {
-            startBusyWaiting = mNextTickQueue.isEmpty() == startOnEmptyQueue && !mJobQueueActive;
-            if (jobToEnqueue != null) {
-                mNextTickQueue.add(jobToEnqueue);
-            }
-        }
-
-        if (mDebug) {
-            Log.d(TAG, "unpause: starting enqueued jobs");
-        }
-
-        if (startBusyWaiting) {
-            if (Thread.currentThread() == jsThread) {
-                // We cannot really enqueue on our own thread!!
-                new Thread(mQueueWaitRunnable).start();
-            } else {
-                mHandler.postAtFrontOfQueue(mQueueWaitRunnable);
-            }
-        }
-        return startBusyWaiting;
-    }
 
     public void pause() {
         mPaused = true;
@@ -168,10 +109,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
             if (module instanceof JNIV8Module.IJNIV8Suspendable) {
                 ((JNIV8Module.IJNIV8Suspendable) module).onSuspend();
             }
-        }
-
-        if (mQueueWaitRunnable != null && mHandler != null) {
-            mHandler.removeCallbacks(mQueueWaitRunnable);
         }
     }
 
@@ -191,25 +128,17 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     }
 
     /**
-     * Enqueue any Runnable to be executed on the next tick
-     *
-     * @param runnable the function to execute once the currently executing JS block has relinquished control
-     * @return true if it had to be scheduled, false if other functions were queued already
-     */
-    public boolean enqueueOnNextTick(final Runnable runnable) {
-        final boolean startBusyWaiting = enqueueAndStartProcessing(runnable);
-
-        return startBusyWaiting;
-    }
-
-    /**
      * Enqueue a wrapped v8 function to be executed on the next tick
      *
      * @param function the function to execute once the currently executing JS block has relinquished control
-     * @return true if it had to be scheduled, false if other functions were queued already
      */
-    public boolean enqueueOnNextTick(final JNIV8Function function) {
-        return enqueueOnNextTick(function::callAsV8Function);
+    public native void enqueueOnNextTick(JNIV8Function function);
+
+    public void enqueueOnNextTick(Runnable runnable) {
+        this.enqueueOnNextTick(JNIV8Function.Create(this, (Object receiver, Object[] arguments) -> {
+            runnable.run();
+            return JNIV8Undefined.GetInstance();
+        }));
     }
 
     public interface V8EngineHandler {
