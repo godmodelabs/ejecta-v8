@@ -33,6 +33,12 @@ struct WrapPersistentObj {
 	v8::Persistent<v8::Object> obj;
 };
 
+struct BGJSV8EngineRejectedPromiseHolder {
+	v8::Persistent<v8::Promise> promise;
+	v8::Persistent<v8::Value> value;
+	bool handled, collected;
+};
+
 typedef  void (*requireHook) (class BGJSV8Engine* engine, v8::Handle<v8::Object> target);
 
 typedef enum EBGJSV8EngineEmbedderData {
@@ -112,6 +118,8 @@ public:
     void setIsStoreBuild(bool isStoreBuild);
 
 private:
+	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, jobject causeException = nullptr) const;
+
 	// utility method to convert v8 values to readable strings for debugging
 	const std::string toDebugString(v8::Handle<v8::Value> source) const;
 
@@ -125,7 +133,7 @@ private:
 
     static void PromiseRejectionHandler(v8::PromiseRejectMessage message);
 
-    static void OnMicrotasksCompleted(v8::Isolate* isolate);
+    static void OnPromiseRejectionMicrotask(void* data);
 
 	static struct {
 		jclass clazz;
@@ -171,6 +179,9 @@ private:
 	v8::Persistent<v8::Context> _context;
 
 	// Attributes
+	bool _didScheduleURPTask;
+	std::vector<BGJSV8EngineRejectedPromiseHolder*> _unhandledRejectedPromises;
+
 	std::map<std::string, jobject> _javaModules;
 	std::map<std::string, requireHook> _modules;
     std::map<std::string, v8::Persistent<v8::Value>> _moduleCache;

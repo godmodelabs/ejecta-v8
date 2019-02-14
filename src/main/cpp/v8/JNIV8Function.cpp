@@ -123,6 +123,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
         if(args) {
             free(args);
         }
+        if(env->ExceptionOccurred()) return nullptr;
         if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
@@ -135,6 +136,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
         if(args) {
             free(args);
         }
+        if(env->ExceptionOccurred()) return nullptr;
         if (!maybeLocal.ToLocal<v8::Value>(&resultRef)) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;

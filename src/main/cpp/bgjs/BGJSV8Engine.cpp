@@ -191,6 +191,12 @@ decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {0};
 decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {0};
 decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {0};
 
+void BGJSV8EngineRejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
+    BGJSV8EngineRejectedPromiseHolder *holder = reinterpret_cast<BGJSV8EngineRejectedPromiseHolder *>(data.GetParameter());
+    holder->promise.Reset();
+    holder->collected = true;
+}
+
 /**
  * internal struct for storing information for wrapped java functions
  */
@@ -316,7 +322,18 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
         }
     }
 
+    return forwardV8ExceptionToJNI("", exception, try_catch->Message(), causeException);
+}
+
+bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<Message> message, jobject causeException) const {
     jobject exceptionAsObject = JNIV8Marshalling::v8value2jobject(exception);
+
+    JNIEnv *env = JNIWrapper::getEnvironment();
+
+    Local<Context> context = getContext();
+
+    MaybeLocal<Value> maybeValue;
+    Local<Value> value;
 
     // convert v8 stack trace to a java stack trace
     jobject v8JSException;
@@ -349,11 +366,11 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
         // for errors thrown from native code it might not be available though
         if (strErrorName == "SyntaxError") {
             int lineNumber = -1;
-            Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
+            Maybe<int> maybeLineNumber = message->GetLineNumber(context);
             if (!maybeLineNumber.IsNothing()) {
                 lineNumber = maybeLineNumber.ToChecked();
             }
-            Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
+            Local<Value> jsScriptResourceName = message->GetScriptResourceName();
             if (jsScriptResourceName->IsString()) {
                 strExceptionMessage =
                         JNIV8Marshalling::v8string2string(jsScriptResourceName.As<String>()) +
@@ -362,7 +379,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
             }
         }
 
-        exceptionMessage = JNIWrapper::string2jstring("[" + strErrorName + "] " + strExceptionMessage);
+        exceptionMessage = JNIWrapper::string2jstring(messagePrefix + "[" + strErrorName + "] " + strExceptionMessage);
 
         Local<Function> getStackTraceFn = Local<Function>::New(_isolate, _getStackTraceFn);
 
@@ -418,14 +435,14 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
     // if no stack trace was provided by v8, or if there was an error converting it, we still have to show something
     if (error || !stackTrace) {
         int lineNumber = -1;
-        Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
+        Maybe<int> maybeLineNumber = message->GetLineNumber(context);
         if (!maybeLineNumber.IsNothing()) {
             lineNumber = maybeLineNumber.ToChecked();
         }
 
         // script resource might not be set if the exception came from native code
         jstring fileName;
-        Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
+        Local<Value> jsScriptResourceName = message->GetScriptResourceName();
         if (jsScriptResourceName->IsString()) {
             fileName = JNIV8Marshalling::v8string2jstring(jsScriptResourceName.As<String>());
         } else {
@@ -443,7 +460,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
 
     // if exception was not an Error object, or if .message is not set for some reason => use toString()
     if (!exceptionMessage) {
-        exceptionMessage = JNIV8Marshalling::v8string2jstring(exception->ToString(_isolate));
+        exceptionMessage = JNIWrapper::string2jstring(messagePrefix + JNIV8Marshalling::v8string2string(exception->ToString(_isolate)));
     }
 
     // apply trace to js exception
@@ -1226,24 +1243,68 @@ void BGJSV8Engine::createContext() {
 
     // Init unhandled promise rejection handler
     _isolate->SetPromiseRejectCallback(&BGJSV8Engine::PromiseRejectionHandler);
-    _isolate->AddMicrotasksCompletedCallback(&BGJSV8Engine::OnMicrotasksCompleted);
+    _didScheduleURPTask = false;
 }
 
-void BGJSV8Engine::OnMicrotasksCompleted(v8::Isolate* isolate) {
+void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
+    v8::Isolate* isolate = (v8::Isolate*)data;
     BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
-    // @TODO: loop through queue containing promises with unhandled rejections
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    // loop through queue containing promises with unhandled rejections
+    for (size_t i = 0; i < engine->_unhandledRejectedPromises.size(); ++i) {
+        auto holder = engine->_unhandledRejectedPromises.at(i);
+        if (!holder->handled && !holder->collected) {
+            auto exception = v8::Local<v8::Value>::New(isolate, holder->value);
+            engine->forwardV8ExceptionToJNI("Unhandled rejected promise: ", exception, v8::Exception::CreateMessage(isolate, exception));
+
+            LOG(LOG_ERROR, "Unhandled rejected promise: %s", engine->toDebugString(exception).c_str());
+        }
+        holder->value.Reset();
+        holder->promise.Reset();
+        delete holder;
+    }
+    engine->_unhandledRejectedPromises.clear();
+    engine->_didScheduleURPTask = false;
 }
 
 void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
     v8::Isolate *isolate = Isolate::GetCurrent();
+    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
+
     // See https://gist.github.com/domenic/9b40029f59f29b822f3b#promise-error-handling-hooks-rough-spec-algorithm
     // "Host environment algorithm"
     // Chromium Implementation: https://chromium.googlesource.com/chromium/blink/+/master/Source/bindings/core/v8/RejectedPromises.cpp
     if(message.GetEvent() == kPromiseRejectWithNoHandler) {
-
-        // @TODO add promise to queue
+        // add promise to list
+        BGJSV8EngineRejectedPromiseHolder *holder = new BGJSV8EngineRejectedPromiseHolder();
+        holder->promise.Reset(isolate, message.GetPromise());
+        holder->promise.SetWeak((void *) holder, BGJSV8EngineRejectedPromiseHolderWeakPersistentCallback,
+                                   v8::WeakCallbackType::kParameter);
+        holder->value.Reset(isolate, message.GetValue());
+        holder->handled = false;
+        holder->collected = false;
+        engine->_unhandledRejectedPromises.push_back(holder);
+        // using the isolate pointer here is safe, because microtasks are executed
+        // immediately when the javascript call stack depth reaches zero
+        // so the isolate CAN NOT be destroyed before
+        if(!engine->_didScheduleURPTask) {
+            engine->_didScheduleURPTask = true;
+            isolate->EnqueueMicrotask(&BGJSV8Engine::OnPromiseRejectionMicrotask, (void *) isolate);
+        }
     } else if(message.GetEvent() == kPromiseHandlerAddedAfterReject) {
-        // @TODO check if promise is in queue; if yes, remove it
+        // check if promise is listed; if yes, flag as handled
+        // Then look it up in the reported errors.
+        for (size_t i = 0; i < engine->_unhandledRejectedPromises.size(); ++i) {
+            auto holder = engine->_unhandledRejectedPromises.at(i);
+            auto promise = message.GetPromise();
+            if(promise == v8::Local<v8::Promise>::New(isolate, holder->promise)) {
+                holder->handled = true;
+                break;
+            }
+        }
     }
 }
 
@@ -1541,6 +1602,7 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json)
 
     v8::TryCatch try_catch(isolate);
     v8::MaybeLocal<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
+    if(env->ExceptionCheck()) return nullptr;
     if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -1562,7 +1624,7 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
     v8::TryCatch try_catch(isolate);
 
     v8::MaybeLocal<v8::Value> value = engine->require(JNIWrapper::jstring2string(file));
-
+    if(env->ExceptionCheck()) return nullptr;
     if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -1623,6 +1685,7 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
                     &origin
             ).ToLocalChecked()->Run(context);
 
+    if(env->ExceptionCheck()) return nullptr;
     if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
