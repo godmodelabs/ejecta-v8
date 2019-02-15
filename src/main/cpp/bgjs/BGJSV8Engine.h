@@ -7,6 +7,8 @@
 #include <string>
 #include <set>
 #include <mallocdebug.h>
+#include <stdlib.h>
+#include <uv.h>
 
 #include "os-android.h"
 #include "BGJSModule.h"
@@ -22,22 +24,6 @@
  */
 
 class BGJSGLView;
-
-#define MAX_FRAME_REQUESTS 10
-
-struct WrapPersistentFunc {
-	v8::Persistent<v8::Function> callbackFunc;
-};
-
-struct WrapPersistentObj {
-	v8::Persistent<v8::Object> obj;
-};
-
-struct BGJSV8EngineRejectedPromiseHolder {
-	v8::Persistent<v8::Promise> promise;
-	v8::Persistent<v8::Value> value;
-	bool handled, collected;
-};
 
 typedef  void (*requireHook) (class BGJSV8Engine* engine, v8::Handle<v8::Object> target);
 
@@ -81,9 +67,8 @@ public:
     static void js_process_nextTick (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
 	static void js_global_setTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
-	static void js_global_clearTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
+	static void js_global_clearTimeoutOrInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_setInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
-	static void js_global_clearInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_getLocale(v8::Local<v8::String> property,
 			const v8::PropertyCallbackInfo<v8::Value>& info);
 	static void js_global_getLang(v8::Local<v8::String> property,
@@ -92,8 +77,6 @@ public:
 			const v8::PropertyCallbackInfo<v8::Value>& info);
 	static void js_global_getDeviceClass(v8::Local<v8::String> property,
                                 const v8::PropertyCallbackInfo<v8::Value>& info);
-    static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
-	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
 
 	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
 	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source, bool pretty = false) const;
@@ -117,7 +100,23 @@ public:
 
     void setIsStoreBuild(bool isStoreBuild);
 
+    void shutdown();
 private:
+	struct RejectedPromiseHolder {
+		v8::Persistent<v8::Promise> promise;
+		v8::Persistent<v8::Value> value;
+		bool handled, collected;
+	};
+
+	struct TimerHolder {
+		uv_timer_t handle;
+		bool scheduled, cleared, stopped, repeats;
+		uint64_t id, delay, repeat;
+		v8::Persistent<v8::Function> callback;
+		JNIRetainedRef<BGJSV8Engine> engine;
+	};
+
+	uint64_t createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat);
 	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, jobject causeException = nullptr) const;
 
 	// utility method to convert v8 values to readable strings for debugging
@@ -134,6 +133,16 @@ private:
     static void PromiseRejectionHandler(v8::PromiseRejectMessage message);
 
     static void OnPromiseRejectionMicrotask(void* data);
+
+    static void StartLoopThread(void *arg);
+	static void StopLoopThread(uv_async_t *handle);
+
+	static void OnHandleClosed(uv_handle_t *handle);
+
+    static void OnTimerTriggeredCallback(uv_timer_t * handle);
+	static void OnTimerClosedCallback(uv_handle_t * handle);
+	static void OnTimerEventCallback(uv_async_t * handle);
+	static void RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data);
 
 	static struct {
 		jclass clazz;
@@ -160,9 +169,12 @@ private:
 
 	static struct {
 		jclass clazz;
-		jmethodID removeTimeoutId;
-		jmethodID setTimeoutId;
+		jmethodID onReadyId;
 	} _jniV8Engine;
+
+	uv_thread_t _uvThread;
+	uv_loop_t _uvLoop;
+	uv_async_t _uvEventScheduleTimers, _uvEventStop;
 
 	char *_locale;		// de_DE
 	char *_lang;		// de
@@ -174,13 +186,16 @@ private:
 	float _density;
 
     uint8_t _nextEmbedderDataIndex;
-	jobject _javaObject, _javaAssetManager;
+	jobject _javaAssetManager;
 
 	v8::Persistent<v8::Context> _context;
 
 	// Attributes
 	bool _didScheduleURPTask;
-	std::vector<BGJSV8EngineRejectedPromiseHolder*> _unhandledRejectedPromises;
+	std::vector<RejectedPromiseHolder*> _unhandledRejectedPromises;
+
+	uint64_t _nextTimerId;
+	std::vector<TimerHolder*> _timers;
 
 	std::map<std::string, jobject> _javaModules;
 	std::map<std::string, requireHook> _modules;
@@ -191,10 +206,8 @@ private:
 	v8::Persistent<v8::Function> _jsonParseFn, _jsonStringifyFn;
 	v8::Persistent<v8::Function> _makeJavaErrorFn;
 	v8::Persistent<v8::Function> _getStackTraceFn;
+
     v8::Local<v8::Function> makeRequireFunction(std::string pathName);
-
-	int _nextTimerId;
-
 };
 
 BGJS_JNI_LINK_DEF(BGJSV8Engine)

@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include "BGJSGLView.h"
+#include "modules/BGJSGLModule.h"
 #include "v8-profiler.h"
 
 #define LOG_TAG    "BGJSV8Engine-jni"
@@ -31,6 +32,18 @@ using namespace v8;
 char *_nextProfileDumpPath = NULL;
 
 BGJS_JNI_LINK(BGJSV8Engine, "ag/boersego/bgjs/V8Engine")
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
+    if(!JNIWrapper::isInitialized()) {
+        JNIWrapper::init(vm);
+        JNIV8Wrapper::init();
+
+        JNIWrapper::registerObject<BGJSV8Engine>();
+        JNIV8Wrapper::registerObject<BGJSGLView>();
+    }
+
+    return JNI_VERSION_1_6;
+}
 
 //-----------------------------------------------------------
 // Utility functions
@@ -191,8 +204,8 @@ decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {0};
 decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {0};
 decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {0};
 
-void BGJSV8EngineRejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
-    BGJSV8EngineRejectedPromiseHolder *holder = reinterpret_cast<BGJSV8EngineRejectedPromiseHolder *>(data.GetParameter());
+void BGJSV8Engine::RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
+    RejectedPromiseHolder *holder = reinterpret_cast<RejectedPromiseHolder *>(data.GetParameter());
     holder->promise.Reset();
     holder->collected = true;
 }
@@ -871,7 +884,6 @@ void BGJSV8Engine::js_global_getDeviceClass(Local<String> property,
 void BGJSV8Engine::js_global_requestAnimationFrame(
         const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(args.GetIsolate());
     HandleScope scope(args.GetIsolate());
 
     if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
@@ -904,7 +916,6 @@ void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value>
 void BGJSV8Engine::js_global_cancelAnimationFrame(
         const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(ctx->getIsolate());
     HandleScope scope(ctx->getIsolate());
     if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
 
@@ -922,85 +933,137 @@ void BGJSV8Engine::js_global_cancelAnimationFrame(
 }
 
 void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    setTimeoutInt(args, false);
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+    HandleScope scope(args.GetIsolate());
+
+    if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsNumber()) {
+        Local<v8::Function> funcRef = Local<Function>::Cast(args[0]);
+        Local<v8::Number> numberRef = Local<Number>::Cast(args[1]);
+        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberRef->Value(), 0);
+
+        args.GetReturnValue().Set(v8::Number::New(args.GetIsolate(), (double)id));
+    } else {
+        ctx->getIsolate()->ThrowException(
+                v8::Exception::ReferenceError(
+                v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
+    }
 }
 
 void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    setTimeoutInt(args, true);
-}
-
-void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value> &args,
-                                 bool recurring) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(args.GetIsolate());
     HandleScope scope(args.GetIsolate());
 
-
     if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsNumber()) {
-        Local<v8::Function> callback = Local<Function>::Cast(args[0]);
+        Local<v8::Function> funcRef = Local<Function>::Cast(args[0]);
+        Local<v8::Number> numberRef = Local<Number>::Cast(args[1]);
+        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberRef->Value(), (uint64_t)numberRef->Value());
 
-        WrapPersistentFunc *ws = new WrapPersistentFunc();
-        BGJS_RESET_PERSISTENT(ctx->getIsolate(), ws->callbackFunc, callback);
-        WrapPersistentObj *wo = new WrapPersistentObj();
-        BGJS_RESET_PERSISTENT(ctx->getIsolate(), wo->obj, args.This());
-
-        jlong timeout = (jlong) (Local<Number>::Cast(args[1])->Value());
-
-        JNIEnv *env = JNIWrapper::getEnvironment();
-        if (env == NULL) {
-            LOGE("Cannot execute setTimeout with no envCache");
-            args.GetReturnValue().SetUndefined();
-            return;
-        }
-
-        assert(ctx->_jniV8Engine.setTimeoutId);
-        assert(ctx->_jniV8Engine.clazz);
-        int subId = env->CallStaticIntMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.setTimeoutId, (jlong) ws,
-                                             (jlong) wo, timeout, (jboolean) recurring);
-        args.GetReturnValue().Set(subId);
+        args.GetReturnValue().Set(v8::Number::New(args.GetIsolate(), (double)id));
     } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
                         v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
     }
-    return;
 }
 
-void BGJSV8Engine::js_global_clearInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    clearTimeoutInt(args);
+uint64_t BGJSV8Engine::createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat) {
+    TimerHolder *holder = new TimerHolder();
+    holder->callback.Reset(_isolate, callback);
+    holder->engine = this;
+    holder->id = _nextTimerId++;
+    holder->repeats = repeat > 0;
+    holder->delay = delay;
+    holder->repeat = repeat;
+
+    uv_async_send(&_uvEventScheduleTimers);
+
+    _timers.push_back(holder);
+
+    return holder->id;
 }
 
-void BGJSV8Engine::js_global_clearTimeout(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    clearTimeoutInt(args);
-}
+void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
+    BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
 
-void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(ctx->getIsolate());
-    HandleScope scope(ctx->getIsolate());
+    v8::Locker l(engine->getIsolate());
 
-    args.GetReturnValue().SetUndefined();
-
-    if (args.Length() == 1) {
-
-        int id = (int) ((Local<Integer>::Cast(args[0]))->Value());
-
-        if (id == 0) {
-            return;
+    for (size_t i = 0; i < engine->_timers.size(); ++i) {
+        auto holder = engine->_timers.at(i);
+        if(!holder->scheduled) {
+            uv_timer_init(&engine->_uvLoop, &holder->handle);
+            holder->handle.data = holder;
+            uv_timer_start(&holder->handle, &BGJSV8Engine::OnTimerTriggeredCallback, holder->delay, holder->repeat);
+            holder->scheduled = true;
+        } else if(holder->cleared && !holder->stopped) {
+            holder->stopped = true;
+            uv_timer_stop(&holder->handle);
+            uv_close((uv_handle_t*)&holder->handle, &BGJSV8Engine::OnTimerClosedCallback);
         }
+    }
+}
 
-        JNIEnv *env = JNIWrapper::getEnvironment();
-        if (env == NULL) {
-            LOGE("Cannot execute setTimeout with no envCache");
-            return;
+void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
+    TimerHolder *holder = (TimerHolder*)handle->data;
+
+    v8::Isolate *isolate = holder->engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = holder->engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    v8::TryCatch try_catch(isolate);
+
+    // timer might have been stopped while waiting for the locker
+    if(holder->cleared) return;
+
+    v8::Local<v8::Function> funcRef = v8::Local<v8::Function>::New(isolate, holder->callback);
+    v8::MaybeLocal<v8::Value> maybeValueRef = funcRef->Call(context, context->Global(), 0, nullptr);
+
+    if(!holder->repeats) {
+        uv_close((uv_handle_t *) handle, &BGJSV8Engine::OnTimerClosedCallback);
+    }
+
+    if(maybeValueRef.IsEmpty()) {
+        // @TODO: => forward exception to Java somehow
+    }
+}
+
+void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
+    TimerHolder *holder = (TimerHolder*)handle->data;
+    BGJSV8Engine *engine = holder->engine.get();
+
+    v8::Locker l(engine->getIsolate());
+
+    holder->callback.Reset();
+    holder->engine.reset();
+    delete holder;
+
+    auto it = std::find(engine->_timers.begin(), engine->_timers.end(), holder);
+    if(it != engine->_timers.end()) {
+        engine->_timers.erase(it);
+    }
+}
+
+void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(args.GetIsolate());
+
+    if (args.Length() == 1 && args[0]->IsNumber()) {
+        Local<v8::Number> numberRef = Local<Number>::Cast(args[0]);
+        uint64_t id = (uint64_t)numberRef->Value();
+        for (size_t i = 0; i < engine->_timers.size(); ++i) {
+            auto holder = engine->_timers.at(i);
+            if (holder->id == id) {
+                if(holder->cleared) return;
+                holder->cleared = true;
+                uv_async_send(&engine->_uvEventScheduleTimers);
+                break;
+            }
         }
-
-        env->CallStaticVoidMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.removeTimeoutId, (jint) id);
     } else {
-        ctx->getIsolate()->ThrowException(
+        engine->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong arguments for clearTimeout")));
-        LOGE("Wrong arguments for clearTimeout");
+                        v8::String::NewFromUtf8(engine->getIsolate(), "Wrong number of parameters")));
     }
 }
 
@@ -1025,10 +1088,7 @@ void BGJSV8Engine::initJNICache() {
     _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
                                                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
     _jniV8Engine.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
-    _jniV8Engine.setTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "setTimeout",
-                                                       "(JJJZ)I");
-    _jniV8Engine.removeTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "removeTimeout",
-                                                          "(I)V");
+    _jniV8Engine.onReadyId = env->GetMethodID(_jniV8Engine.clazz, "onReady", "()V");
 }
 
 BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
@@ -1141,10 +1201,10 @@ void BGJSV8Engine::createContext() {
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout"),
-                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeout, Local<Value>(),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval"),
-                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearInterval, Local<Value>(),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
 
     // Create a new context.
@@ -1244,6 +1304,41 @@ void BGJSV8Engine::createContext() {
     // Init unhandled promise rejection handler
     _isolate->SetPromiseRejectCallback(&BGJSV8Engine::PromiseRejectionHandler);
     _didScheduleURPTask = false;
+
+    // create an uv event loop & a dedicated looper thread
+    uv_loop_init(&_uvLoop);
+    _uvLoop.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventStop, &BGJSV8Engine::StopLoopThread);
+    _uvEventStop.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventScheduleTimers, &BGJSV8Engine::OnTimerEventCallback);
+    _uvEventScheduleTimers.data = this;
+
+    uv_thread_create(&_uvThread, &BGJSV8Engine::StartLoopThread, this);
+}
+
+void BGJSV8Engine::shutdown() {
+    uv_async_send(&_uvEventStop);
+}
+
+void BGJSV8Engine::StartLoopThread(void *arg) {
+    // the event loop retains the engine for as long as it is running
+    JNIRetainedRef<BGJSV8Engine> engine = (BGJSV8Engine*)arg;
+
+    LOG(LOG_INFO, "EventLoop started");
+
+    uv_run(&engine->_uvLoop, UV_RUN_DEFAULT);
+
+    LOG(LOG_INFO, "EventLoop ended");
+}
+
+void BGJSV8Engine::StopLoopThread(uv_async_t *handle) {
+    BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
+    uv_stop(&engine->_uvLoop);
+}
+
+void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
 }
 
 void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
@@ -1279,9 +1374,9 @@ void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
     // Chromium Implementation: https://chromium.googlesource.com/chromium/blink/+/master/Source/bindings/core/v8/RejectedPromises.cpp
     if(message.GetEvent() == kPromiseRejectWithNoHandler) {
         // add promise to list
-        BGJSV8EngineRejectedPromiseHolder *holder = new BGJSV8EngineRejectedPromiseHolder();
+        RejectedPromiseHolder *holder = new RejectedPromiseHolder();
         holder->promise.Reset(isolate, message.GetPromise());
-        holder->promise.SetWeak((void *) holder, BGJSV8EngineRejectedPromiseHolderWeakPersistentCallback,
+        holder->promise.SetWeak((void *) holder, RejectedPromiseHolderWeakPersistentCallback,
                                    v8::WeakCallbackType::kParameter);
         holder->value.Reset(isolate, message.GetValue());
         holder->handled = false;
@@ -1383,6 +1478,10 @@ char *BGJSV8Engine::loadFile(const char *path, unsigned int *length) const {
 
 BGJSV8Engine::~BGJSV8Engine() {
     LOGI("Cleaning up");
+
+    uv_loop_close(&_uvLoop);
+    uv_close((uv_handle_t*)&_uvEventScheduleTimers, &BGJSV8Engine::OnHandleClosed);
+    uv_close((uv_handle_t*)&_uvEventStop, &BGJSV8Engine::OnHandleClosed);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
     env->DeleteGlobalRef(_javaAssetManager);
@@ -1555,6 +1654,41 @@ const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
 }
 
 extern "C" {
+
+JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
+        JNIEnv * env, jobject v8Engine, jobject assetManager, jstring locale, jstring lang,
+        jstring timezone, jfloat density, jstring deviceClass, jboolean debug, jboolean isStoreBuild, jint maxHeapSize) {
+
+    auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
+    ct->setAssetManager(assetManager);
+
+    const char* localeStr = env->GetStringUTFChars(locale, NULL);
+    const char* langStr = env->GetStringUTFChars(lang, NULL);
+    const char* tzStr = env->GetStringUTFChars(timezone, NULL);
+    const char* deviceClassStr = env->GetStringUTFChars(deviceClass, NULL);
+    ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
+    ct->setDensity(density);
+    ct->setDebug(debug);
+    ct->setIsStoreBuild(isStoreBuild);
+    ct->setMaxHeapSize(maxHeapSize);
+    env->ReleaseStringUTFChars(locale, localeStr);
+    env->ReleaseStringUTFChars(lang, langStr);
+    env->ReleaseStringUTFChars(timezone, tzStr);
+    env->ReleaseStringUTFChars(deviceClass, deviceClassStr);
+    ct->createContext();
+
+    LOGD("BGJS context created");
+
+    ct->registerModule("canvas", BGJSGLModule::doRequire);
+
+    LOGD("ClientAndroid init: registerModule done");
+}
+
+JNIEXPORT jstring JNICALL
+Java_ag_boersego_bgjs_V8Engine_shutdown(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    engine->shutdown();
+}
 
 JNIEXPORT jstring JNICALL
 Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn) {

@@ -28,7 +28,6 @@ add_library( # Sets the name of the library.
              src/main/cpp/jni/JNIBase.cpp
              src/main/cpp/jni/JNIWrapper.cpp
              src/main/cpp/bgjs/BGJSV8Engine.cpp
-             src/main/cpp/bgjs/ClientAndroid.cpp
              src/main/cpp/utils/mallocdebug.cpp
              src/main/cpp/bgjs/modules/BGJSGLModule.cpp
              src/main/cpp/bgjs/BGJSCanvasContext.cpp
@@ -86,8 +85,10 @@ MESSAGE( STATUS "CMAKE_SYSTEM_PROCESSOR:         " ${CMAKE_SYSTEM_PROCESSOR} )
 # mips64 - for mips64 ABI
 
 set(v8-lib ${CMAKE_SOURCE_DIR}/libs/v8/${v8-abi}/libv8.a)
+set(uv-lib ${CMAKE_SOURCE_DIR}/libs/uv/${v8-abi}/libuv.a)
 
 MESSAGE( STATUS "v8-lib:         " ${v8-lib} )
+MESSAGE( STATUS "uv-lib:         " ${uv-lib} )
 
 #--------------------------------------------------
 # other dependencies
@@ -102,7 +103,9 @@ target_link_libraries( # Specifies the target library.
 
                        # Links the target library to the log library
                        # included in the NDK.
-                       PUBLIC ${v8-lib}
+                       PUBLIC
+                       ${v8-lib}
+                       ${uv-lib}
                        GLESv1_CM
                        EGL
                        android
