@@ -100,7 +100,10 @@ public:
 
     void setIsStoreBuild(bool isStoreBuild);
 
+    // @TODO: make private after moving java methods inside class
     void shutdown();
+
+    void start();
 private:
 	struct RejectedPromiseHolder {
 		v8::Persistent<v8::Promise> promise;

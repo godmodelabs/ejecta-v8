@@ -1304,7 +1304,9 @@ void BGJSV8Engine::createContext() {
     // Init unhandled promise rejection handler
     _isolate->SetPromiseRejectCallback(&BGJSV8Engine::PromiseRejectionHandler);
     _didScheduleURPTask = false;
+}
 
+void BGJSV8Engine::start() {
     // create an uv event loop & a dedicated looper thread
     uv_loop_init(&_uvLoop);
     _uvLoop.data = this;
@@ -1323,14 +1325,24 @@ void BGJSV8Engine::shutdown() {
 }
 
 void BGJSV8Engine::StartLoopThread(void *arg) {
+    LOG(LOG_INFO, "BGJSV8Engine: EventLoop started");
+
     // the event loop retains the engine for as long as it is running
     JNIRetainedRef<BGJSV8Engine> engine = (BGJSV8Engine*)arg;
 
-    LOG(LOG_INFO, "EventLoop started");
+    LOGD("BGJSV8Engine: creating context...");
+
+    engine->createContext();
+
+    engine->registerModule("canvas", BGJSGLModule::doRequire);
+
+    JNIWrapper::getEnvironment()->CallVoidMethod(engine->getJObject(), engine->_jniV8Engine.onReadyId);
+
+    LOGD("BGJSV8Engine: creating context [DONE]");
 
     uv_run(&engine->_uvLoop, UV_RUN_DEFAULT);
 
-    LOG(LOG_INFO, "EventLoop ended");
+    LOG(LOG_INFO, "BGJSV8Engine: EventLoop ended");
 }
 
 void BGJSV8Engine::StopLoopThread(uv_async_t *handle) {
@@ -1675,13 +1687,7 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
     env->ReleaseStringUTFChars(lang, langStr);
     env->ReleaseStringUTFChars(timezone, tzStr);
     env->ReleaseStringUTFChars(deviceClass, deviceClassStr);
-    ct->createContext();
-
-    LOGD("BGJS context created");
-
-    ct->registerModule("canvas", BGJSGLModule::doRequire);
-
-    LOGD("ClientAndroid init: registerModule done");
+    ct->start();
 }
 
 JNIEXPORT jstring JNICALL
