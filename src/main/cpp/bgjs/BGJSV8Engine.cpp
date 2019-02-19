@@ -294,6 +294,10 @@ V = JNIV8Marshalling::v8string2jstring(value.As<String>());\
 }
 
 bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
+    return forwardV8ExceptionToJNI("", try_catch, false);
+}
+
+bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::TryCatch *try_catch, bool throwOnMainThread) const {
     if (!try_catch->HasCaught()) {
         return false;
     }
@@ -335,10 +339,10 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
         }
     }
 
-    return forwardV8ExceptionToJNI("", exception, try_catch->Message(), causeException);
+    return forwardV8ExceptionToJNI(messagePrefix, exception, try_catch->Message(), causeException, throwOnMainThread);
 }
 
-bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<Message> message, jobject causeException) const {
+bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<Message> message, jobject causeException, bool throwOnMainThread) const {
     jobject exceptionAsObject = JNIV8Marshalling::v8value2jobject(exception);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
@@ -482,9 +486,14 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<
     env->CallVoidMethod(v8JSException, _jniV8JSException.setStackTraceId, stackTrace);
 
     // throw final exception
-    env->Throw((jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId,
-                                           JNIWrapper::string2jstring("An exception was thrown in JavaScript"),
-                                           v8JSException));
+    jthrowable throwable = (jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId,
+                                                       JNIWrapper::string2jstring("An exception was thrown in JavaScript"),
+                                                       v8JSException);
+    if(throwOnMainThread) {
+        env->CallVoidMethod(getJObject(), _jniV8Engine.onThrowId, throwable);
+    } else {
+        env->Throw(throwable);
+    }
 
     return true;
 }
@@ -560,7 +569,14 @@ MaybeLocal<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
 // utility method to convert v8 values to readable strings for debugging
 const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
     Handle<Value> stringValue;
-    if (source->IsObject()) {
+    // errors
+    if(source->IsNativeError()) {
+        auto messageRef = v8::Exception::CreateMessage(Isolate::GetCurrent(), source);
+        stringValue = messageRef->Get();
+    // JSON-serializable objects: "plain Object" and Array
+    } else if (source->IsObject() && (
+            source->IsArray() || JNIV8Marshalling::v8string2string(source.As<Object>()->GetConstructorName()) == "Object"
+            )) {
         // stringify might throw an exception because of circular references, which is non-fatal
         v8::TryCatch try_catch(Isolate::GetCurrent());
         MaybeLocal<Value> maybeValue = stringifyJSON(source.As<Object>(), true);
@@ -568,9 +584,14 @@ const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
             stringValue = maybeValue.ToLocalChecked();
         }
     }
+
     if (stringValue.IsEmpty()) {
-        stringValue = source->ToString(Isolate::GetCurrent());
+        MaybeLocal<String> maybeValue = source->ToString(Isolate::GetCurrent()->GetCurrentContext());
+        if (!maybeValue.IsEmpty()) {
+            stringValue = maybeValue.ToLocalChecked();
+        }
     }
+
     return JNIV8Marshalling::v8string2string(stringValue);
 }
 
@@ -1025,7 +1046,7 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
     }
 
     if(maybeValueRef.IsEmpty()) {
-        // @TODO: => forward exception to Java somehow
+        holder->engine->forwardV8ExceptionToJNI("", &try_catch, true);
     }
 }
 
@@ -1089,6 +1110,7 @@ void BGJSV8Engine::initJNICache() {
                                                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
     _jniV8Engine.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
     _jniV8Engine.onReadyId = env->GetMethodID(_jniV8Engine.clazz, "onReady", "()V");
+    _jniV8Engine.onThrowId = env->GetMethodID(_jniV8Engine.clazz, "onThrow", "(Ljava/lang/RuntimeException;)V");
 }
 
 BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
@@ -1366,9 +1388,13 @@ void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
         auto holder = engine->_unhandledRejectedPromises.at(i);
         if (!holder->handled && !holder->collected) {
             auto exception = v8::Local<v8::Value>::New(isolate, holder->value);
-            engine->forwardV8ExceptionToJNI("Unhandled rejected promise: ", exception, v8::Exception::CreateMessage(isolate, exception));
 
-            LOG(LOG_ERROR, "Unhandled rejected promise: %s", engine->toDebugString(exception).c_str());
+            // exceptions detected here are thrown directly to the main thread
+            // due to asynchronous nature of the promises, these exceptions are often not related to the current call stack
+            // and might end up "all over the place" if we were to throw them directly on the current thread
+            // also, the event looper thread could end up here during initialization or when triggering timeouts;
+            // and it is NOT set up to log or otherwise handle exceptions! they would simply "disappear" if thrown there..
+            engine->forwardV8ExceptionToJNI("Unhandled rejected promise: ", exception, v8::Exception::CreateMessage(isolate, exception), nullptr, true);
         }
         holder->value.Reset();
         holder->promise.Reset();
@@ -1743,7 +1769,6 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json)
 
     v8::TryCatch try_catch(isolate);
     v8::MaybeLocal<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
-    if(env->ExceptionCheck()) return nullptr;
     if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -1826,7 +1851,6 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
                     &origin
             ).ToLocalChecked()->Run(context);
 
-    if(env->ExceptionCheck()) return nullptr;
     if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;

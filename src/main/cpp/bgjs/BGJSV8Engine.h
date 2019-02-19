@@ -120,7 +120,8 @@ private:
 	};
 
 	uint64_t createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat);
-	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, jobject causeException = nullptr) const;
+	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, jobject causeException = nullptr, bool throwOnMainThread = false) const;
+	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::TryCatch* try_catch, bool throwOnMainThread) const;
 
 	// utility method to convert v8 values to readable strings for debugging
 	const std::string toDebugString(v8::Handle<v8::Value> source) const;
@@ -173,6 +174,7 @@ private:
 	static struct {
 		jclass clazz;
 		jmethodID onReadyId;
+		jmethodID onThrowId;
 	} _jniV8Engine;
 
 	uv_thread_t _uvThread;
