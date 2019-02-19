@@ -1355,6 +1355,7 @@ void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
 
 void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
     v8::Isolate* isolate = (v8::Isolate*)data;
+    v8::Locker l(isolate);
     BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
