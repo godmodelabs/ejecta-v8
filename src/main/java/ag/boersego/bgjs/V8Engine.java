@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import androidx.annotation.NonNull;
 
 import java.io.File;
@@ -209,6 +211,21 @@ public class V8Engine extends JNIObject {
             return;
         }
         mHandlers.remove(handler);
+    }
+
+    /**
+     * this method is responsible for handling exceptions that are raised by
+     * asynchronously triggered javascript code (promises, timeouts, intervals)
+     * these exceptions are always thrown on to the main thread directly to guarantee identical stack traces
+     * and to make it impossible for any other code to catch them
+     * @param error
+     */
+    private void onThrow(RuntimeException error) {
+        Log.e(TAG, "Exception encountered in asynchronous javascript code; application will crash", error);
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        mainHandler.post(() -> {
+            throw error;
+        });
     }
 
     /**

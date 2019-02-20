@@ -215,7 +215,6 @@ jobject JNIV8Object::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jstr
 
     v8::Local<v8::Value> localRef;
     v8::MaybeLocal<v8::Value> maybeLocalRef = globalRef->Get(context, JNIV8Marshalling::jstring2v8string(name));
-    if(env->ExceptionCheck()) return nullptr;
     if(!maybeLocalRef.ToLocal(&localRef)) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -273,7 +272,6 @@ jobject JNIV8Object::jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstri
     JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
 
     MaybeLocal<Value> valueRef = localRef->Get(context, JNIV8Marshalling::jstring2v8string(name));
-    if(env->ExceptionCheck()) return nullptr;
     if(valueRef.IsEmpty()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -341,7 +339,6 @@ void JNIV8Object::jniSetV8Fields(JNIEnv *env, jobject obj, jobject map) {
         jobject value = env->CallObjectMethod(entry, _jniMapEntry.getValueId);
 
         Maybe<bool> res = localRef->Set(context, JNIV8Marshalling::jstring2v8string(key), JNIV8Marshalling::jobject2v8value(value));
-        if(env->ExceptionCheck()) break;
         if(res.IsNothing()) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             break;
@@ -394,7 +391,6 @@ jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jst
     if(args) {
         free(args);
     }
-    if(env->ExceptionCheck()) return nullptr;
     if (!maybeLocal.ToLocal<Value>(&resultRef)) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -450,7 +446,6 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
     MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames();
-    if(env->ExceptionCheck()) return nullptr;
     if(maybeArrayRef.IsEmpty()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -489,7 +484,6 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
     JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
 
     MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames(context);
-    if(env->ExceptionCheck()) return nullptr;
     if(maybeArrayRef.IsEmpty()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -515,7 +509,6 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
         keyRef = valueRef->ToString(isolate);
 
         maybeValueRef = localRef->Get(context, keyRef);
-        if(env->ExceptionCheck()) return nullptr;
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
@@ -576,7 +569,6 @@ jdouble JNIV8Object::jniToNumber(JNIEnv *env, jobject obj) {
 jstring JNIV8Object::jniToJSON(JNIEnv *env, jobject obj) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
     v8::MaybeLocal<v8::Value> stringValue = engine->stringifyJSON(localRef);
-    if(env->ExceptionCheck()) return nullptr;
     if(stringValue.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;

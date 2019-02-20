@@ -57,7 +57,7 @@ bool JNIObject::isRetained() const {
     return _atomicJniObjectRefCount != 0;
 }
 
-const jobject JNIObject::getJObject() {
+const jobject JNIObject::getJObject() const {
     JNIEnv *env = JNIWrapper::getEnvironment();
     // persistents always have a weak reference to the jobject
     // the strong reference only exists if they are retained by native code

@@ -22,7 +22,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
     private var fallbackMode: String? = null
 
-    private var fallbackCredentials = ""
+    private var fallbackCredentials = "omit"
 
     private var hasKeepAlive = false
 
@@ -201,7 +201,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             }
         }
 
-
         method = fields[KEY_METHOD] as? String? ?: "GET"
 
         if (fields.containsKey(KEY_HEADERS)) {
@@ -217,15 +216,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
         if (fields.containsKey(KEY_BODY)) {
             val bodyRaw = fields[KEY_BODY]
-
-            if (bodyRaw is String) {
-                body = bodyRaw
-                if (headers?.has("content-type") == false) {
-                    headers?.set("content-type", "text/plain;charset=UTF-8")
+            body = BGJSModuleFetchBody.createBodyFromRaw(bodyRaw)
+            if (headers?.has("content-type") == false) {
+                BGJSModuleFetchBody.extractContentType(bodyRaw)?.let {
+                    headers?.set("content-type", it)
                 }
-            } else {
-                // TODO: implement FormData, Buffer, URLSearchParams
-                throw RuntimeException("TypeError: fetch init.body must be of a valid type")
             }
         }
 
@@ -403,7 +398,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             if (mediaType == null) {
                 throw RuntimeException("TypeError: cannot encode body with unknown content-type '$contentType'")
             }
-            builder.method(method, RequestBody.create(mediaType, body))
+            builder.method(method, RequestBody.create(mediaType, body.readBytes()))
         }
 
 
@@ -419,7 +414,8 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         val response = BGJSModuleFetchResponse(v8Engine)
         response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
         response.status = response.status
-        response.body = httpResponse.body()?.string()
+        //TODO: Body as Reader, InputStream, BufferedSource?
+        response.body = httpResponse.body()?.byteStream()
 
         // TODO: fill in all the other fields of response
         // TODO: handle redirection types
@@ -434,7 +430,12 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         @V8Getter get
 
     @V8Function
-    override fun json(): JNIV8Object {
+    override fun arrayBuffer(): JNIV8Promise {
+        return super.arrayBuffer()
+    }
+
+    @V8Function
+    override fun json(): JNIV8Promise {
         return super.json()
     }
 

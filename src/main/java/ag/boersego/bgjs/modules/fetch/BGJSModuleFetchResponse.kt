@@ -46,10 +46,7 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
             if (args.size > 0) {
                 // First argument: body
                 val bodyRaw = args[0]
-                // TODO: According to spec, this should be a Blob!
-                if (bodyRaw is String) {
-                    body = bodyRaw
-                }
+                body = BGJSModuleFetchBody.createBodyFromRaw(bodyRaw)
             }
 
             if (args.size > 1 && args[1] is JNIV8Object) {
@@ -116,7 +113,12 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
         @V8Getter get
 
     @V8Function
-    override fun json(): JNIV8Object {
+    override fun arrayBuffer(): JNIV8Promise {
+        return super.arrayBuffer()
+    }
+
+    @V8Function
+    override fun json(): JNIV8Promise {
         return super.json()
     }
 
