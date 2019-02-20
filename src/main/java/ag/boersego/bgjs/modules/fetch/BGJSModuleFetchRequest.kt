@@ -214,6 +214,23 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             }
         }
 
+        // node-fetch sets these default headers, so we will do the same
+        if (headers == null) {
+            headers = BGJSModuleFetchHeaders(v8Engine)
+            headers?.set("accept", "*/*")
+            if (compress) {
+                headers?.append("accept-encoding", "gzip,deflate")
+            }
+            headers?.set("connection", "close")
+            if (body != null) {
+                headers?.set("transfer-encoding", "chunked")
+            }
+        }
+
+        if (headers?.has("user-agent") == false) {
+            headers?.set("user-agent", "ejecta-v8")
+        }
+
         if (fields.containsKey(KEY_BODY)) {
             val bodyRaw = fields[KEY_BODY]
             body = BGJSModuleFetchBody.createBodyFromRaw(bodyRaw)
@@ -250,23 +267,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         val setKeepAlive = init.getV8FieldTyped<Boolean>(KEY_KEEPALIVE, V8Flags.UndefinedIsNull, Boolean::class.java)
         if (setKeepAlive != null) {
             hasKeepAlive = setKeepAlive
-        }
-
-        // node-fetch sets these default headers, so we will do the same
-        if (headers == null) {
-            headers = BGJSModuleFetchHeaders(v8Engine)
-            headers?.set("accept", "*/*")
-            if (compress) {
-                headers?.append("accept-encoding", "gzip,deflate")
-            }
-            headers?.set("connection", "close")
-            if (body != null) {
-                headers?.set("transfer-encoding", "chunked")
-            }
-        }
-
-        if (headers?.has("user-agent") == false) {
-            headers?.set("user-agent", "ejecta-v8")
         }
 
         // TODO: this is probably complete, check spec
