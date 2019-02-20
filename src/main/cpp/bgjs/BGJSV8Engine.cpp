@@ -1356,11 +1356,24 @@ void BGJSV8Engine::StartLoopThread(void *arg) {
 
     engine->createContext();
 
+    LOGD("BGJSV8Engine: creating context [OK]");
+
+    LOGD("BGJSV8Engine: transitioning to ready state...");
+
     engine->registerModule("canvas", BGJSGLModule::doRequire);
 
-    JNIWrapper::getEnvironment()->CallVoidMethod(engine->getJObject(), engine->_jniV8Engine.onReadyId);
+    JNIEnv* env = JNIWrapper::getEnvironment();
+    env->CallVoidMethod(engine->getJObject(), engine->_jniV8Engine.onReadyId);
+    if(env->ExceptionCheck()) {
+        LOGD("BGJSV8Engine: transitioning to ready state [FAILED]");
+        jthrowable e = env->ExceptionOccurred();
+        env->ExceptionClear();
+        env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onThrowId, e);
+        return;
+    }
 
-    LOGD("BGJSV8Engine: creating context [DONE]");
+    LOGD("BGJSV8Engine: transitioning to ready state [OK]");
+
 
     uv_run(&engine->_uvLoop, UV_RUN_DEFAULT);
 
@@ -1790,7 +1803,6 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
     v8::TryCatch try_catch(isolate);
 
     v8::MaybeLocal<v8::Value> value = engine->require(JNIWrapper::jstring2string(file));
-    if(env->ExceptionCheck()) return nullptr;
     if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;

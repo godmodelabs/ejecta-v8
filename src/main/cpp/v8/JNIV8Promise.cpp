@@ -85,7 +85,6 @@ jboolean JNIV8PromiseResolver::jniReject(JNIEnv *env, jobject obj, jobject value
     JNIV8Object_PrepareJNICall(JNIV8PromiseResolver, v8::Promise::Resolver, false);
 
     auto result = localRef->Reject(context, JNIV8Marshalling::jobject2v8value(value));
-    if(env->ExceptionCheck()) return (jboolean) false;
     if(result.IsNothing()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return (jboolean)false;

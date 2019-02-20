@@ -221,7 +221,7 @@ public class V8Engine extends JNIObject {
      * @param error
      */
     private void onThrow(RuntimeException error) {
-        Log.e(TAG, "Exception encountered in asynchronous javascript code; application will crash", error);
+        Log.e(TAG, "Exception encountered in javascript code; application will crash", error);
         Handler mainHandler = new Handler(Looper.getMainLooper());
         mainHandler.post(() -> {
             throw error;
