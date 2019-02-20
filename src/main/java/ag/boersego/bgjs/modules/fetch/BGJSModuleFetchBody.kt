@@ -89,7 +89,7 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
             return false
         }
 
-        //TODO: Do we need a timeout?
+        //TODO: Timeout
 //        // allow timeout on slow response body
 //        if (this.timeout) {
 //            resTimeout = setTimeout(() => {
