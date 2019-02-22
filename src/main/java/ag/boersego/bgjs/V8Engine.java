@@ -35,7 +35,6 @@ public class V8Engine extends JNIObject {
     protected Handler mHandler;
     private boolean mReady;
     private ArrayList<V8EngineHandler> mHandlers = null;
-    private boolean mPaused;
 
     private static final String TAG = V8Engine.class.getSimpleName();
 
@@ -48,33 +47,8 @@ public class V8Engine extends JNIObject {
         mDebug = debug;
     }
 
-    public void unpause() {
-        if (!mPaused) {
-            return;
-        }
-        mPaused = false;
-
-        // @TODO: notify native side
-
-        for (final JNIV8Module module : mModules) {
-            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
-                ((JNIV8Module.IJNIV8Suspendable) module).onResume();
-            }
-        }
-    }
-
-
-    public void pause() {
-        mPaused = true;
-
-        // @TODO: notify native side
-
-        for (final JNIV8Module module : mModules) {
-            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
-                ((JNIV8Module.IJNIV8Suspendable) module).onSuspend();
-            }
-        }
-    }
+    public native void pause();
+    public native void unpause();
 
     /**
      * Execute a Runnable within a v8 level lock on this v8 engine and hence this v8 Isolate.
@@ -241,6 +215,27 @@ public class V8Engine extends JNIObject {
         }
     }
 
+    /**
+     * Override to be notified once the engine is suspended
+     */
+    protected void onSuspend() {
+        for (final JNIV8Module module : mModules) {
+            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
+                ((JNIV8Module.IJNIV8Suspendable) module).onSuspend();
+            }
+        }
+    }
+
+    /**
+     * Override to be notified once the engine is resumed
+     */
+    protected void onResume() {
+        for (final JNIV8Module module : mModules) {
+            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
+                ((JNIV8Module.IJNIV8Suspendable) module).onResume();
+            }
+        }
+    }
 
     public native void shutdown();
 

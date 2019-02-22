@@ -35,10 +35,24 @@ typedef enum EBGJSV8EngineEmbedderData {
 class BGJSV8Engine : public JNIObject {
 	friend class JNIWrapper;
 public:
+	enum class EState {
+		kInitial,
+		kStarting,
+		kStarted,
+		kStopping,
+		kStopped
+	};
+
+	struct Options {
+		jobject assetManager;
+		const char *locale, *lang, *timezone, *deviceClass;
+		float density;
+		int maxHeapSize;
+		bool isStoreBuild, debug;
+	};
+
 	BGJSV8Engine(jobject obj, JNIClassInfo *info);
 	virtual ~BGJSV8Engine();
-
-	void setAssetManager(jobject jAssetManager);
 
 	/**
 	 * returns the engine instance for the specified isolate
@@ -55,11 +69,6 @@ public:
 
 	bool forwardJNIExceptionToV8() const;
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
-
-	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
-	void setDensity(float density);
-	float getDensity() const;
-	void setDebug(bool debug);
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
@@ -83,8 +92,6 @@ public:
 
     const char* enqueueMemoryDump(const char *basePath);
 
-	void createContext();
-
 	/**
      * cache JNI class references
      */
@@ -94,16 +101,15 @@ public:
 	void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
 	void doAssert(const v8::FunctionCallbackInfo<v8::Value> &info);
 
-    bool _debug;
-
-    void setMaxHeapSize(int maxHeapSize);
-
-    void setIsStoreBuild(bool isStoreBuild);
+	void pause();
+	void unpause();
 
     // @TODO: make private after moving java methods inside class
     void shutdown();
 
-    void start();
+    void start(const Options* options);
+
+    const EState getState() const;
 private:
 	struct RejectedPromiseHolder {
 		v8::Persistent<v8::Promise> promise;
@@ -140,13 +146,15 @@ private:
 
     static void StartLoopThread(void *arg);
 	static void StopLoopThread(uv_async_t *handle);
-
+	static void SuspendLoopThread(uv_async_t *handle);
 	static void OnHandleClosed(uv_handle_t *handle);
 
     static void OnTimerTriggeredCallback(uv_timer_t * handle);
 	static void OnTimerClosedCallback(uv_handle_t * handle);
 	static void OnTimerEventCallback(uv_async_t * handle);
 	static void RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data);
+
+	void createContext();
 
 	static struct {
 		jclass clazz;
@@ -175,11 +183,19 @@ private:
 		jclass clazz;
 		jmethodID onReadyId;
 		jmethodID onThrowId;
+		jmethodID onSuspendId;
+		jmethodID onResumeId;
 	} _jniV8Engine;
+
+
+	EState _state;
+	bool _isSuspended, _debug;
 
 	uv_thread_t _uvThread;
 	uv_loop_t _uvLoop;
-	uv_async_t _uvEventScheduleTimers, _uvEventStop;
+	uv_mutex_t _uvMutex;
+	uv_cond_t _uvCondSuspend;
+	uv_async_t _uvEventScheduleTimers, _uvEventStop, _uvEventSuspend;
 
 	char *_locale;		// de_DE
 	char *_lang;		// de

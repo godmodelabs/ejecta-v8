@@ -1111,6 +1111,8 @@ void BGJSV8Engine::initJNICache() {
     _jniV8Engine.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
     _jniV8Engine.onReadyId = env->GetMethodID(_jniV8Engine.clazz, "onReady", "()V");
     _jniV8Engine.onThrowId = env->GetMethodID(_jniV8Engine.clazz, "onThrow", "(Ljava/lang/RuntimeException;)V");
+    _jniV8Engine.onSuspendId = env->GetMethodID(_jniV8Engine.clazz, "onSuspend", "()V");
+    _jniV8Engine.onResumeId = env->GetMethodID(_jniV8Engine.clazz, "onResume", "()V");
 }
 
 BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
@@ -1119,15 +1121,34 @@ BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, inf
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
     _javaAssetManager = nullptr;
     _isolate = NULL;
+    _isSuspended = false;
+    _state = EState::kInitial;
+
+    // create uv loop, async events, mutexes & conditions
+    // these are required for synchronization and dispatching events before the engine is actually started
+    uv_loop_init(&_uvLoop);
+    _uvLoop.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventStop, &BGJSV8Engine::StopLoopThread);
+    _uvEventStop.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventScheduleTimers, &BGJSV8Engine::OnTimerEventCallback);
+    _uvEventScheduleTimers.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventSuspend, &BGJSV8Engine::SuspendLoopThread);
+    _uvEventSuspend.data = this;
+
+    uv_mutex_init(&_uvMutex);
+    uv_cond_init(&_uvCondSuspend);
+
+}
+
+const BGJSV8Engine::EState BGJSV8Engine::getState() const {
+    return _state;
 }
 
 void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 
-}
-
-void BGJSV8Engine::setAssetManager(jobject jAssetManager) {
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    _javaAssetManager = env->NewGlobalRef(jAssetManager);
 }
 
 void BGJSV8Engine::createContext() {
@@ -1328,22 +1349,51 @@ void BGJSV8Engine::createContext() {
     _didScheduleURPTask = false;
 }
 
-void BGJSV8Engine::start() {
-    // create an uv event loop & a dedicated looper thread
-    uv_loop_init(&_uvLoop);
-    _uvLoop.data = this;
+void BGJSV8Engine::start(const Options* options) {
+    JNI_ASSERT(_state == EState::kInitial, "BGJSV8Engine::start must only be called once after creation");
+    _state = EState::kStarting;
 
-    uv_async_init(&_uvLoop, &_uvEventStop, &BGJSV8Engine::StopLoopThread);
-    _uvEventStop.data = this;
+    // apply options
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    _javaAssetManager = env->NewGlobalRef(options->assetManager);
+    _locale = strdup(options->locale);
+    _lang = strdup(options->lang);
+    _tz = strdup(options->timezone);
+    _deviceClass = strdup(options->deviceClass);
+    _density = options->density;
+    _isStoreBuild = options->isStoreBuild;
+    _maxHeapSize = options->maxHeapSize;
+    _debug = options->debug;
 
-    uv_async_init(&_uvLoop, &_uvEventScheduleTimers, &BGJSV8Engine::OnTimerEventCallback);
-    _uvEventScheduleTimers.data = this;
-
+    // create dedicated looper thread
     uv_thread_create(&_uvThread, &BGJSV8Engine::StartLoopThread, this);
 }
 
 void BGJSV8Engine::shutdown() {
+    JNI_ASSERT(_state == EState::kStopping || _state == EState::kStopped, "BGJSV8Engine::start must only be stopped once");
+    _state = EState::kStopping;
     uv_async_send(&_uvEventStop);
+}
+
+void BGJSV8Engine::pause() {
+    // if engine is not started yet, the event will still be scheduled
+    // once the eventloop is started, it will immediately suspend
+    uv_mutex_lock(&_uvMutex);
+    if(!_isSuspended) {
+        _isSuspended = true;
+        uv_async_send(&_uvEventSuspend);
+    }
+    uv_mutex_unlock(&_uvMutex);
+}
+
+void BGJSV8Engine::unpause() {
+    uv_mutex_lock(&_uvMutex);
+    if(_isSuspended) {
+        _isSuspended = false;
+        // if the eventloop is currently suspended => wake up using signal
+        uv_cond_signal(&_uvCondSuspend);
+    }
+    uv_mutex_unlock(&_uvMutex);
 }
 
 void BGJSV8Engine::StartLoopThread(void *arg) {
@@ -1372,17 +1422,68 @@ void BGJSV8Engine::StartLoopThread(void *arg) {
         return;
     }
 
-    LOGD("BGJSV8Engine: transitioning to ready state [OK]");
+    // engine might have been requested to stop in the meantime
+    if(engine->_state == EState::kStarting) {
+        engine->_state = EState::kStarted;
+    }
 
+    LOGD("BGJSV8Engine: transitioning to ready state [OK]");
 
     uv_run(&engine->_uvLoop, UV_RUN_DEFAULT);
 
+    engine->_state = EState::kStopped;
     LOG(LOG_INFO, "BGJSV8Engine: EventLoop ended");
 }
 
 void BGJSV8Engine::StopLoopThread(uv_async_t *handle) {
     BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
+    JNI_ASSERT(engine->_state == EState::kStopping, "BGJSV8Engine encountered unexpected state while stopping EventLoop");
     uv_stop(&engine->_uvLoop);
+}
+
+void BGJSV8Engine::SuspendLoopThread(uv_async_t *handle) {
+    BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
+    bool waiting = false;
+    JNIEnv* env = JNIWrapper::getEnvironment();
+
+    uv_mutex_lock(&engine->_uvMutex);
+    while(engine->_isSuspended) {
+        // due to spurious wake ups, or suspend/resume in quick succession we might end up here multiple times
+        // if event loop has not been waiting before => run OnSuspend logic
+        if(!waiting) {
+            waiting = true;
+            uv_mutex_unlock(&engine->_uvMutex);
+
+            // because `pause`/`unpause` could be called from code executed by the OnSuspend handler
+            // we have to run this WITHOUT holding the mutex
+            env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onSuspendId);
+            if(env->ExceptionCheck()) {
+                jthrowable e = env->ExceptionOccurred();
+                env->ExceptionClear();
+                env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onThrowId, e);
+                return;
+            }
+
+            uv_mutex_lock(&engine->_uvMutex);
+            LOG(LOG_INFO, "BGJSV8Engine: EventLoop suspended");
+            continue; // to check if still waiting, because mutex was released temporarily
+        }
+        uv_cond_wait(&engine->_uvCondSuspend, &engine->_uvMutex);
+    }
+    uv_mutex_unlock(&engine->_uvMutex);
+
+    // if suspend/resume are triggered in quick succession this method might have been called after the engine was already resumed again
+    // if the event loop was actually suspended => run OnResume logic
+    if(waiting) {
+        env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onResumeId);
+        if(env->ExceptionCheck()) {
+            jthrowable e = env->ExceptionOccurred();
+            env->ExceptionClear();
+            env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onThrowId, e);
+            return;
+        }
+        LOG(LOG_INFO, "BGJSV8Engine: EventLoop resumed");
+    }
 }
 
 void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
@@ -1466,38 +1567,6 @@ void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>
     }
 
     LOG(debugLevel, "%s", str.str().c_str());
-}
-
-void BGJSV8Engine::setLocale(const char *locale, const char *lang,
-                             const char *tz, const char *deviceClass) {
-    _locale = strdup(locale);
-    _lang = strdup(lang);
-    _tz = strdup(tz);
-    _deviceClass = strdup(deviceClass);
-}
-
-void BGJSV8Engine::setDensity(float density) {
-    _density = density;
-}
-
-float BGJSV8Engine::getDensity() const {
-    return _density;
-}
-
-void BGJSV8Engine::setDebug(bool debug) {
-    _debug = debug;
-}
-
-void BGJSV8Engine::setIsStoreBuild(bool isStoreBuild) {
-    _isStoreBuild = isStoreBuild;
-}
-
-/**
- * Sets the maximum "old space" heap size in Megabytes we set for v8
- * @param maxHeapSize max heap in mb
- */
-void BGJSV8Engine::setMaxHeapSize(int maxHeapSize) {
-    _maxHeapSize = maxHeapSize;
 }
 
 char *BGJSV8Engine::loadFile(const char *path, unsigned int *length) const {
@@ -1712,22 +1781,35 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
         jstring timezone, jfloat density, jstring deviceClass, jboolean debug, jboolean isStoreBuild, jint maxHeapSize) {
 
     auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
-    ct->setAssetManager(assetManager);
 
-    const char* localeStr = env->GetStringUTFChars(locale, NULL);
-    const char* langStr = env->GetStringUTFChars(lang, NULL);
-    const char* tzStr = env->GetStringUTFChars(timezone, NULL);
-    const char* deviceClassStr = env->GetStringUTFChars(deviceClass, NULL);
-    ct->setLocale(localeStr, langStr, tzStr, deviceClassStr);
-    ct->setDensity(density);
-    ct->setDebug(debug);
-    ct->setIsStoreBuild(isStoreBuild);
-    ct->setMaxHeapSize(maxHeapSize);
-    env->ReleaseStringUTFChars(locale, localeStr);
-    env->ReleaseStringUTFChars(lang, langStr);
-    env->ReleaseStringUTFChars(timezone, tzStr);
-    env->ReleaseStringUTFChars(deviceClass, deviceClassStr);
-    ct->start();
+    BGJSV8Engine::Options options;
+    options.debug = debug;
+    options.assetManager = assetManager;
+    options.locale = env->GetStringUTFChars(locale, NULL);
+    options.lang = env->GetStringUTFChars(lang, NULL);
+    options.timezone = env->GetStringUTFChars(timezone, NULL);
+    options.deviceClass = env->GetStringUTFChars(deviceClass, NULL);
+    options.isStoreBuild = isStoreBuild;
+    options.maxHeapSize = maxHeapSize;
+
+    ct->start(&options);
+
+    env->ReleaseStringUTFChars(locale, options.locale);
+    env->ReleaseStringUTFChars(lang, options.lang);
+    env->ReleaseStringUTFChars(timezone, options.timezone);
+    env->ReleaseStringUTFChars(deviceClass, options.deviceClass);
+}
+
+JNIEXPORT void JNICALL
+Java_ag_boersego_bgjs_V8Engine_pause(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    engine->pause();
+}
+
+JNIEXPORT void JNICALL
+Java_ag_boersego_bgjs_V8Engine_unpause(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    engine->unpause();
 }
 
 JNIEXPORT jstring JNICALL
