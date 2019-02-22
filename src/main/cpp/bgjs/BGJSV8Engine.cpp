@@ -573,15 +573,14 @@ const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
     if(source->IsNativeError()) {
         auto messageRef = v8::Exception::CreateMessage(Isolate::GetCurrent(), source);
         stringValue = messageRef->Get();
-    // JSON-serializable objects: "plain Object" and Array
-    } else if (source->IsObject() && (
-            source->IsArray() || JNIV8Marshalling::v8string2string(source.As<Object>()->GetConstructorName()) == "Object"
-            )) {
-        // stringify might throw an exception because of circular references, which is non-fatal
-        v8::TryCatch try_catch(Isolate::GetCurrent());
-        MaybeLocal<Value> maybeValue = stringifyJSON(source.As<Object>(), true);
-        if (!maybeValue.IsEmpty()) {
-            stringValue = maybeValue.ToLocalChecked();
+    // other objects + primitives
+    } else {
+        Local<Function> debugDumpFn = Local<Function>::New(_isolate, _debugDumpFn);
+        Handle<Value> args[] = {source};
+        Local<Context> context = Isolate::GetCurrent()->GetCurrentContext();
+        MaybeLocal<Value> result = debugDumpFn->Call(context, context->Global(), 1, args);
+        if (!result.IsEmpty()) {
+            stringValue = result.ToLocalChecked();
         }
     }
 
@@ -1344,6 +1343,23 @@ void BGJSV8Engine::createContext() {
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
     }
 
+    // Init debug dump binding
+    {
+        Local<Function> debugDumpMethod =
+                Local<Function>::Cast(
+                        Script::Compile(
+                                context,
+                                String::NewFromOneByte(Isolate::GetCurrent(),
+                                                       (const uint8_t *) "(function debugDump(a,b,c){b||(b=5),c||(c=0);const d=typeof a;if(\"string\"==d)return a;if(\"boolean\"==d||\"number\"==d)return a;if(\"symbol\"==d)"
+                                                                         "return a.toString();if(\"function\"==d){const b=a.toString();return 100<b.length?b.substr(0,100)+\"\\n    ... \"+(b.length-100)+\" more chars ...\\n}\":b}if(c>b)"
+                                                                         "return\"...\";let e=\"\";Object.getPrototypeOf(a)!==Object.prototype&&a.constructor.name&&(e=a.constructor.name+\" \");const f=[],g=\"  \".repeat(c+1);"
+                                                                         "for(let d in a)f.push(g+d+\": \"+debugDump(a[d],b,c+1));return f.length?e+\"{\\n\"+f.join(\",\\n\")+\"\\n\"+\"  \".repeat(c)+\"}\":e+\"{}\"})",
+                                                       NewStringType::kInternalized).ToLocalChecked(),
+                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
+                                                                        (const uint8_t *) "binding:debugDump",
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
+        _debugDumpFn.Reset(_isolate, debugDumpMethod);
+    }
     // Init unhandled promise rejection handler
     _isolate->SetPromiseRejectCallback(&BGJSV8Engine::PromiseRejectionHandler);
     _didScheduleURPTask = false;

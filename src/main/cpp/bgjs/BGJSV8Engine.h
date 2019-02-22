@@ -225,6 +225,7 @@ private:
 
     v8::Persistent<v8::Function> _requireFn, _makeRequireFn;
 	v8::Persistent<v8::Function> _jsonParseFn, _jsonStringifyFn;
+	v8::Persistent<v8::Function> _debugDumpFn;
 	v8::Persistent<v8::Function> _makeJavaErrorFn;
 	v8::Persistent<v8::Function> _getStackTraceFn;
 
