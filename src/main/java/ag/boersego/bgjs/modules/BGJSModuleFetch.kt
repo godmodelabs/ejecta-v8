@@ -77,7 +77,6 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                                 locationUrl?.let {
                                     response.headers.set("location", it.toString())
                                 }
-                                return
                             }
 
                             "follow" -> {
@@ -116,7 +115,6 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
 
                                     return
                                 }
-                                return
                             }
 
                         }
