@@ -9,7 +9,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Response
 import java.io.IOException
 import java.net.URL
-import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 
@@ -60,7 +59,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                     // HTTP fetch step 5
                     if (isRedirect(response.status)) {
                         // HTTP fetch step 5.2
-                        val location = response.headers.get("Location")
+                        val location = response.headers.get("location")
 
                         // HTTP fetch step 5.3
                         val locationUrl = location?.let{URL(request.url, it)}
@@ -76,7 +75,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                             "manual" -> {
                                 // node-fetch-specific step: make manual redirect a bit easier to use by setting the Location header value to the resolved URL.
                                 locationUrl?.let {
-                                    response.headers.set("Location", it.toString())
+                                    response.headers.set("location", it.toString())
                                 }
                                 return
                             }
@@ -124,7 +123,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                     }
 
                     // HTTP-network fetch step 12.1.1.3
-                    val codings = response.headers.get("Content-Encoding")
+                    val codings = response.headers.get("content-encoding")
 
                     // HTTP-network fetch step 12.1.1.4: handle content codings
 
@@ -136,6 +135,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                     // 5. content not modified response (304)
                     if (!request.compress || request.method == "HEAD" || codings == null || httpResponse.code() == 204 || httpResponse.code() == 304) {
                         resolver.resolve(response)
+                        return
                     }
 
                     //TODO: gzip
