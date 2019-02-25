@@ -1350,7 +1350,7 @@ void BGJSV8Engine::createContext() {
                         Script::Compile(
                                 context,
                                 String::NewFromOneByte(Isolate::GetCurrent(),
-                                                       (const uint8_t *) "(function debugDump(a,b,c){b||(b=5),c||(c=0);const d=typeof a;if(\"string\"==d)return a;if(\"boolean\"==d||\"number\"==d)return a;if(\"symbol\"==d)"
+                                                       (const uint8_t *) "(function debugDump(a,b,c){b||(b=5),c||(c=0);const d=typeof a;if(!a||\"string\"==d)return\"'\"+a+\"'\";if(\"boolean\"==d||\"number\"==d)return a;if(\"symbol\"==d)"
                                                                          "return a.toString();if(\"function\"==d){const b=a.toString();return 100<b.length?b.substr(0,100)+\"\\n    ... \"+(b.length-100)+\" more chars ...\\n}\":b}if(c>b)"
                                                                          "return\"...\";let e=\"\";Object.getPrototypeOf(a)!==Object.prototype&&a.constructor.name&&(e=a.constructor.name+\" \");const f=[],g=\"  \".repeat(c+1);"
                                                                          "for(let d in a)f.push(g+d+\": \"+debugDump(a[d],b,c+1));return f.length?e+\"{\\n\"+f.join(\",\\n\")+\"\\n\"+\"  \".repeat(c)+\"}\":e+\"{}\"})",
