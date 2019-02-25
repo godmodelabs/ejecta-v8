@@ -27,7 +27,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
 
     fun fetch(engine: V8Engine, arguments: Array<Any>): JNIV8Promise {
         if (arguments == null || arguments.size < 1) {
-            throw RuntimeException("fetch needs at least one argument: input")
+            throw V8JSException(engine, "TypeError", "fetch needs at least one argument: input")
         }
         val fetchRequest = BGJSModuleFetchRequest(v8Engine = engine, args = arguments)
 

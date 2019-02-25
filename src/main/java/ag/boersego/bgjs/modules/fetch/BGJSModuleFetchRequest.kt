@@ -31,18 +31,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
         @V8Getter get
 
-    var context = ""
-        internal set
-        @V8Getter get
-
-    /**
-     * Contains the subresource integrity value of the request (e.g., sha256-BpfBw7ivV8q2jLiT13fxDYAe2tJllusRSZ273h2nFSE=).
-     */
-    var integrity = ""
-        internal set
-        @V8Getter get
-
-
     lateinit var headers: BGJSModuleFetchHeaders
         internal set
         @V8Getter get
@@ -66,7 +54,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             if (value == "follow" || value == "error" || value == "manual") {
                 field = value
             } else {
-                throw RuntimeException("invalid redirect: '$value'")
+                throw V8JSException(v8Engine, "TypeError", "invalid redirect: '$value'")
             }
         }
         @V8Getter get
@@ -114,7 +102,8 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         if (args != null) {
             // Was constructed in JS, parse parameters
             if (args.size > 2) {
-                throw RuntimeException("TypeError: Request needs no, one or two parameters: Request(input, init)")
+                throw V8JSException(v8Engine, "TypeError", "Request needs no, one or two parameters: Request(input, init)")
+
             }
             if (args.size > 0) {
                 setDefaultHeaders()
@@ -123,10 +112,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
                     try {
                         url = URL(input)
                         if (url.userInfo != null) {
-                            throw RuntimeException("TypeError: Request input url cannot have credentials")
+                            throw V8JSException(v8Engine, "TypeError", "Request input url cannot have credentials")
+
                         }
                     } catch (e: MalformedURLException) {
-                        throw RuntimeException("TypeError: Request input is invalid url '$input'", e)
+                        throw V8JSException(v8Engine, "TypeError", "Request input is invalid url '$input'")
                     }
                 } else if (input is BGJSModuleFetchRequest) {
                     this.applyFrom(input)
@@ -135,14 +125,14 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
             if (args.size > 1 && args[1] !is JNIV8Undefined) {
                 if (args[1] !is JNIV8GenericObject) {
-                    throw RuntimeException("TypeError: Request init must be an object")
+                    throw V8JSException(v8Engine, "TypeError", "Request init must be an object")
                 }
 
                 val init = args[1] as JNIV8GenericObject
                 initRequest(init, false)
 
                 if (body != null && (method == "GET" || method == "HEAD")) {
-                    throw RuntimeException("TypeError: Cannot have body with GET or HEAD")
+                    throw V8JSException(v8Engine, "TypeError", "Cannot have body with GET or HEAD")
                 }
             }
         }
@@ -185,13 +175,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             }
         }
 
-        cache = fields[KEY_CACHE] as? String? ?: cache
-
         redirect = fields[KEY_REDIRECT] as? String? ?: redirect
-
-        integrity = fields[KEY_INTEGRITY] as? String? ?: integrity
-
-
+        follow = fields[KEY_FOLLOW] as? Int? ?: follow
+        timeout = fields[KEY_TIMEOUT] as? Int? ?: timeout
+        compress = fields[KEY_COMPRESS] as? Boolean? ?: compress
+        size = fields[KEY_SIZE] as? Int? ?: size
 
         // TODO: this is probably complete, check spec
     }
@@ -218,7 +206,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     @V8Function
     fun clone(): BGJSModuleFetchRequest {
         if (bodyUsed) {
-            throw RuntimeException("TypeError: cannot clone because body already used")
+            throw V8JSException(v8Engine, "TypeError", "cannot clone because body already use")
         }
         val clone = BGJSModuleFetchRequest(v8Engine)
         clone.applyFrom(this)
@@ -228,15 +216,14 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     private fun applyFrom(other: BGJSModuleFetchRequest) {
         url = other.url
         headers = other.headers.clone()
-        follow = other.follow
-        compress = other.compress
         method = other.method
         body = other.body
-        cache = other.cache
-        context = other.context
         redirect = other.redirect
-        counter = other.counter
         follow = other.follow
+        timeout = other.timeout
+        compress = other.compress
+        size = other.size
+        counter = other.counter
 
     }
 
@@ -251,15 +238,18 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             headers.append("accept", "*/*")
         }
 
+        if (url.protocol.isEmpty() || url.host.isEmpty()) {
+
+        }
         headers.applyToRequest(builder)
         val body = body
         if (body == null) {
             builder.method(method, null)
         } else {
             // Only set a body if we know it's content-type. This is also derived from how the body is set
-            val contentType = headers.get("content-type") ?: throw RuntimeException("TypeError: cannot have body without knowing content-type")
+            val contentType = headers.get("content-type") ?: throw V8JSException(v8Engine, "TypeError", "cannot have body without knowing content-type")
 
-            val mediaType = MediaType.parse(contentType) ?: throw RuntimeException("TypeError: cannot encode body with unknown content-type '$contentType'")
+            val mediaType = MediaType.parse(contentType) ?: throw V8JSException(v8Engine, "cannot encode body with unknown content-type '$contentType'")
             builder.method(method, RequestBody.create(mediaType, body.readBytes()))
         }
         return builder.build()
@@ -312,9 +302,10 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             builder.method(method, null)
         } else {
             // Only set a body if we know it's content-type. This is also derived from how the body is set
-            val contentType = headers.get("content-type") ?: throw RuntimeException("TypeError: cannot have body without knowing content-type")
+            val contentType = headers.get("content-type") ?: throw V8JSException(v8Engine, "TypeError", "cannot have body without knowing content-type")
 
-            val mediaType = MediaType.parse(contentType) ?: throw RuntimeException("TypeError: cannot encode body with unknown content-type '$contentType'")
+
+            val mediaType = MediaType.parse(contentType) ?: throw V8JSException(v8Engine, "TypeError", "cannot encode body with unknown content-type '$contentType'")
             builder.method(method, RequestBody.create(mediaType, body.readBytes()))
         }
 
@@ -348,6 +339,9 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         val KEY_BODY = "body"
         val KEY_CACHE = "cache"
         val KEY_REDIRECT = "redirect"
-        val KEY_INTEGRITY = "integrity"
+        val KEY_FOLLOW = "follow0"
+        val KEY_TIMEOUT = "timeout"
+        val KEY_COMPRESS = "compress"
+        val KEY_SIZE = "size"
     }
 }

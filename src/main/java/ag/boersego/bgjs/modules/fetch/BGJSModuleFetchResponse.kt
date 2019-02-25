@@ -123,11 +123,11 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
             val response = BGJSModuleFetchResponse(v8Engine)
             response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
             response.status = httpResponse.code()
+            //TODO: statusText from httpResonse
+            //response.statusText = httpResponse.
             //TODO: Body as Reader, InputStream, BufferedSource?
             response.body = httpResponse.body()?.byteStream()
-
-            // TODO: fill in all the other fields of response
-            // TODO: handle redirection types
+            response.redirect = httpResponse.isRedirect
 
             return response
         }

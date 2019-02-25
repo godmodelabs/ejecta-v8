@@ -1,9 +1,6 @@
 package ag.boersego.bgjs.modules
 
-import ag.boersego.bgjs.JNIV8Array
-import ag.boersego.bgjs.JNIV8Iterator
-import ag.boersego.bgjs.JNIV8Object
-import ag.boersego.bgjs.V8Engine
+import ag.boersego.bgjs.*
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Symbols
 import okhttp3.Headers
@@ -27,7 +24,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     fun append(rawName: String, rawValue: String) {
         val value = normalizePotentialValue(rawValue)
         if (value.contains(ZERO_BYTE) || value.contains('\n') || value.contains('\r')) {
-            throw RuntimeException("TypeError: illegal character in value")
+            throw V8JSException(v8Engine, "TypeError", "illegal character in value")
         }
         val name = normalizeName(rawName)
 
@@ -47,7 +44,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     fun set(rawName: String, rawValue: String) {
         val value = normalizePotentialValue(rawValue)
         if (value.contains(ZERO_BYTE) || value.contains('\n') || value.contains('\r')) {
-            throw RuntimeException("TypeError: illegal character in value")
+            throw V8JSException(v8Engine, "TypeError", "illegal character in value")
         }
         val name = normalizeName(rawName)
 
@@ -140,7 +137,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             val headers = BGJSModuleFetchHeaders(headerRaw.v8Engine)
             for (entry in fields) {
                 if (entry.value !is String) {
-                    throw RuntimeException("init.headers object: values must be Strings (problem with key '${entry.key}'")
+                    throw V8JSException(headerRaw.v8Engine, "TypeError", "init.headers object: values must be Strings (problem with key '${entry.key}'")
                 }
                 headers.set(entry.key, entry.value as String)
             }

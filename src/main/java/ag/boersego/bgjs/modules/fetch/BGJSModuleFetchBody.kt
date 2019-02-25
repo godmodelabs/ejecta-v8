@@ -99,7 +99,6 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
         return true
     }
 
-
     companion object {
         fun createBodyFromRaw(bodyRaw: Any?): InputStream? {
             return when (bodyRaw) {
