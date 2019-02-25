@@ -158,6 +158,5 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
 
         val ZERO_BYTE = '\u0000'
-        val CONTENT_TYPE = "content-type"
     }
 }

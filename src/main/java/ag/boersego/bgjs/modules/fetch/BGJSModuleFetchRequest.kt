@@ -18,13 +18,7 @@ import java.net.URL
 
 class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : BGJSModuleFetchBody(v8Engine, jsPtr, args) {
 
-    private lateinit var parsedUrl: URL
-
-    private var fallbackMode: String? = null
-
-    private var fallbackCredentials = "omit"
-
-    private var hasKeepAlive = false
+    lateinit var url: URL
 
     var cache = "default"
         internal set(value) {
@@ -48,21 +42,8 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         internal set
         @V8Getter get
 
-    var credentials = "omit"
-        internal set(value) {
-            if (value == "omit" || value == "same-origin" || value == "include") {
-                field = value
-            } else {
-                throw RuntimeException("invalid credentials: '$value'")
-            }
-        }
-        @V8Getter get
 
-    var destination = ""
-        internal set
-        @V8Getter get
-
-    var headers: BGJSModuleFetchHeaders? = null
+    lateinit var headers: BGJSModuleFetchHeaders
         internal set
         @V8Getter get
 
@@ -72,19 +53,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     var method = "GET"
         internal set
         @V8Getter get
-    /**
-     * Contains the mode of the request (e.g., cors, no-cors, same-origin, navigate.)
-     */
-    var mode = "no-cors"
-        internal set(value) {
-            if (value == "same-origin" || value == "cors" || value == "no-cors" || value == "navigate" || value == "websocket") {
-                field = value
-            } else {
-                throw RuntimeException("invalid mode: '$value'")
-            }
-        }
-        @V8Getter get
-
 
 
     /**
@@ -103,21 +71,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
         @V8Getter get
 
-    /**
-     * Contains the referrer of the request (e.g., client).
-     */
-    var referrer = "client"
-        internal set
-        @V8Getter get
-
-    var referrerPolicy = ""
-        internal set
-        @V8Getter get
-
-    var url = ""
-        internal set
-        @V8Getter get
-
     // The following properties are node-fetch extensions
     /**
      * maximum redirect count. 0 to not follow redirect
@@ -125,6 +78,14 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     var follow = 20
         internal set
         @V8Getter get
+
+    /**
+     * current redirect count.
+     */
+    var counter = 0
+        internal set
+        @V8Getter get
+
 
     /**
      * req/res timeout in ms, it resets on redirect. 0 to disable (OS limit applies). Signal is recommended instead.
@@ -156,15 +117,14 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
                 throw RuntimeException("TypeError: Request needs no, one or two parameters: Request(input, init)")
             }
             if (args.size > 0) {
+                setDefaultHeaders()
                 val input = args[0]
                 if (input is String) {
                     try {
-                        parsedUrl = URL(input)
-                        if (parsedUrl.userInfo != null) {
+                        url = URL(input)
+                        if (url.userInfo != null) {
                             throw RuntimeException("TypeError: Request input url cannot have credentials")
                         }
-                        this.fallbackMode = "cors"
-                        this.fallbackCredentials = "same-origin"
                     } catch (e: MalformedURLException) {
                         throw RuntimeException("TypeError: Request input is invalid url '$input'", e)
                     }
@@ -191,13 +151,12 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     internal fun initRequest(init: JNIV8Object, isFromFetch: Boolean) {
         val fields = init.v8Fields
         // When initializing a request from init, set some defaults first
+        //TODO: do we need this?
         if (isFromFetch) {
-            referrer = "client"
-            referrerPolicy = ""
-            if (fields[KEY_METHOD] == "navigate") {
-                method = "same-origin"
+            method = if (fields[KEY_METHOD] == "navigate") {
+                "same-origin"
             } else {
-                method = fields[KEY_METHOD] as? String? ?: ""
+                fields[KEY_METHOD] as? String? ?: ""
             }
         }
 
@@ -205,58 +164,26 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
         if (fields.containsKey(KEY_HEADERS)) {
             val headerRaw = fields[KEY_HEADERS]
-            if (headerRaw is BGJSModuleFetchHeaders) {
-                headers = headerRaw.clone()
-            } else if(headerRaw is JNIV8Object) {
-                headers = BGJSModuleFetchHeaders.createFrom(headerRaw)
-            } else {
-                throw V8JSException(v8Engine, "TypeError", "init.headers is not an object or Header instance")
+            headers = when (headerRaw) {
+                is BGJSModuleFetchHeaders -> headerRaw.clone()
+                is JNIV8Object -> BGJSModuleFetchHeaders.createFrom(headerRaw)
+                else -> throw V8JSException(v8Engine, "TypeError", "init.headers is not an object or Header instance")
             }
         }
 
-        // node-fetch sets these default headers, so we will do the same
-        if (headers == null) {
-            headers = BGJSModuleFetchHeaders(v8Engine)
-            headers?.set("accept", "*/*")
-            if (compress) {
-                headers?.append("accept-encoding", "gzip,deflate")
-            }
-            headers?.set("connection", "close")
-            if (body != null) {
-                headers?.set("transfer-encoding", "chunked")
-            }
-        }
-
-        if (headers?.has("user-agent") == false) {
-            headers?.set("user-agent", "ejecta-v8")
+        if (!headers.has("user-agent")) {
+            headers.set("user-agent", "ejecta-v8")
         }
 
         if (fields.containsKey(KEY_BODY)) {
             val bodyRaw = fields[KEY_BODY]
             body = BGJSModuleFetchBody.createBodyFromRaw(bodyRaw)
-            if (headers?.has("content-type") == false) {
+            if (!headers.has("content-type")) {
                 BGJSModuleFetchBody.extractContentType(bodyRaw)?.let {
-                    headers?.set("content-type", it)
+                    headers.set("content-type", it)
                 }
             }
         }
-
-        // This is not according to spec, but we don't lay restrictions on referrer
-        referrer = fields[KEY_REFERRER] as? String? ?: referrer
-
-        referrerPolicy = fields[KEY_REFERRER_POLICY] as? String? ?: referrerPolicy
-
-        val newMode = fields[KEY_MODE] as? String? ?: fallbackMode
-
-        if (newMode == "navigate") {
-            throw RuntimeException("TypeError: mode navigate not allowed")
-        }
-
-        if (newMode != null) {
-            mode = newMode
-        }
-
-        credentials = fields[KEY_CREDENTIALS] as? String? ?: fallbackCredentials
 
         cache = fields[KEY_CACHE] as? String? ?: cache
 
@@ -264,14 +191,23 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
         integrity = fields[KEY_INTEGRITY] as? String? ?: integrity
 
-        val setKeepAlive = init.getV8FieldTyped<Boolean>(KEY_KEEPALIVE, V8Flags.UndefinedIsNull, Boolean::class.java)
-        if (setKeepAlive != null) {
-            hasKeepAlive = setKeepAlive
-        }
+
 
         // TODO: this is probably complete, check spec
     }
 
+    private fun setDefaultHeaders() {
+        // node-fetch sets these default headers, so we will do the same
+        headers = BGJSModuleFetchHeaders(v8Engine)
+        headers.set("accept", "*/*")
+        if (compress) {
+            headers.append("accept-encoding", "gzip,deflate")
+        }
+        headers.set("connection", "close")
+        if (body != null) {
+            headers.set("transfer-encoding", "chunked")
+        }
+    }
     /**
      * The clone() method of the Request interface creates a copy of the current Request object.
      *
@@ -285,54 +221,47 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             throw RuntimeException("TypeError: cannot clone because body already used")
         }
         val clone = BGJSModuleFetchRequest(v8Engine)
-        clone.cache = cache
-        clone.context = context
-        clone.credentials = credentials
-        clone.destination = destination
-        clone.headers = headers?.clone()
-        clone.method = method
-        clone.mode = mode
-        clone.redirect = redirect
-        clone.referrer = referrer
-        clone.referrerPolicy = referrerPolicy
-        clone.url = url
-
+        clone.applyFrom(this)
         return clone
     }
 
     private fun applyFrom(other: BGJSModuleFetchRequest) {
+        url = other.url
+        headers = other.headers.clone()
+        follow = other.follow
+        compress = other.compress
+        method = other.method
+        body = other.body
         cache = other.cache
         context = other.context
-        credentials = other.credentials
-        destination = other.destination
-        headers = other.headers?.clone()
-        method = other.method
-        mode = other.mode
         redirect = other.redirect
-        referrer = other.referrer
-        referrerPolicy = other.referrerPolicy
-        url = other.url
+        counter = other.counter
+        follow = other.follow
+
     }
 
-    fun execute(okHttpClient: OkHttpClient): Request {
+    fun execute(): Request {
         val builder = Request.Builder().url(url)
 
         // Idea: see what node-fetch does here: https://github.com/bitinn/node-fetch/blob/master/src/request.js
 
         // Chapter 4: Fetch
         // 3. If request’s header list does not contain `Accept`, then
-        if (headers?.has("accept") == false) {
-            headers?.append("accept", "*/*")
+        if (!headers.has("accept")) {
+            headers.append("accept", "*/*")
         }
 
-        // 4.1. Main fetch
+        headers.applyToRequest(builder)
+        val body = body
+        if (body == null) {
+            builder.method(method, null)
+        } else {
+            // Only set a body if we know it's content-type. This is also derived from how the body is set
+            val contentType = headers.get("content-type") ?: throw RuntimeException("TypeError: cannot have body without knowing content-type")
 
-        // 5. If response is null, then set response to the result of running the steps corresponding to the first matching statement:
-        // TODO: request’s mode is "navigate" or "websocket"
-        // TODO: request’s mode is "no-cors"
-        // TODO: decide which scheme fetch to do
-
-
+            val mediaType = MediaType.parse(contentType) ?: throw RuntimeException("TypeError: cannot encode body with unknown content-type '$contentType'")
+            builder.method(method, RequestBody.create(mediaType, body.readBytes()))
+        }
         return builder.build()
     }
 
@@ -340,33 +269,31 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         // See whatwg spec: chapter 4.5
 
         // 12. If httpRequest’s cache mode is "default" and httpRequest’s header list contains `If-Modified-Since`, `If-None-Match`, `If-Unmodified-Since`, `If-Match`, or `If-Range`, then set httpRequest’s cache mode to "no-store"
-        if (cache == "default" &&
-            (headers?.has("if-modified-since") == true || headers?.has("if-none-match") == true
-                    || headers?.has("If-Unmodified-Since") == true || headers?.has("if-match") == true || headers?.has("if-range") == true)) {
+        if (cache == "default" && (headers.has("if-modified-since") || headers.has("if-none-match") || headers.has("If-Unmodified-Since") || headers.has("if-match") || headers.has("if-range"))) {
             cache = "no-store"
         }
 
         // 13. If httpRequest’s cache mode is "no-cache" and httpRequest’s header list does not contain `Cache-Control`, then append `Cache-Control`/`max-age=0` to httpRequest’s header list.
-        if (cache == "no-cache" && headers?.has("cache-control") == false) {
-            headers?.set("cache-control", "max-age=0")
+        if (cache == "no-cache" && !headers.has("cache-control")) {
+            headers.set("cache-control", "max-age=0")
         }
 
         // 14. If httpRequest’s cache mode is "no-store" or "reload", then:
         if (cache == "no-store" || cache == "reload") {
             // If httpRequest’s header list does not contain `Pragma`, then append `Pragma`/`no-cache` to httpRequest’s header list.
-            if (headers?.has("pragma") == false) {
-                headers?.set("pragma", "no-cache")
+            if (!headers.has("pragma")) {
+                headers.set("pragma", "no-cache")
             }
 
             // If httpRequest’s header list does not contain `Cache-Control`, then append `Cache-Control`/`no-cache` to httpRequest’s header list.
-            if (headers?.has("cache-control") == false) {
-                headers?.set("cache-control", "no-cache")
+            if (!headers.has("cache-control")) {
+                headers.set("cache-control", "no-cache")
             }
         }
 
         // 15. If httpRequest’s header list contains `Range`, then append `Accept-Encoding`/`identity` to httpRequest’s header list.
-        if (headers?.has("range") == true) {
-            headers?.set("accept-encoding", "identity")
+        if (headers.has("range")) {
+            headers.set("accept-encoding", "identity")
         }
 
         // TODO: cookies
@@ -378,26 +305,16 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         // If response is null: If httpRequest’s cache mode is "only-if-cached", then return a network error.
         // If httpRequest’s method is unsafe and forwardResponse’s status is in the range 200 to 399, inclusive, invalidate appropriate stored responses in the HTTP cache, as per the "Invalidation" chapter of HTTP Caching, and set storedResponse to null. [HTTP-CACHING]
 
-        headers?.applyToRequest(builder)
-
-        if (referrer.isNotBlank()) {
-            builder.addHeader("referer", referrer)
-        }
+        headers.applyToRequest(builder)
 
         val body = body
         if (body == null) {
             builder.method(method, null)
         } else {
             // Only set a body if we know it's content-type. This is also derived from how the body is set
-            val contentType = headers?.get("content-type") as? String?
-            if (contentType == null) {
-                throw RuntimeException("TypeError: cannot have body without knowing content-type")
-            }
+            val contentType = headers.get("content-type") ?: throw RuntimeException("TypeError: cannot have body without knowing content-type")
 
-            val mediaType = MediaType.parse(contentType)
-            if (mediaType == null) {
-                throw RuntimeException("TypeError: cannot encode body with unknown content-type '$contentType'")
-            }
+            val mediaType = MediaType.parse(contentType) ?: throw RuntimeException("TypeError: cannot encode body with unknown content-type '$contentType'")
             builder.method(method, RequestBody.create(mediaType, body.readBytes()))
         }
 
@@ -405,28 +322,9 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
     }
 
-    /**
-     * The okhttp request has completed, create a fetch response
-     */
-    fun updateFrom(call: Call, httpResponse: Response): BGJSModuleFetchResponse {
-        val status = httpResponse.code()
-        // if (status == 206 && )
-        val response = BGJSModuleFetchResponse(v8Engine)
-        response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
-        response.status = response.status
-        //TODO: Body as Reader, InputStream, BufferedSource?
-        response.body = httpResponse.body()?.byteStream()
-
-        // TODO: fill in all the other fields of response
-        // TODO: handle redirection types
-
-        return response
-    }
-
     // Since ejecta-v8 currently cannot register abstract classes we have to override these methods here and just call super
 
     override var bodyUsed = false
-        internal set
         @V8Getter get
 
     @V8Function
@@ -445,16 +343,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     companion object {
-        val KEY_MODE = "mode"
         val KEY_METHOD = "method"
         val KEY_HEADERS = "headers"
         val KEY_BODY = "body"
-        val KEY_REFERRER = "referrer"
-        val KEY_REFERRER_POLICY = "referrerPolicy"
-        val KEY_CREDENTIALS = "credentials"
         val KEY_CACHE = "cache"
         val KEY_REDIRECT = "redirect"
         val KEY_INTEGRITY = "integrity"
-        val KEY_KEEPALIVE = "keepalive"
     }
 }

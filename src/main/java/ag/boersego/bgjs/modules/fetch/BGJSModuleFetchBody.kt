@@ -13,12 +13,11 @@ import java.nio.Buffer
 abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
 
     internal var body: InputStream? = null
-    internal var bodyReader: BufferedReader? = null
+    private var bodyReader: BufferedReader? = null
     internal var error: String? = null
 
     open var bodyUsed = false
         internal set
-        get
 
 
     @V8Function
@@ -47,7 +46,6 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
                 try {
                     resolver.resolve(v8Engine.parseJSON(bodyReader!!.readText()))
                 } catch (e: Exception) {
-                    //TODO: Does parseJson() throw parsing Exception? In node fetch there is a FetchError implementation?
                     resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "invalid json response body, reason: ${e.message}"))
                 }
                 bodyReader!!.close()
@@ -106,7 +104,7 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
         fun createBodyFromRaw(bodyRaw: Any?): InputStream? {
             return when (bodyRaw) {
                 is InputStream -> bodyRaw
-                //TODO: URLSearchParams are are parsed from javascript as JNIV8GenericObject, how do we check isURLSearchParam? see https://github.com/bitinn/node-fetch/issues/296#issuecomment-307598143
+                //TODO: URLSearchParams are parsed from javascript as JNIV8GenericObject, how do we check isURLSearchParam? see https://github.com/bitinn/node-fetch/issues/296#issuecomment-307598143
                 is JNIV8GenericObject -> (bodyRaw as? JNIV8Object)?.toString()?.byteInputStream()
                 //TODO: implement FormData
                 //TODO: Check how JNIv8Arraybuffer will be handled
