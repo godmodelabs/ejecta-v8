@@ -116,7 +116,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
                         }
                     } catch (e: MalformedURLException) {
-                        throw V8JSException(v8Engine, "TypeError", "Request input is invalid url '$input'")
+                        throw V8JSException(v8Engine, "TypeError", "Only absolute URLs are supported")
                     }
                 } else if (input is BGJSModuleFetchRequest) {
                     this.applyFrom(input)
@@ -228,7 +228,12 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     fun execute(): Request {
-        val builder = Request.Builder().url(url)
+        val builder = Request.Builder()
+        try {
+            builder.url(url)
+        } catch (e: IllegalArgumentException) {
+            throw V8JSException(v8Engine, "TypeError", "Only HTTP(S) protocols are supported")
+        }
 
         // Idea: see what node-fetch does here: https://github.com/bitinn/node-fetch/blob/master/src/request.js
 
