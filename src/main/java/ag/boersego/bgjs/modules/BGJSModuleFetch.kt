@@ -8,6 +8,7 @@ import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Response
 import java.io.IOException
+import java.io.InputStream
 import java.net.URL
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
@@ -46,7 +47,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
             FetchError.prototype.constructor = FetchError;
             return FetchError;
         }())
-    """.trimIndent(), "FetchError"
+        """.trimIndent(), "FetchError"
         ) as JNIV8Function
 
         requestfunction.setV8Field("FetchError", errorCreator)
@@ -55,21 +56,24 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
     }
 
     fun fetch(engine: V8Engine, arguments: Array<Any>): JNIV8Promise {
-        if (arguments == null || arguments.size < 1) {
-            throw V8JSException(engine, "TypeError", "fetch needs at least one argument: input")
-        }
-        val fetchRequest = BGJSModuleFetchRequest(v8Engine = engine, args = arguments)
-
         val resolver = JNIV8Promise.CreateResolver(engine)
 
-        startRequest(engine, resolver, fetchRequest)
+        try {
+            if (arguments == null || arguments.size < 1) {
+                throw V8JSException(engine, "TypeError", "fetch needs at least one argument: input")
+            }
+            val fetchRequest = BGJSModuleFetchRequest(v8Engine = engine, args = arguments)
+            startRequest(engine, resolver, fetchRequest)
+        } catch (e: V8JSException) {
+            resolver.reject(e)
+        }
 
         return resolver.promise
     }
 
     private fun startRequest(v8Engine: V8Engine, resolver: JNIV8Promise.Resolver, request: BGJSModuleFetchRequest) {
         val httpRequest = request.execute()
-        try {
+
             val call = okHttpClient.newCall(httpRequest)
             val timeout = call.timeout()
             timeout.timeout(request.timeout.toLong(), TimeUnit.MILLISECONDS)
@@ -78,7 +82,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                 override fun onFailure(call: Call, e: IOException) {
                     Log.d(TAG, "onFailure", e)
                     // network error or timeout TODO: Shouldn't we reject here?
-                    resolver.resolve(errorCreator.applyAsV8Constructor(arrayOf("network timeout for url ${httpRequest.url()}")))
+                    resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("network timeout for url ${httpRequest.url()}")))
                 }
 
                 override fun onResponse(call: Call, httpResponse: Response) {
@@ -96,7 +100,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                         // HTTP fetch step 5.5
                         when (request.redirect) {
                             "error" -> {
-                                resolver.reject(JNIV8Object.Create(v8Engine, "Error", "redirect mode is set to error ${request.url} , no-redirect"))
+                                resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.url} , no-redirect")))
                                 //TODO: Check what to do with finalize() abort() and signal from node fetch
                                 return
                             }
@@ -114,7 +118,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
 
                                     // HTTP-redirect fetch step 5
                                     if (request.counter >= request.follow) {
-                                        resolver.reject(JNIV8Object.Create(v8Engine, "Error", "maximum redirect reached at ${request.url} , max-redirect"))
+                                        resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.url} , max-redirect")))
                                         //TODO: Check what to do with finalize() abort() and signal from node fetch
                                         return
                                     }
@@ -180,9 +184,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                     resolver.resolve(response)
                 }
             })
-        } catch (e: Exception) {
-            resolver.reject(JNIV8Object.Create(v8Engine, "Error", "Error parsing data"))
-        }
+
     }
 
 
