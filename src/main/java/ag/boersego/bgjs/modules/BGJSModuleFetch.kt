@@ -62,10 +62,9 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
             if (arguments == null || arguments.size < 1) {
                 throw V8JSException(engine, "TypeError", "fetch needs at least one argument: input")
             }
-            val fetchRequest = BGJSModuleFetchRequest(v8Engine = engine, args = arguments)
-            startRequest(engine, resolver, fetchRequest)
+            startRequest(engine, resolver, BGJSModuleFetchRequest(v8Engine = engine, args = arguments))
         } catch (e: V8JSException) {
-            resolver.reject(e)
+            resolver.reject(e.v8Exception)
         }
 
         return resolver.promise

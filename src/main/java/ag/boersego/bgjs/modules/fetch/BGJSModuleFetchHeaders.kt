@@ -2,6 +2,7 @@ package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
 import ag.boersego.v8annotations.V8Function
+import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
 import okhttp3.Headers
 import okhttp3.Request
@@ -19,6 +20,9 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     private fun normalizeName(name: String): String {
         return name.trim().toLowerCase(Locale.ROOT)
     }
+
+    val toString = "Headers"
+        @V8Getter(symbol = V8Symbols.TO_STRING_TAG) get
 
     @V8Function
     fun append(rawName: String, rawValue: String) {

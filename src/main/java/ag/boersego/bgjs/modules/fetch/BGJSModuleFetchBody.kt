@@ -2,6 +2,8 @@ package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
 import ag.boersego.v8annotations.V8Function
+import ag.boersego.v8annotations.V8Getter
+import ag.boersego.v8annotations.V8Symbols
 import android.util.Log
 import org.json.JSONObject
 import java.io.BufferedReader

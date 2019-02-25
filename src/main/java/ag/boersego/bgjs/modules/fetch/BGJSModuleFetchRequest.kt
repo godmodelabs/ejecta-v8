@@ -7,6 +7,7 @@ import ag.boersego.bgjs.modules.BGJSModuleFetchResponse
 import ag.boersego.v8annotations.V8Flags
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
+import ag.boersego.v8annotations.V8Symbols
 import okhttp3.*
 import java.net.MalformedURLException
 import java.net.URL
@@ -19,6 +20,9 @@ import java.net.URL
 class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : BGJSModuleFetchBody(v8Engine, jsPtr, args) {
 
     lateinit var url: URL
+
+    val toString = "Request"
+        @V8Getter(symbol = V8Symbols.TO_STRING_TAG) get
 
     var cache = "default"
         internal set(value) {
