@@ -19,10 +19,39 @@ import java.util.zip.GZIPInputStream
 
 class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
 
+    internal lateinit var errorCreator: JNIV8Function
+
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
-        module?.setV8Field("exports", JNIV8Function.Create(engine) { receiver, arguments ->
-          return@Create fetch(engine, arguments)
-        })
+
+        val requestfunction = JNIV8Function.Create(engine) { receiver, arguments ->
+            return@Create fetch(engine, arguments)
+        }
+
+        requestfunction.setV8Field("Headers", engine.getConstructor(BGJSModuleFetchHeaders::class.java))
+        requestfunction.setV8Field("Request", engine.getConstructor(BGJSModuleFetchRequest::class.java))
+        requestfunction.setV8Field("Response", engine.getConstructor(BGJSModuleFetchResponse::class.java))
+
+        errorCreator = engine.runScript(
+            """
+        (function() {
+            function FetchError(message) {
+                this.name = 'FetchError';
+                this.message = message || 'An error occurred';
+                const _ = Error.prepareStackTrace;
+                Error.prepareStackTrace = (_, stack) => stack;
+                Error.captureStackTrace(this);
+                Error.prepareStackTrace = _;
+            }
+            FetchError.prototype = Object.create(Error.prototype);
+            FetchError.prototype.constructor = FetchError;
+            return FetchError;
+        }())
+    """.trimIndent(), "FetchError"
+        ) as JNIV8Function
+
+        requestfunction.setV8Field("FetchError", errorCreator)
+
+        module?.setV8Field("exports", requestfunction)
     }
 
     fun fetch(engine: V8Engine, arguments: Array<Any>): JNIV8Promise {
@@ -49,7 +78,7 @@ class BGJSModuleFetch (val okHttpClient: OkHttpClient): JNIV8Module("fetch") {
                 override fun onFailure(call: Call, e: IOException) {
                     Log.d(TAG, "onFailure", e)
                     // network error or timeout TODO: Shouldn't we reject here?
-                    resolver.resolve(BGJSModuleFetchResponse.error(v8Engine))
+                    resolver.resolve(errorCreator.applyAsV8Constructor(arrayOf("network timeout for url ${httpRequest.url()}")))
                 }
 
                 override fun onResponse(call: Call, httpResponse: Response) {
