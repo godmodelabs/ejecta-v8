@@ -110,7 +110,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
                                 // HTTP-redirect fetch step 5
                                 if (request.counter >= request.follow) {
-                                    resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.url} , max-redirect")))
+                                    resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.url}", "max-redirect")))
                                     //TODO: Check what to do with finalize() abort() and signal from node fetch
                                     return
                                 }

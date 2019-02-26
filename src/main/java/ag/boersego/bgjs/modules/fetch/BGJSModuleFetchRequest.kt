@@ -64,6 +64,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         @V8Getter get
 
     // The following properties are node-fetch extensions
+
     /**
      * maximum redirect count. 0 to not follow redirect
      */
@@ -179,10 +180,10 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
 
         redirect = fields[KEY_REDIRECT] as? String? ?: redirect
-        follow = fields[KEY_FOLLOW] as? Int? ?: follow
-        timeout = fields[KEY_TIMEOUT] as? Int? ?: timeout
+        follow = (fields[KEY_FOLLOW] as? Double)?.toInt() ?: follow
+        timeout = (fields[KEY_TIMEOUT] as? Double)?.toInt() ?: timeout
         compress = fields[KEY_COMPRESS] as? Boolean? ?: compress
-        size = fields[KEY_SIZE] as? Int? ?: size
+        size = (fields[KEY_SIZE] as? Double)?.toInt() ?: size
 
         // TODO: this is probably complete, check spec
     }
@@ -363,7 +364,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         val KEY_BODY = "body"
         val KEY_CACHE = "cache"
         val KEY_REDIRECT = "redirect"
-        val KEY_FOLLOW = "follow0"
+        val KEY_FOLLOW = "follow"
         val KEY_TIMEOUT = "timeout"
         val KEY_COMPRESS = "compress"
         val KEY_SIZE = "size"
