@@ -4,11 +4,13 @@ import ag.boersego.bgjs.*
 import ag.boersego.bgjs.modules.BGJSModuleFetchBody
 import ag.boersego.bgjs.modules.BGJSModuleFetchHeaders
 import ag.boersego.bgjs.modules.BGJSModuleFetchResponse
-import ag.boersego.v8annotations.V8Flags
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
 import okhttp3.*
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.MalformedURLException
 import java.net.URL
 
@@ -221,14 +223,24 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         url = other.url
         headers = other.headers.clone()
         method = other.method
-        body = other.body
         redirect = other.redirect
         follow = other.follow
         timeout = other.timeout
         compress = other.compress
         size = other.size
         counter = other.counter
+        if(other.body != null) body = other.cloneBody()
+    }
 
+    private fun cloneBody(): InputStream {
+        val byteOutputStream = ByteArrayOutputStream()
+        body?.use { input ->
+            byteOutputStream.use { output ->
+                input.copyTo(output)
+                input.reset()
+            }
+        }
+        return ByteArrayInputStream(byteOutputStream.toByteArray())
     }
 
     fun execute(): Request {
@@ -251,16 +263,15 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
         }
         headers.applyToRequest(builder)
-        val body = body
-        if (body == null) {
-            builder.method(method, null)
-        } else {
+
+        body?.let {
             // Only set a body if we know it's content-type. This is also derived from how the body is set
             val contentType = headers.get("content-type") ?: throw V8JSException(v8Engine, "TypeError", "cannot have body without knowing content-type")
-
             val mediaType = MediaType.parse(contentType) ?: throw V8JSException(v8Engine, "cannot encode body with unknown content-type '$contentType'")
-            builder.method(method, RequestBody.create(mediaType, body.readBytes()))
-        }
+            builder.method(method, RequestBody.create(mediaType, it.readBytes()))
+            it.reset()
+        }?: builder.method(method, null)
+
         return builder.build()
     }
 

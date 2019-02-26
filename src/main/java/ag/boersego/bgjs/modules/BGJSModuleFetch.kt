@@ -92,7 +92,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                     // HTTP fetch step 5.5
                     when (request.redirect) {
                         "error" -> {
-                            resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.url} , no-redirect")))
+                            resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.url}", "no-redirect")))
                             //TODO: Check what to do with finalize() abort() and signal from node fetch
                             return
                         }
