@@ -181,7 +181,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
     companion object {
         private val TAG = BGJSModuleFetch::class.java.simpleName
-        public val FETCHERROR_SCRIPT =    """
+        const val FETCHERROR_SCRIPT =    """
         (function() {
             function FetchError(message, type, systemError) {
                 this.name = 'FetchError';
