@@ -13,6 +13,23 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
     private val headers = HashMap<String, ArrayList<Any>>()
 
+    init {
+        if (args != null && !args.isEmpty()) {
+            val fields = (args[0] as JNIV8Object).v8Fields
+
+            for (entry in fields) {
+                if (entry.value !is String) {
+                    throw V8JSException(
+                        v8Engine,
+                        "TypeError",
+                        "init.headers object: values must be Strings (problem with key '${entry.key}'"
+                    )
+                }
+                set(entry.key, entry.value as String)
+            }
+        }
+    }
+
     private fun normalizePotentialValue(ptValue: String): String {
         return ptValue.trim()
     }
@@ -36,7 +53,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
         if (currentList == null) {
             currentList = ArrayList()
-            headers.put(name, currentList)
+            headers[name] = currentList
         }
         currentList.add(value)
     }
@@ -56,7 +73,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
         if (currentList == null) {
             currentList = ArrayList()
-            headers.put(name, currentList)
+            headers[name] = currentList
         } else {
             currentList.clear()
         }
@@ -70,7 +87,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
     @V8Function
     fun get(name: String): String? {
-        return headers.get(normalizeName(name))?.joinToString(",")
+        return headers[normalizeName(name)]?.joinToString(",")
     }
 
     @V8Function
@@ -152,12 +169,12 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         fun createFrom(v8Engine: V8Engine, httpHeaders: Headers): BGJSModuleFetchHeaders {
             val headers = BGJSModuleFetchHeaders(v8Engine)
             for (entry in httpHeaders.toMultimap()) {
-                headers.headers.set(entry.key, ArrayList<Any>(entry.value))
+                headers.headers[entry.key] = ArrayList<Any>(entry.value)
             }
 
             return headers
         }
 
-        val ZERO_BYTE = '\u0000'
+        const val ZERO_BYTE = '\u0000'
     }
 }

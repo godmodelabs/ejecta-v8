@@ -24,38 +24,19 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
 
-        val requestfunction = JNIV8Function.Create(engine) { receiver, arguments ->
+        val fetchFunction = JNIV8Function.Create(engine) { receiver, arguments ->
             return@Create fetch(engine, arguments)
         }
 
-        requestfunction.setV8Field("Headers", engine.getConstructor(BGJSModuleFetchHeaders::class.java))
-        requestfunction.setV8Field("Request", engine.getConstructor(BGJSModuleFetchRequest::class.java))
-        requestfunction.setV8Field("Response", engine.getConstructor(BGJSModuleFetchResponse::class.java))
+        fetchFunction.setV8Field("Headers", engine.getConstructor(BGJSModuleFetchHeaders::class.java))
+        fetchFunction.setV8Field("Request", engine.getConstructor(BGJSModuleFetchRequest::class.java))
+        fetchFunction.setV8Field("Response", engine.getConstructor(BGJSModuleFetchResponse::class.java))
 
-        errorCreator = engine.runScript(
-            """
-        (function() {
-            function FetchError(message, type, systemError) {
-                this.name = 'FetchError';
-                this.message = message || 'An error occurred';
-                this.type = type;
-                this.code = this.errno = systemError;
+        errorCreator = engine.runScript(FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function
 
-                const _ = Error.prepareStackTrace;
-                Error.prepareStackTrace = (_, stack) => stack;
-                Error.captureStackTrace(this);
-                Error.prepareStackTrace = _;
-            }
-            FetchError.prototype = Object.create(Error.prototype);
-            FetchError.prototype.constructor = FetchError;
-            return FetchError;
-        }())
-        """.trimIndent(), "FetchError"
-        ) as JNIV8Function
+        fetchFunction.setV8Field("FetchError", errorCreator)
 
-        requestfunction.setV8Field("FetchError", errorCreator)
-
-        module?.setV8Field("exports", requestfunction)
+        module?.setV8Field("exports", fetchFunction)
     }
 
     fun fetch(engine: V8Engine, arguments: Array<Any>): JNIV8Promise {
@@ -98,7 +79,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
             override fun onResponse(call: Call, httpResponse: Response) {
                 timeout.clearTimeout()
-                val response = BGJSModuleFetchResponse.createFrom(v8Engine, httpResponse)
+                val response = request.updateFrom(v8Engine, httpResponse)
 
                 // HTTP fetch step 5
                 if (isRedirect(response.status)) {
@@ -139,7 +120,6 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                                 val redirectRequest = request.clone()
                                 redirectRequest.url = it
                                 redirectRequest.counter++
-
 
                                 // TODO:  HTTP-redirect fetch step 9
                                 if (httpResponse.code() != 303 && request.body != null) {
@@ -201,6 +181,24 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
     companion object {
         private val TAG = BGJSModuleFetch::class.java.simpleName
+        public val FETCHERROR_SCRIPT =    """
+        (function() {
+            function FetchError(message, type, systemError) {
+                this.name = 'FetchError';
+                this.message = message || 'An error occurred';
+                this.type = type;
+                this.code = this.errno = systemError;
+
+                const _ = Error.prepareStackTrace;
+                Error.prepareStackTrace = (_, stack) => stack;
+                Error.captureStackTrace(this);
+                Error.prepareStackTrace = _;
+            }
+            FetchError.prototype = Object.create(Error.prototype);
+            FetchError.prototype.constructor = FetchError;
+            return FetchError;
+        }())
+        """
 
         init {
             JNIV8Object.RegisterV8Class(BGJSModuleFetchHeaders::class.java)
@@ -209,7 +207,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         }
 
         fun isRedirect(statusCode: Int): Boolean {
-            return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 300
+            return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308
         }
     }
 

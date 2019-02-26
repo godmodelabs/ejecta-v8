@@ -321,6 +321,22 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
     }
 
+    /**
+     * The create a fetch response from completed okhttp response
+     */
+    fun updateFrom(v8Engine: V8Engine, httpResponse: Response): BGJSModuleFetchResponse {
+        val response = BGJSModuleFetchResponse(v8Engine)
+        response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
+        response.url = url.toString()
+        response.status = httpResponse.code()
+        response.statusText = httpResponse.message()
+        //TODO: Body as Reader, InputStream, BufferedSource?
+        response.body = httpResponse.body()?.byteStream()
+        response.redirect = httpResponse.isRedirect
+
+        return response
+    }
+
     // Since ejecta-v8 currently cannot register abstract classes we have to override these methods here and just call super
 
     override var bodyUsed = false

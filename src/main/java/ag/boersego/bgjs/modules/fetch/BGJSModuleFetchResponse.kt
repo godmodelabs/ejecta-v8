@@ -7,7 +7,6 @@ import ag.boersego.bgjs.getV8Field
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
-import okhttp3.Response
 
 class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : BGJSModuleFetchBody(v8Engine, jsPtr, args) {
 
@@ -115,21 +114,6 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
             response.status = 0
             response.statusText = ""
             response.body = null
-
-            return response
-        }
-
-        /**
-         * The create a fetch response from completed okhttp response
-         */
-        fun createFrom(v8Engine: V8Engine, httpResponse: Response): BGJSModuleFetchResponse {
-            val response = BGJSModuleFetchResponse(v8Engine)
-            response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
-            response.status = httpResponse.code()
-            response.statusText = httpResponse.message()
-            //TODO: Body as Reader, InputStream, BufferedSource?
-            response.body = httpResponse.body()?.byteStream()
-            response.redirect = httpResponse.isRedirect
 
             return response
         }

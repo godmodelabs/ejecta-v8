@@ -48,8 +48,11 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
                 try {
                     resolver.resolve(v8Engine.parseJSON(bodyReader!!.readText()))
                 } catch (e: Exception) {
-                    resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "invalid json response body, reason: ${e.message}"))
-                }
+                    resolver.reject((v8Engine.runScript(BGJSModuleFetch.FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function).applyAsV8Constructor(
+                        arrayOf(
+                            "invalid json response body, reason: ${e.message}",
+                            "body-timeout"
+                        )))}
                 bodyReader!!.close()
             } else {
                 resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "no body"))
