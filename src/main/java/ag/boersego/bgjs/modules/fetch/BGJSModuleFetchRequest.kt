@@ -117,7 +117,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
                         url = URL(input)
                         if (url.userInfo != null) {
                             throw V8JSException(v8Engine, "TypeError", "Request input url cannot have credentials")
-
                         }
                     } catch (e: MalformedURLException) {
                         throw V8JSException(v8Engine, "TypeError", "Only absolute URLs are supported")
