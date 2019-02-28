@@ -136,8 +136,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * Request a redraw
      */
     public void requestRender() {
-        if (mRenderThread != null && !mIsShuttingDown) {
-            mRenderThread.requestRender();
+        final RenderThread renderthread = mRenderThread;
+        if (renderthread != null && !mIsShuttingDown) {
+            renderthread.requestRender();
         }
     }
 
@@ -616,8 +617,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * Pause rendering. Will tell render thread to sleep.
      */
     public void pause() {
-        if (mRenderThread != null) {
-            mRenderThread.pause();
+        final RenderThread renderthread = mRenderThread;
+        if (renderthread != null) {
+            renderthread.pause();
         }
     }
 
@@ -625,8 +627,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * Resume rendering. Will wake render thread up.
      */
     public void unpause() {
-        if (mRenderThread != null) {
-            mRenderThread.unpause();
+        final RenderThread renderthread = mRenderThread;
+        if (renderthread != null) {
+            renderthread.unpause();
         }
     }
 
@@ -1061,7 +1064,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         final RenderThread renderthread = mRenderThread;
         if (renderthread != null) {
             renderthread.finish();
-
         }
 
         // If there is no rendering happening we can just release the surface immediately
@@ -1071,11 +1073,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     public void finish() {
         // Mark this finished in any case, even when there is no render thread running yet
         mFinished = true;
-        if (mRenderThread != null) {
-            mRenderThread.finish();
-
+        final RenderThread renderthread = mRenderThread;
+        if (renderthread != null) {
+            renderthread.finish();
             try {
-                mRenderThread.join();
+                renderthread.join();
             } catch (InterruptedException e) {
                 Log.d(TAG, "Cannot join render thread", e);
             }
