@@ -2,22 +2,20 @@ package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
 import ag.boersego.v8annotations.V8Function
-import ag.boersego.v8annotations.V8Getter
-import ag.boersego.v8annotations.V8Symbols
-import android.util.Log
-import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.nio.Buffer
+import java.net.URL
 
 
 abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
 
     internal var body: InputStream? = null
-    private var bodyReader: BufferedReader? = null
     internal var error: String? = null
-
+    private var bodyReader: BufferedReader? = null
+    lateinit var parsedUrl: URL
+    open var url = ""
+        internal set
     open var bodyUsed = false
         internal set
 
@@ -50,8 +48,8 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
                 } catch (e: Exception) {
                     resolver.reject((v8Engine.runScript(BGJSModuleFetch.FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function).applyAsV8Constructor(
                         arrayOf(
-                            "invalid json response body, reason: ${e.message}",
-                            "body-timeout"
+                            "invalid json response body at ${this.url} reason: ${e.message}",
+                            "invalid-json"
                         )))}
                 bodyReader!!.close()
             } else {

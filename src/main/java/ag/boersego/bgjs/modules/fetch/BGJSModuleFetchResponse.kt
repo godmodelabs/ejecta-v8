@@ -33,10 +33,6 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
         internal set
         @V8Getter get
 
-    var url = ""
-        internal set
-        @V8Getter get
-
     var useFinalURL = false
         internal set
         @V8Getter get
@@ -89,7 +85,9 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
 
     // Since ejecta-v8 currently cannot register abstract classes we have to override these methods here and just call super
     override var bodyUsed = false
-        internal set
+        @V8Getter get
+
+    override var url = ""
         @V8Getter get
 
     @V8Function

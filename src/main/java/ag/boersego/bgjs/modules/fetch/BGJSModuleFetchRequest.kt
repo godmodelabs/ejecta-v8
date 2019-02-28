@@ -21,8 +21,6 @@ import java.net.URL
 
 class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : BGJSModuleFetchBody(v8Engine, jsPtr, args) {
 
-    lateinit var url: URL
-
     val toString = "Request"
         @V8Getter(symbol = V8Symbols.TO_STRING_TAG) get
 
@@ -117,10 +115,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
                 val input = args[0]
                 if (input is String) {
                     try {
-                        url = URL(input)
-                        if (url.userInfo != null) {
+                        parsedUrl = URL(input)
+                        if (parsedUrl.userInfo != null) {
                             throw V8JSException(v8Engine, "TypeError", "Request input url cannot have credentials")
                         }
+                        url = parsedUrl.toString()
                     } catch (e: MalformedURLException) {
                         throw V8JSException(v8Engine, "TypeError", "Only absolute URLs are supported")
                     }
@@ -220,7 +219,8 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     private fun applyFrom(other: BGJSModuleFetchRequest) {
-        url = other.url
+        parsedUrl = other.parsedUrl
+        url = other.parsedUrl.toString()
         headers = other.headers.clone()
         method = other.method
         redirect = other.redirect
@@ -246,7 +246,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     fun execute(): Request {
         val builder = Request.Builder()
         try {
-            builder.url(url)
+            builder.url(parsedUrl)
         } catch (e: IllegalArgumentException) {
             throw V8JSException(v8Engine, "TypeError", "Only HTTP(S) protocols are supported")
         }
@@ -259,7 +259,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             headers.append("accept", "*/*")
         }
 
-        if (url.protocol.isEmpty() || url.host.isEmpty()) {
+        if (parsedUrl.protocol.isEmpty() || parsedUrl.host.isEmpty()) {
 
         }
         headers.applyToRequest(builder)
@@ -339,7 +339,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     fun updateFrom(v8Engine: V8Engine, httpResponse: Response): BGJSModuleFetchResponse {
         val response = BGJSModuleFetchResponse(v8Engine)
         response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
-        response.url = url.toString()
+        response.url = parsedUrl.toString()
         response.status = httpResponse.code()
         response.statusText = httpResponse.message()
         //TODO: Body as Reader, InputStream, BufferedSource?

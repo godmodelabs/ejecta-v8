@@ -10,6 +10,7 @@ import okhttp3.Response
 import java.io.IOException
 import java.io.InputStream
 import java.net.URL
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 
@@ -64,14 +65,38 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
             override fun onFailure(call: Call, e: IOException) {
                 Log.d(TAG, "onFailure", e)
                 // network error or timeout
-                if (e.cause?.message?.contains("ECONNREFUSED") == true) {
-                    resolver.reject(
+                when {
+                    e is UnknownHostException -> resolver.reject(
                         errorCreator.applyAsV8Constructor(
                             arrayOf(
-                                "Response timeout while trying to fetch ${request.url}",
+                                "request to ${request.parsedUrl} failed, reason: ${e.message}",
+                                "system",
+                                "ENOTFOUND"
+                            )
+                        )
+                    )
+                    e.cause?.message?.contains("ECONNREFUSED") == true -> resolver.reject(
+                        errorCreator.applyAsV8Constructor(
+                            arrayOf(
+                                "request to ${request.parsedUrl} failed, reason: ${e.message}",
                                 "system",
                                 "ECONNREFUSED"
                             )
+                        )
+                    )
+                    e.message?.contains("unexpected end of stream") == true -> resolver.reject(
+                        errorCreator.applyAsV8Constructor(
+                            arrayOf(
+                                "request to ${request.parsedUrl} failed, reason: ${e.message}",
+                                "system",
+                                "ECONNRESET"
+                            )
+                        )
+                    )
+                    else -> errorCreator.applyAsV8Constructor(
+                        arrayOf(
+                            "request to ${request.parsedUrl} failed, reason: ${e.message}",
+                            "system"
                         )
                     )
                 }
@@ -87,12 +112,12 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                     val location = response.headers.get("location")
 
                     // HTTP fetch step 5.3
-                    val locationUrl = location?.let { URL(request.url, it) }
+                    val locationUrl = location?.let { URL(request.parsedUrl, it) }
 
                     // HTTP fetch step 5.5
                     when (request.redirect) {
                         "error" -> {
-                            resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.url}", "no-redirect")))
+                            resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.parsedUrl}", "no-redirect")))
                             //TODO: Check what to do with finalize() abort() and signal from node fetch
                             return
                         }
@@ -110,7 +135,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
                                 // HTTP-redirect fetch step 5
                                 if (request.counter >= request.follow) {
-                                    resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.url}", "max-redirect")))
+                                    resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.parsedUrl}", "max-redirect")))
                                     //TODO: Check what to do with finalize() abort() and signal from node fetch
                                     return
                                 }
@@ -118,7 +143,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                                 // HTTP-redirect fetch step 6 (counter increment)
                                 // Create a new Request object.
                                 val redirectRequest = request.clone()
-                                redirectRequest.url = it
+                                redirectRequest.parsedUrl = it
                                 redirectRequest.counter++
 
                                 // TODO:  HTTP-redirect fetch step 9
@@ -162,7 +187,12 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
                 //TODO: gzip
                 if (codings == "gzip" || codings == "x-gzip") {
-                    response.body = GZIPInputStream(response.body)
+                    try {
+                        response.body = GZIPInputStream(response.body)
+                    } catch (e: IOException) {
+                        resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("Invalid response body while trying to fetch ${response.url}: ${e.message}", "system", "Z_DATA_ERROR")))
+                        return
+                    }
                 }
 
 
