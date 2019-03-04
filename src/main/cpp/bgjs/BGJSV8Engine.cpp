@@ -623,7 +623,8 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
         const char *szJSRequireCode =
                 "(function(internalRequire, prefix) {"
                         "   return function require(path) {"
-                        "       return internalRequire(path.indexOf('./')===0?'./'+prefix+'/'+path.substr(2):path);"
+                        "       const l = path.indexOf('./');"
+                        "       return internalRequire(l>=0&&l<=1?'./'+prefix+'/'+path.substr(!l?2:0):path);"
                         "   };"
                         "})";
 
