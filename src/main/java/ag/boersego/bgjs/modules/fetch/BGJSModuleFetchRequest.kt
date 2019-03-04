@@ -270,7 +270,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             val mediaType = MediaType.parse(contentType) ?: throw V8JSException(v8Engine, "cannot encode body with unknown content-type '$contentType'")
             builder.method(method, RequestBody.create(mediaType, it.readBytes()))
             it.reset()
-        }?: builder.method(method, null)
+        }?: if (method == "POST") builder.method(method, RequestBody.create(null, ByteArray(0))) else builder.method(method, null)
 
         return builder.build()
     }
