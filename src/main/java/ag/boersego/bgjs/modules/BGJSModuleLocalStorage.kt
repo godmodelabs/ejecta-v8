@@ -19,7 +19,7 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
     init {
         mPref = applicationContext.getSharedPreferences(TAG, 0)
     }
-
+    //TODO: implement version of key() method
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         var exports = JNIV8GenericObject.Create(engine)
 
@@ -57,17 +57,6 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
             val key = arguments[0] as String
             val value = arguments[1] as String
             mPref.edit().putString(key, value).apply()
-
-            JNIV8Undefined.GetInstance()
-        })
-        //TODO: Implement changelistener
-        exports.setV8Field("on", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.size < 2 || arguments[0] !is String || arguments[1] !is JNIV8Function) {
-                throw IllegalArgumentException("setItem needs two parameters of type String and callback")
-            }
-            mPref.registerOnSharedPreferenceChangeListener { sharedPreferences, key ->
-                (arguments[1] as JNIV8Function).callAsV8Function()
-            }
 
             JNIV8Undefined.GetInstance()
         })

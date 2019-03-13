@@ -200,10 +200,10 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
             }
             val websocket = BGJSWebSocket(engine)
 
-            websocket.setData(okHttpClient, arguments[0] as String, {
+            websocket.setData(okHttpClient, arguments[0] as String) {
                 sockets.remove(websocket)
                 Unit
-            })
+            }
 
             // Add to list of all sockets so we can shut them down when the V8Engine pauses
             sockets.add(websocket)
