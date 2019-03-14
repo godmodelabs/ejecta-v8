@@ -5,6 +5,7 @@ import ag.boersego.v8annotations.*
 import android.annotation.SuppressLint
 import android.util.Log
 import okhttp3.*
+import java.lang.IllegalArgumentException
 import java.util.*
 
 /**
@@ -14,7 +15,7 @@ import java.util.*
 
 @SuppressLint("LogNotTimber")
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
-class BGJSWebSocket : JNIV8Object, Runnable {
+class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     private enum class ReadyState {
         CONNECTING,
@@ -23,8 +24,15 @@ class BGJSWebSocket : JNIV8Object, Runnable {
         CLOSED
     }
 
-
     private var socket: WebSocket? = null
+
+    private var _readyState: ReadyState = ReadyState.CONNECTING
+
+    private lateinit var httpClient: OkHttpClient
+
+    private lateinit var _url: String
+
+    private lateinit var onClose: () -> Unit
 
     override fun run() {
         val request = Request.Builder().url(_url).build()
@@ -117,8 +125,6 @@ class BGJSWebSocket : JNIV8Object, Runnable {
         return success
     }
 
-    constructor(engine: V8Engine) : super(engine)
-
     var onclose: JNIV8Function? = null
         @V8Getter get
         @V8Setter set
@@ -131,7 +137,6 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     var onopen: JNIV8Function? = null
         @V8Getter get
         @V8Setter set
-    private var _readyState: ReadyState = ReadyState.CONNECTING
 
     @Suppress("unused")
     var readyState: Any? = null
@@ -148,11 +153,6 @@ class BGJSWebSocket : JNIV8Object, Runnable {
         get() = if (socket != null) socket?.queueSize()?.toInt() else 0
 
 
-    private lateinit var httpClient: OkHttpClient
-
-    private lateinit var _url: String
-
-    private lateinit var onClose: () -> Unit
 
     fun setData(okHttpClient: OkHttpClient, url: String, onClose: () -> Unit) {
         this.httpClient = okHttpClient
@@ -196,8 +196,21 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
 
         exports.setV8Field("WebSocket", JNIV8Function.Create(engine) { _, arguments ->
             if (arguments.isEmpty() || arguments[0] !is String) {
-                throw IllegalArgumentException("create needs one string argument (url)")
+                throw V8JSException(engine, "TypeError", "create needs one string argument (url)")
             }
+
+            try {
+                var url = arguments[0] as String
+                if (url.regionMatches(0, "ws:", 0, 3, ignoreCase = true)) {
+                    url = "http:" + url.substring(3)
+                } else if (url.regionMatches(0, "wss:", 0, 4, ignoreCase = true)) {
+                    url = "https:" + url.substring(4)
+                }
+                HttpUrl.get(url)
+            } catch (e: IllegalArgumentException) {
+                throw V8JSException(engine, "Error", "invalid url string")
+            }
+
             val websocket = BGJSWebSocket(engine)
 
             websocket.setData(okHttpClient, arguments[0] as String) {
