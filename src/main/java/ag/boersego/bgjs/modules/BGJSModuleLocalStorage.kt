@@ -13,8 +13,6 @@ import android.content.SharedPreferences
 class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localStorage") {
 
     private var mPref: SharedPreferences
-    val length: Int
-        @V8Getter get() = mPref.all.size
 
     init {
         mPref = applicationContext.getSharedPreferences(TAG, 0)
@@ -25,6 +23,13 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         var exports = JNIV8GenericObject.Create(engine)
 
+        //TODO: Can we do this as Attribute?
+        exports.setV8Field("length", JNIV8Function.Create(engine) { receiver, arguments ->
+            if (!arguments.isEmpty()) {
+                throw IllegalArgumentException("clear needs no arguments")
+            }
+            mPref.all.size - 1
+        })
         exports.setV8Field("clear", JNIV8Function.Create(engine) { receiver, arguments ->
             if (!arguments.isEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
