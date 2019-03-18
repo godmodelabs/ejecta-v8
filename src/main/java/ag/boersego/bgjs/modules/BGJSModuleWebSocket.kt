@@ -57,10 +57,15 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     }
                     _readyState = ReadyState.CLOSED
 
-                    onerror?.callAsV8Function()
+                    val errorEvent = JNIV8GenericObject.Create(v8Engine)
+                    errorEvent.setV8Field("code", 1001)
+                    errorEvent.setV8Field("reason", t.message)
+                    onerror?.callAsV8Function(errorEvent)
+
+
                     // It is safe to call onClose, since onFailure will not call any other callback
                     val closeEvent = JNIV8GenericObject.Create(v8Engine)
-                    closeEvent.setV8Field("code", 1000)
+                    closeEvent.setV8Field("code", 1001)
                     closeEvent.setV8Field("reason", "timeout")
                     onclose?.callAsV8Function(closeEvent)
                     closeEvent.dispose()
