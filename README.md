@@ -14,12 +14,12 @@ You can use our sample app under https://github.com/godmodelabs/ejecta-v8-sample
 to get a feel for the library.
 
 This library needs a precompiled, statically linked version of v8 to link
-against. Currently this is tested against 6.5.254.28 (the version used in Chrome 65). See also *Updating v8*.
+against. Currently this is tested against 7.2.502.24. See also *Updating v8*.
 
 # Getting v8 libraries
 
 ## Precompiled from dropbox
-1. Download the precompiled libs from [Dropbox](https://www.dropbox.com/sh/29in3bqzpgti5md/AABpEXElVe3pNClMRwyxeiHra?dl=0")
+1. Download the precompiled libs from [owncloud](https://unverbraucht.de/index.php/s/5DiMgt9cRVK5d1m)
 2. Unpack into libs/v8
 
 The folder should look like this:
