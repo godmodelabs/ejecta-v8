@@ -213,7 +213,7 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
                 }
                 HttpUrl.get(url)
             } catch (e: IllegalArgumentException) {
-                throw V8JSException(engine, "Error", "invalid url string")
+                throw V8JSException(engine, "TypeError", "invalid url string")
             }
 
             val websocket = BGJSWebSocket(engine)
