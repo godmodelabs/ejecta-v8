@@ -20,6 +20,9 @@ public:
      * cache JNI class references
      */
     static void initJNICache();
+
+protected:
+    void OnJSObjectAssigned();
 };
 
 BGJS_JNI_LINK_DEF(JNIV8Promise)

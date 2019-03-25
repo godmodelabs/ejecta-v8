@@ -41,6 +41,21 @@ jobject JNIV8Promise::jniCreateResolver(JNIEnv *env, jobject obj, jobject engine
     return JNIV8Wrapper::wrapObject<JNIV8PromiseResolver>(resolverRef)->getJObject();
 }
 
+void JNIV8Promise::OnJSObjectAssigned() {
+    BGJSV8Engine *engine = getEngine();
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::HandleScope scope(isolate);
+
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    v8::Local<v8::Symbol> symbolRef = v8::Symbol::ForApi(
+            isolate,
+            v8::String::NewFromOneByte(isolate, (const uint8_t*)"JNIV8Promise", v8::NewStringType::kInternalized).ToLocalChecked()
+    );
+    getJSObject()->Set(context, symbolRef, v8::Boolean::New(isolate, true));
+}
+
 /**
  * cache JNI class references
  */

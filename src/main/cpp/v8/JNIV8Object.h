@@ -71,6 +71,7 @@ protected:
      */
     void adjustJSExternalMemory(int64_t change);
 
+    virtual void OnJSObjectAssigned();
 private:
     // private methods
     void makeWeak();

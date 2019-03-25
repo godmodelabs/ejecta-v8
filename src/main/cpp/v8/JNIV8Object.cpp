@@ -67,6 +67,9 @@ JNIV8Object::~JNIV8Object() {
     }
 }
 
+void JNIV8Object::OnJSObjectAssigned() {
+}
+
 void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // never use the raw pointer directly; this way we are retaining the object until this method finishes!
     auto jniV8Object = reinterpret_cast<JNIV8Object*>(data.GetParameter());
@@ -164,6 +167,7 @@ void JNIV8Object::setJSObject(BGJSV8Engine *engine, JNIV8ClassInfo *cls,
         // a js object was provided, so we can assume the reference is already being used somewhere
         // => make the persistent reference weak, to get notified when it is no longer used
         makeWeak();
+        OnJSObjectAssigned();
     }
 }
 

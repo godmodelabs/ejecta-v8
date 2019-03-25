@@ -1514,18 +1514,37 @@ void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
 
+    v8::Local<v8::Symbol> symbolRef;
+
     // loop through queue containing promises with unhandled rejections
     for (size_t i = 0; i < engine->_unhandledRejectedPromises.size(); ++i) {
         auto holder = engine->_unhandledRejectedPromises.at(i);
         if (!holder->handled && !holder->collected) {
-            auto exception = v8::Local<v8::Value>::New(isolate, holder->value);
 
-            // exceptions detected here are thrown directly to the main thread
-            // due to asynchronous nature of the promises, these exceptions are often not related to the current call stack
-            // and might end up "all over the place" if we were to throw them directly on the current thread
-            // also, the event looper thread could end up here during initialization or when triggering timeouts;
-            // and it is NOT set up to log or otherwise handle exceptions! they would simply "disappear" if thrown there..
-            engine->forwardV8ExceptionToJNI("Unhandled rejected promise: ", exception, v8::Exception::CreateMessage(isolate, exception), nullptr, true);
+            if(symbolRef.IsEmpty()) {
+                symbolRef = v8::Symbol::ForApi(
+                        isolate,
+                        v8::String::NewFromOneByte(isolate, (const uint8_t*)"JNIV8Promise", v8::NewStringType::kInternalized).ToLocalChecked()
+                );
+            }
+
+            bool wasWrapped = false;
+            v8::Local<v8::Value> valueRef;
+            if (v8::Local<v8::Promise>::New(isolate, holder->promise)->Get(context, symbolRef).ToLocal(&valueRef)) {
+                wasWrapped = Local<v8::Boolean>::Cast(valueRef)->Value();
+            };
+
+            if (!wasWrapped) {
+                auto exception = v8::Local<v8::Value>::New(isolate, holder->value);
+
+                // exceptions detected here are thrown directly to the main thread
+                // due to asynchronous nature of the promises, these exceptions are often not related to the current call stack
+                // and might end up "all over the place" if we were to throw them directly on the current thread
+                // also, the event looper thread could end up here during initialization or when triggering timeouts;
+                // and it is NOT set up to log or otherwise handle exceptions! they would simply "disappear" if thrown there..
+                engine->forwardV8ExceptionToJNI("Unhandled rejected promise: ", exception,
+                                                v8::Exception::CreateMessage(isolate, exception), nullptr, true);
+            }
         }
         holder->value.Reset();
         holder->promise.Reset();
