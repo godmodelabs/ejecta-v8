@@ -1521,6 +1521,10 @@ void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
         auto holder = engine->_unhandledRejectedPromises.at(i);
         if (!holder->handled && !holder->collected) {
 
+            // check if the promise was wrapped by a JNIV8Promise Object and returned to the JVM
+            // if that happened, this microtask will run BEFORE the JVM code has the chance to register a handler
+            // so we must NOT throw an exception here in that case
+            // @TODO it would probably be a good idea to "postpone" the check instead of completely skipping it - but how? via a timer?
             if(symbolRef.IsEmpty()) {
                 symbolRef = v8::Symbol::ForApi(
                         isolate,
