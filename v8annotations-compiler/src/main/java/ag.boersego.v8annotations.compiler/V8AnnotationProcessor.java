@@ -381,8 +381,8 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'set'", element);
                     }
                     property = lcfirst(name.substring(3));
-                    property = "string:" + property;
                 }
+                property = "string:" + property;
             }
             AccessorTuple tuple = getAccessorTuple(annotatedClasses, element, property);
 
