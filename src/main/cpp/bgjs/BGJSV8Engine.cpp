@@ -1377,7 +1377,6 @@ void BGJSV8Engine::start(const Options* options) {
     _lang = strdup(options->lang);
     _tz = strdup(options->timezone);
     _deviceClass = strdup(options->deviceClass);
-    _density = options->density;
     _isStoreBuild = options->isStoreBuild;
     _maxHeapSize = options->maxHeapSize;
     _debug = options->debug;
@@ -1818,7 +1817,7 @@ extern "C" {
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
         JNIEnv * env, jobject v8Engine, jobject assetManager, jstring locale, jstring lang,
-        jstring timezone, jfloat density, jstring deviceClass, jboolean debug, jboolean isStoreBuild, jint maxHeapSize) {
+        jstring timezone, jstring deviceClass, jboolean debug, jboolean isStoreBuild, jint maxHeapSize) {
 
     auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
 

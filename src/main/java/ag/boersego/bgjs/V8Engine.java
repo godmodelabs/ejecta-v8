@@ -86,9 +86,7 @@ public class V8Engine extends JNIObject {
     public V8Engine(final @NonNull Context application, final boolean isStoreBuild) {
         final Resources r = application.getResources();
         boolean mIsTablet;
-        float mDensity;
         if (r != null) {
-            mDensity = r.getDisplayMetrics().density;
             mIsTablet = r.getBoolean(R.bool.isTablet);
         } else {
             throw new RuntimeException("No resources available");
@@ -114,7 +112,7 @@ public class V8Engine extends JNIObject {
         // this will create an eventloop thread on the native side
         // intitialization of the v8 context & the `onReady` callback will run inside of that thread
         final int maxHeapSizeForV8 = (int) (Runtime.getRuntime().maxMemory() / 1024 / 1024 / 3);
-        initialize(application.getAssets(), mLocale, mLang, mTimeZone, mDensity, mIsTablet ? "tablet" : "phone", mDebug, isStoreBuild, maxHeapSizeForV8);
+        initialize(application.getAssets(), mLocale, mLang, mTimeZone, mIsTablet ? "tablet" : "phone", mDebug, isStoreBuild, maxHeapSizeForV8);
     }
 
     public boolean isReady() {
@@ -239,6 +237,5 @@ public class V8Engine extends JNIObject {
 
     public native void shutdown();
 
-    private native void initialize(AssetManager am, String locale, String lang, String timezone,
-                                   float density, final String deviceClass, final boolean debug, final boolean isStoreBuild, final int maxHeapSizeInMb);
+    private native void initialize(AssetManager am, String locale, String lang, String timezone, final String deviceClass, final boolean debug, final boolean isStoreBuild, final int maxHeapSizeInMb);
 }

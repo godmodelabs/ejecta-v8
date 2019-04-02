@@ -46,7 +46,6 @@ public:
 	struct Options {
 		jobject assetManager;
 		const char *locale, *lang, *timezone, *deviceClass;
-		float density;
 		int maxHeapSize;
 		bool isStoreBuild, debug;
 	};
@@ -203,8 +202,6 @@ private:
 	char *_deviceClass; // "phone"/"tablet"
 	int _maxHeapSize;	// in MB
     bool _isStoreBuild;
-
-	float _density;
 
     uint8_t _nextEmbedderDataIndex;
 	jobject _javaAssetManager;

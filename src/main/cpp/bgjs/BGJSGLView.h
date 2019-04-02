@@ -18,8 +18,8 @@ class BGJSGLView : public JNIScope<BGJSGLView, JNIV8Object> {
 public:
 	BGJSGLView(jobject obj, JNIClassInfo *info) : JNIScope(obj, info) {};
 
-    static void setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height);
-	virtual void onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int heigh);
+    static void setViewData(JNIEnv *env, jobject objWrapped, float density, bool doNoClearOnFlip, int width, int height);
+	virtual void onSetViewData(float density, bool doNoClearOnFlip, int width, int height);
 
 	static bool isWrappableV8Object(v8::Local<v8::Object> object);
 	static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
@@ -41,12 +41,13 @@ public:
 
     int getWidth();
     int getHeight();
+    float getDensity();
 
 protected:
     bool noFlushOnRedraw = false;
     bool noClearOnFlip = false;
 
-	float _pixelRatio = 0;
+	float _density = 0;
     int _width = 0;
     int _height = 0;
 };

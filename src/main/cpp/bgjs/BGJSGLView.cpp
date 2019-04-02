@@ -52,6 +52,7 @@ void BGJSGLView::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("setTouchPosition", "(II)V", (void*)BGJSGLView::setTouchPosition);
     info->registerNativeMethod("setViewData", "(FZII)V", (void*)BGJSGLView::setViewData);
     info->registerNativeMethod("viewWasResized", "(II)V", (void*)BGJSGLView::viewWasResized);
+    info->registerMethod("getDevicePixelRatio", "()F");
     info->registerMethod("requestAnimationFrame", "(Lag/boersego/bgjs/JNIV8Function;)I");
     info->registerMethod("cancelAnimationFrame", "(I)V");
 }
@@ -71,16 +72,16 @@ void BGJSGLView::viewWasResized(JNIEnv *env, jobject objWrapped, int width, int 
     self->context2d->resize(width, height);
 }
 
-void BGJSGLView::setViewData(JNIEnv *env, jobject objWrapped, float pixelRatio, bool doNoClearOnFlip, int width, int height) {
+void BGJSGLView::setViewData(JNIEnv *env, jobject objWrapped, float density, bool doNoClearOnFlip, int width, int height) {
 	auto self = JNIWrapper::wrapObject<BGJSGLView>(objWrapped);
 
-    self->onSetViewData(pixelRatio, doNoClearOnFlip, width, height);
+    self->onSetViewData(density, doNoClearOnFlip, width, height);
 }
 
-void BGJSGLView::onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width, int height) {
+void BGJSGLView::onSetViewData(float density, bool doNoClearOnFlip, int width, int height) {
     _width = width;
     _height = height;
-    _pixelRatio = pixelRatio;
+    _density = density;
     noFlushOnRedraw = false;
     noClearOnFlip = doNoClearOnFlip;
 
@@ -89,9 +90,9 @@ void BGJSGLView::onSetViewData(float pixelRatio, bool doNoClearOnFlip, int width
     // bzero (_frameRequests, sizeof(_frameRequests));
 
     context2d = new BGJSCanvasContext(width, height);
-    context2d->backingStoreRatio = pixelRatio;
+    context2d->backingStoreRatio = density;
 #ifdef DEBUG
-    LOGI("pixel Ratio %f", pixelRatio);
+    LOGI("pixel Ratio %f", density);
 #endif
     context2d->create();
     context2d->resize(width, height);
@@ -109,6 +110,10 @@ int BGJSGLView::getWidth() {
 
 int BGJSGLView::getHeight() {
     return _height;
+}
+
+float BGJSGLView::getDensity() {
+    return _density;
 }
 
 void BGJSGLView::prepareRedraw(JNIEnv *env, jobject objWrapped) {
