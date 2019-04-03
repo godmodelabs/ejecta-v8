@@ -1576,7 +1576,7 @@ void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
 
     // See https://gist.github.com/domenic/9b40029f59f29b822f3b#promise-error-handling-hooks-rough-spec-algorithm
     // "Host environment algorithm"
-    // Chromium Implementation: https://chromium.googlesource.com/chromium/bliv8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);\nk/+/master/Source/bindings/core/v8/RejectedPromises.cpp
+    // Chromium Implementation: https://chromium.googlesource.com/chromium/blink/+/master/Source/bindings/core/v8/RejectedPromises.cpp
     if(message.GetEvent() == kPromiseRejectWithNoHandler) {
         // add promise to list
         auto holder = new RejectedPromiseHolder();
