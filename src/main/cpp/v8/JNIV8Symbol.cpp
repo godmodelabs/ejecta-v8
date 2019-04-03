@@ -29,6 +29,7 @@ jobject JNIV8Symbol::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jstr
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -44,6 +45,7 @@ jobject JNIV8Symbol::jniFor(JNIEnv *env, jobject obj, jobject engineObj, jstring
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -59,6 +61,7 @@ jobject JNIV8Symbol::jniForEnum(JNIEnv *env, jobject obj, jobject engineObj, jst
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();

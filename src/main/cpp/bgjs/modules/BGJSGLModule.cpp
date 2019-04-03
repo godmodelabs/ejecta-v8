@@ -41,7 +41,7 @@ EscapableHandleScope scope(isolate);
 HandleScope scope(isolate);
 
 // Fetch the canvascontext from the context2d function in a FunctionTemplate
-#define CONTEXT_FETCH_BASE v8::Locker l(isolate); \
+#define CONTEXT_FETCH_BASE \
 if (!args.This()->IsObject()) { \
 	LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function"))); \
@@ -966,7 +966,6 @@ void js_canvas_destruct(const v8::WeakCallbackInfo<void>& data) {
 
 void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = Isolate::GetCurrent();
-	v8::Locker l(isolate);
 	EscapableHandleScope scope(isolate);
 
 	// BGJSGLModule *objPtr = externalToClassPtr<BGJSGLModule>(args.Data());
@@ -1003,7 +1002,6 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 
 void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = Isolate::GetCurrent();
-	v8::Locker l(isolate);
 	EscapableHandleScope scope(isolate);
 	if (!args.This()->IsObject()) {
 		LOGE("js_canvas_getContext got no this object");
@@ -1039,7 +1037,6 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 
 void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target) {
     v8::Isolate* isolate = engine->getIsolate();
-	v8::Locker l(isolate);
 	HandleScope scope(isolate);
 
 	// Handle<Object> exports = Object::New();

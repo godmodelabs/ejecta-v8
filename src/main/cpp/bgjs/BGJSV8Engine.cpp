@@ -500,12 +500,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<
 
 // Register
 bool BGJSV8Engine::registerModule(const char *name, requireHook requireFn) {
-    // v8::Locker l(Isolate::GetCurrent());
-    // HandleScope scope(Isolate::GetCurrent());
-    // module->initWithContext(this);
     _modules[name] = requireFn;
-    // _modules.insert(std::pair<char const*, BGJSModule*>(module->getName(), module));
-
     return true;
 }
 
@@ -1003,10 +998,19 @@ uint64_t BGJSV8Engine::createTimer(v8::Local<v8::Function> callback, uint64_t de
     return holder->id;
 }
 
+/**
+ * used to schedule or stop timers
+ * timers are created inside of V8 from arbitrary threads, but
+ * the libuv calls all need to happen inside of the libuv thread
+ * so this async event is triggered by the thread creating/stopping a timer,
+ * and the actual work is then done here
+ * the v8 locker is simply used for synchronization, no actual v8 calls are made here
+ */
 void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
     BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
 
-    v8::Locker l(engine->getIsolate());
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::Locker l(isolate);
 
     for (size_t i = 0; i < engine->_timers.size(); ++i) {
         auto holder = engine->_timers.at(i);
@@ -1023,6 +1027,9 @@ void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
     }
 }
 
+/**
+ * called by libuv when a timer was triggered
+ */
 void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
     TimerHolder *holder = (TimerHolder*)handle->data;
 
@@ -1032,6 +1039,7 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = holder->engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
 
@@ -1050,6 +1058,10 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
     }
 }
 
+/**
+ * called by libuv when a timer was closed
+ * resource cleanup happens here
+ */
 void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
     TimerHolder *holder = (TimerHolder*)handle->data;
     BGJSV8Engine *engine = holder->engine.get();
@@ -1173,6 +1185,7 @@ void BGJSV8Engine::createContext() {
             v8::ArrayBuffer::Allocator::NewDefaultAllocator();
 
     _isolate = v8::Isolate::New(create_params);
+    _isolate->SetMicrotasksPolicy(v8::MicrotasksPolicy::kScoped);
 
     v8::Locker l(_isolate);
     Isolate::Scope isolate_scope(_isolate);
@@ -1506,7 +1519,7 @@ void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
 }
 
 void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
-    v8::Isolate* isolate = (v8::Isolate*)data;
+    auto * isolate = (v8::Isolate*)data;
     v8::Locker l(isolate);
     BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
     v8::HandleScope scope(isolate);
@@ -1523,7 +1536,7 @@ void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
             // check if the promise was wrapped by a JNIV8Promise Object and returned to the JVM
             // if that happened, this microtask will run BEFORE the JVM code has the chance to register a handler
             // so we must NOT throw an exception here in that case
-            // @TODO it would probably be a good idea to "postpone" the check instead of completely skipping it - but how? via a timer?
+            // @TODO it would probably be a good idea to "postpone" the check instead of completely skipping it - but how? there seems to be no reliable way that does not rely on "magic timeouts"
             if(symbolRef.IsEmpty()) {
                 symbolRef = v8::Symbol::ForApi(
                         isolate,
@@ -1563,10 +1576,10 @@ void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
 
     // See https://gist.github.com/domenic/9b40029f59f29b822f3b#promise-error-handling-hooks-rough-spec-algorithm
     // "Host environment algorithm"
-    // Chromium Implementation: https://chromium.googlesource.com/chromium/blink/+/master/Source/bindings/core/v8/RejectedPromises.cpp
+    // Chromium Implementation: https://chromium.googlesource.com/chromium/bliv8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);\nk/+/master/Source/bindings/core/v8/RejectedPromises.cpp
     if(message.GetEvent() == kPromiseRejectWithNoHandler) {
         // add promise to list
-        RejectedPromiseHolder *holder = new RejectedPromiseHolder();
+        auto holder = new RejectedPromiseHolder();
         holder->promise.Reset(isolate, message.GetPromise());
         holder->promise.SetWeak((void *) holder, RejectedPromiseHolderWeakPersistentCallback,
                                    v8::WeakCallbackType::kParameter);
@@ -1584,8 +1597,7 @@ void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
     } else if(message.GetEvent() == kPromiseHandlerAddedAfterReject) {
         // check if promise is listed; if yes, flag as handled
         // Then look it up in the reported errors.
-        for (size_t i = 0; i < engine->_unhandledRejectedPromises.size(); ++i) {
-            auto holder = engine->_unhandledRejectedPromises.at(i);
+        for (auto holder : engine->_unhandledRejectedPromises) {
             auto promise = message.GetPromise();
             if(promise == v8::Local<v8::Promise>::New(isolate, holder->promise)) {
                 holder->handled = true;
@@ -1884,6 +1896,7 @@ Java_ag_boersego_bgjs_V8Engine_enqueueOnNextTick(JNIEnv *env, jobject obj, jobje
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     auto funcRef = JNIV8Wrapper::wrapObject<JNIV8Function>(function)->getJSObject().As<v8::Function>();
 
@@ -1900,6 +1913,7 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json)
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
     v8::MaybeLocal<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
@@ -1920,6 +1934,7 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
 
@@ -1951,6 +1966,7 @@ Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     return JNIV8Marshalling::v8value2jobject(context->Global());
 }
@@ -1971,6 +1987,7 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
 

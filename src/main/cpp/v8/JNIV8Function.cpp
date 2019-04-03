@@ -97,6 +97,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = ptr->getEngine()->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
 
@@ -242,6 +243,7 @@ jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jo
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();

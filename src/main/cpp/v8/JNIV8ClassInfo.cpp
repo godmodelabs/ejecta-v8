@@ -55,6 +55,33 @@ Local<Name> JNIV8ClassInfo::_makeName(std::string name) {
     return handleScope.Escape(nameRef);
 }
 
+std::string JNIV8ClassInfo::_makeSymbolString(EJNIV8ObjectSymbolType symbol) {
+    switch (symbol) {
+        case kIterator:
+            return "symbol:ITERATOR";
+        case kAsyncIterator:
+            return "symbol:ASYNC_ITERATOR";
+        case kMatch:
+            return "symbol:MATCH";
+        case kReplace:
+            return "symbol:REPLACE";
+        case kSearch:
+            return "symbol:SEARCH";
+        case kSplit:
+            return "symbol:SPLIT";
+        case kHasInstance:
+            return "symbol:HAS_INSTANCE";
+        case kIsConcatSpreadable:
+            return "symbol:IS_CONCAT_SPREADABLE";
+        case kUnscopables:
+            return "symbol:UNSCOPABLES";
+        case kToPrimitive:
+            return "symbol:TO_PRIMITIVE";
+        case kToStringTag:
+            return "symbol:TO_STRING_TAG";
+    }
+}
+
 decltype(JNIV8ClassInfo::_jniObject) JNIV8ClassInfo::_jniObject = {0};
 
 /**
@@ -75,13 +102,13 @@ void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<Name> property, const Pr
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
+    auto cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
     if (cb->javaGetterId) {
         jobject jobj = nullptr;
 
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
-            JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+            auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
             jobj = v8Object->getJObject();
         }
@@ -111,7 +138,7 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<Name> property, Local<Va
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
 
     if (cb->javaSetterId) {
         jobject jobj = nullptr;
@@ -120,7 +147,7 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<Name> property, Local<Va
 
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
-            JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+            auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
             jobj = v8Object->getJObject();
         }
@@ -178,7 +205,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
 
     v8::Local<v8::External> ext;
     ext = args.Data().As<v8::External>();
-    JNIV8ObjectJavaCallbackHolder* cb = static_cast<JNIV8ObjectJavaCallbackHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectJavaCallbackHolder*>(ext->Value());
 
     // we only check the "this" for non-static methods
     // otherwise "this" can be anything, we do not care..
@@ -187,7 +214,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
         v8::Local<v8::Value> internalField = thisArg->GetInternalField(0);
         // this is not really "safe".. but how could it be? another part of the program could store arbitrary stuff in internal fields
         ext = internalField.As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
         jobj = v8Object->getJObject();
     }
 
@@ -299,13 +326,13 @@ void JNIV8ClassInfo::v8AccessorGetterCallback(Local<Name> property, const Proper
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectAccessorHolder* cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
 
     if(cb->isStatic) {
         (cb->getterCallback.s)(cb->propertyName, info);
     } else {
         ext = info.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
         (v8Object->*(cb->getterCallback.i))(cb->propertyName, info);
     }
@@ -321,13 +348,13 @@ void JNIV8ClassInfo::v8AccessorSetterCallback(Local<Name> property, Local<Value>
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectAccessorHolder* cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
 
     if(cb->isStatic) {
         (cb->setterCallback.s)(cb->propertyName, value, info);
     } else {
         ext = info.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
         (v8Object->*(cb->setterCallback.i))(cb->propertyName, value, info);
     }
@@ -342,14 +369,14 @@ void JNIV8ClassInfo::v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>&
     v8::Local<v8::External> ext;
 
     ext = args.Data().As<v8::External>();
-    JNIV8ObjectCallbackHolder* cb = static_cast<JNIV8ObjectCallbackHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectCallbackHolder*>(ext->Value());
 
     if(cb->isStatic) {
         // we do NOT check how this function was invoked.. if a this was supplied, we just ignore it!
         (cb->callback.s)(cb->methodName, args);
     } else {
         ext = args.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
         (v8Object->*(cb->callback.i))(cb->methodName, args);
     }
@@ -428,18 +455,34 @@ void JNIV8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback
 }
 
 void JNIV8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMethodCallback callback) {
-    JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder();
+    auto * holder = new JNIV8ObjectCallbackHolder();
     holder->isStatic = false;
     holder->callback.i = callback;
-    holder->methodName = methodName;
+    holder->methodName = "string:" + methodName;
     _registerMethod(holder);
 }
 
 void JNIV8ClassInfo::registerStaticMethod(const std::string& methodName, JNIV8ObjectStaticMethodCallback callback) {
-    JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder();
+    auto * holder = new JNIV8ObjectCallbackHolder();
     holder->isStatic = true;
     holder->callback.s = callback;
-    holder->methodName = methodName;
+    holder->methodName = "string:" + methodName;
+    _registerMethod(holder);
+}
+
+void JNIV8ClassInfo::registerMethod(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectMethodCallback callback) {
+    auto * holder = new JNIV8ObjectCallbackHolder();
+    holder->isStatic = false;
+    holder->callback.i = callback;
+    holder->methodName = _makeSymbolString(symbol);
+    _registerMethod(holder);
+}
+
+void JNIV8ClassInfo::registerStaticMethod(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectStaticMethodCallback callback) {
+    auto * holder = new JNIV8ObjectCallbackHolder();
+    holder->isStatic = true;
+    holder->callback.s = callback;
+    holder->methodName = _makeSymbolString(symbol);
     _registerMethod(holder);
 }
 
@@ -457,7 +500,7 @@ void JNIV8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID
     }
 
     // otherwise register a new method
-    JNIV8ObjectJavaCallbackHolder *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
+    auto *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
     holder->methodName = methodName;
     holder->isStatic = false;
     holder->signatures.push_back({methodId, arguments});
@@ -478,7 +521,7 @@ void JNIV8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jme
     }
 
     // otherwise register a new method
-    JNIV8ObjectJavaCallbackHolder *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
+    auto *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
     holder->methodName = methodName;
     holder->isStatic = true;
     holder->signatures.push_back({methodId, arguments});
@@ -496,7 +539,7 @@ void JNIV8ClassInfo::registerJavaAccessor(const std::string& propertyName, const
 
 void JNIV8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId,
                                              jmethodID setterId) {
-    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
+    auto * holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;
     holder->javaGetterId = getterId;
     holder->javaSetterId = setterId;
@@ -508,8 +551,8 @@ void JNIV8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName,
 void JNIV8ClassInfo::registerAccessor(const std::string& propertyName,
                       JNIV8ObjectAccessorGetterCallback getter,
                       JNIV8ObjectAccessorSetterCallback setter) {
-    JNIV8ObjectAccessorHolder* holder = new JNIV8ObjectAccessorHolder();
-    holder->propertyName = propertyName;
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = "string:" + propertyName;
     holder->getterCallback.i = getter;
     holder->setterCallback.i = setter;
     holder->isStatic = false;
@@ -519,8 +562,31 @@ void JNIV8ClassInfo::registerAccessor(const std::string& propertyName,
 void JNIV8ClassInfo::registerStaticAccessor(const std::string &propertyName,
                                          JNIV8ObjectStaticAccessorGetterCallback getter,
                                          JNIV8ObjectStaticAccessorSetterCallback setter) {
-    JNIV8ObjectAccessorHolder* holder = new JNIV8ObjectAccessorHolder();
-    holder->propertyName = propertyName;
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = "string:" + propertyName;
+    holder->getterCallback.s = getter;
+    holder->setterCallback.s = setter;
+    holder->isStatic = true;
+    accessorHolders.push_back(holder);
+    _registerAccessor(holder);
+}
+
+void JNIV8ClassInfo::registerAccessor(const EJNIV8ObjectSymbolType symbol,
+                                      JNIV8ObjectAccessorGetterCallback getter,
+                                      JNIV8ObjectAccessorSetterCallback setter) {
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = _makeSymbolString(symbol);
+    holder->getterCallback.i = getter;
+    holder->setterCallback.i = setter;
+    holder->isStatic = false;
+    _registerAccessor(holder);
+}
+
+void JNIV8ClassInfo::registerStaticAccessor(const EJNIV8ObjectSymbolType symbol,
+                                            JNIV8ObjectStaticAccessorGetterCallback getter,
+                                            JNIV8ObjectStaticAccessorSetterCallback setter) {
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = _makeSymbolString(symbol);
     holder->getterCallback.s = getter;
     holder->setterCallback.s = setter;
     holder->isStatic = true;

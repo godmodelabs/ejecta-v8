@@ -307,6 +307,7 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, j
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     Isolate::Scope isolateScope(isolate);
     HandleScope scope(isolate);
     Context::Scope ctxScope(engine->getContext());

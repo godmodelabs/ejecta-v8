@@ -168,6 +168,7 @@ jobject JNIV8Array::jniCreateWithLength(JNIEnv *env, jobject obj, jobject engine
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Context::Scope ctxScope(engine->getContext());
@@ -182,6 +183,7 @@ jobject JNIV8Array::jniCreateWithArray(JNIEnv *env, jobject obj, jobject engineO
 
     v8::Isolate* isolate = engine->getIsolate();
     v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Context::Scope ctxScope(engine->getContext());

@@ -22,6 +22,7 @@ v8::Isolate::Scope isolateScope(isolate);\
 v8::HandleScope scope(isolate);\
 v8::Local<v8::Context> context = engine->getContext();\
 v8::Context::Scope ctxScope(context);\
+v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);\
 v8::TryCatch try_catch(isolate);\
 v8::Local<L> localRef = v8::Local<v8::Object>::New(isolate, ptr->getJSObject()).As<L>();
 
