@@ -1519,7 +1519,7 @@ void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
 }
 
 void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
-    auto * isolate = (v8::Isolate*)data;
+    v8::Isolate *isolate = Isolate::GetCurrent();
     v8::Locker l(isolate);
     BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
     v8::HandleScope scope(isolate);
@@ -1592,7 +1592,7 @@ void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
         // so the isolate CAN NOT be destroyed before
         if(!engine->_didScheduleURPTask) {
             engine->_didScheduleURPTask = true;
-            isolate->EnqueueMicrotask(&BGJSV8Engine::OnPromiseRejectionMicrotask, (void *) isolate);
+            isolate->EnqueueMicrotask(&BGJSV8Engine::OnPromiseRejectionMicrotask, nullptr);
         }
     } else if(message.GetEvent() == kPromiseHandlerAddedAfterReject) {
         // check if promise is listed; if yes, flag as handled
