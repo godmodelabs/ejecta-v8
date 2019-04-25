@@ -81,7 +81,7 @@ void JNIV8Wrapper::init() {
 
 void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     v8::Local<v8::External> ext = args.Data().As<v8::External>();
-    JNIV8ClassInfo* info = static_cast<JNIV8ClassInfo*>(ext->Value());
+    auto *info = static_cast<JNIV8ClassInfo*>(ext->Value());
 
     v8::Isolate* isolate = info->engine->getIsolate();
     HandleScope scope(isolate);
@@ -201,14 +201,14 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
                                                                 "()[Lag/boersego/v8annotations/generated/V8AccessorInfo;");
 
         // first register functions
-        jobjectArray functionInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
+        auto functionInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
                                                                                 getFunctionsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(functionInfos);idx<n;idx++) {
             jobject functionInfo = env->GetObjectArrayElement(functionInfos, idx);
             const std::string strFunctionName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.propertyId));
             const std::string strMethodName = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.methodId));
             const std::string strReturnType = JNIWrapper::jstring2string((jstring)env->GetObjectField(functionInfo, _jniV8FunctionInfo.returnTypeId));
-            jobjectArray argumentInfos = (jobjectArray)env->GetObjectField(functionInfo, _jniV8FunctionInfo.argumentsId);
+            auto argumentInfos = (jobjectArray)env->GetObjectField(functionInfo, _jniV8FunctionInfo.argumentsId);
             std::vector<JNIV8JavaValue>* arguments = nullptr;
 
             // return type information
@@ -225,7 +225,7 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
                 // ownership of malloc'ed memory is implicitly transferred to JNIV8ClassInfo!
                 if(numArguments>0) {
                     for(jsize argIdx=0; argIdx<numArguments; argIdx++) {
-                        const jobject argumentInfo = env->GetObjectArrayElement(argumentInfos, argIdx);
+                        jobject argumentInfo = env->GetObjectArrayElement(argumentInfos, argIdx);
                         const std::string strArgumentType = JNIWrapper::jstring2string((jstring)env->GetObjectField(argumentInfo, _jniV8FunctionArgumentInfo.typeId));
                         JNIV8MarshallingFlags flags = JNIV8MarshallingFlags::kDefault;
                         if(!(bool)env->GetBooleanField(argumentInfo, _jniV8FunctionArgumentInfo.isNullableId)) flags = JNIV8MarshallingFlags::kNonNull;
@@ -256,7 +256,7 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
         }
 
         // now register all property accessors
-        jobjectArray accessorInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
+        auto accessorInfos = (jobjectArray) env->CallStaticObjectMethod(clsBinding,
                                                                                 getAccessorsMethodId);
         for(jsize idx=0,n=env->GetArrayLength(accessorInfos);idx<n;idx++) {
             jobject accessorInfo = env->GetObjectArrayElement(accessorInfos, idx);
@@ -269,7 +269,7 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
             const std::string strPropertyName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.propertyId));
             const std::string strGetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.getterId));
             const std::string strSetterName = JNIWrapper::jstring2string((jstring)env->GetObjectField(accessorInfo, _jniV8AccessorInfo.setterId));
-            jmethodID javaGetterId = NULL, javaSetterId = NULL;
+            jmethodID javaGetterId = nullptr, javaSetterId = nullptr;
             if(env->GetBooleanField(accessorInfo, _jniV8AccessorInfo.isStaticId)) {
                 if (!strGetterName.empty()) { javaGetterId = env->GetStaticMethodID(clsObject, strGetterName.c_str(), ("()" + strPropertyType).c_str()); }
                 if (!strSetterName.empty()) { javaSetterId = env->GetStaticMethodID(clsObject, strSetterName.c_str(), ("(" + strPropertyType + ")V").c_str()); }
@@ -281,18 +281,6 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
             }
         }
     }
-
-    // make sure that constructors exist!
-#ifdef ENABLE_JNI_ASSERT
-    jmethodID constructorId;
-    if(!v8ClassInfo->createFromJavaOnly) {
-        // if creation from javascript is allowed, we need the constructor!
-        constructorId = env->GetMethodID(it->second->clsObject, "<init>",
-                                         "(Lag/boersego/bgjs/V8Engine;J[Ljava/lang/Object;)V");
-        JNI_ASSERTF(constructorId,
-                   "Constructor '(V8Engine, long, Object[])' does not exist on registered class '%s'", canonicalName.c_str());
-    }
-#endif
 
     pthread_mutex_unlock(&_mutexEnv);
 
@@ -315,7 +303,7 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, j
     v8::Persistent<Object>* persistentPtr;
     v8::Local<Object> jsObj;
 
-    JNIV8ClassInfo *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
+    auto *classInfo = JNIV8Wrapper::_getV8ClassInfo(v8Object->getCanonicalName(), engine.get());
 
     // if an object was already supplied we just need to extract it and store it
     if(jsObjPtr) {
@@ -353,7 +341,6 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
     } else if(canonicalName != JNIBase::getCanonicalName<JNIV8Object>()) {
         // an empty base class is only allowed here for internally registering JNIObject itself
         JNI_ASSERT(0, "Attempt to register an object without super class");
-        return;
     }
 
     if(baseInfo) {
@@ -373,7 +360,7 @@ void JNIV8Wrapper::_registerObject(JNIV8ObjectType type, const std::string& cano
         }
     }
 
-    JNIV8ClassInfoContainer *info = new JNIV8ClassInfoContainer(type, canonicalName, i, c, size, baseInfo);
+    auto *info = new JNIV8ClassInfoContainer(type, canonicalName, i, c, size, baseInfo);
     _objmap[canonicalName] = info;
 }
 
@@ -400,7 +387,7 @@ template<> JNILocalRef<JNIV8Object> JNIV8Wrapper::wrapObject<JNIV8Object>(
  */
 void JNIV8Wrapper::cleanupV8Engine(BGJSV8Engine *engine) {
     pthread_mutex_lock(&_mutexEnv);
-    for(auto it : _objmap) {
+    for(auto &it : _objmap) {
         for (auto it2 = it.second->classInfos.begin(); it2 != it.second->classInfos.end(); ++it2) {
             if((*it2)->engine == engine) {
                 delete *it2;

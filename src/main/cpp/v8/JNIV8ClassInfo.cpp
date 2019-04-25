@@ -409,6 +409,21 @@ JNIV8ClassInfoContainer::JNIV8ClassInfoContainer(JNIV8ObjectType type, const std
         clsBinding = nullptr;
         env->ExceptionClear();
     }
+
+    // if creation from native/javascript is allowed, we need the special constructor!
+    bool createFromJavaOnly = false;
+    if(clsBinding) {
+        jfieldID createFromJavaOnlyId = env->GetStaticFieldID(clsBinding, "createFromJavaOnly", "Z");
+        createFromJavaOnly = env->GetStaticBooleanField(clsBinding, createFromJavaOnlyId);
+    }
+    if(!createFromJavaOnly) {
+        jmethodID constructorId = env->GetMethodID(clsObject, "<init>",
+                                         "(Lag/boersego/bgjs/V8Engine;J[Ljava/lang/Object;)V");
+        JNI_ASSERTF(constructorId,
+                    "Constructor '(V8Engine, long, Object[])' does not exist on registered class '%s';\n"
+                    "Possible cause: non-static nested classes are not supported!",
+                    canonicalName.c_str());
+    }
 }
 
 JNIV8ClassInfo::JNIV8ClassInfo(JNIV8ClassInfoContainer *container, BGJSV8Engine *engine) :
