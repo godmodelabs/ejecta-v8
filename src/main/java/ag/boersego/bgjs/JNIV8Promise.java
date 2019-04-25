@@ -6,7 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 public class JNIV8Promise extends JNIV8Object {
-    public class Resolver extends JNIV8Object {
+    public static class Resolver extends JNIV8Object {
         //------------------------------------------------------------------------
         // internal fields & methods
         @Keep
