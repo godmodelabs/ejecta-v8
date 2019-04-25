@@ -1,9 +1,12 @@
 package ag.boersego.bgjs;
 
+import ag.boersego.v8annotations.V8Class;
+import ag.boersego.v8annotations.V8ClassCreationPolicy;
 import ag.boersego.v8annotations.V8Function;
 
 import java.util.Iterator;
 
+@V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
 public class JNIV8Iterator extends JNIV8Object {
     private Iterator<Object> iterator;
 

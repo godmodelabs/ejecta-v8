@@ -422,6 +422,7 @@ JNIV8ClassInfoContainer::JNIV8ClassInfoContainer(JNIV8ObjectType type, const std
         JNI_ASSERTF(constructorId,
                     "Constructor '(V8Engine, long, Object[])' does not exist on registered class '%s';\n"
                     "Possible cause: non-static nested classes are not supported!",
+                    "Possible cause: missing class creating policy!",
                     canonicalName.c_str());
     }
 }
