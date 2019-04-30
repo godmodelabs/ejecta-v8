@@ -61,34 +61,45 @@ std::vector<std::string> &split(const std::string &s, char delim,
 
 std::string normalize_path(std::string &path) {
     std::vector<std::string> pathParts;
+
     std::stringstream ss(path);
     std::string item;
     while (std::getline(ss, item, '/')) {
         pathParts.push_back(item);
     }
-    std::string outPath;
 
-    int length = pathParts.size();
-    int i = 0;
-    if (length > 0 && pathParts.at(0).compare("..") == 0) {
-        i = 1;
-    }
-    for (; i < length - 1; i++) {
-        std::string pathPart = pathParts.at(i + 1);
-        if (pathPart.compare("..") != 0) {
-            std::string nextSegment = pathParts.at(i);
-            if (nextSegment.compare(".") == 0) {
-                continue;
+    for(size_t i = 0, n = pathParts.size(); i < n;) {
+        std::string part = pathParts[i];
+        // current directory "." can be ignored
+        // empty directories beyond root can also be ignored
+        // this also handles a trailing slash
+        if(part == "." || (i && part.empty())) {
+            pathParts.erase(pathParts.begin() + i);
+            n--;
+        } else if(part == "..") {
+            auto rangeStart = pathParts.begin() + i;
+            // do not go up beyond root
+            // only go up if this is not the first element
+            if(i > 0 && !pathParts[i-1].empty()) {
+                pathParts.erase(rangeStart - 1, rangeStart + 1);
+                i--;
+                n -= 2;
+                // in both of the above cases: part is a nop, just remove
+            } else {
+                pathParts.erase(rangeStart);
+                n--;
             }
-            if (outPath.length() > 0) {
-                outPath.append("/");
-            }
-            outPath.append(pathParts.at(i));
         } else {
             i++;
         }
     }
-    outPath.append("/").append(pathParts.at(length - 1));
+
+    std::string outPath;
+    for(size_t i = 0, n = pathParts.size(); i < n; i++) {
+        if(i) outPath += "/";
+        outPath += pathParts[i];
+    }
+
     return outPath;
 }
 
@@ -658,12 +669,14 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     EscapableHandleScope handle_scope(_isolate);
 
     Local<Value> result;
+    LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
 
+    // all js modules are automatically
     if (baseNameStr.find("./") == 0) {
         baseNameStr = baseNameStr.substr(2);
-        find_and_replace(baseNameStr, std::string("/./"), std::string("/"));
         baseNameStr = normalize_path(baseNameStr);
     }
+    LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
     bool isJson = false;
 
     // check cache first
