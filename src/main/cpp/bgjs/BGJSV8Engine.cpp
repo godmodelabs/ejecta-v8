@@ -29,7 +29,7 @@
 using namespace v8;
 
 // We can only dump one Isolate's heap at a time
-char *_nextProfileDumpPath = NULL;
+char *_nextProfileDumpPath = nullptr;
 
 BGJS_JNI_LINK(BGJSV8Engine, "ag/boersego/bgjs/V8Engine")
 
@@ -104,7 +104,7 @@ std::string normalize_path(std::string &path) {
 }
 
 std::string getPathName(std::string &path) {
-    size_t found = path.find_last_of("/");
+    size_t found = path.find_last_of('/');
 
     if (found == string::npos) {
         return path;
@@ -209,14 +209,14 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value> &args) {
 // V8Engine
 //-----------------------------------------------------------
 
-decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module = {0};
-decltype(BGJSV8Engine::_jniV8Exception) BGJSV8Engine::_jniV8Exception = {0};
-decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {0};
-decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {0};
-decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {0};
+decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module = {nullptr};
+decltype(BGJSV8Engine::_jniV8Exception) BGJSV8Engine::_jniV8Exception = {nullptr};
+decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {nullptr};
+decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {nullptr};
+decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {nullptr};
 
 void BGJSV8Engine::RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
-    RejectedPromiseHolder *holder = reinterpret_cast<RejectedPromiseHolder *>(data.GetParameter());
+    auto *holder = reinterpret_cast<RejectedPromiseHolder *>(data.GetParameter());
     holder->promise.Reset();
     holder->collected = true;
 }
@@ -227,12 +227,14 @@ void BGJSV8Engine::RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCal
 struct BGJSV8EngineJavaErrorHolder {
     v8::Persistent<v8::Object> persistent;
     jthrowable throwable;
+
+    BGJSV8EngineJavaErrorHolder() : throwable(nullptr) {}
 };
 
 void BGJSV8EngineJavaErrorHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    BGJSV8EngineJavaErrorHolder *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder *>(data.GetParameter());
+    auto *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder *>(data.GetParameter());
     env->DeleteGlobalRef(holder->throwable);
 
     holder->persistent.Reset();
@@ -276,7 +278,7 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() const {
         return true;
     }
 
-    BGJSV8EngineJavaErrorHolder *holder = new BGJSV8EngineJavaErrorHolder();
+    auto *holder = new BGJSV8EngineJavaErrorHolder();
     Handle<Value> args[] = {};
 
     Local<Function> makeJavaErrorFn = Local<Function>::New(_isolate, _makeJavaErrorFn);
@@ -350,7 +352,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::TryCat
         }
     }
 
-    return forwardV8ExceptionToJNI(messagePrefix, exception, try_catch->Message(), causeException, throwOnMainThread);
+    return forwardV8ExceptionToJNI(std::move(messagePrefix), exception, try_catch->Message(), causeException, throwOnMainThread);
 }
 
 bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<Message> message, jobject causeException, bool throwOnMainThread) const {
@@ -671,7 +673,8 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     Local<Value> result;
     LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
 
-    // all js modules are automatically
+    // if the name starts with "./" it's a path to a js module
+    // path needs to be normalized
     if (baseNameStr.find("./") == 0) {
         baseNameStr = baseNameStr.substr(2);
         baseNameStr = normalize_path(baseNameStr);
@@ -685,7 +688,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
     // Source of JS file if external code
     Handle<String> source;
-    const char *buf = 0;
+    const char *buf = nullptr;
 
     // Check if this is an internal module
     requireHook module = _modules[baseNameStr];
@@ -750,7 +753,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
                 fileName = baseNameStr + "/" + *jsFileNameC;
                 if (buf) {
                     free((void *) buf);
-                    buf = NULL;
                 }
 
                 // It might be a directory with an index.js
@@ -760,7 +762,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
                 LOGE("%s doesn't have a main object: %s", baseNameStr.c_str(), buf);
                 if (buf) {
                     free((void *) buf);
-                    buf = NULL;
+                    buf = nullptr;
                 }
             }
         }
@@ -772,7 +774,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
     if (!buf) {
         _isolate->ThrowException(v8::Exception::Error(
-                String::NewFromUtf8(_isolate, (const char *) ("Cannot find module '" + baseNameStr + "'").c_str())));
+                String::NewFromUtf8(_isolate, ("Cannot find module '" + baseNameStr + "'").c_str())));
         return maybeLocal;
     }
 
@@ -996,7 +998,7 @@ void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Valu
 }
 
 uint64_t BGJSV8Engine::createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat) {
-    TimerHolder *holder = new TimerHolder();
+    auto *holder = new TimerHolder();
     holder->callback.Reset(_isolate, callback);
     holder->engine = this;
     holder->id = _nextTimerId++;
@@ -1020,7 +1022,7 @@ uint64_t BGJSV8Engine::createTimer(v8::Local<v8::Function> callback, uint64_t de
  * the v8 locker is simply used for synchronization, no actual v8 calls are made here
  */
 void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
-    BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
+    auto *engine = (BGJSV8Engine*)handle->data;
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1044,7 +1046,7 @@ void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
  * called by libuv when a timer was triggered
  */
 void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
-    TimerHolder *holder = (TimerHolder*)handle->data;
+    auto *holder = (TimerHolder*)handle->data;
 
     v8::Isolate *isolate = holder->engine->getIsolate();
     v8::Locker l(isolate);
@@ -1076,7 +1078,7 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
  * resource cleanup happens here
  */
 void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
-    TimerHolder *holder = (TimerHolder*)handle->data;
+    auto *holder = (TimerHolder*)handle->data;
     BGJSV8Engine *engine = holder->engine.get();
 
     v8::Locker l(engine->getIsolate());
@@ -1096,7 +1098,7 @@ void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackIn
 
     if (args.Length() == 1 && args[0]->IsNumber()) {
         Local<v8::Number> numberRef = Local<Number>::Cast(args[0]);
-        uint64_t id = (uint64_t)numberRef->Value();
+        auto id = (uint64_t)numberRef->Value();
         for (size_t i = 0; i < engine->_timers.size(); ++i) {
             auto holder = engine->_timers.at(i);
             if (holder->id == id) {
@@ -1142,10 +1144,10 @@ void BGJSV8Engine::initJNICache() {
 
 BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
     _nextTimerId = 1;
-    _locale = NULL;
+    _locale = nullptr;
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
     _javaAssetManager = nullptr;
-    _isolate = NULL;
+    _isolate = nullptr;
     _isSuspended = false;
     _state = EState::kInitial;
 
@@ -1277,7 +1279,7 @@ void BGJSV8Engine::createContext() {
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
 
     // Create a new context.
-    Local<Context> context = v8::Context::New(_isolate, NULL, globalObjTpl);
+    Local<Context> context = v8::Context::New(_isolate, nullptr, globalObjTpl);
     context->SetAlignedPointerInEmbedderData(EBGJSV8EngineEmbedderData::kContext, this);
 
     // register global object for all required modules
@@ -1478,13 +1480,13 @@ void BGJSV8Engine::StartLoopThread(void *arg) {
 }
 
 void BGJSV8Engine::StopLoopThread(uv_async_t *handle) {
-    BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
+    auto *engine = (BGJSV8Engine*)handle->data;
     JNI_ASSERT(engine->_state == EState::kStopping, "BGJSV8Engine encountered unexpected state while stopping EventLoop");
     uv_stop(&engine->_uvLoop);
 }
 
 void BGJSV8Engine::SuspendLoopThread(uv_async_t *handle) {
-    BGJSV8Engine* engine = (BGJSV8Engine*)handle->data;
+    auto *engine = (BGJSV8Engine*)handle->data;
     bool waiting = false;
     JNIEnv* env = JNIWrapper::getEnvironment();
 
@@ -1786,7 +1788,7 @@ private:
 
 inline bool WriteSnapshotHelper(Isolate *isolate, const char *filename) {
     FILE *fp = fopen(filename, "w");
-    if (fp == NULL) return false;
+    if (fp == nullptr) return false;
 
     const HeapSnapshot *const snap = isolate->GetHeapProfiler()->TakeHeapSnapshot();
     FileOutputStream stream(fp);
@@ -1803,11 +1805,11 @@ void BGJSV8Engine::OnGCCompletedForDump(Isolate *isolate, GCType type,
                                         GCCallbackFlags flags) {
 
 
-    if (_nextProfileDumpPath == NULL) {
+    if (_nextProfileDumpPath == nullptr) {
         return;
     }
     const char *dumpPath = _nextProfileDumpPath;
-    _nextProfileDumpPath = NULL;
+    _nextProfileDumpPath = nullptr;
     LOGI("GC completed, now dumping to %s", dumpPath);
 
     WriteSnapshotHelper(isolate, dumpPath);
@@ -1821,8 +1823,8 @@ const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
     v8::Isolate *isolate = getIsolate();
     v8::Locker l(isolate);
 
-    if (_nextProfileDumpPath != NULL) {
-        return NULL;
+    if (_nextProfileDumpPath != nullptr) {
+        return nullptr;
     }
 
     char *filename = static_cast<char *>(malloc(512));
@@ -1846,13 +1848,13 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
 
     auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
 
-    BGJSV8Engine::Options options;
+    BGJSV8Engine::Options options = {0};
     options.debug = debug;
     options.assetManager = assetManager;
-    options.locale = env->GetStringUTFChars(locale, NULL);
-    options.lang = env->GetStringUTFChars(lang, NULL);
-    options.timezone = env->GetStringUTFChars(timezone, NULL);
-    options.deviceClass = env->GetStringUTFChars(deviceClass, NULL);
+    options.locale = env->GetStringUTFChars(locale, nullptr);
+    options.lang = env->GetStringUTFChars(lang, nullptr);
+    options.timezone = env->GetStringUTFChars(timezone, nullptr);
+    options.deviceClass = env->GetStringUTFChars(deviceClass, nullptr);
     options.isStoreBuild = isStoreBuild;
     options.maxHeapSize = maxHeapSize;
 
@@ -1892,10 +1894,10 @@ Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathTo
 
     env->ReleaseStringUTFChars(pathToSaveIn, path);
 
-    if (outPath != NULL) {
+    if (outPath != nullptr) {
         return env->NewStringUTF(outPath);
     } else {
-        return NULL;
+        return nullptr;
     }
 }
 
@@ -1964,7 +1966,7 @@ Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker *locker = new Locker(isolate);
+    auto *locker = new Locker(isolate);
 
     return (jlong) locker;
 }
@@ -1986,7 +1988,7 @@ Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
 
 JNIEXPORT void JNICALL
 Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
-    v8::Locker *locker = reinterpret_cast<Locker *>(lockerPtr);
+    auto *locker = reinterpret_cast<Locker *>(lockerPtr);
     delete (locker);
 }
 
