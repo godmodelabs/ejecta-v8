@@ -27,6 +27,10 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine) : JNIV
                 Intent.ACTION_LOCALE_CHANGED -> eventBus.callV8Method("dispatch", "platform:locale", Locale.getDefault().toString())
                 Intent.ACTION_TIMEZONE_CHANGED -> eventBus.callV8Method("dispatch", "platform:timeZone", TimeZone.getDefault().id)
             }
+            val exports = v8Engine.require("platform") as JNIV8GenericObject
+            exports.setV8Field("locale", Locale.getDefault().toString())
+            exports.setV8Field("language", Locale.getDefault().language)
+            exports.setV8Field("timezone", TimeZone.getDefault().id)
         }
     }
 
@@ -44,15 +48,9 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine) : JNIV
         exports.setV8Field("type", "android")
         exports.setV8Field("debug", BuildConfig.DEBUG)
         exports.setV8Field("isStoreBuild", BuildConfig.BUILD_TYPE.startsWith("release"))
-        exports.setV8Field("locale", JNIV8Function.Create(engine) { receiver, arguments ->
-             return@Create Locale.getDefault().toString()
-        })
-        exports.setV8Field("language", JNIV8Function.Create(engine) { _, _ ->
-            return@Create Locale.getDefault().language
-        })
-        exports.setV8Field("timezone", JNIV8Function.Create(engine) { _, _ ->
-            return@Create TimeZone.getDefault().id
-        })
+        exports.setV8Field("locale", Locale.getDefault().toString())
+        exports.setV8Field("language", Locale.getDefault().language)
+        exports.setV8Field("timezone", TimeZone.getDefault().id)
         if (isTablet) {
             exports.setV8Field("deviceClass", "tablet")
         } else {

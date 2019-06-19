@@ -673,41 +673,57 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     Local<Value> result;
     LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
 
+    // prefix "/" is basically identical to "./"
+    // both reference the root of the assets folder
+    if(baseNameStr.find("/") == 0) {
+        baseNameStr = "./" + baseNameStr.substr(1);
+    }
+
     // if the name starts with "./" it's a path to a js module
+    // prefix "../" is handled by js require and also arrives here as "./../"
     // path needs to be normalized
-    if (baseNameStr.find("./") == 0) {
+    bool isRelativePath = (baseNameStr.find("./") == 0);
+    if (isRelativePath) {
         baseNameStr = baseNameStr.substr(2);
         baseNameStr = normalize_path(baseNameStr);
     }
     LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
-    bool isJson = false;
 
     // check cache first
     _CHECK_AND_RETURN_REQUIRE_CACHE(baseNameStr)
 
+    if(!isRelativePath) {
+        // Check if this is an internal native module
+        requireHook module = _modules[baseNameStr];
+
+        if (module) {
+            Local<Object> exportsObj = Object::New(_isolate);
+            Local<Object> moduleObj = Object::New(_isolate);
+            moduleObj->Set(String::NewFromUtf8(_isolate, "id"),
+                           String::NewFromUtf8(_isolate, baseNameStr.c_str()));
+            moduleObj->Set(String::NewFromUtf8(_isolate, "environment"),
+                           String::NewFromUtf8(_isolate, "BGJSContext"));
+            moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+            moduleObj->Set(String::NewFromUtf8(_isolate, "platform"),
+                           String::NewFromUtf8(_isolate, "android"));
+            moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
+            moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"),
+                           Boolean::New(_isolate, _isStoreBuild));
+
+            module(this, moduleObj);
+            result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
+            _moduleCache[baseNameStr].Reset(_isolate, result);
+            return handle_scope.Escape(result);
+        } else {
+            baseNameStr = "js/node_modules/" + baseNameStr;
+        }
+    }
 
     // Source of JS file if external code
     Handle<String> source;
     const char *buf = nullptr;
+    bool isJson = false;
 
-    // Check if this is an internal module
-    requireHook module = _modules[baseNameStr];
-
-    if (module) {
-        Local<Object> exportsObj = Object::New(_isolate);
-        Local<Object> moduleObj = Object::New(_isolate);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, baseNameStr.c_str()));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
-
-        module(this, moduleObj);
-        result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
-        _moduleCache[baseNameStr].Reset(_isolate, result);
-        return handle_scope.Escape(result);
-    }
     std::string fileName, pathName;
 
     fileName = baseNameStr;
@@ -929,10 +945,6 @@ void BGJSV8Engine::js_global_requestAnimationFrame(
              args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
              args[0]->IsObject(), args.Length() >= 2 ? args[1]->IsObject() : false,
              args[0]->IsNull(), args.Length() >= 2 ? args[1]->IsNull() : false);
-        ctx->getIsolate()->ThrowException(
-                v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(),
-                                                "requestAnimationFrame: Wrong number or type of parameters")));
         return;
     }
     args.GetReturnValue().Set(-1);
@@ -954,10 +966,10 @@ void BGJSV8Engine::js_global_cancelAnimationFrame(
         auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject(ctx->getIsolate()));
         view->callJavaVoidMethod("cancelAnimationFrame", id);
     } else {
-        ctx->getIsolate()->ThrowException(
-                v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(),
-                                                "cancelAnimationFrame: Wrong number or type of parameters")));
+        LOGI("cancelAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
+             args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
+             args[0]->IsObject(), args.Length() >= 2 ? args[1]->IsObject() : false,
+             args[0]->IsNull(), args.Length() >= 2 ? args[1]->IsNull() : false);
     }
 
     args.GetReturnValue().SetUndefined();
