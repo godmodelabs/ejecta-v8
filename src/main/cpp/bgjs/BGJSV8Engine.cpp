@@ -675,7 +675,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
     // prefix "/" is basically identical to "./"
     // both reference the root of the assets folder
-    if(baseNameStr.find("/") == 0) {
+    if(baseNameStr.find('/') == 0) {
         baseNameStr = "./" + baseNameStr.substr(1);
     }
 
@@ -701,21 +701,14 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
             Local<Object> moduleObj = Object::New(_isolate);
             moduleObj->Set(String::NewFromUtf8(_isolate, "id"),
                            String::NewFromUtf8(_isolate, baseNameStr.c_str()));
-            moduleObj->Set(String::NewFromUtf8(_isolate, "environment"),
-                           String::NewFromUtf8(_isolate, "BGJSContext"));
             moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
-            moduleObj->Set(String::NewFromUtf8(_isolate, "platform"),
-                           String::NewFromUtf8(_isolate, "android"));
-            moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
-            moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"),
-                           Boolean::New(_isolate, _isStoreBuild));
 
             module(this, moduleObj);
             result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
             _moduleCache[baseNameStr].Reset(_isolate, result);
             return handle_scope.Escape(result);
         } else {
-            baseNameStr = "js/node_modules/" + baseNameStr;
+            baseNameStr = _commonJSPath + baseNameStr;
         }
     }
 
@@ -837,11 +830,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
         moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
 
         Handle<Value> fnModuleInitializerArgs[] = {
                 exportsObj,                                      // exports
@@ -880,99 +869,10 @@ v8::Local<v8::Context> BGJSV8Engine::getContext() const {
     return scope.Escape(Local<Context>::New(_isolate, _context));
 }
 
-void BGJSV8Engine::js_global_getLocale(Local<String> property,
-                                       const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_locale) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_locale)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_getLang(Local<String> property,
-                                     const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_lang) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_lang)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_getTz(Local<String> property,
-                                   const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_tz) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_tz)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_getDeviceClass(Local<String> property,
-                                            const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_deviceClass) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_deviceClass)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_requestAnimationFrame(
-        const v8::FunctionCallbackInfo<v8::Value> &args) {
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    HandleScope scope(args.GetIsolate());
-
-    if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
-        Local<Object> localFunc = args[0]->ToObject(args.GetIsolate());
-
-        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject(args.GetIsolate()));
-        jobject functionWrapped = JNIV8Marshalling::v8value2jobject(localFunc);
-        args.GetReturnValue().Set(view->callJavaIntMethod("requestAnimationFrame", functionWrapped));
-        JNIWrapper::getEnvironment()->DeleteLocalRef(functionWrapped);
-    } else {
-        LOGI("requestAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
-             args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
-             args[0]->IsObject(), args.Length() >= 2 ? args[1]->IsObject() : false,
-             args[0]->IsNull(), args.Length() >= 2 ? args[1]->IsNull() : false);
-        return;
-    }
-    args.GetReturnValue().Set(-1);
-}
-
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
     if (args.Length() >= 2 && args[0]->IsFunction()) {
         args.GetIsolate()->EnqueueMicrotask(args[0].As<v8::Function>());
     }
-}
-
-void BGJSV8Engine::js_global_cancelAnimationFrame(
-        const v8::FunctionCallbackInfo<v8::Value> &args) {
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    HandleScope scope(ctx->getIsolate());
-    if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
-
-        int id = (int) (Local<Number>::Cast(args[0])->Value());
-        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject(ctx->getIsolate()));
-        view->callJavaVoidMethod("cancelAnimationFrame", id);
-    } else {
-        LOGI("cancelAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
-             args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
-             args[0]->IsObject(), args.Length() >= 2 ? args[1]->IsObject() : false,
-             args[0]->IsNull(), args.Length() >= 2 ? args[1]->IsNull() : false);
-    }
-
-    args.GetReturnValue().SetUndefined();
 }
 
 void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value> &args) {
@@ -1156,7 +1056,6 @@ void BGJSV8Engine::initJNICache() {
 
 BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
     _nextTimerId = 1;
-    _locale = nullptr;
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
     _javaAssetManager = nullptr;
     _isolate = nullptr;
@@ -1254,29 +1153,7 @@ void BGJSV8Engine::createContext() {
                                            Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process"), process);
 
-    // environment variables
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
-                              BGJSV8Engine::js_global_getLocale, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"),
-                              BGJSV8Engine::js_global_getLang, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_tz"),
-                              BGJSV8Engine::js_global_getTz, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_deviceClass"),
-                              BGJSV8Engine::js_global_getDeviceClass, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-
     // global functions
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "requestAnimationFrame"),
-                      v8::FunctionTemplate::New(_isolate,
-                                                BGJSV8Engine::js_global_requestAnimationFrame, Local<Value>(),
-                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "cancelAnimationFrame"),
-                      v8::FunctionTemplate::New(_isolate,
-                                                BGJSV8Engine::js_global_cancelAnimationFrame, Local<Value>(),
-                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout"),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
@@ -1413,13 +1290,8 @@ void BGJSV8Engine::start(const Options* options) {
     // apply options
     JNIEnv *env = JNIWrapper::getEnvironment();
     _javaAssetManager = env->NewGlobalRef(options->assetManager);
-    _locale = strdup(options->locale);
-    _lang = strdup(options->lang);
-    _tz = strdup(options->timezone);
-    _deviceClass = strdup(options->deviceClass);
-    _isStoreBuild = options->isStoreBuild;
     _maxHeapSize = options->maxHeapSize;
-    _debug = options->debug;
+    _commonJSPath = options->commonJSPath;
 
     // create dedicated looper thread
     uv_thread_create(&_uvThread, &BGJSV8Engine::StartLoopThread, this);
@@ -1694,9 +1566,6 @@ BGJSV8Engine::~BGJSV8Engine() {
     _makeJavaErrorFn.Reset();
     _getStackTraceFn.Reset();
 
-    if (_locale) {
-        free(_locale);
-    }
     _isolate->Exit();
 
     for (auto &it : _javaModules) {
@@ -1855,27 +1724,18 @@ const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
 extern "C" {
 
 JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
-        JNIEnv * env, jobject v8Engine, jobject assetManager, jstring locale, jstring lang,
-        jstring timezone, jstring deviceClass, jboolean debug, jboolean isStoreBuild, jint maxHeapSize) {
+        JNIEnv * env, jobject v8Engine, jobject assetManager, jstring commonJSPath, jint maxHeapSize) {
 
     auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
 
     BGJSV8Engine::Options options = {0};
-    options.debug = debug;
     options.assetManager = assetManager;
-    options.locale = env->GetStringUTFChars(locale, nullptr);
-    options.lang = env->GetStringUTFChars(lang, nullptr);
-    options.timezone = env->GetStringUTFChars(timezone, nullptr);
-    options.deviceClass = env->GetStringUTFChars(deviceClass, nullptr);
-    options.isStoreBuild = isStoreBuild;
+    options.commonJSPath = env->GetStringUTFChars(commonJSPath, nullptr);
     options.maxHeapSize = maxHeapSize;
 
     ct->start(&options);
 
-    env->ReleaseStringUTFChars(locale, options.locale);
-    env->ReleaseStringUTFChars(lang, options.lang);
-    env->ReleaseStringUTFChars(timezone, options.timezone);
-    env->ReleaseStringUTFChars(deviceClass, options.deviceClass);
+    env->ReleaseStringUTFChars(commonJSPath, options.commonJSPath);
 }
 
 JNIEXPORT void JNICALL

@@ -59,7 +59,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
         }
     }
 
-    @Suppress("unused")
+    @V8Function
     fun requestAnimationFrame(cb: JNIV8Function): Int {
             val id = nextAnimationRequestId.incrementAndGet()
             queuedAnimationRequests.add(AnimationFrameRequest(cb, id))
@@ -67,7 +67,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
             return id
     }
 
-    @Suppress("unused")
+    @V8Function
     fun cancelAnimationFrame(id: Int) {
         for (animationRequest in queuedAnimationRequests) {
             if (animationRequest.id == id) {

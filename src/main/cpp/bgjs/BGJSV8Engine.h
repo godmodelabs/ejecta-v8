@@ -45,9 +45,8 @@ public:
 
 	struct Options {
 		jobject assetManager;
-		const char *locale, *lang, *timezone, *deviceClass;
+		const char *commonJSPath;
 		int maxHeapSize;
-		bool isStoreBuild, debug;
 	};
 
 	BGJSV8Engine(jobject obj, JNIClassInfo *info);
@@ -71,20 +70,10 @@ public:
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
-	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
-    static void js_process_nextTick (const v8::FunctionCallbackInfo<v8::Value>&);
-	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
+	static void js_process_nextTick (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_setTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_clearTimeoutOrInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_setInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
-	static void js_global_getLocale(v8::Local<v8::String> property,
-			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_getLang(v8::Local<v8::String> property,
-			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_getTz(v8::Local<v8::String> property,
-			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_getDeviceClass(v8::Local<v8::String> property,
-                                const v8::PropertyCallbackInfo<v8::Value>& info);
 
 	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
 	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source, bool pretty = false) const;
@@ -188,7 +177,7 @@ private:
 
 
 	EState _state;
-	bool _isSuspended, _debug;
+	bool _isSuspended;
 
 	uv_thread_t _uvThread;
 	uv_loop_t _uvLoop;
@@ -196,12 +185,7 @@ private:
 	uv_cond_t _uvCondSuspend;
 	uv_async_t _uvEventScheduleTimers, _uvEventStop, _uvEventSuspend;
 
-	char *_locale;		// de_DE
-	char *_lang;		// de
-	char *_tz;			// Europe/Berlin
-	char *_deviceClass; // "phone"/"tablet"
 	int _maxHeapSize;	// in MB
-    bool _isStoreBuild;
 
     uint8_t _nextEmbedderDataIndex;
 	jobject _javaAssetManager;
@@ -215,6 +199,7 @@ private:
 	uint64_t _nextTimerId;
 	std::vector<TimerHolder*> _timers;
 
+	std::string _commonJSPath;
 	std::map<std::string, jobject> _javaModules;
 	std::map<std::string, requireHook> _modules;
     std::map<std::string, v8::Persistent<v8::Value>> _moduleCache;

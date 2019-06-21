@@ -53,8 +53,6 @@ void BGJSGLView::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("setViewData", "(FZII)V", (void*)BGJSGLView::setViewData);
     info->registerNativeMethod("viewWasResized", "(II)V", (void*)BGJSGLView::viewWasResized);
     info->registerMethod("getDevicePixelRatio", "()F");
-    info->registerMethod("requestAnimationFrame", "(Lag/boersego/bgjs/JNIV8Function;)I");
-    info->registerMethod("cancelAnimationFrame", "(I)V");
 }
 
 void BGJSGLView::initializeV8Bindings(JNIV8ClassInfo *info) {

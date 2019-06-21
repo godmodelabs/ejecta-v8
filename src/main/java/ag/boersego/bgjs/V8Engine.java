@@ -31,23 +31,17 @@ public class V8Engine extends JNIObject {
     }
 
     protected static V8Engine mInstance;
-    private final String mStoragePath;
+    private String mStoragePath;
     protected Handler mHandler;
     private boolean mReady;
     private ArrayList<V8EngineHandler> mHandlers = null;
 
     private static final String TAG = V8Engine.class.getSimpleName();
 
-    @SuppressWarnings("PointlessBooleanExpression")
-    private boolean mDebug = false && BuildConfig.DEBUG;
-
     private ArrayList<JNIV8Module> mModules = new ArrayList<>();
 
-    public void doDebug(final boolean debug) {
-        mDebug = debug;
-    }
-
     public native void pause();
+
     public native void unpause();
 
     /**
@@ -83,36 +77,26 @@ public class V8Engine extends JNIObject {
         void onReady();
     }
 
-    public V8Engine(final @NonNull Context application, final boolean isStoreBuild) {
-        final Resources r = application.getResources();
-        boolean mIsTablet;
-        if (r != null) {
-            mIsTablet = r.getBoolean(R.bool.isTablet);
-        } else {
-            throw new RuntimeException("No resources available");
-        }
+    public V8Engine(final @NonNull Context application) {
+        _initialize(application, "node_modules/");
+    }
 
+    public V8Engine(final @NonNull Context application, String commonJSPath) {
+        _initialize(application, commonJSPath);
+    }
+
+    private void _initialize(final @NonNull Context application, String commonJSPath) {
         // Lets check of external storage is available, otherwise let's use internal storage
         File cacheDir = application.getExternalCacheDir();
         if (cacheDir == null) {
             cacheDir = application.getCacheDir();
         }
         mStoragePath = cacheDir.toString();
-        final Locale locale = Locale.getDefault();
-        final String country = locale.getCountry();
-        String mLocale;
-        if (country.isEmpty()) {
-            mLocale = locale.getLanguage();
-        } else {
-            mLocale = locale.getLanguage() + "_" + country;
-        }
-        String mLang = locale.getLanguage();
-        String mTimeZone = TimeZone.getDefault().getID();
 
         // this will create an eventloop thread on the native side
         // intitialization of the v8 context & the `onReady` callback will run inside of that thread
         final int maxHeapSizeForV8 = (int) (Runtime.getRuntime().maxMemory() / 1024 / 1024 / 3);
-        initialize(application.getAssets(), mLocale, mLang, mTimeZone, mIsTablet ? "tablet" : "phone", mDebug, isStoreBuild, maxHeapSizeForV8);
+        initialize(application.getAssets(), commonJSPath, maxHeapSizeForV8);
     }
 
     public boolean isReady() {
@@ -237,5 +221,5 @@ public class V8Engine extends JNIObject {
 
     public native void shutdown();
 
-    private native void initialize(AssetManager am, String locale, String lang, String timezone, final String deviceClass, final boolean debug, final boolean isStoreBuild, final int maxHeapSizeInMb);
+    private native void initialize(AssetManager am, String commonJSPath, final int maxHeapSizeInMb);
 }
