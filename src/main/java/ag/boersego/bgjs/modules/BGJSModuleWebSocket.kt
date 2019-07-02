@@ -7,6 +7,7 @@ import android.util.Log
 import okhttp3.*
 import java.util.*
 
+
 /**
  * Created by Kevin Read <me@kevin-read.com> on 23.11.17 for myrmecophaga-2.0.
  * Copyright (c) 2017 BörseGo AG. All rights reserved.
@@ -106,8 +107,15 @@ class BGJSWebSocket : JNIV8Object, Runnable {
     fun send(msg: String): Any? {
         var success = false
         v8Engine.runLocked {
-            if (_readyState != ReadyState.OPEN && _readyState != ReadyState.CLOSING) {
+            if (_readyState == ReadyState.CONNECTING) {
                 throw RuntimeException("INVALID_STATE_ERR")
+            }
+            if (_readyState == ReadyState.CLOSED) {
+                if (DEBUG) {
+                    Log.w(TAG, "WebSocket tried to send with ReadyState.CLOSED:")
+                }
+                success = false
+                return@runLocked
             }
             if (socket != null) {
                 socket?.send(msg)
@@ -200,10 +208,10 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
             }
             val websocket = BGJSWebSocket(engine)
 
-            websocket.setData(okHttpClient, arguments[0] as String, {
+            websocket.setData(okHttpClient, arguments[0] as String) {
                 sockets.remove(websocket)
                 Unit
-            })
+            }
 
             // Add to list of all sockets so we can shut them down when the V8Engine pauses
             sockets.add(websocket)
