@@ -9,11 +9,7 @@
     <uses-sdk
         android:minSdkVersion="16"
         android:targetSdkVersion="21"/>
-	<application>
-	</application>
-
-        <meta-data
-            android:name="com.crashlytics.ApiKey"
-            android:value="202c9da46e0a2415490533e2f637f66b7813dca2" />
+    <application>
+    </application>
 
 </manifest> 
