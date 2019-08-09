@@ -1,7 +1,6 @@
 package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
-import ag.boersego.v8annotations.V8Getter
 import android.content.Context
 import android.content.SharedPreferences
 
@@ -10,31 +9,31 @@ import android.content.SharedPreferences
  * Copyright (c) 2017 BörseGo AG. All rights reserved.
  */
 
-class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localStorage") {
+class BGJSModuleLocalStorage private constructor(applicationContext: Context) : JNIV8Module("localStorage") {
 
-    private var mPref: SharedPreferences
+    private var preferences: SharedPreferences
 
     init {
-        mPref = applicationContext.getSharedPreferences(TAG, 0)
+        preferences = applicationContext.getSharedPreferences(TAG, 0)
     }
 
     // In order to provide a key(n) method similar to Web Storage, we need to remember the insertion order
 
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
-        var exports = JNIV8GenericObject.Create(engine)
+        val exports = JNIV8GenericObject.Create(engine)
 
         //TODO: Can we do this as Attribute?
         exports.setV8Field("length", JNIV8Function.Create(engine) { receiver, arguments ->
             if (!arguments.isEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
             }
-            mPref.all.size - 1
+            preferences.all.size - 1
         })
         exports.setV8Field("clear", JNIV8Function.Create(engine) { receiver, arguments ->
             if (!arguments.isEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
             }
-            mPref.edit().clear().apply()
+            preferences.edit().clear().apply()
             JNIV8Undefined.GetInstance()
         })
 
@@ -44,7 +43,7 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
             }
             val key = arguments[0] as String
 
-            mPref.getString(key, null)
+            preferences.getString(key, null)
         })
 
         // From HTML Standard:
@@ -58,7 +57,7 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
                 throw IllegalArgumentException("getItem needs one parameter of type Number")
             }
             val index = (arguments[0] as Double).toInt()
-            val orderedKeys = mPref.getString(INSERT_ORDER, null)?.split(",")
+            val orderedKeys = preferences.getString(INSERT_ORDER, null)?.split(",")
             if (orderedKeys != null && index < orderedKeys.size) {
                 orderedKeys[index]
             } else {
@@ -71,11 +70,11 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
                 throw IllegalArgumentException("removeItem needs one parameter of type String")
             }
             val key = arguments[0] as String
-            mPref.edit().remove(key).apply()
+            preferences.edit().remove(key).apply()
 
-            var insertOrder = mPref.getString(INSERT_ORDER, "")
+            var insertOrder = preferences.getString(INSERT_ORDER, "")
             insertOrder = insertOrder!!.replace("$key,", "")
-            mPref.edit().putString(INSERT_ORDER, insertOrder).apply()
+            preferences.edit().putString(INSERT_ORDER, insertOrder).apply()
 
             JNIV8Undefined.GetInstance()
         })
@@ -86,10 +85,10 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
             }
             val key = arguments[0] as String
             val value = arguments[1] as String
-            mPref.edit().putString(key, value).apply()
+            preferences.edit().putString(key, value).apply()
 
-            val insertOrder = mPref.getString(INSERT_ORDER, "")
-            if (!insertOrder!!.contains(key)) mPref.edit().putString(INSERT_ORDER, "$insertOrder$key,").apply()
+            val insertOrder = preferences.getString(INSERT_ORDER, "")
+            if (!insertOrder!!.contains(key)) preferences.edit().putString(INSERT_ORDER, "$insertOrder$key,").apply()
 
             JNIV8Undefined.GetInstance()
         })
@@ -97,9 +96,38 @@ class BGJSModuleLocalStorage (applicationContext: Context) : JNIV8Module("localS
         module?.setV8Field("exports", exports)
     }
 
+    fun registerPreferencesListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun getItem(key: String) : String {
+        return preferences.getString(key, "") ?: ""
+    }
+
     companion object {
         private val TAG = BGJSModuleLocalStorage::class.java.simpleName
         private const val INSERT_ORDER = "insert_order"
-    }
+        @Volatile private var instance: BGJSModuleLocalStorage? = null
 
+        const val PREF_PORTAL = "auth:portal"
+
+        @JvmStatic
+        fun getInstance(ctx : Context) : BGJSModuleLocalStorage {
+            val i = instance
+            if(i != null) {
+                return i
+            }
+
+            return synchronized(this) {
+                val i2 = instance
+                if(i2 != null) {
+                    i2
+                } else {
+                    val created = BGJSModuleLocalStorage(ctx)
+                    instance = created
+                    created
+                }
+            }
+        }
+    }
 }
