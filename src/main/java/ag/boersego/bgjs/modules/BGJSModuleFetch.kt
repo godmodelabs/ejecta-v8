@@ -218,11 +218,6 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                 this.message = message || 'An error occurred';
                 this.type = type;
                 this.code = this.errno = systemError;
-
-                const _ = Error.prepareStackTrace;
-                Error.prepareStackTrace = (_, stack) => stack;
-                Error.captureStackTrace(this);
-                Error.prepareStackTrace = _;
             }
             FetchError.prototype = Object.create(Error.prototype);
             FetchError.prototype.constructor = FetchError;
