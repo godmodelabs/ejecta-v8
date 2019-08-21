@@ -1,7 +1,7 @@
-#include "BGJSGLModule.h"
-
 #include "../BGJSV8Engine.h"
 #include "../BGJSGLView.h"
+
+#include "BGJSGLModule.h"
 
 #include "v8.h"
 #include "../ejecta/EJConvert.h"
@@ -46,7 +46,7 @@ if (!args.This()->IsObject()) { \
 	LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function"))); \
 } \
-BGJSCanvasContext *__context = BGJSClass::externalToClassPtr<BGJSV8Engine2dGL>(args.This()->ToObject(isolate)->GetInternalField(0))->context; \
+BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL*>(v8::External::Cast(*(args.This()->ToObject(isolate)->GetInternalField(0)))->Value()))->context; \
 if (!__context->_isRendering) { \
 	LOGI("Context is not in rendering phase in method '%s'", __PRETTY_FUNCTION__); \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run when not in rendering phase"))); \
@@ -1166,11 +1166,6 @@ void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target
 	// g_classRefContext2dGL
 
 	target->Set(String::NewFromUtf8(isolate, "exports"), exports.ToLocalChecked());
-}
-
-
-BGJSGLModule::~BGJSGLModule() {
-
 }
 
 static void checkGlError(const char* op) {

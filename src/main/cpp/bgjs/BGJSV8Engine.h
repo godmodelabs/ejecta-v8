@@ -11,7 +11,6 @@
 #include <uv.h>
 
 #include "os-android.h"
-#include "BGJSModule.h"
 
 #include "../jni/jni.h"
 
