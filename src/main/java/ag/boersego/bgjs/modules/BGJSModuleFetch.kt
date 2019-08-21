@@ -93,11 +93,13 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                             )
                         )
                     )
-                    else -> errorCreator.applyAsV8Constructor(
-                        arrayOf(
-                            "request to ${request.parsedUrl} failed, reason: ${e.message}",
-                            "system"
-                        )
+                    else -> resolver.reject(
+                            errorCreator.applyAsV8Constructor(
+                                arrayOf(
+                                    "request to ${request.parsedUrl} failed, reason: ${e.message}",
+                                    "system"
+                                )
+                            )
                     )
                 }
             }
