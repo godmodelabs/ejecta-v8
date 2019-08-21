@@ -13,8 +13,10 @@ Ejecta-v8 is published under the MIT Open Source License (http://opensource.org/
 You can use our sample app under https://github.com/godmodelabs/ejecta-v8-sample
 to get a feel for the library.
 
-This library needs a precompiled, statically linked version of v8 and libuv to link
-against. Currently this is tested against 6.5.254.28 (the version used in Chrome 65). See also *Updating v8*.
+This library needs a precompiled, statically linked version of v8 to link
+against. Currently this is tested against 7.2.502.24. See also *Updating v8*.
+
+It also needs a precompiled, statically linked version of libuv.
 
 # Getting v8 & uv libraries
 
