@@ -208,16 +208,12 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     private fun callCallbacks(type: CallbackType, returnObject: Any?, info: String?, details: HttpResponseDetails?, errorCode: Int) {
         for (cb in callbacks) {
-            try {
-                @Suppress("NON_EXHAUSTIVE_WHEN")
-                when (cb.first) {
-                    CallbackType.ALWAYS ->
-                        cb.second.callAsV8Function(returnObject, errorCode, info)
-                    type ->
-                        cb.second.callAsV8Function(returnObject, info, details)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception thrown when calling ajax " + cb.first + " callback", e)
+            @Suppress("NON_EXHAUSTIVE_WHEN")
+            when (cb.first) {
+                CallbackType.ALWAYS ->
+                    cb.second.callAsV8Function(returnObject, errorCode, info)
+                type ->
+                    cb.second.callAsV8Function(returnObject, info, details)
             }
         }
         callbacks.clear()
