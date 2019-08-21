@@ -13,16 +13,16 @@ Ejecta-v8 is published under the MIT Open Source License (http://opensource.org/
 You can use our sample app under https://github.com/godmodelabs/ejecta-v8-sample
 to get a feel for the library.
 
-This library needs a precompiled, statically linked version of v8 to link
+This library needs a precompiled, statically linked version of v8 and libuv to link
 against. Currently this is tested against 6.5.254.28 (the version used in Chrome 65). See also *Updating v8*.
 
-# Getting v8 libraries
+# Getting v8 & uv libraries
 
 ## Precompiled from dropbox
-1. Download the precompiled libs from [Dropbox](https://www.dropbox.com/sh/29in3bqzpgti5md/AABpEXElVe3pNClMRwyxeiHra?dl=0")
-2. Unpack into libs/v8
+1. Download the precompiled libs from [CloudApp](https://cl.ly/db30380c3537)
+2. Unpack into libs/
 
-The folder should look like this:
+The libs/v8 folder should look like this:
 ```bash
 # pwd
 ~/git/ejecta-v8/libs/v8
@@ -30,6 +30,11 @@ The folder should look like this:
 arm64-v8a   armeabi-v7a x86         x86_64
 ```
 
+The folders in livs/uv should be the same.
+
+## Building libuv from sources
+
+Coming soon.
 
 ## Building v8 from sources
 
