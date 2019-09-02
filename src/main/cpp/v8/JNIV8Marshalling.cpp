@@ -486,6 +486,12 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
         return nullptr;
     } else if(valueRef->IsObject()) {
         v8::Local<v8::Object> objectRef = valueRef.As<v8::Object>();
+
+        // if the object is a proxy we wrap it based on the type of the target
+        if (valueRef->IsProxy()) {
+            valueRef = objectRef.As<v8::Proxy>()->GetTarget();
+        }
+
         if (valueRef->IsFunction()) {
             return JNIV8Wrapper::wrapObject<JNIV8Function>(objectRef)->getJObject();
         } else if (valueRef->IsArray()) {
