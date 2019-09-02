@@ -73,7 +73,7 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
 }
 
 bool JNIV8Function::isWrappableV8Object(v8::Local<v8::Object> object) {
-    return object->IsFunction();
+    return object->IsFunction() || (object->IsProxy() && object.As<v8::Proxy>()->GetTarget()->IsFunction());
 }
 
 void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {

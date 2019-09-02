@@ -16,7 +16,7 @@ void JNIV8Promise::initJNICache() {
 }
 
 bool JNIV8Promise::isWrappableV8Object(v8::Local<v8::Object> object) {
-    return object->IsPromise();
+    return object->IsPromise() || (object->IsProxy() && object.As<v8::Proxy>()->GetTarget()->IsPromise());
 }
 
 void JNIV8Promise::initializeJNIBindings(JNIClassInfo *info, bool isReload) {

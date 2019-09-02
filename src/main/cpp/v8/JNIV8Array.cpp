@@ -19,7 +19,7 @@ void JNIV8Array::initJNICache() {
 }
 
 bool JNIV8Array::isWrappableV8Object(v8::Local<v8::Object> object) {
-    return object->IsArray();
+    return object->IsArray() || (object->IsProxy() && object.As<v8::Proxy>()->GetTarget()->IsArray());
 }
 
 void JNIV8Array::initializeJNIBindings(JNIClassInfo *info, bool isReload) {

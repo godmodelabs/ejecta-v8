@@ -15,7 +15,7 @@ void JNIV8Symbol::initJNICache() {
 }
 
 bool JNIV8Symbol::isWrappableV8Object(v8::Local<v8::Object> object) {
-    return object->IsSymbolObject();
+    return object->IsSymbolObject() || (object->IsProxy() && object.As<v8::Proxy>()->GetTarget()->IsSymbolObject());
 }
 
 void JNIV8Symbol::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
