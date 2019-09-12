@@ -175,7 +175,8 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
 
     fun closeForSuspend() {
-        if (_readyState != ReadyState.CLOSED) {
+        if (_readyState != ReadyState.CLOSED &&
+                _readyState != ReadyState.CLOSING) {
             _readyState = ReadyState.CLOSING
             v8Engine.runLocked {
 
