@@ -121,6 +121,11 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
 
     env->DeleteLocalRef(arguments);
 
+    if (env->ExceptionCheck()) {
+        BGJSV8Engine::GetInstance(args.GetIsolate())->forwardJNIExceptionToV8();
+        return;
+    }
+
     // also forward arguments to optional native constructor handler (if one was registered)
     if(info->constructorCallback) {
         (ptr.get()->*(info->constructorCallback))(args);

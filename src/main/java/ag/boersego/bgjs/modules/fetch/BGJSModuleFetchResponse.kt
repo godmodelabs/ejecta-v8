@@ -45,7 +45,7 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
             if (args.size > 0) {
                 // First argument: body
                 val bodyRaw = args[0]
-                body = BGJSModuleFetchBody.createBodyFromRaw(bodyRaw)
+                body = createBodyFromRaw(bodyRaw)
             }
 
             if (args.size > 1 && args[1] is JNIV8Object) {

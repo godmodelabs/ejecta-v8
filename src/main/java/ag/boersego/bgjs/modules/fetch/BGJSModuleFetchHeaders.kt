@@ -87,7 +87,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
     @V8Function
     fun get(name: String): String? {
-        return headers[normalizeName(name)]?.joinToString(",")
+        return headers[normalizeName(name)]?.joinToString(", ")
     }
 
     @V8Function

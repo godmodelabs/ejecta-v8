@@ -10,8 +10,8 @@ import java.net.URL
 
 abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
 
+    var error: String? = null
     internal var body: InputStream? = null
-    internal var error: String? = null
     private var bodyReader: BufferedReader? = null
     lateinit var parsedUrl: URL
     open var url = ""
@@ -84,9 +84,12 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
         bodyUsed = true
         bodyReader = BufferedReader(InputStreamReader(body))
 
-        //TODO: in node fetch there are several listeners on the body stream, that can throw errors
-        if (error != null) {
-            resolver.reject(JNIV8Object.Create(v8Engine, "Error", error))
+        if (error == "abort") {
+            resolver.reject(
+                (v8Engine.runScript(
+                    BGJSModuleFetch.ABORTERROR_SCRIPT.trimIndent(),
+                    "AbortError"
+                ) as JNIV8Function).applyAsV8Constructor(arrayOf("The user aborted a request.")))
             return false
         }
 

@@ -1,14 +1,16 @@
 package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
+import ag.boersego.bgjs.modules.fetch.BGJSModuleAbortController
+import ag.boersego.bgjs.modules.fetch.BGJSModuleAbortSignal
 import ag.boersego.bgjs.modules.fetch.BGJSModuleFetchRequest
+import ag.boersego.bgjs.modules.fetch.EventListener
 import android.util.Log
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Response
 import java.io.IOException
-import java.io.InputStream
 import java.net.URL
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
@@ -21,21 +23,26 @@ import java.util.zip.GZIPInputStream
 
 class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
-    internal lateinit var errorCreator: JNIV8Function
+    internal lateinit var fetchErrorCreator: JNIV8Function
+    internal lateinit var abortErrorCreator: JNIV8Function
 
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
 
-        val fetchFunction = JNIV8Function.Create(engine) { receiver, arguments ->
+        val fetchFunction = JNIV8Function.Create(engine) { _, arguments ->
             return@Create fetch(engine, arguments)
         }
 
         fetchFunction.setV8Field("Headers", engine.getConstructor(BGJSModuleFetchHeaders::class.java))
         fetchFunction.setV8Field("Request", engine.getConstructor(BGJSModuleFetchRequest::class.java))
         fetchFunction.setV8Field("Response", engine.getConstructor(BGJSModuleFetchResponse::class.java))
+        fetchFunction.setV8Field("AbortController", engine.getConstructor(BGJSModuleAbortController::class.java))
+        fetchFunction.setV8Field("AbortSignal", engine.getConstructor(BGJSModuleAbortSignal::class.java))
 
-        errorCreator = engine.runScript(FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function
+        fetchErrorCreator = engine.runScript(FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function
+        fetchFunction.setV8Field("FetchError", fetchErrorCreator)
 
-        fetchFunction.setV8Field("FetchError", errorCreator)
+        abortErrorCreator = engine.runScript(ABORTERROR_SCRIPT.trimIndent(), "AbortError") as JNIV8Function
+        fetchFunction.setV8Field("AbortError", abortErrorCreator)
 
         module?.setV8Field("exports", fetchFunction)
     }
@@ -44,7 +51,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         val resolver = JNIV8Promise.CreateResolver(engine)
 
         try {
-            if (arguments == null || arguments.size < 1) {
+            if (arguments.isEmpty()) {
                 throw V8JSException(engine, "TypeError", "fetch needs at least one argument: input")
             }
             startRequest(engine, resolver, BGJSModuleFetchRequest(v8Engine = engine, args = arguments))
@@ -57,17 +64,40 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
     private fun startRequest(v8Engine: V8Engine, resolver: JNIV8Promise.Resolver, request: BGJSModuleFetchRequest) {
         val httpRequest = request.execute()
+        var fetchResponse: BGJSModuleFetchResponse? = null
         val call = okHttpClient.newCall(httpRequest)
         val timeout = call.timeout()
         timeout.timeout(request.timeout.toLong(), TimeUnit.MILLISECONDS)
+
+        val signal = request.signal
+        val abortAndFinalize = object : EventListener {
+            override fun onEvent(context: String?) {
+                fetchResponse?.body?.close()
+                fetchResponse?.error = "abort"
+                resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
+                call.cancel()
+                signal?.removeListener(this)
+            }
+        }
+
+        if (signal != null) {
+            if (signal.aborted) {
+                resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
+                return
+            } else {
+                signal.addEventListener(abortAndFinalize)
+            }
+        }
+
         call.enqueue(object : Callback {
 
             override fun onFailure(call: Call, e: IOException) {
                 Log.d(TAG, "onFailure", e)
                 // network error or timeout
+                signal?.removeListener(abortAndFinalize)
                 when {
                     e is UnknownHostException -> resolver.reject(
-                        errorCreator.applyAsV8Constructor(
+                        fetchErrorCreator.applyAsV8Constructor(
                             arrayOf(
                                 "request to ${request.parsedUrl} failed, reason: ${e.message}",
                                 "system",
@@ -76,7 +106,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                         )
                     )
                     e.cause?.message?.contains("ECONNREFUSED") == true -> resolver.reject(
-                        errorCreator.applyAsV8Constructor(
+                        fetchErrorCreator.applyAsV8Constructor(
                             arrayOf(
                                 "request to ${request.parsedUrl} failed, reason: ${e.message}",
                                 "system",
@@ -85,7 +115,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                         )
                     )
                     e.message?.contains("unexpected end of stream") == true -> resolver.reject(
-                        errorCreator.applyAsV8Constructor(
+                        fetchErrorCreator.applyAsV8Constructor(
                             arrayOf(
                                 "request to ${request.parsedUrl} failed, reason: ${e.message}",
                                 "system",
@@ -94,7 +124,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                         )
                     )
                     else -> resolver.reject(
-                            errorCreator.applyAsV8Constructor(
+                        fetchErrorCreator.applyAsV8Constructor(
                                 arrayOf(
                                     "request to ${request.parsedUrl} failed, reason: ${e.message}",
                                     "system"
@@ -106,12 +136,16 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
             override fun onResponse(call: Call, httpResponse: Response) {
                 timeout.clearTimeout()
-                val response = request.updateFrom(v8Engine, httpResponse)
+                if (call.isCanceled) {
+                    signal?.removeListener(abortAndFinalize)
+                    return
+                }
+                fetchResponse = request.updateFrom(v8Engine, httpResponse)
 
                 // HTTP fetch step 5
-                if (isRedirect(response.status)) {
+                if (isRedirect(fetchResponse!!.status)) {
                     // HTTP fetch step 5.2
-                    val location = response.headers.get("location")
+                    val location = fetchResponse!!.headers.get("location")
 
                     // HTTP fetch step 5.3
                     val locationUrl = location?.let { URL(request.parsedUrl, it) }
@@ -119,15 +153,15 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                     // HTTP fetch step 5.5
                     when (request.redirect) {
                         "error" -> {
-                            resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.parsedUrl}", "no-redirect")))
-                            //TODO: Check what to do with finalize() abort() and signal from node fetch
+                            resolver.reject(fetchErrorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.parsedUrl}", "no-redirect")))
+                            signal?.removeListener(abortAndFinalize)
                             return
                         }
 
                         "manual" -> {
                             // node-fetch-specific step: make manual redirect a bit easier to use by setting the Location header value to the resolved URL.
                             locationUrl?.let {
-                                response.headers.set("location", it.toString())
+                                fetchResponse!!.headers.set("location", it.toString())
                             }
                         }
 
@@ -137,8 +171,8 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
                                 // HTTP-redirect fetch step 5
                                 if (request.counter >= request.follow) {
-                                    resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.parsedUrl}", "max-redirect")))
-                                    //TODO: Check what to do with finalize() abort() and signal from node fetch
+                                    signal?.removeListener(abortAndFinalize)
+                                    resolver.reject(fetchErrorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.parsedUrl}", "max-redirect")))
                                     return
                                 }
 
@@ -161,9 +195,6 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                                     redirectRequest.headers.delete("content-length")
                                 }
                                 resolver.resolve(fetch(v8Engine, arrayOf(redirectRequest)))
-
-                                //TODO: Check what to do with finalize() abort() and signal from node fetch
-
                                 return
                             }
                         }
@@ -172,7 +203,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                 }
 
                 // HTTP-network fetch step 12.1.1.3
-                val codings = response.headers.get("content-encoding")
+                val codings = fetchResponse!!.headers.get("content-encoding")
 
                 // HTTP-network fetch step 12.1.1.4: handle content codings
 
@@ -183,16 +214,17 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                 // 4. no content response (204)
                 // 5. content not modified response (304)
                 if (!request.compress || request.method == "HEAD" || codings == null || httpResponse.code() == 204 || httpResponse.code() == 304) {
-                    resolver.resolve(response)
+                    resolver.resolve(fetchResponse)
                     return
                 }
 
-                //TODO: gzip
+                //TODO: gzip working?
                 if (codings == "gzip" || codings == "x-gzip") {
                     try {
-                        response.body = GZIPInputStream(response.body)
+                        fetchResponse!!.body = GZIPInputStream(fetchResponse!!.body)
                     } catch (e: IOException) {
-                        resolver.reject(errorCreator.applyAsV8Constructor(arrayOf("Invalid response body while trying to fetch ${response.url}: ${e.message}", "system", "Z_DATA_ERROR")))
+                        signal?.removeListener(abortAndFinalize)
+                        resolver.reject(fetchErrorCreator.applyAsV8Constructor(arrayOf("Invalid response body while trying to fetch ${fetchResponse!!.url}: ${e.message}", "system", "Z_DATA_ERROR")))
                         return
                     }
                 }
@@ -204,12 +236,11 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                 if (codings == "deflate" || codings == "x-deflate") {
 
                 }
-                resolver.resolve(response)
+                resolver.resolve(fetchResponse)
             }
         })
 
     }
-
 
     companion object {
         private val TAG = BGJSModuleFetch::class.java.simpleName
@@ -226,11 +257,26 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
             return FetchError;
         }())
         """
+        const val ABORTERROR_SCRIPT = """
+        (function() {
+            function AbortError(message) {
+                this.type = 'aborted';
+	            this.message = message;
+	            Error.captureStackTrace(this, this.constructor);
+            }
+            AbortError.prototype = Object.create(Error.prototype);
+            AbortError.prototype.constructor = AbortError;
+            AbortError.prototype.name = 'AbortError';
+            return AbortError;
+        }())
+        """
 
         init {
             JNIV8Object.RegisterV8Class(BGJSModuleFetchHeaders::class.java)
             JNIV8Object.RegisterV8Class(BGJSModuleFetchResponse::class.java)
             JNIV8Object.RegisterV8Class(BGJSModuleFetchRequest::class.java)
+            JNIV8Object.RegisterV8Class(BGJSModuleAbortController::class.java)
+            JNIV8Object.RegisterV8Class(BGJSModuleAbortSignal::class.java)
         }
 
         fun isRedirect(statusCode: Int): Boolean {

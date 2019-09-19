@@ -39,6 +39,9 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         internal set
         @V8Getter get
 
+    override var url = ""
+        @V8Getter get
+
     /**
      * Contains the request's method (GET, POST, etc.)
      */
@@ -79,6 +82,12 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         internal set
         @V8Getter get
 
+    /**
+     * AbortSignal
+     */
+    var signal: BGJSModuleAbortSignal? = null
+        internal set
+        @V8Getter get
 
     /**
      * req/res timeout in ms, it resets on redirect. 0 to disable (OS limit applies). Signal is recommended instead.
@@ -110,7 +119,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
                 throw V8JSException(v8Engine, "TypeError", "Request needs no, one or two parameters: Request(input, init)")
 
             }
-            if (args.size > 0) {
+            if (args.isNotEmpty()) {
                 setDefaultHeaders()
                 val input = args[0]
                 if (input is String) {
@@ -170,11 +179,19 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             headers.set("user-agent", "ejecta-v8")
         }
 
+        if (fields.containsKey(KEY_SIGNAL)) {
+            if (fields[KEY_SIGNAL] !is BGJSModuleAbortSignal) {
+                throw V8JSException(v8Engine, "TypeError", "Expected signal to be an instanceof AbortSignal")
+            }
+
+            signal = fields[KEY_SIGNAL] as BGJSModuleAbortSignal
+        }
+
         if (fields.containsKey(KEY_BODY)) {
             val bodyRaw = fields[KEY_BODY]
-            body = BGJSModuleFetchBody.createBodyFromRaw(bodyRaw)
+            body = createBodyFromRaw(bodyRaw)
             if (!headers.has("content-type")) {
-                BGJSModuleFetchBody.extractContentType(bodyRaw)?.let {
+                extractContentType(bodyRaw)?.let {
                     headers.set("content-type", it)
                 }
             }
@@ -185,8 +202,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         timeout = (fields[KEY_TIMEOUT] as? Double)?.toInt() ?: timeout
         compress = fields[KEY_COMPRESS] as? Boolean? ?: compress
         size = (fields[KEY_SIZE] as? Double)?.toInt() ?: size
-
-        // TODO: this is probably complete, check spec
     }
 
     private fun setDefaultHeaders() {
@@ -225,6 +240,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         method = other.method
         redirect = other.redirect
         follow = other.follow
+        signal = other.signal
         timeout = other.timeout
         compress = other.compress
         size = other.size
@@ -342,7 +358,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         response.url = parsedUrl.toString()
         response.status = httpResponse.code()
         response.statusText = httpResponse.message()
-        //TODO: Body as Reader, InputStream, BufferedSource?
         response.body = httpResponse.body()?.byteStream()
         response.redirect = httpResponse.isRedirect
 
@@ -376,6 +391,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         val KEY_CACHE = "cache"
         val KEY_REDIRECT = "redirect"
         val KEY_FOLLOW = "follow"
+        val KEY_SIGNAL = "signal"
         val KEY_TIMEOUT = "timeout"
         val KEY_COMPRESS = "compress"
         val KEY_SIZE = "size"
