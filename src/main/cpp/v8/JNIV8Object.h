@@ -97,6 +97,8 @@ private:
     static jdouble jniToNumber(JNIEnv *env, jobject obj);
     static jstring jniToString(JNIEnv *env, jobject obj);
     static jstring jniToJSON(JNIEnv *env, jobject obj);
+    static jboolean jniIsInstanceOfByConstructor(JNIEnv *env, jobject obj, jobject constructor);
+    static jboolean jniIsInstanceOfByName(JNIEnv *env, jobject obj, jstring name);
     static void jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
     static void jniRegisterAliasForPrimitive(JNIEnv *env, jobject obj, jint aliasType, jint primitiveType);
 

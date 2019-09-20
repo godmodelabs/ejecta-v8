@@ -39,6 +39,8 @@ abstract public class JNIV8Object extends JNIObject {
     public native double toNumber();
     public native String toString();
     public native String toJSON();
+    public native boolean isInstanceOf(JNIV8Function constructor);
+    public native boolean isInstanceOf(String name);
 
     public V8Engine getV8Engine() {
         return _engine;
@@ -199,6 +201,16 @@ abstract public class JNIV8Object extends JNIObject {
         }
         // other java-only types are "false"
         throw new ClassCastException("Cannot convert to String: " + obj);
+    }
+
+    public static boolean isInstanceOf(Object obj, JNIV8Function constructor) {
+        if(!(obj instanceof JNIV8Object)) return false;
+        return ((JNIV8Object)obj).isInstanceOf(constructor);
+    }
+
+    public static boolean isInstanceOf(Object obj, String name) {
+        if(!(obj instanceof JNIV8Object)) return false;
+        return ((JNIV8Object)obj).isInstanceOf(name);
     }
 
     protected native void adjustJSExternalMemory(long change);
