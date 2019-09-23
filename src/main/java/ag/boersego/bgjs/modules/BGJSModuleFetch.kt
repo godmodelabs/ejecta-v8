@@ -1,10 +1,7 @@
 package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
-import ag.boersego.bgjs.modules.fetch.BGJSModuleAbortController
-import ag.boersego.bgjs.modules.fetch.BGJSModuleAbortSignal
-import ag.boersego.bgjs.modules.fetch.BGJSModuleFetchRequest
-import ag.boersego.bgjs.modules.fetch.EventListener
+import ag.boersego.bgjs.modules.fetch.*
 import android.util.Log
 import okhttp3.Call
 import okhttp3.Callback
@@ -37,6 +34,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         fetchFunction.setV8Field("Response", engine.getConstructor(BGJSModuleFetchResponse::class.java))
         fetchFunction.setV8Field("AbortController", engine.getConstructor(BGJSModuleAbortController::class.java))
         fetchFunction.setV8Field("AbortSignal", engine.getConstructor(BGJSModuleAbortSignal::class.java))
+        fetchFunction.setV8Field("FormData", engine.getConstructor(BGJSModuleFormData::class.java))
 
         fetchErrorCreator = engine.runScript(FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function
         fetchFunction.setV8Field("FetchError", fetchErrorCreator)
@@ -277,6 +275,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
             JNIV8Object.RegisterV8Class(BGJSModuleFetchRequest::class.java)
             JNIV8Object.RegisterV8Class(BGJSModuleAbortController::class.java)
             JNIV8Object.RegisterV8Class(BGJSModuleAbortSignal::class.java)
+            JNIV8Object.RegisterV8Class(BGJSModuleFormData::class.java)
         }
 
         fun isRedirect(statusCode: Int): Boolean {

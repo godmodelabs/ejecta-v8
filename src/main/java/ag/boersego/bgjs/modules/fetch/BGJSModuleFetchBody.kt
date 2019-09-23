@@ -1,6 +1,7 @@
 package ag.boersego.bgjs.modules
 
 import ag.boersego.bgjs.*
+import ag.boersego.bgjs.modules.fetch.BGJSModuleFormData
 import ag.boersego.v8annotations.V8Function
 import java.io.BufferedReader
 import java.io.InputStream
@@ -111,7 +112,7 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
                 is InputStream -> bodyRaw
                 //TODO: URLSearchParams are parsed from javascript as JNIV8GenericObject, how do we check isURLSearchParam? see https://github.com/bitinn/node-fetch/issues/296#issuecomment-307598143
                 is JNIV8GenericObject -> (bodyRaw as? JNIV8Object)?.toString()?.byteInputStream()
-                //TODO: implement FormData
+                is BGJSModuleFormData -> bodyRaw.toInputStream()
                 //TODO: Check how JNIv8Arraybuffer will be handled
                 is JNIV8ArrayBuffer -> bodyRaw.toString().byteInputStream()
                 else -> (bodyRaw as? String)?.byteInputStream()
@@ -121,8 +122,8 @@ abstract open class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8En
         fun extractContentType (bodyRaw: Any?): String? {
             return when (bodyRaw) {
                 //TODO: check isURLSearchParam? see https://github.com/bitinn/node-fetch/issues/296#issuecomment-307598143
-                is JNIV8GenericObject -> "application/x-www-form-urlencoded;charset=UTF-8"
-                //TODO: implement FormData
+                is JNIV8GenericObject -> "application/x-www-form-urlencoded"
+                is BGJSModuleFormData -> "application/x-www-form-urlencoded "
                 is JNIV8ArrayBuffer -> null //TODO
                 is InputStream -> null
                 else -> "text/plain;charset=UTF-8"
