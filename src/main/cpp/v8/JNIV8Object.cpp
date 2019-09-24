@@ -191,6 +191,7 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("_getV8Field", "(Ljava/lang/String;IILjava/lang/Class;)Ljava/lang/Object;", (void*)JNIV8Object::jniGetV8FieldWithReturnType);
     info->registerNativeMethod("setV8Field", "(Ljava/lang/String;Ljava/lang/Object;)V", (void*)JNIV8Object::jniSetV8Field);
     info->registerNativeMethod("setV8Fields", "(Ljava/util/Map;)V", (void*)JNIV8Object::jniSetV8Fields);
+    info->registerNativeMethod("setV8Accessor", "(Ljava/lang/String;Lag/boersego/bgjs/JNIV8Function;Lag/boersego/bgjs/JNIV8Function;)V", (void*)JNIV8Object::jniSetV8Accessor);
 
     info->registerNativeMethod("hasV8Field", "(Ljava/lang/String;Z)Z", (void*)JNIV8Object::jniHasV8Field);
     info->registerNativeMethod("getV8Keys", "(Z)[Ljava/lang/String;", (void*)JNIV8Object::jniGetV8Keys);
@@ -355,6 +356,22 @@ void JNIV8Object::jniSetV8Fields(JNIEnv *env, jobject obj, jobject map) {
         env->DeleteLocalRef(key);
         env->DeleteLocalRef(value);
     }
+}
+
+void JNIV8Object::jniSetV8Accessor(JNIEnv *env, jobject obj, jstring name, jobject getter, jobject setter) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, void());
+
+    auto getterFunction = JNIWrapper::wrapObject<JNIV8Function>(getter);
+    auto setterFunction = JNIWrapper::wrapObject<JNIV8Function>(setter);
+
+    if(!getterFunction) return;
+
+    localRef->SetAccessorProperty(
+        JNIV8Marshalling::jstring2v8string(name),
+        getterFunction->getJSObject().As<Function>(),
+        setterFunction ? setterFunction->getJSObject().As<Function>() : Local<Function>(),
+        !setterFunction ? PropertyAttribute::ReadOnly : PropertyAttribute::None
+    );
 }
 
 jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType, jobjectArray arguments) {

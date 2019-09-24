@@ -90,6 +90,7 @@ private:
     static jobject jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType);
     static void jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value);
     static void jniSetV8Fields(JNIEnv *env, jobject obj, jobject map);
+    static void jniSetV8Accessor(JNIEnv *env, jobject obj, jstring name, jobject getter, jobject setter);
     static jobject jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType, jobjectArray arguments);
     static jboolean jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly);
     static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);

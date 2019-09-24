@@ -125,6 +125,7 @@ abstract public class JNIV8Object extends JNIObject {
 
     public native void setV8Field(@NonNull String name, @Nullable Object value);
     public native void setV8Fields(@NonNull Map< String, Object> fields);
+    public native void setV8Accessor(@NonNull String name, @NonNull JNIV8Function getter, @Nullable JNIV8Function setter);
 
     /**
      * convert a wrapped object to a number using the javascript coercion rules
