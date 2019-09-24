@@ -39,6 +39,14 @@ jobject JNIV8Promise::jniCreateResolver(JNIEnv *env, jobject obj, jobject engine
     if (!maybeResolver.ToLocal(&resolverRef)) {
         return nullptr;
     }
+
+    // immediately mark as wrapped to suppress unhandled promise exceptions if promise is accessed later
+    v8::Local<v8::Symbol> symbolRef = v8::Symbol::ForApi(
+            isolate,
+            v8::String::NewFromOneByte(isolate, (const uint8_t*)"JNIV8Promise", v8::NewStringType::kInternalized).ToLocalChecked()
+    );
+    resolverRef->GetPromise()->Set(context, symbolRef, v8::Boolean::New(isolate, true));
+
     return JNIV8Wrapper::wrapObject<JNIV8PromiseResolver>(resolverRef)->getJObject();
 }
 
@@ -50,6 +58,7 @@ void JNIV8Promise::OnJSObjectAssigned() {
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
 
+    // mark as wrapped to suppress unhandled promise exceptions if handler is bound later in java
     v8::Local<v8::Symbol> symbolRef = v8::Symbol::ForApi(
             isolate,
             v8::String::NewFromOneByte(isolate, (const uint8_t*)"JNIV8Promise", v8::NewStringType::kInternalized).ToLocalChecked()
