@@ -52,7 +52,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
     private final SparseArray<V8Timeout> mTimeouts = new SparseArray<>(50);
     private int mLastTimeoutId = 1;
     private final HashSet<V8Timeout> mTimeoutsToGC = new HashSet<>();
-    private V8Timeout mRunningTO;
     private final String mLocale;
     private final String mLang;
     private final String mTimeZone;
@@ -253,26 +252,15 @@ public class V8Engine extends JNIObject implements Handler.Callback {
 
         @Override
         public void run() {
-            mRunningTO = this;
-            if (dead) {
-                mTimeoutsToGC.add(this);
-                if (!mHandler.hasMessages(MSG_CLEANUP)) {
-                    mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
+            runLocked(() -> {
+                if (dead) return;
+                if (mDebug) {
+                    Log.d(TAG, "timeout ready (id " + id + ") to " + timeout + ", now calling cb " + jsCbPtr);
                 }
-                return;
-            }
-            if (mDebug) {
-                Log.d(TAG, "timeout ready (id " + id + ") to " + timeout + ", now calling cb " + jsCbPtr);
-            }
-            // synchronized(BGJSPushHelper.getInstance(null)) {
-            ClientAndroid.timeoutCB(V8Engine.this, jsCbPtr, thisObjPtr, false, true);
-            // }
+                ClientAndroid.timeoutCB(V8Engine.this, jsCbPtr, thisObjPtr, false, true);
+            });
             synchronized (mTimeouts) {
                 if (dead) {
-                    mTimeoutsToGC.add(this);
-                    if (!mHandler.hasMessages(MSG_CLEANUP)) {
-                        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
-                    }
                     return;
                 }
                 if (!recurring) {
@@ -582,9 +570,7 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 mTimeoutsToAddAfterPause.remove(to);
                 mTimeouts.remove(id);
 
-                if (mRunningTO != to) {
-                    mTimeoutsToGC.add(to);
-                }
+                mTimeoutsToGC.add(to);
                 if (!mHandler.hasMessages(MSG_CLEANUP)) {
                     mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
                 }
