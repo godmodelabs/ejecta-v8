@@ -558,9 +558,22 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         }
     }
 
+    private V8Timeout getTimeoutById(final int id) {
+        final V8Timeout to = mTimeouts.get(id);
+        if(to != null) return to;
+        if(!mTimeoutsToAddAfterPause.isEmpty()) {
+            for (final V8Timeout scheduledTo : mTimeoutsToAddAfterPause) {
+                if(scheduledTo.id == id) {
+                    return scheduledTo;
+                }
+            }
+        }
+        return null;
+    }
+
     private void removeTimeoutInst(final int id) {
         synchronized (mTimeouts) {
-            final V8Timeout to = mTimeouts.get(id);
+            V8Timeout to = getTimeoutById(id);
             if (to != null) {
                 to.setAsDead();
                 mHandler.removeCallbacks(to, null);
