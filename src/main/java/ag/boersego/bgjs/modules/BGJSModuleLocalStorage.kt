@@ -22,13 +22,13 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         val exports = JNIV8GenericObject.Create(engine)
 
-        //TODO: Can we do this as Attribute?
-        exports.setV8Field("length", JNIV8Function.Create(engine) { receiver, arguments ->
+        exports.setV8Accessor("length", JNIV8Function.Create(engine) { receiver, arguments ->
             if (!arguments.isEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
             }
             preferences.all.size - 1
-        })
+        }, null)
+
         exports.setV8Field("clear", JNIV8Function.Create(engine) { receiver, arguments ->
             if (!arguments.isEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")

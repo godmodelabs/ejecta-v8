@@ -27,10 +27,6 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine) : JNIV
                 Intent.ACTION_LOCALE_CHANGED -> eventBus.callV8Method("dispatch", "platform:locale", Locale.getDefault().toString())
                 Intent.ACTION_TIMEZONE_CHANGED -> eventBus.callV8Method("dispatch", "platform:timeZone", TimeZone.getDefault().id)
             }
-            val exports = v8Engine.require("platform") as JNIV8GenericObject
-            exports.setV8Field("locale", Locale.getDefault().toString())
-            exports.setV8Field("language", Locale.getDefault().language)
-            exports.setV8Field("timezone", TimeZone.getDefault().id)
         }
     }
 
@@ -42,20 +38,16 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine) : JNIV
     }
 
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
-        var exports = JNIV8GenericObject.Create(engine)
+        val exports = JNIV8GenericObject.Create(engine)
 
         exports.setV8Field("environment", "BGJSContext")
         exports.setV8Field("type", "android")
         exports.setV8Field("debug", BuildConfig.DEBUG)
         exports.setV8Field("isStoreBuild", BuildConfig.BUILD_TYPE.startsWith("release"))
-        exports.setV8Field("locale", Locale.getDefault().toString())
-        exports.setV8Field("language", Locale.getDefault().language)
-        exports.setV8Field("timezone", TimeZone.getDefault().id)
-        if (isTablet) {
-            exports.setV8Field("deviceClass", "tablet")
-        } else {
-            exports.setV8Field("deviceClass", "phone")
-        }
+        exports.setV8Field("deviceClass", if (isTablet) "tablet" else "phone")
+        exports.setV8Accessor("locale", JNIV8Function.Create(engine) { _, _ -> Locale.getDefault().toString() }, null)
+        exports.setV8Accessor("language", JNIV8Function.Create(engine) { _, _ -> Locale.getDefault().language }, null)
+        exports.setV8Accessor("timezone", JNIV8Function.Create(engine) { _, _ -> TimeZone.getDefault().id }, null)
 
         module?.setV8Field("exports", exports)
     }
