@@ -12,7 +12,7 @@ import java.util.*
  * Created by dseifert on 30.April.2019
  */
 
-class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine) : JNIV8Module("platform") {
+class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine, val appVersion: String) : JNIV8Module("platform") {
     private var isTablet = applicationContext.resources.getBoolean(R.bool.isTablet)
     private val intentFilter = IntentFilter().apply {
         addAction(Intent.ACTION_LOCALE_CHANGED)
@@ -42,6 +42,7 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine) : JNIV
 
         exports.setV8Field("environment", "BGJSContext")
         exports.setV8Field("type", "android")
+        exports.setV8Field("version", appVersion)
         exports.setV8Field("debug", BuildConfig.DEBUG)
         exports.setV8Field("isStoreBuild", BuildConfig.BUILD_TYPE.startsWith("release"))
         exports.setV8Field("deviceClass", if (isTablet) "tablet" else "phone")
