@@ -306,31 +306,25 @@ V = JNIV8Marshalling::v8string2jstring(value.As<String>());\
 }\
 }
 
-bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
-    return forwardV8ExceptionToJNI("", try_catch, false);
+bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch, bool throwOnMainThread) const {
+    return forwardV8ExceptionToJNI("", try_catch->Exception(), try_catch->Message(), throwOnMainThread);
 }
 
-bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::TryCatch *try_catch, bool throwOnMainThread) const {
-    if (!try_catch->HasCaught()) {
-        return false;
-    }
-
+bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<Message> message, bool throwOnMainThread) const {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     HandleScope scope(_isolate);
     Local<Context> context = getContext();
 
-    jobject causeException = nullptr;
-
     MaybeLocal<Value> maybeValue;
     Local<Value> value;
 
+    jobject causeException = nullptr;
     // if the v8 error is a `JavaError` that means it already contains a java exception
     // => we unwrap the error and reuse that exception
     // if the original error was a v8 error we still have that contained in the java exception along with a full v8 stack trace steps
     // NOTE: if it was a java error, then we do lose the v8 stack trace however..
     // the only way to keep it would be to use yet another type of Java exception that contains both the original java exception and the first created JavaError
-    Local<Value> exception = try_catch->Exception();
     Local<Object> exceptionObj;
     if (exception->IsObject()) {
         exceptionObj = exception.As<Object>();
@@ -345,25 +339,18 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::TryCat
                 // then we need to wrap it to preserve the v8 call stack
                 causeException = env->NewLocalRef(holder->throwable);
             } else {
-                // otherwise we can reuse the embedded V8Exception!
-                env->Throw((jthrowable) env->NewLocalRef(holder->throwable));
+                if(throwOnMainThread) {
+                    env->CallVoidMethod(getJObject(), _jniV8Engine.onThrowId, holder->throwable);
+                } else {
+                    // otherwise we can reuse the embedded V8Exception!
+                    env->Throw((jthrowable) env->NewLocalRef(holder->throwable));
+                }
                 return true;
             }
         }
     }
 
-    return forwardV8ExceptionToJNI(std::move(messagePrefix), exception, try_catch->Message(), causeException, throwOnMainThread);
-}
-
-bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<Message> message, jobject causeException, bool throwOnMainThread) const {
     jobject exceptionAsObject = JNIV8Marshalling::v8value2jobject(exception);
-
-    JNIEnv *env = JNIWrapper::getEnvironment();
-
-    Local<Context> context = getContext();
-
-    MaybeLocal<Value> maybeValue;
-    Local<Value> value;
 
     // convert v8 stack trace to a java stack trace
     jobject v8JSException;
@@ -870,8 +857,13 @@ v8::Local<v8::Context> BGJSV8Engine::getContext() const {
 }
 
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    if (args.Length() >= 2 && args[0]->IsFunction()) {
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+    if (args.Length() >= 1 && args[0]->IsFunction()) {
         args.GetIsolate()->EnqueueMicrotask(args[0].As<v8::Function>());
+    } else {
+        ctx->getIsolate()->ThrowException(
+                v8::Exception::ReferenceError(
+                        v8::String::NewFromUtf8(ctx->getIsolate(), "callback must be a function")));
     }
 }
 
@@ -981,7 +973,7 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
     }
 
     if(maybeValueRef.IsEmpty()) {
-        holder->engine->forwardV8ExceptionToJNI("", &try_catch, true);
+        holder->engine->forwardV8ExceptionToJNI(&try_catch, true);
     }
 }
 
@@ -1278,9 +1270,15 @@ void BGJSV8Engine::createContext() {
                                                                         NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
         _debugDumpFn.Reset(_isolate, debugDumpMethod);
     }
+
     // Init unhandled promise rejection handler
     _isolate->SetPromiseRejectCallback(&BGJSV8Engine::PromiseRejectionHandler);
     _didScheduleURPTask = false;
+
+    // uncaught exception handler
+    // should not be necessary because trycatch is used everywhere where jni is calling into v8
+    _isolate->SetCaptureStackTraceForUncaughtExceptions(true);
+    _isolate->AddMessageListener(&BGJSV8Engine::UncaughtExceptionHandler);
 }
 
 void BGJSV8Engine::start(const Options* options) {
@@ -1458,7 +1456,7 @@ void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
                 // also, the event looper thread could end up here during initialization or when triggering timeouts;
                 // and it is NOT set up to log or otherwise handle exceptions! they would simply "disappear" if thrown there..
                 engine->forwardV8ExceptionToJNI("Unhandled rejected promise: ", exception,
-                                                v8::Exception::CreateMessage(isolate, exception), nullptr, true);
+                                                v8::Exception::CreateMessage(isolate, exception), true);
             }
         }
         holder->value.Reset();
@@ -1504,6 +1502,13 @@ void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
             }
         }
     }
+}
+
+void BGJSV8Engine::UncaughtExceptionHandler(v8::Local<v8::Message> message, v8::Local<v8::Value> data) {
+    v8::Isolate *isolate = Isolate::GetCurrent();
+    v8::Locker l(isolate);
+    BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
+    engine->forwardV8ExceptionToJNI("Uncaught exception: ", data, message, true);
 }
 
 void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value> &args) {

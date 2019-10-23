@@ -65,7 +65,7 @@ public:
 	v8::Local<v8::Context> getContext() const;
 
 	bool forwardJNIExceptionToV8() const;
-	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
+	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch, bool throwOnMainThread = true) const;
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
@@ -113,8 +113,7 @@ private:
 	};
 
 	uint64_t createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat);
-	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, jobject causeException = nullptr, bool throwOnMainThread = false) const;
-	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::TryCatch* try_catch, bool throwOnMainThread) const;
+	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, bool throwOnMainThread = false) const;
 
 	// utility method to convert v8 values to readable strings for debugging
 	const std::string toDebugString(v8::Handle<v8::Value> source) const;
@@ -128,7 +127,7 @@ private:
                                      v8::GCCallbackFlags flags);
 
     static void PromiseRejectionHandler(v8::PromiseRejectMessage message);
-
+	static void UncaughtExceptionHandler(v8::Local<v8::Message> message, v8::Local<v8::Value> data);
     static void OnPromiseRejectionMicrotask(void* data);
 
     static void StartLoopThread(void *arg);
