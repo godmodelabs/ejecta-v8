@@ -14,7 +14,7 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
     private var preferences: SharedPreferences
 
     init {
-        preferences = applicationContext.getSharedPreferences(TAG, 0)
+        preferences = applicationContext.getSharedPreferences(SHARED_PREFS_LOCALSTORAGE, 0)
     }
 
     // In order to provide a key(n) method similar to Web Storage, we need to remember the insertion order
@@ -105,7 +105,7 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
     }
 
     companion object {
-        private val TAG = BGJSModuleLocalStorage::class.java.simpleName
+        const val SHARED_PREFS_LOCALSTORAGE = "localStorage"
         private const val INSERT_ORDER = "insert_order"
         @Volatile private var instance: BGJSModuleLocalStorage? = null
 
