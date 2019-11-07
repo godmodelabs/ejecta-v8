@@ -8,6 +8,8 @@ import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -283,10 +285,10 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         body?.let {
             // Only set a body if we know it's content-type. This is also derived from how the body is set
             val contentType = headers.get("content-type") ?: throw V8JSException(v8Engine, "TypeError", "cannot have body without knowing content-type")
-            val mediaType = MediaType.parse(contentType) ?: throw V8JSException(v8Engine, "cannot encode body with unknown content-type '$contentType'")
-            builder.method(method, RequestBody.create(mediaType, it.readBytes()))
+            val mediaType = contentType.toMediaTypeOrNull() ?: throw V8JSException(v8Engine, "cannot encode body with unknown content-type '$contentType'")
+            builder.method(method, it.readBytes().toRequestBody(mediaType))
             it.reset()
-        }?: if (method == "POST") builder.method(method, RequestBody.create(null, ByteArray(0))) else builder.method(method, null)
+        }?: if (method == "POST") builder.method(method, ByteArray(0).toRequestBody()) else builder.method(method, null)
 
         return builder.build()
     }
@@ -340,13 +342,9 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             // Only set a body if we know it's content-type. This is also derived from how the body is set
             val contentType = headers.get("content-type") ?: throw V8JSException(v8Engine, "TypeError", "cannot have body without knowing content-type")
 
-
-            val mediaType = MediaType.parse(contentType) ?: throw V8JSException(v8Engine, "TypeError", "cannot encode body with unknown content-type '$contentType'")
-            builder.method(method, RequestBody.create(mediaType, body.readBytes()))
+            val mediaType = contentType.toMediaTypeOrNull() ?: throw V8JSException(v8Engine, "TypeError", "cannot encode body with unknown content-type '$contentType'")
+            builder.method(method, body.readBytes().toRequestBody(mediaType))
         }
-
-
-
     }
 
     /**
@@ -354,18 +352,17 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
      */
     fun updateFrom(v8Engine: V8Engine, httpResponse: Response): BGJSModuleFetchResponse {
         val response = BGJSModuleFetchResponse(v8Engine)
-        response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers())
+        response.headers = BGJSModuleFetchHeaders.createFrom(v8Engine, httpResponse.headers)
         response.url = parsedUrl.toString()
-        response.status = httpResponse.code()
-        response.statusText = httpResponse.message()
-        response.body = httpResponse.body()?.byteStream()
+        response.status = httpResponse.code
+        response.statusText = httpResponse.message
+        response.body = httpResponse.body?.byteStream()
         response.redirect = httpResponse.isRedirect
 
         return response
     }
 
     // Since ejecta-v8 currently cannot register abstract classes we have to override these methods here and just call super
-
     override var bodyUsed = false
         @V8Getter get
 

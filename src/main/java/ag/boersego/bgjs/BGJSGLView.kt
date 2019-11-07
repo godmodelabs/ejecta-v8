@@ -149,7 +149,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
     companion object {
         @Suppress("SimplifyBooleanWithConstants")
         val DEBUG = false && BuildConfig.DEBUG
-        val TAG = BGJSGLView::class.java.simpleName!!
+        val TAG = BGJSGLView::class.java.simpleName
 
         @JvmStatic
         external fun Create(engine: V8Engine): BGJSGLView

@@ -84,6 +84,8 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         }
     }
 
+    //Suppress warning for "TypeElement.class.cast(element)" because "(TypeElement) element" cast mysteriously doesn't compile
+    @SuppressWarnings("RedundantClassCall")
     private AnnotationHolder getHolder(HashMap<String, AnnotationHolder> annotatedClasses, Element element) {
         TypeElement classElement;
         if (element.getKind().isClass()) {
@@ -126,7 +128,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
     }
 
     private String lcfirst(String string) {
-        char c[] = string.toCharArray();
+        char[] c = string.toCharArray();
         c[0] = Character.toLowerCase(c[0]);
         return new String(c);
     }

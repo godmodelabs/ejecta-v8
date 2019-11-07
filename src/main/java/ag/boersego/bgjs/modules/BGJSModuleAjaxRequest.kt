@@ -92,12 +92,12 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         v8Engine.runLocked {
             if (!requestNotFinal) {
                 if (DEBUG) {
-                    Log.d(TAG, "ajax ${method} for ${url} cannot  abort", RuntimeException("ajax abort impossible"));
+                    Log.d(TAG, "ajax ${method} for ${url} cannot  abort", RuntimeException("ajax abort impossible"))
                 }
                 success = false
             } else {
                 if (DEBUG) {
-                    Log.d(TAG, "ajax ${method} for ${url} was aborted", RuntimeException("ajax abort"));
+                    Log.d(TAG, "ajax ${method} for ${url} was aborted", RuntimeException("ajax abort"))
                 }
                 aborted = true
                 val failDetails = HttpResponseDetails(v8Engine)
@@ -269,7 +269,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     if (body == null) {
                         this.body = null
                     } else {
-                        this.body = v8Engine.getGlobalObject().getV8Field<JNIV8Object>("JSON", V8Flags.UndefinedIsNull).callV8Method("stringify", body) as String?
+                        this.body = v8Engine.globalObject.getV8Field<JNIV8Object>("JSON", V8Flags.UndefinedIsNull).callV8Method("stringify", body) as String?
                     }
                 }
             } else {

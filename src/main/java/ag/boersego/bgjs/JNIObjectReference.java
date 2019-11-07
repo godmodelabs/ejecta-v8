@@ -75,4 +75,4 @@ final class JNIObjectReference extends PhantomReference<JNIObject> {
         }
         return true;
     }
-};
+}

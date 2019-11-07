@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -266,7 +267,7 @@ public class AjaxRequest implements Runnable {
             } else {
                 if (mReferer != null) {
                     try {
-                        requestBuilder.addHeader("Referer", new String(mReferer.getBytes("ISO-8859-1"), "ISO-8859-1"));
+                        requestBuilder.addHeader("Referer", new String(mReferer.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.ISO_8859_1));
                     } catch (final Exception ex) {
                         Log.e(TAG, "Cannot set referer", ex);
                     }

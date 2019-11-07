@@ -134,7 +134,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
             override fun onResponse(call: Call, httpResponse: Response) {
                 timeout.clearTimeout()
-                if (call.isCanceled) {
+                if (call.isCanceled()) {
                     signal?.removeListener(abortAndFinalize)
                     return
                 }
@@ -181,12 +181,12 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                                 redirectRequest.counter++
 
                                 // TODO:  HTTP-redirect fetch step 9
-                                if (httpResponse.code() != 303 && request.body != null) {
+                                if (httpResponse.code != 303 && request.body != null) {
 
                                 }
 
                                 // HTTP-redirect fetch step 11
-                                if (httpResponse.code() == 303 || ((httpResponse.code() == 301 || httpResponse.code() == 302) && request.method == "POST")) {
+                                if (httpResponse.code == 303 || ((httpResponse.code == 301 || httpResponse.code == 302) && request.method == "POST")) {
                                     redirectRequest.method = "GET"
                                     redirectRequest.body?.close()
                                     redirectRequest.body = null
@@ -211,7 +211,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                 // 3. no Content-Encoding header
                 // 4. no content response (204)
                 // 5. content not modified response (304)
-                if (!request.compress || request.method == "HEAD" || codings == null || httpResponse.code() == 204 || httpResponse.code() == 304) {
+                if (!request.compress || request.method == "HEAD" || codings == null || httpResponse.code == 204 || httpResponse.code == 304) {
                     resolver.resolve(fetchResponse)
                     return
                 }

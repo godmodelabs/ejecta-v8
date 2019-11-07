@@ -5,6 +5,7 @@ import ag.boersego.v8annotations.*
 import android.annotation.SuppressLint
 import android.util.Log
 import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.lang.IllegalArgumentException
 import java.util.*
 
@@ -195,7 +196,7 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
     }
 
     companion object {
-        val TAG = BGJSWebSocket::class.java.simpleName!!
+        val TAG = BGJSWebSocket::class.java.simpleName
         @Suppress("SimplifyBooleanWithConstants")
         val DEBUG = false && BuildConfig.DEBUG
     }
@@ -220,7 +221,7 @@ class BGJSModuleWebSocket(private var okHttpClient: OkHttpClient) : JNIV8Module(
                 } else if (url.regionMatches(0, "wss:", 0, 4, ignoreCase = true)) {
                     url = "https:" + url.substring(4)
                 }
-                HttpUrl.get(url)
+                url.toHttpUrl()
             } catch (e: IllegalArgumentException) {
                 throw V8JSException(engine, "TypeError", "invalid url string")
             }
