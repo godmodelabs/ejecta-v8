@@ -787,7 +787,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
     // wrap source in anonymous function to set up an isolated scope
     const char *szSourcePrefix = "(function (exports, require, module, __filename, __dirname) {";
-    const char *szSourcePostfix = "})";
+    const char *szSourcePostfix = "\n})";
     source = String::Concat(_isolate,
             String::Concat(_isolate,
                     String::NewFromUtf8(_isolate, szSourcePrefix),
