@@ -109,7 +109,7 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         private const val INSERT_ORDER = "insert_order"
         @Volatile private var instance: BGJSModuleLocalStorage? = null
 
-        const val PREF_PORTAL = "auth:portal"
+        const val PREF_KEY_AUTH_STATE = "auth:state"
 
         @JvmStatic
         fun getInstance(ctx : Context) : BGJSModuleLocalStorage {
