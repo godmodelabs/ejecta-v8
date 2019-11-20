@@ -13,7 +13,7 @@ JNIClassInfo::JNIClassInfo(size_t hashCode, JNIObjectType  type, jclass clazz, c
         hashCode(hashCode), type(type), canonicalName(canonicalName), initializer(i), constructor(c), baseClassInfo(baseClassInfo) {
     // cache class
     // if we wanted to allow dynamic class unloading we could use a weak global ref and check it every time before creating/wrapping an object
-    // but because that might happen from another thread we would have to make sure to use the correct class loader to reaquire it..
+    // but because that might happen from another thread we would have to make sure to use the correct class loader to require it..
     // => for now we do not need it, as it can safely be assumed that most (if not all) jni classes will likely be used throughout the whole lifetime of the application
     // so we are using a strong reference; this will ALWAYS keep the class from getting unloaded (e.g. if a future android version changes behaviour)
     jniClassRef = (jclass)JNIWrapper::getEnvironment()->NewGlobalRef(clazz);

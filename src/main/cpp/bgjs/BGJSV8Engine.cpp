@@ -859,7 +859,9 @@ v8::Local<v8::Context> BGJSV8Engine::getContext() const {
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
     if (args.Length() >= 1 && args[0]->IsFunction()) {
-        args.GetIsolate()->EnqueueMicrotask(args[0].As<v8::Function>());
+        TaskHolder *holder = new TaskHolder();
+        holder->callback.Reset(args.GetIsolate(), args[0].As<v8::Function>());
+        args.GetIsolate()->EnqueueMicrotask(&BGJSV8Engine::OnTaskMicrotask, (void*)holder);
     } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
@@ -1078,7 +1080,20 @@ const BGJSV8Engine::EState BGJSV8Engine::getState() const {
 }
 
 void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-
+    info->registerNativeMethod("initialize", "(Landroid/content/res/AssetManager;Ljava/lang/String;I)V", (void*)BGJSV8Engine::jniInitialize);
+    info->registerNativeMethod("pause", "()V", (void*)BGJSV8Engine::jniPause);
+    info->registerNativeMethod("unpause", "()V", (void*)BGJSV8Engine::jniUnpause);
+    info->registerNativeMethod("shutdown", "()V", (void*)BGJSV8Engine::jniShutdown);
+    info->registerNativeMethod("dumpHeap", "(Ljava/lang/String;)Ljava/lang/String;", (void*)BGJSV8Engine::jniDumpHeap);
+    info->registerNativeMethod("enqueueOnNextTick", "(Lag/boersego/bgjs/JNIV8Function;)V", (void*)BGJSV8Engine::jniEnqueueOnNextTick);
+    info->registerNativeMethod("parseJSON", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniParseJSON);
+    info->registerNativeMethod("require", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRequire);
+    info->registerNativeMethod("lock", "()J", (void*)BGJSV8Engine::jniLock);
+    info->registerNativeMethod("unlock", "(J)V", (void*)BGJSV8Engine::jniUnlock);
+    info->registerNativeMethod("getGlobalObject", "()Lag/boersego/bgjs/JNIV8GenericObject;", (void*)BGJSV8Engine::jniGetGlobalObject);
+    info->registerNativeMethod("runScript", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRunScript);
+    info->registerNativeMethod("registerModuleNative", "(Lag/boersego/bgjs/JNIV8Module;)V", (void*)BGJSV8Engine::jniRegisterModuleNative);
+    info->registerNativeMethod("getConstructor", "(Ljava/lang/String;)Lag/boersego/bgjs/JNIV8Function;", (void*)BGJSV8Engine::jniGetConstructor);
 }
 
 void BGJSV8Engine::createContext() {
@@ -1415,6 +1430,27 @@ void BGJSV8Engine::SuspendLoopThread(uv_async_t *handle) {
 void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
 }
 
+void BGJSV8Engine::OnTaskMicrotask(void *data) {
+    TaskHolder *holder = (TaskHolder*)data;
+    v8::Isolate *isolate = Isolate::GetCurrent();
+    v8::Locker l(isolate);
+    BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    v8::TryCatch try_catch(isolate);
+
+    v8::Local<v8::Function> funcRef = v8::Local<v8::Function>::New(isolate, holder->callback);
+    funcRef->Call(context, context->Global(), 0, nullptr);
+
+    if (try_catch.HasCaught()) {
+        engine->forwardV8ExceptionToJNI(&try_catch, true);
+    }
+
+    delete holder;
+}
+
 void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
     v8::Isolate *isolate = Isolate::GetCurrent();
     v8::Locker l(isolate);
@@ -1726,9 +1762,7 @@ const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
     return filename;
 }
 
-extern "C" {
-
-JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
+void BGJSV8Engine::jniInitialize(
         JNIEnv * env, jobject v8Engine, jobject assetManager, jstring commonJSPath, jint maxHeapSize) {
 
     auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
@@ -1743,26 +1777,23 @@ JNIEXPORT void JNICALL Java_ag_boersego_bgjs_V8Engine_initialize(
     env->ReleaseStringUTFChars(commonJSPath, options.commonJSPath);
 }
 
-JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_pause(JNIEnv *env, jobject obj) {
+
+void BGJSV8Engine::jniPause(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     engine->pause();
 }
 
-JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_unpause(JNIEnv *env, jobject obj) {
+void BGJSV8Engine::jniUnpause(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     engine->unpause();
 }
 
-JNIEXPORT jstring JNICALL
-Java_ag_boersego_bgjs_V8Engine_shutdown(JNIEnv *env, jobject obj) {
+void BGJSV8Engine::jniShutdown(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     engine->shutdown();
 }
 
-JNIEXPORT jstring JNICALL
-Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn) {
+jstring BGJSV8Engine::jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn) {
     const char *path = env->GetStringUTFChars(pathToSaveIn, 0);
 
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
@@ -1778,8 +1809,7 @@ Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathTo
     }
 }
 
-JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_enqueueOnNextTick(JNIEnv *env, jobject obj, jobject function) {
+void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
@@ -1792,11 +1822,12 @@ Java_ag_boersego_bgjs_V8Engine_enqueueOnNextTick(JNIEnv *env, jobject obj, jobje
 
     auto funcRef = JNIV8Wrapper::wrapObject<JNIV8Function>(function)->getJSObject().As<v8::Function>();
 
-    isolate->EnqueueMicrotask(funcRef);
+    TaskHolder *holder = new TaskHolder();
+    holder->callback.Reset(isolate, funcRef);
+    isolate->EnqueueMicrotask(&BGJSV8Engine::OnTaskMicrotask, (void*)holder);
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json) {
+jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
@@ -1816,8 +1847,7 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json)
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
+jobject BGJSV8Engine::jniRequire(JNIEnv *env, jobject obj, jstring file) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
@@ -1838,8 +1868,7 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
-JNIEXPORT jlong JNICALL
-Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
+jlong BGJSV8Engine::jniLock(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
@@ -1848,8 +1877,7 @@ Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
     return (jlong) locker;
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
+jobject BGJSV8Engine::jniGetGlobalObject(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
@@ -1863,14 +1891,12 @@ Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
     return JNIV8Marshalling::v8value2jobject(context->Global());
 }
 
-JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
+void BGJSV8Engine::jniUnlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
     auto *locker = reinterpret_cast<Locker *>(lockerPtr);
     delete (locker);
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring script, jstring name) {
+jobject BGJSV8Engine::jniRunScript(JNIEnv *env, jobject obj, jstring script, jstring name) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
@@ -1900,14 +1926,12 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
-JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_registerModuleNative(JNIEnv *env, jobject obj, jobject module) {
+void BGJSV8Engine::jniRegisterModuleNative(JNIEnv *env, jobject obj, jobject module) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     engine->registerJavaModule(module);
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jstring canonicalName) {
+jobject BGJSV8Engine::jniGetConstructor(JNIEnv *env, jobject obj, jstring canonicalName) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
 
     v8::Isolate *isolate = engine->getIsolate();
@@ -1922,5 +1946,4 @@ Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jstring 
 
     return JNIV8Wrapper::wrapObject<JNIV8Function>(
             JNIV8Wrapper::getJSConstructor(engine.get(), strCanonicalName))->getJObject();
-}
 }

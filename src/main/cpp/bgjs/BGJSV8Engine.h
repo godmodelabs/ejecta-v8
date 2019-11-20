@@ -104,6 +104,10 @@ private:
 		bool handled, collected;
 	};
 
+	struct TaskHolder {
+	    v8::Persistent<v8::Function> callback;
+	};
+
 	struct TimerHolder {
 		uv_timer_t handle;
 		bool scheduled, cleared, stopped, repeats;
@@ -129,6 +133,7 @@ private:
     static void PromiseRejectionHandler(v8::PromiseRejectMessage message);
 	static void UncaughtExceptionHandler(v8::Local<v8::Message> message, v8::Local<v8::Value> data);
     static void OnPromiseRejectionMicrotask(void* data);
+    static void OnTaskMicrotask(void *data);
 
     static void StartLoopThread(void *arg);
 	static void StopLoopThread(uv_async_t *handle);
@@ -142,6 +147,23 @@ private:
 
 	void createContext();
 
+	// jni methods
+    static void jniInitialize(JNIEnv * env, jobject v8Engine, jobject assetManager, jstring commonJSPath, jint maxHeapSize);
+    static void jniPause(JNIEnv *env, jobject obj);
+    static void jniUnpause(JNIEnv *env, jobject obj);
+    static void jniShutdown(JNIEnv *env, jobject obj);
+    static jstring jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn);
+    static void jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function);
+    static jobject jniParseJSON(JNIEnv *env, jobject obj, jstring json);
+    static jobject jniRequire(JNIEnv *env, jobject obj, jstring file);
+    static jlong jniLock(JNIEnv *env, jobject obj);
+    static jobject jniGetGlobalObject(JNIEnv *env, jobject obj);
+    static void jniUnlock(JNIEnv *env, jobject obj, jlong lockerPtr);
+    static jobject jniRunScript(JNIEnv *env, jobject obj, jstring script, jstring name);
+    static void jniRegisterModuleNative(JNIEnv *env, jobject obj, jobject module);
+    static jobject jniGetConstructor(JNIEnv *env, jobject obj, jstring canonicalName);
+
+	// jni class info caches
 	static struct {
 		jclass clazz;
 		jmethodID getNameId;
