@@ -1002,9 +1002,12 @@ void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
 void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *engine = BGJSV8Engine::GetInstance(args.GetIsolate());
 
-    if (args.Length() == 1 && args[0]->IsNumber()) {
-        Local<v8::Number> numberRef = Local<Number>::Cast(args[0]);
-        auto id = (uint64_t)numberRef->Value();
+    if (args.Length() == 1) {
+        MaybeLocal<v8::Number> maybeNumber = args[0]->ToNumber(engine->getContext());
+        if (maybeNumber.IsEmpty()) {
+            return;
+        }
+        auto id = (uint64_t)maybeNumber.ToLocalChecked()->Value();
         for (size_t i = 0; i < engine->_timers.size(); ++i) {
             auto holder = engine->_timers.at(i);
             if (holder->id == id) {
