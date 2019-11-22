@@ -11,7 +11,7 @@ import kotlin.collections.HashMap
 
 class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
 
-    private val headers = HashMap<String, ArrayList<Any>>()
+    private val headers = LinkedHashMap<String, ArrayList<Any>>()
 
     init {
         if (args != null && !args.isEmpty()) {
@@ -30,25 +30,33 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
     }
 
-    private fun normalizePotentialValue(ptValue: String): String {
-        return ptValue.trim()
+    private fun normalizePotentialValue(ptValue: Any?): String {
+        return when (ptValue) {
+            is JNIV8Array -> ptValue.joinToString(",")
+            null -> "null"
+            else -> {
+                if (ptValue.toString().contains(ZERO_BYTE) || ptValue.toString().contains('\n') || ptValue.toString().contains('\r')) {
+                    throw V8JSException(v8Engine, "TypeError", "illegal character in value")
+                }
+                ptValue.toString().trim()
+            }
+        }
     }
 
-    private fun normalizeName(name: String): String {
-        return name.trim().toLowerCase(Locale.ROOT)
+    private fun normalizeName(name: Any?): String {
+        if (name is JNIV8Array || name is JNIV8GenericObject || (name as? String)?.isEmpty() == true) {
+            throw V8JSException(v8Engine, "TypeError", "illegal name")
+        }
+        return name?.toString()?.trim()?.toLowerCase(Locale.ROOT)?:"null"
     }
 
     val toString = "Headers"
         @V8Getter(symbol = V8Symbols.TO_STRING_TAG) get
 
     @V8Function
-    fun append(rawName: String, rawValue: String) {
-        val value = normalizePotentialValue(rawValue)
-        if (value.contains(ZERO_BYTE) || value.contains('\n') || value.contains('\r')) {
-            throw V8JSException(v8Engine, "TypeError", "illegal character in value")
-        }
+    fun append(rawName: Any?, rawValue: Any?) {
         val name = normalizeName(rawName)
-
+        val value = normalizePotentialValue(rawValue)
         var currentList = headers[name]
 
         if (currentList == null) {
@@ -62,12 +70,9 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
      * Overwrite a header in the header list
      */
     @V8Function
-    fun set(rawName: String, rawValue: String) {
-        val value = normalizePotentialValue(rawValue)
-        if (value.contains(ZERO_BYTE) || value.contains('\n') || value.contains('\r')) {
-            throw V8JSException(v8Engine, "TypeError", "illegal character in value")
-        }
+    fun set(rawName: Any?, rawValue: Any?) {
         val name = normalizeName(rawName)
+        val value = normalizePotentialValue(rawValue)
 
         var currentList = headers[name]
 
@@ -81,17 +86,17 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     @V8Function
-    fun delete(name: String) {
+    fun delete(name: Any?) {
         headers.remove(normalizeName(name))
     }
 
     @V8Function
-    fun get(name: String): String? {
+    fun get(name: Any?): String? {
         return headers[normalizeName(name)]?.joinToString(", ")
     }
 
     @V8Function
-    fun has(name: String): Boolean {
+    fun has(name: Any?): Boolean {
         return headers.containsKey(normalizeName(name))
     }
 
