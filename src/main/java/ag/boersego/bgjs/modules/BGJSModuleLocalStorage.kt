@@ -12,9 +12,11 @@ import android.content.SharedPreferences
 class BGJSModuleLocalStorage private constructor(applicationContext: Context) : JNIV8Module("localStorage") {
 
     private var preferences: SharedPreferences
+    private var insertOrderPref: SharedPreferences
 
     init {
         preferences = applicationContext.getSharedPreferences(SHARED_PREFS_LOCALSTORAGE, 0)
+        insertOrderPref = applicationContext.getSharedPreferences(SHARED_PREFS_INSERT_ORDER, 0)
     }
 
     // In order to provide a key(n) method similar to Web Storage, we need to remember the insertion order
@@ -23,17 +25,18 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         val exports = JNIV8GenericObject.Create(engine)
 
         exports.setV8Accessor("length", JNIV8Function.Create(engine) { receiver, arguments ->
-            if (!arguments.isEmpty()) {
+            if (arguments.isNotEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
             }
-            preferences.all.size - 1
+            preferences.all.size
         }, null)
 
         exports.setV8Field("clear", JNIV8Function.Create(engine) { receiver, arguments ->
-            if (!arguments.isEmpty()) {
+            if (arguments.isNotEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
             }
             preferences.edit().clear().apply()
+            insertOrderPref.edit().clear().apply()
             JNIV8Undefined.GetInstance()
         })
 
@@ -57,7 +60,7 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
                 throw IllegalArgumentException("getItem needs one parameter of type Number")
             }
             val index = (arguments[0] as Double).toInt()
-            val orderedKeys = preferences.getString(INSERT_ORDER, null)?.split(",")
+            val orderedKeys = insertOrderPref.getString(INSERT_ORDER_KEY, null)?.split(",")
             if (orderedKeys != null && index < orderedKeys.size) {
                 orderedKeys[index]
             } else {
@@ -72,23 +75,27 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
             val key = arguments[0] as String
             preferences.edit().remove(key).apply()
 
-            var insertOrder = preferences.getString(INSERT_ORDER, "")
+            var insertOrder = insertOrderPref.getString(INSERT_ORDER_KEY, "")
             insertOrder = insertOrder!!.replace("$key,", "")
-            preferences.edit().putString(INSERT_ORDER, insertOrder).apply()
+            insertOrderPref.edit().putString(INSERT_ORDER_KEY, insertOrder).apply()
 
             JNIV8Undefined.GetInstance()
         })
 
         exports.setV8Field("setItem", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.size < 2 || arguments[0] !is String || arguments[1] !is String) {
+            if (arguments.size < 2 || arguments[0] !is String) {
                 throw IllegalArgumentException("setItem needs two parameters of type String")
             }
             val key = arguments[0] as String
-            val value = arguments[1] as String
+            val value = when (arguments[1]) {
+                is JNIV8Undefined -> "undefined"
+                null ->  "null"
+                else -> arguments[1].toString()
+            }
             preferences.edit().putString(key, value).apply()
 
-            val insertOrder = preferences.getString(INSERT_ORDER, "")
-            if (!insertOrder!!.contains(key)) preferences.edit().putString(INSERT_ORDER, "$insertOrder$key,").apply()
+            val insertOrder = insertOrderPref.getString(INSERT_ORDER_KEY, "")
+            if (!insertOrder!!.contains(key)) insertOrderPref.edit().putString(INSERT_ORDER_KEY, "$insertOrder$key,").apply()
 
             JNIV8Undefined.GetInstance()
         })
@@ -106,7 +113,8 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
 
     companion object {
         const val SHARED_PREFS_LOCALSTORAGE = "localStorage"
-        private const val INSERT_ORDER = "insert_order"
+        private const val SHARED_PREFS_INSERT_ORDER = "insertOrder"
+        private const val INSERT_ORDER_KEY = "insert_order"
         @Volatile private var instance: BGJSModuleLocalStorage? = null
 
         const val PREF_KEY_AUTH_STATE = "auth:state"
