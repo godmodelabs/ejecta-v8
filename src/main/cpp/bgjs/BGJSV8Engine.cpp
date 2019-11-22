@@ -873,10 +873,12 @@ void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
     HandleScope scope(args.GetIsolate());
 
-    if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsNumber()) {
+    if (args.Length() == 2 && args[0]->IsFunction()) {
+        double numberValue = args[1]->NumberValue(args.GetIsolate()->GetCurrentContext()).FromMaybe(0.0f);
+        if (std::isnan(numberValue)) numberValue = 0.0f;
+
         Local<v8::Function> funcRef = Local<Function>::Cast(args[0]);
-        Local<v8::Number> numberRef = Local<Number>::Cast(args[1]);
-        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberRef->Value(), 0);
+        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberValue, 0);
 
         args.GetReturnValue().Set(v8::Number::New(args.GetIsolate(), (double)id));
     } else {
@@ -890,10 +892,12 @@ void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Valu
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
     HandleScope scope(args.GetIsolate());
 
-    if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsNumber()) {
+    if (args.Length() == 2 && args[0]->IsFunction()) {
+        double numberValue = args[1]->NumberValue(args.GetIsolate()->GetCurrentContext()).FromMaybe(0.0f);
+        if (std::isnan(numberValue)) numberValue = 0.0f;
+
         Local<v8::Function> funcRef = Local<Function>::Cast(args[0]);
-        Local<v8::Number> numberRef = Local<Number>::Cast(args[1]);
-        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberRef->Value(), (uint64_t)numberRef->Value());
+        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberValue, (uint64_t)numberValue);
 
         args.GetReturnValue().Set(v8::Number::New(args.GetIsolate(), (double)id));
     } else {
@@ -1003,11 +1007,11 @@ void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackIn
     BGJSV8Engine *engine = BGJSV8Engine::GetInstance(args.GetIsolate());
 
     if (args.Length() == 1) {
-        MaybeLocal<v8::Number> maybeNumber = args[0]->ToNumber(engine->getContext());
-        if (maybeNumber.IsEmpty()) {
+        double numberValue = args[0]->NumberValue(args.GetIsolate()->GetCurrentContext()).FromMaybe(FP_NAN);
+        if (std::isnan(numberValue)) {
             return;
         }
-        auto id = (uint64_t)maybeNumber.ToLocalChecked()->Value();
+        auto id = (uint64_t)numberValue;
         for (size_t i = 0; i < engine->_timers.size(); ++i) {
             auto holder = engine->_timers.at(i);
             if (holder->id == id) {
