@@ -1360,6 +1360,11 @@ void BGJSV8Engine::StartLoopThread(void *arg) {
 
     engine->registerModule("canvas", BGJSGLModule::doRequire);
 
+    // engine might have been requested to stop in the meantime
+    if(engine->_state == EState::kStarting) {
+        engine->_state = EState::kStarted;
+    }
+
     JNIEnv* env = JNIWrapper::getEnvironment();
     env->CallVoidMethod(engine->getJObject(), engine->_jniV8Engine.onReadyId);
     if(env->ExceptionCheck()) {
@@ -1368,11 +1373,6 @@ void BGJSV8Engine::StartLoopThread(void *arg) {
         env->ExceptionClear();
         env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onThrowId, e);
         return;
-    }
-
-    // engine might have been requested to stop in the meantime
-    if(engine->_state == EState::kStarting) {
-        engine->_state = EState::kStarted;
     }
 
     LOGD("BGJSV8Engine: transitioning to ready state [OK]");
@@ -1856,6 +1856,13 @@ jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
 
 jobject BGJSV8Engine::jniRequire(JNIEnv *env, jobject obj, jstring file) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+
+    if(engine->_state != EState::kStarted) {
+        jthrowable throwable = (jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId,
+                                                       JNIWrapper::string2jstring("Engine is not started"),
+                                                       nullptr);
+        env->Throw(throwable);
+    }
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
