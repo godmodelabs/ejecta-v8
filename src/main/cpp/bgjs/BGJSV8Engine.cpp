@@ -26,6 +26,12 @@
 
 #define LOG_TAG    "BGJSV8Engine-jni"
 
+#define THROW_IF_NOT_STARTED()\
+if(engine->_state != EState::kStarted) {\
+jthrowable throwable = (jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId, JNIWrapper::string2jstring("Engine is not started"), nullptr);\
+env->Throw(throwable);\
+}
+
 using namespace v8;
 
 // We can only dump one Isolate's heap at a time
@@ -1318,8 +1324,6 @@ void BGJSV8Engine::start(const Options* options) {
 }
 
 void BGJSV8Engine::shutdown() {
-    JNI_ASSERT(_state == EState::kStopping || _state == EState::kStopped, "BGJSV8Engine::start must only be stopped once");
-    _state = EState::kStopping;
     uv_async_send(&_uvEventStop);
 }
 
@@ -1360,10 +1364,7 @@ void BGJSV8Engine::StartLoopThread(void *arg) {
 
     engine->registerModule("canvas", BGJSGLModule::doRequire);
 
-    // engine might have been requested to stop in the meantime
-    if(engine->_state == EState::kStarting) {
-        engine->_state = EState::kStarted;
-    }
+    engine->_state = EState::kStarted;
 
     JNIEnv* env = JNIWrapper::getEnvironment();
     env->CallVoidMethod(engine->getJObject(), engine->_jniV8Engine.onReadyId);
@@ -1385,7 +1386,7 @@ void BGJSV8Engine::StartLoopThread(void *arg) {
 
 void BGJSV8Engine::StopLoopThread(uv_async_t *handle) {
     auto *engine = (BGJSV8Engine*)handle->data;
-    JNI_ASSERT(engine->_state == EState::kStopping, "BGJSV8Engine encountered unexpected state while stopping EventLoop");
+    engine->_state = EState::kStopping;
     uv_stop(&engine->_uvLoop);
 }
 
@@ -1801,10 +1802,10 @@ void BGJSV8Engine::jniShutdown(JNIEnv *env, jobject obj) {
 }
 
 jstring BGJSV8Engine::jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn) {
-    const char *path = env->GetStringUTFChars(pathToSaveIn, 0);
-
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
+    const char *path = env->GetStringUTFChars(pathToSaveIn, 0);
     const char *outPath = engine->enqueueMemoryDump(path);
 
     env->ReleaseStringUTFChars(pathToSaveIn, path);
@@ -1818,6 +1819,7 @@ jstring BGJSV8Engine::jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn
 
 void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1836,6 +1838,7 @@ void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject functi
 
 jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1856,13 +1859,7 @@ jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
 
 jobject BGJSV8Engine::jniRequire(JNIEnv *env, jobject obj, jstring file) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
-
-    if(engine->_state != EState::kStarted) {
-        jthrowable throwable = (jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId,
-                                                       JNIWrapper::string2jstring("Engine is not started"),
-                                                       nullptr);
-        env->Throw(throwable);
-    }
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1884,6 +1881,7 @@ jobject BGJSV8Engine::jniRequire(JNIEnv *env, jobject obj, jstring file) {
 
 jlong BGJSV8Engine::jniLock(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     auto *locker = new Locker(isolate);
@@ -1893,6 +1891,7 @@ jlong BGJSV8Engine::jniLock(JNIEnv *env, jobject obj) {
 
 jobject BGJSV8Engine::jniGetGlobalObject(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1912,6 +1911,7 @@ void BGJSV8Engine::jniUnlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
 
 jobject BGJSV8Engine::jniRunScript(JNIEnv *env, jobject obj, jstring script, jstring name) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1947,6 +1947,7 @@ void BGJSV8Engine::jniRegisterModuleNative(JNIEnv *env, jobject obj, jobject mod
 
 jobject BGJSV8Engine::jniGetConstructor(JNIEnv *env, jobject obj, jstring canonicalName) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
