@@ -117,11 +117,11 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     init {
         if (args != null) {
             // Was constructed in JS, parse parameters
-            if (args.size > 2) {
-                throw V8JSException(v8Engine, "TypeError", "Request needs no, one or two parameters: Request(input, init)")
-
-            }
-            if (args.isNotEmpty()) {
+            if (args.isEmpty()) {
+                throw V8JSException(v8Engine, "TypeError", "Failed to construct 'Request': 1 argument required, but only 0 present.")
+            } else if (args.size > 2) {
+                throw V8JSException(v8Engine, "TypeError", "Request needs one or two parameters: Request(input, init)")
+            } else {
                 setDefaultHeaders()
                 val input = args[0]
                 if (input is String) {
