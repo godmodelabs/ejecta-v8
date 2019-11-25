@@ -77,11 +77,11 @@ public class V8Engine extends JNIObject {
         void onReady();
     }
 
-    public V8Engine(final @NonNull Context application) {
+    public void start(final @NonNull Context application) {
         _initialize(application, "node_modules/");
     }
 
-    public V8Engine(final @NonNull Context application, String commonJSPath) {
+    public void start(final @NonNull Context application, String commonJSPath) {
         _initialize(application, commonJSPath);
     }
 
