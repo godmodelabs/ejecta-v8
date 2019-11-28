@@ -6,6 +6,8 @@ import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
 import okhttp3.Headers
 import okhttp3.Request
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -33,6 +35,11 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     private fun normalizePotentialValue(ptValue: Any?): String {
         return when (ptValue) {
             is JNIV8Array -> ptValue.joinToString(",")
+            is Double -> {
+                val format = DecimalFormat("#.#")
+                format.decimalFormatSymbols = DecimalFormatSymbols(Locale.ENGLISH)
+                return format.format(ptValue)
+            }
             null -> "null"
             else -> {
                 if (ptValue.toString().contains(ZERO_BYTE) || ptValue.toString().contains('\n') || ptValue.toString().contains('\r')) {
@@ -61,9 +68,11 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
         if (currentList == null) {
             currentList = ArrayList()
-            headers[name] = currentList
+        } else {
+            headers.remove(name)
         }
         currentList.add(value)
+        headers[name] = currentList
     }
 
     /**
@@ -114,7 +123,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
 
     @V8Function(symbol = V8Symbols.ITERATOR)
     fun iterator() : JNIV8Iterator {
-        val it = headers.entries.iterator()
+        val it = headers.entries.reversed().iterator()
         return JNIV8Iterator(v8Engine, object: Iterator<Any> {
             override fun hasNext(): Boolean {
                 return it.hasNext()
