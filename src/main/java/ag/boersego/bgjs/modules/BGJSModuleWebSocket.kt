@@ -97,6 +97,7 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
                         closeEvent.setV8Field("reason", reason)
                         onclose?.callAsV8Function(closeEvent)
                         closeEvent.dispose()
+                        onclose = null
                     }
                     onClose()
                     socket = null
@@ -187,6 +188,7 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     closeEvent.setV8Field("reason", "suspend")
                     onclose?.callAsV8Function(closeEvent)
                     closeEvent.dispose()
+                    onclose = null
                 }
                 _readyState = ReadyState.CLOSED
 
