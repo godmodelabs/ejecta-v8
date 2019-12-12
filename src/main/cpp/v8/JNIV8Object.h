@@ -28,12 +28,12 @@ v8::Local<L> localRef = v8::Local<v8::Object>::New(isolate, ptr->getJSObject()).
 
 #define ThrowV8RangeError(msg)\
 v8::Isolate::GetCurrent()->ThrowException(v8::Exception::RangeError(\
-v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
+v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()).ToLocalChecked())\
 );
 
 #define ThrowV8TypeError(msg)\
 v8::Isolate::GetCurrent()->ThrowException(v8::Exception::TypeError(\
-v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()))\
+v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), (msg).c_str()).ToLocalChecked())\
 );
 
 #define ThrowJNICastError(msg)\

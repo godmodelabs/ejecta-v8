@@ -205,7 +205,7 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
 
     MaybeLocal<Value> result = engine->require(
-            JNIV8Marshalling::v8string2string(args[0]->ToString(isolate)));
+            JNIV8Marshalling::v8string2string(args[0]->ToString(isolate->GetCurrentContext()).ToLocalChecked()));
     if (!result.IsEmpty()) {
         args.GetReturnValue().Set(scope.Escape(result.ToLocalChecked()));
     }
@@ -288,9 +288,9 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() const {
     Handle<Value> args[] = {};
 
     Local<Function> makeJavaErrorFn = Local<Function>::New(_isolate, _makeJavaErrorFn);
-    Local<Object> result = makeJavaErrorFn->Call(context->Global(), 0, args).As<Object>();
+    Local<Object> result = makeJavaErrorFn->Call(context, context->Global(), 0, args).ToLocalChecked().As<Object>();
 
-    auto privateKey = v8::Private::ForApi(_isolate, v8::String::NewFromUtf8(_isolate, "JavaErrorExternal"));
+    auto privateKey = v8::Private::ForApi(_isolate, v8::String::NewFromUtf8(_isolate, "JavaErrorExternal").ToLocalChecked());
     result->SetPrivate(context, privateKey, External::New(_isolate, holder));
 
     holder->throwable = (jthrowable) env->NewGlobalRef(e);
@@ -335,7 +335,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<
     if (exception->IsObject()) {
         exceptionObj = exception.As<Object>();
         auto privateKey = v8::Private::ForApi(_isolate, v8::String::NewFromUtf8(_isolate,
-                                                                                "JavaErrorExternal"));
+                                                                                "JavaErrorExternal").ToLocalChecked());
         maybeValue = exceptionObj->GetPrivate(context, privateKey);
         if (maybeValue.ToLocal(&value) && value->IsExternal()) {
             BGJSV8EngineJavaErrorHolder *holder = static_cast<BGJSV8EngineJavaErrorHolder *>(value.As<External>()->Value());
@@ -371,7 +371,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<
                                                                                  NewStringType::kInternalized).ToLocalChecked());
         if (maybeValue.ToLocal(&value) && value->IsString()) {
             strExceptionMessage = JNIV8Marshalling::v8string2string(
-                    maybeValue.ToLocalChecked()->ToString(_isolate));
+                    maybeValue.ToLocalChecked()->ToString(_isolate->GetCurrentContext()).ToLocalChecked());
         }
 
         // retrieve error name (e.g. "SyntaxError")
@@ -380,7 +380,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<
                                                                                  NewStringType::kInternalized).ToLocalChecked());
         if (maybeValue.ToLocal(&value) && value->IsString()) {
             strErrorName = JNIV8Marshalling::v8string2string(
-                    maybeValue.ToLocalChecked()->ToString(_isolate));
+                    maybeValue.ToLocalChecked()->ToString(_isolate->GetCurrentContext()).ToLocalChecked());
         }
 
         // the stack trace for syntax errors does not contain the location of the actual error
@@ -483,7 +483,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<
 
     // if exception was not an Error object, or if .message is not set for some reason => use toString()
     if (!exceptionMessage) {
-        exceptionMessage = JNIWrapper::string2jstring(messagePrefix + JNIV8Marshalling::v8string2string(exception->ToString(_isolate)));
+        exceptionMessage = JNIWrapper::string2jstring(messagePrefix + JNIV8Marshalling::v8string2string(exception->ToString(_isolate->GetCurrentContext()).ToLocalChecked()));
     }
 
     // apply trace to js exception
@@ -518,11 +518,11 @@ void BGJSV8Engine::JavaModuleRequireCallback(BGJSV8Engine *engine, v8::Handle<v8
     HandleScope scope(isolate);
     Local<Context> context = engine->getContext();
 
-    MaybeLocal<Value> maybeLocal = target->Get(context, String::NewFromUtf8(isolate, "id"));
+    MaybeLocal<Value> maybeLocal = target->Get(context, String::NewFromUtf8(isolate, "id").ToLocalChecked());
     if (maybeLocal.IsEmpty()) {
         return;
     }
-    std::string moduleId = JNIV8Marshalling::v8string2string(maybeLocal.ToLocalChecked()->ToString(isolate));
+    std::string moduleId = JNIV8Marshalling::v8string2string(maybeLocal.ToLocalChecked()->ToString(isolate->GetCurrentContext()).ToLocalChecked());
 
     jobject module = engine->_javaModules.at(moduleId);
 
@@ -640,7 +640,7 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
                                 &origin
                         ).ToLocalChecked()->Run(context).ToLocalChecked()
                 );
-        baseRequireFn = v8::FunctionTemplate::New(_isolate, RequireCallback)->GetFunction();
+        baseRequireFn = v8::FunctionTemplate::New(_isolate, RequireCallback)->GetFunction(_isolate->GetCurrentContext()).ToLocalChecked();
         _makeRequireFn.Reset(_isolate, makeRequireFn);
         _requireFn.Reset(_isolate, baseRequireFn);
     } else {
@@ -648,8 +648,8 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
         baseRequireFn = Local<Function>::New(_isolate, _requireFn);
     }
 
-    Handle<Value> args[] = {baseRequireFn, String::NewFromUtf8(_isolate, pathName.c_str())};
-    Local<Value> result = makeRequireFn->Call(context->Global(), 2, args);
+    Handle<Value> args[] = {baseRequireFn, String::NewFromUtf8(_isolate, pathName.c_str()).ToLocalChecked()};
+    Local<Value> result = makeRequireFn->Call(context, context->Global(), 2, args).ToLocalChecked();
     return handle_scope.Escape(Local<Function>::Cast(result));
 }
 
@@ -692,12 +692,12 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
         if (module) {
             Local<Object> exportsObj = Object::New(_isolate);
             Local<Object> moduleObj = Object::New(_isolate);
-            moduleObj->Set(String::NewFromUtf8(_isolate, "id"),
-                           String::NewFromUtf8(_isolate, baseNameStr.c_str()));
-            moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+            moduleObj->Set(context, String::NewFromUtf8(_isolate, "id").ToLocalChecked(),
+                           String::NewFromUtf8(_isolate, baseNameStr.c_str()).ToLocalChecked());
+            moduleObj->Set(context, String::NewFromUtf8(_isolate, "exports").ToLocalChecked(), exportsObj);
 
             module(this, moduleObj);
-            result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
+            result = moduleObj->Get(context, String::NewFromUtf8(_isolate, "exports").ToLocalChecked()).ToLocalChecked();
             _moduleCache[baseNameStr].Reset(_isolate, result);
             return handle_scope.Escape(result);
         } else {
@@ -744,12 +744,13 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
         } else {
             // Parse the package.json
             // Create a string containing the JSON source
-            source = String::NewFromUtf8(_isolate, buf);
+            source = String::NewFromUtf8(_isolate, buf).ToLocalChecked();
             Handle<Value> res;
             MaybeLocal<Value> maybeRes = parseJSON(source);
-            Handle<String> mainStr = String::NewFromUtf8(_isolate, (const char *) "main");
-            if (maybeRes.ToLocal(&res) && res->IsObject() && res.As<Object>()->Has(mainStr)) {
-                Handle<String> jsFileName = res.As<Object>()->Get(mainStr)->ToString(_isolate);
+            Handle<String> mainStr = String::NewFromUtf8(_isolate, (const char *) "main").ToLocalChecked();
+            const bool hasMain = (maybeRes.ToLocal(&res) && res->IsObject()) ? res.As<Object>()->Has(context, mainStr).FromMaybe(false) : false;
+            if (hasMain) {
+                Handle<String> jsFileName = res.As<Object>()->Get(context, mainStr).ToLocalChecked()->ToString(context).ToLocalChecked();
                 String::Utf8Value jsFileNameC(_isolate, jsFileName);
 
                 fileName = baseNameStr + "/" + *jsFileNameC;
@@ -776,13 +777,13 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
     if (!buf) {
         _isolate->ThrowException(v8::Exception::Error(
-                String::NewFromUtf8(_isolate, ("Cannot find module '" + baseNameStr + "'").c_str())));
+                String::NewFromUtf8(_isolate, ("Cannot find module '" + baseNameStr + "'").c_str()).ToLocalChecked()));
         return maybeLocal;
     }
 
     if (isJson) {
         // Create a string containing the JSON source
-        source = String::NewFromUtf8(_isolate, buf);
+        source = String::NewFromUtf8(_isolate, buf).ToLocalChecked();
         MaybeLocal<Value> res = parseJSON(source);
         free((void *) buf);
         if (res.IsEmpty()) return res;
@@ -796,10 +797,10 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     const char *szSourcePostfix = "\n})";
     source = String::Concat(_isolate,
             String::Concat(_isolate,
-                    String::NewFromUtf8(_isolate, szSourcePrefix),
-                    String::NewFromUtf8(_isolate, buf)
+                    String::NewFromUtf8(_isolate, szSourcePrefix).ToLocalChecked(),
+                    String::NewFromUtf8(_isolate, buf).ToLocalChecked()
             ),
-            String::NewFromUtf8(_isolate, szSourcePostfix)
+            String::NewFromUtf8(_isolate, szSourcePostfix).ToLocalChecked()
     );
     free((void *) buf);
 
@@ -822,21 +823,21 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+        moduleObj->Set(context, String::NewFromUtf8(_isolate, "id").ToLocalChecked(), String::NewFromUtf8(_isolate, fileName.c_str()).ToLocalChecked());
+        moduleObj->Set(context, String::NewFromUtf8(_isolate, "exports").ToLocalChecked(), exportsObj);
 
         Handle<Value> fnModuleInitializerArgs[] = {
-                exportsObj,                                      // exports
-                requireFn,                                       // require
-                moduleObj,                                       // module
-                String::NewFromUtf8(_isolate, fileName.c_str()), // __filename
-                String::NewFromUtf8(_isolate, pathName.c_str())  // __dirname
+                exportsObj,                                                       // exports
+                requireFn,                                                        // require
+                moduleObj,                                                        // module
+                String::NewFromUtf8(_isolate, fileName.c_str()).ToLocalChecked(), // __filename
+                String::NewFromUtf8(_isolate, pathName.c_str()).ToLocalChecked()  // __dirname
         };
         Local<Function> fnModuleInitializer = Local<Function>::Cast(result);
         maybeLocal = fnModuleInitializer->Call(context, context->Global(), 5, fnModuleInitializerArgs);
 
         if (!maybeLocal.IsEmpty()) {
-            result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
+            result = moduleObj->Get(context, String::NewFromUtf8(_isolate, "exports").ToLocalChecked()).ToLocalChecked();
             _moduleCache[fileName].Reset(_isolate, result);
 
             return handle_scope.Escape(result);
@@ -871,7 +872,7 @@ void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value>
     } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(), "callback must be a function")));
+                        v8::String::NewFromUtf8(ctx->getIsolate(), "callback must be a function").ToLocalChecked()));
     }
 }
 
@@ -890,7 +891,7 @@ void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value
     } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
+                v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters").ToLocalChecked()));
     }
 }
 
@@ -909,7 +910,7 @@ void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Valu
     } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
+                        v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters").ToLocalChecked()));
     }
 }
 
@@ -1030,7 +1031,7 @@ void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackIn
     } else {
         engine->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(engine->getIsolate(), "Wrong number of parameters")));
+                        v8::String::NewFromUtf8(engine->getIsolate(), "Wrong number of parameters").ToLocalChecked()));
     }
 }
 
@@ -1110,14 +1111,13 @@ void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
 }
 
 void BGJSV8Engine::createContext() {
-    static bool isPlatformInitialized = false;
+    static std::unique_ptr<v8::Platform> defaultPlatform;
 
-    if (!isPlatformInitialized) {
-        isPlatformInitialized = true;
+    if (!defaultPlatform) {
+        defaultPlatform = v8::platform::NewDefaultPlatform();
         LOGI("Creating default platform");
-        v8::Platform *platform = v8::platform::CreateDefaultPlatform();
-        LOGD("Created default platform %p", platform);
-        v8::V8::InitializePlatform(platform);
+        LOGD("Created default platform %p", defaultPlatform.get());
+        v8::V8::InitializePlatform(defaultPlatform.get());
         LOGD("Initialized platform");
         v8::V8::Initialize();
         std::string flags = "--expose_gc --max_old_space_size=";
@@ -1142,48 +1142,48 @@ void BGJSV8Engine::createContext() {
 
     // Add methods to console function
     v8::Local<v8::FunctionTemplate> console = v8::FunctionTemplate::New(_isolate);
-    console->Set(String::NewFromUtf8(_isolate, "log"),
+    console->Set(String::NewFromUtf8(_isolate, "log").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, LogCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
-    console->Set(String::NewFromUtf8(_isolate, "debug"),
+    console->Set(String::NewFromUtf8(_isolate, "debug").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, DebugCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
-    console->Set(String::NewFromUtf8(_isolate, "info"),
+    console->Set(String::NewFromUtf8(_isolate, "info").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, InfoCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
-    console->Set(String::NewFromUtf8(_isolate, "error"),
+    console->Set(String::NewFromUtf8(_isolate, "error").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
-    console->Set(String::NewFromUtf8(_isolate, "warn"),
+    console->Set(String::NewFromUtf8(_isolate, "warn").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, ErrorCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
-    console->Set(String::NewFromUtf8(_isolate, "assert"),
+    console->Set(String::NewFromUtf8(_isolate, "assert").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, AssertCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
-    console->Set(String::NewFromUtf8(_isolate, "trace"),
+    console->Set(String::NewFromUtf8(_isolate, "trace").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
 
-    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console"), console);
+    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console").ToLocalChecked(), console);
 
     // Add methods to process function
     v8::Local<v8::FunctionTemplate> process = v8::FunctionTemplate::New(_isolate);
-    process->Set(String::NewFromUtf8(_isolate, "nextTick"),
+    process->Set(String::NewFromUtf8(_isolate, "nextTick").ToLocalChecked(),
                  v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_process_nextTick, Local<Value>(),
                                            Local<Signature>(), 0, ConstructorBehavior::kThrow));
-    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process"), process);
+    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process").ToLocalChecked(), process);
 
     // global functions
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout"),
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout").ToLocalChecked(),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "setInterval"),
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "setInterval").ToLocalChecked(),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout"),
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout").ToLocalChecked(),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval"),
+    globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval").ToLocalChecked(),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
 
@@ -1193,7 +1193,7 @@ void BGJSV8Engine::createContext() {
 
     // register global object for all required modules
     v8::Context::Scope ctxScope(context);
-    context->Global()->Set(String::NewFromUtf8(_isolate, "global"), context->Global());
+    context->Global()->Set(context, String::NewFromUtf8(_isolate, "global").ToLocalChecked(), context->Global());
 
     _context.Reset(_isolate, context);
 
@@ -1655,7 +1655,7 @@ void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
     if (args.Length() < 1) {
         isolate->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(isolate, "assert: Needs at least one parameter")));
+                        v8::String::NewFromUtf8(isolate, "assert: Needs at least one parameter").ToLocalChecked()));
         return;
     }
 

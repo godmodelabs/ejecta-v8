@@ -152,7 +152,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     memset(&jval, 0, sizeof(jvalue));
     JNIV8MarshallingError res = JNIV8Marshalling::convertV8ValueToJavaValue(env, resultRef, arg, &jval);
     if(res != JNIV8MarshallingError::kOk) {
-        std::string strMethodName = JNIV8Marshalling::v8string2string(ptr->getJSObject().As<v8::Function>()->GetDebugName()->ToString(isolate));
+        std::string strMethodName = JNIV8Marshalling::v8string2string(ptr->getJSObject().As<v8::Function>()->GetDebugName()->ToString(isolate->GetCurrentContext()).ToLocalChecked());
         switch(res) {
             default:
             case JNIV8MarshallingError::kWrongType:
@@ -172,7 +172,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
                 break;
             case JNIV8MarshallingError::kOutOfRange:
                 ThrowV8RangeError("return value '"+
-                                  JNIV8Marshalling::v8string2string(resultRef->ToString(isolate))+"' is out of range for method '" + strMethodName + "'");
+                                  JNIV8Marshalling::v8string2string(resultRef->ToString(isolate->GetCurrentContext()).ToLocalChecked())+"' is out of range for method '" + strMethodName + "'");
                 break;
         }
         return nullptr;
@@ -192,7 +192,7 @@ v8::MaybeLocal<v8::Function> JNIV8Function::getJNIV8FunctionBaseFunction() {
     v8::Local<v8::Value> localRef;
 
     // first we check if the function is already store in a private of the context
-    auto privateKey = v8::Private::ForApi(isolate, v8::String::NewFromUtf8(isolate, "JNIV8FunctionWrapper"));
+    auto privateKey = v8::Private::ForApi(isolate, v8::String::NewFromUtf8(isolate, "JNIV8FunctionWrapper").ToLocalChecked());
     auto privateValue = context->Global()->GetPrivate(context, privateKey);
     if (privateValue.ToLocal(&localRef) && localRef->IsFunction()) {
         return scope.Escape(localRef.As<v8::Function>());
