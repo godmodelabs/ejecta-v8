@@ -174,7 +174,7 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<Name> property, Local<Va
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
                     ThrowV8RangeError("assigned value '"+
-                                      JNIV8Marshalling::v8string2string(value->ToString(isolate))+"' is out of range for property '" + cb->propertyName + "'");
+                                      JNIV8Marshalling::v8string2string(value->ToString(isolate->GetCurrentContext()).ToLocalChecked())+"' is out of range for property '" + cb->propertyName + "'");
                     break;
             }
             return;
@@ -233,7 +233,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
     }
 
     if(!signature) {
-        isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, ("invalid number of arguments (" + std::to_string(args.Length()) + ") supplied to " + cb->methodName).c_str())));
+        isolate->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, ("invalid number of arguments (" + std::to_string(args.Length()) + ") supplied to " + cb->methodName).c_str()).ToLocalChecked()));
         return;
     }
 
@@ -289,7 +289,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
                             break;
                         case JNIV8MarshallingError::kOutOfRange:
                             ThrowV8RangeError("value '"+
-                                              JNIV8Marshalling::v8string2string(value->ToString(isolate))+"' is out of range for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
+                                              JNIV8Marshalling::v8string2string(value->ToString(isolate->GetCurrentContext()).ToLocalChecked())+"' is out of range for argument #" + std::to_string(idx) + " of '" + cb->methodName + "'");
                             break;
                     }
                     return;
@@ -617,7 +617,7 @@ void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) 
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
-    holder->javaClass = (jclass)env->NewGlobalRef(env->FindClass(container->canonicalName.c_str()));;
+    holder->javaClass = (jclass)env->NewGlobalRef(env->FindClass(container->canonicalName.c_str()));
     javaCallbackHolders.push_back(holder);
 
     Local<External> data = External::New(isolate, (void*)holder);
@@ -625,8 +625,8 @@ void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) 
     Local<Name> nameRef = _makeName(holder->methodName);
 
     if(holder->isStatic) {
-        Local<Function> f = ft->GetFunction();
-        f->Set(nameRef, FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
+        Local<Function> f = ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
+        f->Set(isolate->GetCurrentContext(), nameRef, FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -664,7 +664,7 @@ void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder
     Local<Name> nameRef = _makeName(holder->propertyName);
 
     if(holder->isStatic) {
-        Local<Function> f = ft->GetFunction();
+        Local<Function> f = ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
         f->SetAccessor(engine->getContext(), nameRef,
                        v8JavaAccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
@@ -688,9 +688,9 @@ void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     Local<Name> nameRef = _makeName(holder->methodName);
 
     if(holder->isStatic) {
-        Local<Function> f = ft->GetFunction();
-        f->Set(nameRef,
-               FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
+        Local<Function> f = ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
+        f->Set(isolate->GetCurrentContext(), nameRef,
+               FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -723,7 +723,7 @@ void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
     Local<Name> nameRef = _makeName(holder->propertyName);
 
     if(holder->isStatic) {
-        Local<Function> f = ft->GetFunction();
+        Local<Function> f = ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
         f->SetAccessor(engine->getContext(), nameRef,
                        v8AccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
@@ -746,7 +746,7 @@ v8::Local<v8::Object> JNIV8ClassInfo::newInstance() const {
 
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
 
-    return handleScope.Escape(ft->InstanceTemplate()->NewInstance());
+    return handleScope.Escape(ft->InstanceTemplate()->NewInstance(isolate->GetCurrentContext()).ToLocalChecked());
 }
 
 v8::Local<v8::Function> JNIV8ClassInfo::getConstructor() const {
@@ -754,5 +754,5 @@ v8::Local<v8::Function> JNIV8ClassInfo::getConstructor() const {
     Isolate* isolate = engine->getIsolate();
     EscapableHandleScope scope(isolate);
     auto ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
-    return scope.Escape(ft->GetFunction());
+    return scope.Escape(ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
 }
