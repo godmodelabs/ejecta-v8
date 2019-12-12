@@ -613,7 +613,7 @@ void JNIV8ClassInfo::registerStaticAccessor(const EJNIV8ObjectSymbolType symbol,
 void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
-
+    Local<Context> context = engine->getContext();
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
@@ -625,8 +625,8 @@ void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) 
     Local<Name> nameRef = _makeName(holder->methodName);
 
     if(holder->isStatic) {
-        Local<Function> f = ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
-        f->Set(isolate->GetCurrentContext(), nameRef, FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
+        Local<Function> f = ft->GetFunction(context).ToLocalChecked();
+        f->Set(context, nameRef, FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction(context).ToLocalChecked());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -679,6 +679,7 @@ void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder
 void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
+    Local<Context> context = engine->getContext();
 
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
 
@@ -688,9 +689,9 @@ void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     Local<Name> nameRef = _makeName(holder->methodName);
 
     if(holder->isStatic) {
-        Local<Function> f = ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
-        f->Set(isolate->GetCurrentContext(), nameRef,
-               FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
+        Local<Function> f = ft->GetFunction(context).ToLocalChecked();
+        f->Set(context, nameRef,
+               FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction(context).ToLocalChecked());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -706,7 +707,7 @@ void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
 void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
     Isolate* isolate = engine->getIsolate();
     HandleScope scope(isolate);
-
+    Local<Context> context = engine->getContext();
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
 
     accessorHolders.push_back(holder);
@@ -723,8 +724,8 @@ void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
     Local<Name> nameRef = _makeName(holder->propertyName);
 
     if(holder->isStatic) {
-        Local<Function> f = ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
-        f->SetAccessor(engine->getContext(), nameRef,
+        Local<Function> f = ft->GetFunction(context).ToLocalChecked();
+        f->SetAccessor(context, nameRef,
                        v8AccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
     } else {
@@ -742,17 +743,19 @@ v8::Local<v8::Object> JNIV8ClassInfo::newInstance() const {
 
     Isolate::Scope scope(isolate);
     EscapableHandleScope handleScope(isolate);
-    Context::Scope ctxScope(engine->getContext());
+    Local<Context> context = engine->getContext();
+    Context::Scope ctxScope(context);
 
     Local<FunctionTemplate> ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
 
-    return handleScope.Escape(ft->InstanceTemplate()->NewInstance(isolate->GetCurrentContext()).ToLocalChecked());
+    return handleScope.Escape(ft->InstanceTemplate()->NewInstance(context).ToLocalChecked());
 }
 
 v8::Local<v8::Function> JNIV8ClassInfo::getConstructor() const {
     assert(container->type == JNIV8ObjectType::kPersistent);
     Isolate* isolate = engine->getIsolate();
     EscapableHandleScope scope(isolate);
+    Local<Context> context = engine->getContext();
     auto ft = Local<FunctionTemplate>::New(isolate, functionTemplate);
-    return scope.Escape(ft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
+    return scope.Escape(ft->GetFunction(context).ToLocalChecked());
 }
