@@ -20,9 +20,9 @@ It also needs a precompiled, statically linked version of libuv.
 
 # Getting v8 & uv libraries
 
-## Precompiled from dropbox
-1. Download the precompiled libs from [CloudApp](https://cl.ly/db30380c3537)
-2. Unpack into libs/
+## Precompiled from DropBox
+1. Download the precompiled libs from [DropBox](https://www.dropbox.com/s/d27e0xe4ozytu0l/v8-7.9.317.zip?dl=0)
+2. Unpack and copy libs/ into libs/ and include/ into include/
 
 The libs/v8 folder should look like this:
 ```bash
@@ -38,11 +38,18 @@ The folders in livs/uv should be the same.
 
 Coming soon.
 
+##Important notes:
+1. Use 64 bit linux, was used ubuntu-18.04.3-live-server-amd64.iso,  `sudo apt-get -y install git cmake python unzip pkg-config clang-8 wget`
+2. Do not configure & compile using root
+3. Do not configure & compile using script
+4. Do not use `d8`, custom `libc++`, manual linking(std namespace must use stable, static ABI, i.e. `::__ndk::` internal namespace. NOT a  `::__::` or  `::__1::` or  `::__Cr::`).
+5. Make sure to add/use extra args when configuring & compiling to same `host_cpu` and `target_cpu`, in this example it's `x64`
+
 ## Building v8 from sources
 
-We need NDK r15c. We assume it to be in $NDKPATH:
+We need NDK r20b. We assume it to be in $NDKPATH:
 
-`export ANDROID_NDK_HOME=~/bin/android-ndk-r14b` (or wherever you installed it to). Don't forget to add it to the path:
+`export ANDROID_NDK_HOME=~/android-ndk-r20b` (or wherever you installed it to). Don't forget to add it to the path:
 `export PATH=$PATH:$ANDROID_NDK_HOME`
 
 For steps 1 and 2 see also the [v8 project documentation](https://github.com/v8/v8/wiki/Using%20Git).
@@ -50,24 +57,22 @@ For steps 1 and 2 see also the [v8 project documentation](https://github.com/v8/
 1. [get depot_tools](https://www.chromium.org/developers/how-tos/install-depot-tools)
 2. Get the sources: `fetch v8`
 3. `cd v8`
-4. Checkout correct revision: `git checkout origin/6.5.254.28`
+4. Checkout correct revision: `git checkout 7.9.317.29`
 5. `echo "target_os = ['android']" >> ../.gclient && gclient sync --nohooks` as [described on v8 wiki](https://github.com/v8/v8/wiki/D8%20on%20Android)
-6. If compiling on Linux, add missing deps: `sudo apt-get install libc6-dev-i386 g++-multilib` (because compiling errors with some missed libraries)
-7. `mkdir out.gn`
-8. Create GN build configuration for each ABI. Here for a debug armv7a build: `gn gen out.gn/arm.debug --args='is_debug=true is_clang=true is_component_build=true target_os="android" v8_enable_i18n_support=false v8_target_cpu="arm" target_cpu="arm" host_cpu="x64" v8_use_snapshot=false symbol_level=1 v8_enable_verify_heap=true'`
-..* For a release x86 (32 bit) build with a custom NDK (I couldn't successfully compile with the patched NDK shipped with v8): gn gen out.gn/x86.release --args='is_debug=false is_clang=true is_component_build=true target_os="android" v8_enable_i18n_support=false v8_target_cpu="x86" target_cpu="x86" host_cpu="x64" android_ndk_version="r15c" android_ndk_major_version=15 v8_use_snapshot=false v8_enable_verify_heap=true android_ndk_root="$ANDROID_NDK_HOME"
-..* You can replace arm with arm64, x86 or x64.
-9. Build with ninja: `ninja -C out.gn/arm.debug d8`
-10. Go into output folder: `cd out.gn/arm.debug/obj`
-11. Create a static archive from the resulting object files: `$ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-ar rcvs libv8.a v8/*.o v8_base/*.o v8_libbase/*.o v8_libsampler/*.o v8_nosnapshot/*.o v8_libplatform/*.o v8_libsampler/*.o v8_init/*.o v8_initializers/*.o`
-..* For arm64, use `$ANDROID_NDK_HOME/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-ar rcvs libv8.a v8/*.o v8_base/*.o v8_libbase/*.o v8_libsampler/*.o v8_nosnapshot/*.o v8_libplatform/*.o v8_libsampler/*.o v8_init/*.o v8_initializers/*.o`
-..* For x86 use `$ANDROID_NDK_HOME/toolchains/x86-4.9/prebuilt/linux-x86_64/bin/i686-linux-android-ar rcvs libv8.a v8/*.o v8_base/*.o v8_libbase/*.o v8_libsampler/*.o v8_nosnapshot/*.o v8_libplatform/*.o v8_libsampler/*.o v8_init/*.o v8_initializers/*.o`
-..* For X86-64 use `$ANDROID_NDK_HOME/toolchains/x86_64-4.9/prebuilt/linux-x86_64/bin/x86_64-linux-android-a rcvs libv8.a v8/*.o v8_base/*.o v8_libbase/*.o v8_libsampler/*.o v8_nosnapshot/*.o v8_libplatform/*.o v8_libsampler/*.o v8_init/*.o v8_initializers/*.o`
-12. Optionally strip debug symbols. I have never gotten meaningful stack
-traces out of these anyway, and it speeds linking times up considerably and
-saves about one GB of space per ABI: `$ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-strip --strip-debug libv8.a`
-13. Copy resulting libv8.a into the folder where ndk-build expects it: `cp
-libv8.a $PATH_TO_YOUR_EJECTAV8_CHECKOUT/bgjslibrary/jni/libs/$ABI` where
+6. Create GN build configuration for each ABI.
+### x64
+`gn gen out.gn/x64.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="x64" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="x64" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" libcxx_abi_unstable=false use_sysroot=false use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
+`ninja -C out.gn/x64.release v8_monolith`
+### arm
+`gn gen out.gn/arm.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="arm" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="arm" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
+`ninja -C out.gn/arm.release v8_monolith`
+### arm64
+`gn gen out.gn/arm64.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="arm64" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="arm64" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
+`ninja -C out.gn/arm64.release v8_monolith`
+### x86
+`gn gen out.gn/x86.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="x86" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="x86" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
+`ninja -C out.gn/x86.release v8_monolith`
+7. Copy and rename resulting libv8_monolith.a into the folder where ndk-build expects it: `cp libv8_monolith.a $PATH_TO_YOUR_EJECTAV8_CHECKOUT/bgjslibrary/jni/libs/$ABI/libv8.a` where
 $ABI is either armeabi-v7a, arm64-v8a, x86 or x86_64.
 
 Steps 8-14 can be repeated as mentioned for each ABI you want to support. Step 8 can set is_debug to false of course. 
