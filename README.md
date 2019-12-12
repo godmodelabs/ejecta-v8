@@ -21,8 +21,8 @@ It also needs a precompiled, statically linked version of libuv.
 # Getting v8 & uv libraries
 
 ## Precompiled from DropBox
-1. Download the precompiled libs from [DropBox](https://www.dropbox.com/s/d27e0xe4ozytu0l/v8-7.9.317.zip?dl=0)
-2. Unpack and copy libs/ into libs/ and include/ into include/
+1. Download the precompiled libs from [DropBox](https://www.dropbox.com/s/0ijd6uamaohy4xa/ejecta-v8-libs.zip?dl=1)
+2. Unpack into libs/
 
 The libs/v8 folder should look like this:
 ```bash
@@ -39,7 +39,7 @@ The folders in livs/uv should be the same.
 Coming soon.
 
 ##Important notes:
-1. Use 64 bit linux, was used ubuntu-18.04.3-live-server-amd64.iso,  `sudo apt-get -y install git cmake python unzip pkg-config clang-8 wget`
+1. Use 64 bit linux, was used ubuntu-18.04.3-live-server-amd64.iso, `sudo apt-get -y install git cmake python unzip pkg-config clang-8 wget`
 2. Do not configure & compile using root
 3. Do not configure & compile using script
 4. Do not use `d8`, custom `libc++`, manual linking(std namespace must use stable, static ABI, i.e. `::__ndk::` internal namespace. NOT a  `::__::` or  `::__1::` or  `::__Cr::`).
@@ -75,7 +75,7 @@ For steps 1 and 2 see also the [v8 project documentation](https://github.com/v8/
 7. Copy and rename resulting libv8_monolith.a into the folder where ndk-build expects it: `cp libv8_monolith.a $PATH_TO_YOUR_EJECTAV8_CHECKOUT/bgjslibrary/jni/libs/$ABI/libv8.a` where
 $ABI is either armeabi-v7a, arm64-v8a, x86 or x86_64.
 
-Steps 8-14 can be repeated as mentioned for each ABI you want to support. Step 8 can set is_debug to false of course. 
+Steps 6-7 can be repeated as mentioned for each ABI you want to support. Step 7 can set is_debug to false of course. 
 
 # Building the sample
 
