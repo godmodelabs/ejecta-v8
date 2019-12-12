@@ -80,10 +80,6 @@ void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // the provided JS object reference!
     jniV8Object->_jsObject.ClearWeak();
 
-    //TODO: replace deleted method.
-    //jniV8Object->_jsObject.MarkActive();
-
-
     // we are only holding the object because java/native is still alive, v8 can not gc it anymore
     // => adjust external memory counter
     jniV8Object->_bgjsEngine->getIsolate()->AdjustAmountOfExternalAllocatedMemory(-jniV8Object->_externalMemory);
@@ -98,9 +94,6 @@ void JNIV8Object::makeWeak() {
     // they can be destroyed / gced from java at any time, and there can exist multiple
     if(_v8ClassInfo->container->type == JNIV8ObjectType::kWrapper || _jsObject.IsWeak()) return;
     _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kFinalizer);
-
-    //TODO: replace deleted method.
-    //_jsObject.MarkIndependent();
 
     // create a strong reference to the java object as long as the JS object is referenced from somewhere
     retainJObject();
@@ -491,7 +484,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        string = JNIV8Marshalling::v8string2jstring(valueRef->ToString(isolate->GetCurrentContext()).ToLocalChecked());
+        string = JNIV8Marshalling::v8string2jstring(valueRef->ToString(context).ToLocalChecked());
         if(!result) {
             result = env->NewObjectArray(n, _jniString.clazz, string);
         } else {
@@ -530,7 +523,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        keyRef = valueRef->ToString(isolate->GetCurrentContext()).ToLocalChecked();
+        keyRef = valueRef->ToString(context).ToLocalChecked();
 
         maybeValueRef = localRef->Get(context, keyRef);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {
