@@ -1499,8 +1499,7 @@ void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
                 // and might end up "all over the place" if we were to throw them directly on the current thread
                 // also, the event looper thread could end up here during initialization or when triggering timeouts;
                 // and it is NOT set up to log or otherwise handle exceptions! they would simply "disappear" if thrown there..
-                engine->forwardV8ExceptionToJNI("Unhandled rejected promise: ", exception,
-                                                v8::Exception::CreateMessage(isolate, exception), true);
+                LOG(LOG_ERROR, "Unhandled rejected promise: %s", engine->toDebugString(exception).c_str());
             }
         }
         holder->value.Reset();
