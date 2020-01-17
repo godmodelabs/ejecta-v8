@@ -1,8 +1,10 @@
 package ag.boersego.bgjs.modules.fetch
 
+import ag.boersego.bgjs.JNIV8Function
 import ag.boersego.bgjs.JNIV8Object
 import ag.boersego.bgjs.V8Engine
 import ag.boersego.bgjs.V8JSException
+import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 
 
@@ -16,7 +18,7 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
         private set
         @V8Getter get
 
-    var eventListeners = ArrayList<EventListener>()
+    var eventListeners = ArrayList<JNIV8Function>()
 
     init {
         if (args != null) {
@@ -29,21 +31,20 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
         if (aborted) return
         aborted = true
         for (cb in eventListeners) {
-          cb.onEvent("abort")
+          cb.callAsV8Function("abort")
         }
     }
 
-
-    fun addEventListener (cb: EventListener) {
-        eventListeners.add(cb)
+    @V8Function
+    fun addEventListener (type: String, cb: JNIV8Function) {
+        if (type == "abort") {
+            eventListeners.add(cb)
+        }
     }
 
-    fun removeListener (cb: EventListener) {
-        eventListeners = eventListeners.filter { it != cb } as ArrayList<EventListener>
+    @V8Function
+    fun removeEventListener (type: String, cb: JNIV8Function) {
+        eventListeners = eventListeners.filter { it != cb && it.toString() != cb.toString()} as ArrayList<JNIV8Function>
     }
 
-}
-
-interface EventListener {
-    fun onEvent(context: String?)
 }

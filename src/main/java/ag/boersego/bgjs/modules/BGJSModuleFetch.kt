@@ -68,22 +68,24 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         timeout.timeout(request.timeout.toLong(), TimeUnit.MILLISECONDS)
 
         val signal = request.signal
-        val abortAndFinalize = object : EventListener {
-            override fun onEvent(context: String?) {
+        var abortAndFinalize :JNIV8Function? = null
+
+        abortAndFinalize = JNIV8Function.Create(v8Engine, object : JNIV8Function.Handler {
+            override fun Callback(receiver: Any, arguments: Array<out Any>) {
                 fetchResponse?.body?.close()
                 fetchResponse?.error = "abort"
                 resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
                 call.cancel()
-                signal?.removeListener(this)
-            }
-        }
+                signal?.removeEventListener("abort", abortAndFinalize!!)
+            }})
+
 
         if (signal != null) {
             if (signal.aborted) {
                 resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
                 return
             } else {
-                signal.addEventListener(abortAndFinalize)
+                signal.addEventListener("abort", abortAndFinalize!!)
             }
         }
 
@@ -92,7 +94,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
             override fun onFailure(call: Call, e: IOException) {
                 Log.d(TAG, "onFailure", e)
                 // network error or timeout
-                signal?.removeListener(abortAndFinalize)
+                signal?.removeEventListener("abort", abortAndFinalize)
                 when {
                     e is UnknownHostException -> resolver.reject(
                         fetchErrorCreator.applyAsV8Constructor(
@@ -135,7 +137,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
             override fun onResponse(call: Call, httpResponse: Response) {
                 timeout.clearTimeout()
                 if (call.isCanceled()) {
-                    signal?.removeListener(abortAndFinalize)
+                    signal?.removeEventListener("abort", abortAndFinalize)
                     return
                 }
                 fetchResponse = request.updateFrom(v8Engine, httpResponse)
@@ -152,7 +154,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                     when (request.redirect) {
                         "error" -> {
                             resolver.reject(fetchErrorCreator.applyAsV8Constructor(arrayOf("redirect mode is set to error ${request.parsedUrl}", "no-redirect")))
-                            signal?.removeListener(abortAndFinalize)
+                            signal?.removeEventListener("abort", abortAndFinalize)
                             return
                         }
 
@@ -169,7 +171,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
                                 // HTTP-redirect fetch step 5
                                 if (request.counter >= request.follow) {
-                                    signal?.removeListener(abortAndFinalize)
+                                    signal?.removeEventListener("abort", abortAndFinalize)
                                     resolver.reject(fetchErrorCreator.applyAsV8Constructor(arrayOf("maximum redirect reached at ${request.parsedUrl}", "max-redirect")))
                                     return
                                 }
@@ -221,7 +223,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                     try {
                         fetchResponse!!.body = GZIPInputStream(fetchResponse!!.body)
                     } catch (e: IOException) {
-                        signal?.removeListener(abortAndFinalize)
+                        signal?.removeEventListener("abort", abortAndFinalize)
                         resolver.reject(fetchErrorCreator.applyAsV8Constructor(arrayOf("Invalid response body while trying to fetch ${fetchResponse!!.url}: ${e.message}", "system", "Z_DATA_ERROR")))
                         return
                     }
