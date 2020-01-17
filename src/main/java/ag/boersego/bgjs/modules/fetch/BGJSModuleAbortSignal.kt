@@ -42,6 +42,10 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
         }
     }
 
+    /**
+     * @Unstable
+     * This is only a preliminary implementation, that will remove every cb with the same method body
+     */
     @V8Function
     fun removeEventListener (type: String, cb: JNIV8Function) {
         eventListeners = eventListeners.filter { it != cb && it.toString() != cb.toString()} as ArrayList<JNIV8Function>
