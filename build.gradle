@@ -48,11 +48,7 @@ android {
     }
 
     packagingOptions {
-        pickFirst '*/x86_64/*.a'
-        pickFirst '*/arm64/*.a'
-        pickFirst '*/armeabi-v7a/*.a'
-        pickFirst '*/uv/*.a'
-        pickFirst '**/libjsc.a'
+        pickFirst '**/libjsc.so'
     }
 
     externalNativeBuild {
