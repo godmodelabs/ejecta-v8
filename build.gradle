@@ -47,10 +47,6 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    packagingOptions {
-        pickFirst '**/libjsc.so'
-    }
-
     externalNativeBuild {
         cmake {
             path "CMakeLists.txt"
@@ -112,8 +108,8 @@ task distributeRelease {
 }
 
 afterEvaluate {
-    transformNativeLibsWithMergeJniLibsForDebug.finalizedBy distributeDebug
-    transformNativeLibsWithMergeJniLibsForRelease.finalizedBy distributeRelease
+    transformNativeLibsWithIntermediateJniLibsForDebug.finalizedBy distributeDebug
+    transformNativeLibsWithIntermediateJniLibsForRelease.finalizedBy distributeRelease
 }
 
 // Upload to bintray
