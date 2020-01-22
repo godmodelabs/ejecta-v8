@@ -4,3 +4,4 @@ dist
 build
 libs
 bintray.properties
+.cxx/
