@@ -78,6 +78,9 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 super.onMessage(webSocket, text)
+                if (_readyState == ReadyState.CLOSING || _readyState == ReadyState.CLOSED) {
+                    return
+                }
                 v8Engine.runLocked {
                     val data = JNIV8GenericObject.Create(v8Engine)
                     data.setV8Field("data", text)
