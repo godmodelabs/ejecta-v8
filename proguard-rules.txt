@@ -159,7 +159,7 @@
     public *;
 }
 
--keepattributes *ag.boersego.v8annotations.V8*
+-keepattributes *V8*
 
 -keep class **$V8Binding {
     public <init>(***);
