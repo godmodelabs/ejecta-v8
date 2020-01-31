@@ -258,6 +258,7 @@ public class AjaxRequest implements Runnable {
             } catch (final Exception ignored) {
             }
 
+            requestBuilder.addHeader("Origin", "service://app/android");
 
             if (mHeaders != null && !mHeaders.isEmpty()) {
                 final Set<Map.Entry<String, String>> headerSet = mHeaders.entrySet();
