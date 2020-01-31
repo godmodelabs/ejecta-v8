@@ -51,7 +51,7 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
                     // This will be investigated in the future and maybe replaced by another json framework
                     if (bodyString.startsWith("<")) throw Exception("[SyntaxError] Unexpected token < in JSON")
 
-                    resolver.resolve(v8Engine.parseJSON(bodyReader!!.readText()))
+                    resolver.resolve(v8Engine.parseJSON(bodyString))
                 } catch (e: Exception) {
                     resolver.reject((v8Engine.runScript(BGJSModuleFetch.FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function).applyAsV8Constructor(
                         arrayOf(
