@@ -45,6 +45,12 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
         if (consumeBody(resolver)) {
             if (bodyReader != null) {
                 try {
+                    val bodyString = bodyReader!!.readText()
+
+                    // The v8Engine.parseJSON() method somehow can crash without throwing exception e.g. when json starts with "<",
+                    // This will be investigated in the future and maybe replaced by another json framework
+                    if (bodyString.startsWith("<")) throw Exception("[SyntaxError] Unexpected token < in JSON")
+
                     resolver.resolve(v8Engine.parseJSON(bodyReader!!.readText()))
                 } catch (e: Exception) {
                     resolver.reject((v8Engine.runScript(BGJSModuleFetch.FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function).applyAsV8Constructor(
