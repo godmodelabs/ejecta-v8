@@ -269,6 +269,9 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             throw V8JSException(v8Engine, "TypeError", "Only HTTP(S) protocols are supported")
         }
 
+        // Origin header set for Android App (differs from fetch spec)
+        headers.set("Origin", "service://app/android")
+
         // Idea: see what node-fetch does here: https://github.com/bitinn/node-fetch/blob/master/src/request.js
 
         // Chapter 4: Fetch
