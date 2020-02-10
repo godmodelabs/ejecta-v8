@@ -37,14 +37,14 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
     private lateinit var onClose: () -> Unit
 
     override fun run() {
-        val request = Request.Builder().header("Origin","service://app/android").url(_url).build()
+        val request = Request.Builder().header("Origin", "service://app/android").url(_url).build()
         socket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 super.onOpen(webSocket, response)
-                if (_readyState == ReadyState.CLOSING || _readyState == ReadyState.CLOSED) {
-                    return
-                }
                 v8Engine.runLocked {
+                    if (_readyState == ReadyState.CLOSING || _readyState == ReadyState.CLOSED) {
+                        return@runLocked
+                    }
                     _readyState = ReadyState.OPEN
                     onopen?.callAsV8Function()
                 }
@@ -52,12 +52,12 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 super.onFailure(webSocket, t, response)
+                _readyState = ReadyState.CLOSED
 
                 v8Engine.runLocked {
                     if (DEBUG) {
                         Log.w(TAG, "onFailure:", t)
                     }
-                    _readyState = ReadyState.CLOSED
 
                     val errorEvent = JNIV8GenericObject.Create(v8Engine)
                     errorEvent.setV8Field("code", 1001)
@@ -78,10 +78,10 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 super.onMessage(webSocket, text)
-                if (_readyState == ReadyState.CLOSING || _readyState == ReadyState.CLOSED) {
-                    return
-                }
                 v8Engine.runLocked {
+                    if (_readyState == ReadyState.CLOSING || _readyState == ReadyState.CLOSED) {
+                        return@runLocked
+                    }
                     val data = JNIV8GenericObject.Create(v8Engine)
                     data.setV8Field("data", text)
 
@@ -89,10 +89,15 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 }
             }
 
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                super.onClosing(webSocket, code, reason)
+                _readyState = ReadyState.CLOSING
+            }
+
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 super.onClosed(webSocket, code, reason)
+                _readyState = ReadyState.CLOSED
                 v8Engine.runLocked {
-                    _readyState = ReadyState.CLOSED
 
                     if (onclose != null) {
                         val closeEvent = JNIV8GenericObject.Create(v8Engine)
@@ -106,18 +111,13 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     socket = null
                 }
             }
-
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                super.onClosing(webSocket, code, reason)
-
-                _readyState = ReadyState.CLOSING
-            }
         })
     }
 
     @V8Function
     @JvmOverloads
     fun close(code: Int = 1000, @V8UndefinedIsNull reason: String? = null) {
+        _readyState = ReadyState.CLOSING
         socket?.close(code, reason)
     }
 
@@ -171,7 +171,6 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
         get() = if (socket != null) socket?.queueSize()?.toInt() else 0
 
 
-
     fun setData(okHttpClient: OkHttpClient, url: String, onClose: () -> Unit) {
         this.httpClient = okHttpClient
         this._url = url
@@ -181,7 +180,8 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
     fun closeForSuspend() {
         if (_readyState != ReadyState.CLOSED &&
-                _readyState != ReadyState.CLOSING) {
+            _readyState != ReadyState.CLOSING
+        ) {
             _readyState = ReadyState.CLOSING
             v8Engine.runLocked {
 
