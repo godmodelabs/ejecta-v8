@@ -28,10 +28,10 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
         if (consumeBody(resolver)) {
             if (bodyReader != null) {
                 //TODO: Use correct JNIV8BufferArray here when it is implemented
-                resolver.resolve(JNIV8Object.Create(v8Engine, "ArrayBuffer", 0))
+                resolver.resolve(Create(v8Engine, "ArrayBuffer", 0))
                 bodyReader!!.close()
             } else {
-                resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "no body"))
+                resolver.reject(Create(v8Engine, "TypeError", "no body"))
             }
         }
 
@@ -54,7 +54,7 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
                         )))}
                 bodyReader!!.close()
             } else {
-                resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "no body"))
+                resolver.reject(Create(v8Engine, "TypeError", "no body"))
             }
         }
 
@@ -70,7 +70,7 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
                 resolver.resolve(bodyReader!!.readText())
                 bodyReader!!.close()
             } else {
-                resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "no body"))
+                resolver.reject(Create(v8Engine, "TypeError", "no body"))
             }
         }
 
@@ -79,7 +79,7 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
 
     private fun consumeBody(resolver: JNIV8Promise.Resolver): Boolean {
         if (bodyUsed) {
-            resolver.reject(JNIV8Object.Create(v8Engine, "TypeError", "body used already"))
+            resolver.reject(Create(v8Engine, "TypeError", "body used already"))
             return false
         }
         bodyUsed = true

@@ -1849,10 +1849,11 @@ jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
 
     v8::TryCatch try_catch(isolate);
     v8::MaybeLocal<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
-    if (value.IsEmpty()) {
-        engine->forwardV8ExceptionToJNI(&try_catch);
+    if (&value == nullptr || value.IsEmpty()) {
+        env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "jniParseJSON failed");
         return nullptr;
     }
+
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
