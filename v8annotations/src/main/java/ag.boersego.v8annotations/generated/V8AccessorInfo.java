@@ -1,5 +1,7 @@
 package ag.boersego.v8annotations.generated;
 
+import ag.boersego.v8annotations.V8Symbols;
+
 /**
  * Created by martin on 04.10.17.
  */
@@ -21,5 +23,5 @@ public class V8AccessorInfo {
         this.isStatic = isStatic;
         this.isNullable = isNullable;
         this.undefinedIsNull = undefinedIsNull;
-    };
-};
+    }
+}

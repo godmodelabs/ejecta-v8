@@ -32,10 +32,19 @@ import ag.boersego.v8annotations.V8ClassCreationPolicy;
 import ag.boersego.v8annotations.V8Function;
 import ag.boersego.v8annotations.V8Getter;
 import ag.boersego.v8annotations.V8Setter;
+import ag.boersego.v8annotations.V8Symbols;
 import ag.boersego.v8annotations.V8UndefinedIsNull;
 
-@SupportedAnnotationTypes("ag.boersego.v8annotations.V8Function")
-@SupportedSourceVersion(SourceVersion.RELEASE_7)
+@SupportedAnnotationTypes(
+        {
+                "ag.boersego.v8annotations.V8Class",
+                "ag.boersego.v8annotations.V8Function",
+                "ag.boersego.v8annotations.V8Getter",
+                "ag.boersego.v8annotations.V8Setter",
+                "ag.boersego.v8annotations.V8UndefinedIsNull"
+        }
+)
+@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class V8AnnotationProcessor extends AbstractProcessor {
 
     private static TypeMirror sBooleanBox, sCharBox, sLongBox, sIntBox, sFloatBox, sDoubleBox, sShortBox, sByteBox;
@@ -89,6 +98,8 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         }
     }
 
+    //Suppress warning for "TypeElement.class.cast(element)" because "(TypeElement) element" cast mysteriously doesn't compile
+    @SuppressWarnings("RedundantClassCall")
     private AnnotationHolder getHolder(HashMap<String, AnnotationHolder> annotatedClasses, Element element) {
         TypeElement classElement;
         if (element.getKind().isClass()) {
@@ -131,7 +142,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
     }
 
     private String lcfirst(String string) {
-        char c[] = string.toCharArray();
+        char[] c = string.toCharArray();
         c[0] = Character.toLowerCase(c[0]);
         return new String(c);
     }
@@ -158,9 +169,16 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         for (final AnnotatedFunctionHolder functionHolder : holder.annotatedFunctions) {
             final Element e = functionHolder.element;
             String methodName = e.getSimpleName().toString();
-            String property = e.getAnnotation(V8Function.class).property();
-            if (property.isEmpty()) {
-                property = methodName;
+            String property;
+            V8Symbols symbol = e.getAnnotation(V8Function.class).symbol();
+            if(symbol != V8Symbols.NONE) {
+                property = "symbol:" + symbol.toString();
+            } else {
+                property = e.getAnnotation(V8Function.class).property();
+                if (property.isEmpty()) {
+                    property = methodName;
+                }
+                property = "string:" + property;
             }
             boolean isStatic = e.getModifiers().contains(Modifier.STATIC);
             builder.append("\t\t\t").append(index++ == 0 ? "" : ",")
@@ -336,13 +354,20 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         TypeMirror getterKind;
         for (Element element : env.getElementsAnnotatedWith(V8Getter.class)) {
             // determine property name
-            String property = element.getAnnotation(V8Getter.class).property();
-            if (property.isEmpty()) {
-                String name = element.getSimpleName().toString();
-                if (name.indexOf("get") != 0 && name.indexOf("is") != 0) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'get' or 'is'", element);
+            String property;
+            V8Symbols symbol = element.getAnnotation(V8Getter.class).symbol();
+            if(symbol != V8Symbols.NONE) {
+                property = "symbol:" + symbol.toString();
+            } else {
+                property = element.getAnnotation(V8Getter.class).property();
+                if (property.isEmpty()) {
+                    String name = element.getSimpleName().toString();
+                    if (name.indexOf("get") != 0 && name.indexOf("is") != 0) {
+                        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'get' or 'is'", element);
+                    }
+                    property = lcfirst(name.indexOf("get") == 0 ? name.substring(3) : name.substring(2));
                 }
-                property = lcfirst(name.indexOf("get") == 0 ? name.substring(3) : name.substring(2));
+                property = "string:" + property;
             }
             // validate signature
             ExecutableType emeth = (ExecutableType) element.asType();
@@ -360,13 +385,20 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         TypeMirror setterKind;
         for (Element element : env.getElementsAnnotatedWith(V8Setter.class)) {
             // determine property name
-            String property = element.getAnnotation(V8Setter.class).property();
-            if (property.isEmpty()) {
-                String name = element.getSimpleName().toString();
-                if (name.indexOf("set") != 0) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'set'", element);
+            String property;
+            V8Symbols symbol = element.getAnnotation(V8Setter.class).symbol();
+            if(symbol != V8Symbols.NONE) {
+                property = "symbol:" + symbol.toString();
+            } else {
+                property = element.getAnnotation(V8Setter.class).property();
+                if (property.isEmpty()) {
+                    String name = element.getSimpleName().toString();
+                    if (name.indexOf("set") != 0) {
+                        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "no property name specified and method does not start with 'set'", element);
+                    }
+                    property = lcfirst(name.substring(3));
                 }
-                property = lcfirst(name.substring(3));
+                property = "string:" + property;
             }
             AccessorTuple tuple = getAccessorTuple(annotatedClasses, element, property);
 

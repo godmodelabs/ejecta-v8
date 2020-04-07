@@ -1,6 +1,5 @@
 package ag.boersego.v8annotations;
 
-import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -10,4 +9,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface V8Function {
     String property() default "";
+    V8Symbols symbol() default V8Symbols.NONE;
 }

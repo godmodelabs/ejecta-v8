@@ -30,4 +30,4 @@ public class V8FunctionInfo {
             this.undefinedIsNull = undefinedIsNull;
         }
     }
-};
+}

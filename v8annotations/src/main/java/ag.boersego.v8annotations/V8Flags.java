@@ -31,4 +31,4 @@ public class V8Flags {
      * coerce null even if requested type can handle it (e.g. Double)
      */
     CoerceNull = 1<<3;
-};
+}
