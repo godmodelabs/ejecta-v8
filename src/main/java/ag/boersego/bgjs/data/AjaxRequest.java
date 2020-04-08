@@ -4,14 +4,13 @@ import android.os.Build;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -46,7 +45,7 @@ public class AjaxRequest implements Runnable {
         mHeaders = headers;
     }
 
-    public void setFormBody(@NotNull FormBody formBody) {
+    public void setFormBody(@NonNull FormBody formBody) {
         mFormBody = formBody;
     }
 
@@ -257,6 +256,7 @@ public class AjaxRequest implements Runnable {
             } catch (final Exception ignored) {
             }
 
+            requestBuilder.addHeader("Origin", "service://app/android");
 
             if (mHeaders != null && !mHeaders.isEmpty()) {
                 final Set<Map.Entry<String, String>> headerSet = mHeaders.entrySet();
@@ -266,7 +266,7 @@ public class AjaxRequest implements Runnable {
             } else {
                 if (mReferer != null) {
                     try {
-                        requestBuilder.addHeader("Referer", new String(mReferer.getBytes("ISO-8859-1"), "ISO-8859-1"));
+                        requestBuilder.addHeader("Referer", new String(mReferer.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.ISO_8859_1));
                     } catch (final Exception ex) {
                         Log.e(TAG, "Cannot set referer", ex);
                     }

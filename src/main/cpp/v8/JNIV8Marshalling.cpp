@@ -9,7 +9,10 @@
 #include "JNIV8Wrapper.h"
 
 #include "JNIV8Function.h"
+#include "JNIV8Promise.h"
 #include "JNIV8Array.h"
+#include "JNIV8ArrayBuffer.h"
+#include "JNIV8Symbol.h"
 #include "JNIV8GenericObject.h"
 
 JNIV8JavaValueType getArgumentType(const std::string& type) {
@@ -440,7 +443,7 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
     jsize len;
 
     // string pointers can also be null
-    if(env->IsSameObject(string, NULL)) {
+    if(env->IsSameObject(string, nullptr)) {
         return scope.Escape(v8::Null(isolate)->ToString(isolate));
     }
 
@@ -483,10 +486,20 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
         return nullptr;
     } else if(valueRef->IsObject()) {
         v8::Local<v8::Object> objectRef = valueRef.As<v8::Object>();
+
+        // if the object is a proxy we wrap it based on the type of the target
+        if (valueRef->IsProxy()) {
+            valueRef = objectRef.As<v8::Proxy>()->GetTarget();
+        }
+
         if (valueRef->IsFunction()) {
             return JNIV8Wrapper::wrapObject<JNIV8Function>(objectRef)->getJObject();
         } else if (valueRef->IsArray()) {
             return JNIV8Wrapper::wrapObject<JNIV8Array>(objectRef)->getJObject();
+        } else if(valueRef->IsPromise()) {
+            return JNIV8Wrapper::wrapObject<JNIV8Promise>(objectRef)->getJObject();
+        } else if(valueRef->IsArrayBuffer()) {
+            return JNIV8Wrapper::wrapObject<JNIV8ArrayBuffer>(objectRef)->getJObject();
         }
         auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(objectRef);
         if (ptr) {
@@ -503,7 +516,8 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
     } else if(valueRef->IsUndefined()) {
         return env->NewLocalRef(_undefined);
     } else if(valueRef->IsSymbol()) {
-        JNI_ASSERT(0, "Symbols are not supported");
+        v8::Local<v8::SymbolObject> symbolObjRef = v8::SymbolObject::New(isolate, valueRef.As<v8::Symbol>()).As<v8::SymbolObject>();
+        return JNIV8Wrapper::wrapObject<JNIV8Symbol>(symbolObjRef)->getJObject();
     } else {
         JNI_ASSERT(0, "Encountered unexpected v8 type");
     }
@@ -524,7 +538,7 @@ v8::Local<v8::Value> JNIV8Marshalling::jobject2v8value(jobject object) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     // jobject referencing "null" can actually be non-null..
-    if(env->IsSameObject(object, NULL) || !object) {
+    if(env->IsSameObject(object, nullptr) || !object) {
         resultRef = v8::Null(isolate);
     } else if(env->IsInstanceOf(object, _jniString.clazz)) {
         resultRef = JNIV8Marshalling::jstring2v8string((jstring)object);
@@ -542,6 +556,10 @@ v8::Local<v8::Value> JNIV8Marshalling::jobject2v8value(jobject object) {
         resultRef = v8::Boolean::New(isolate, b);
     } else if(env->IsInstanceOf(object, _jniV8Object.clazz)) {
         resultRef = JNIV8Wrapper::wrapObject<JNIV8Object>(object)->getJSObject();
+        // unwrap symbols
+        if(resultRef->IsSymbolObject()) {
+            resultRef = resultRef.As<v8::SymbolObject>()->ValueOf();
+        }
     }
     if(resultRef.IsEmpty()) {
         resultRef = v8::Undefined(isolate);

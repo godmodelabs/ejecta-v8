@@ -11,15 +11,6 @@
 #include <v8.h>
 #import "EJCanvas/EJCanvasTypes.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 EJColorRGBA JSValueToColorRGBA(v8::Local<v8::Value> value);
 v8::Local<v8::String> ColorRGBAToJSValue (v8::Isolate* isolate, EJColorRGBA c);
 EJColorRGBA bufferToColorRBGA(const char *jsc, size_t length);
-
-
-#ifdef __cplusplus
-}
-#endif

@@ -13,10 +13,10 @@ import ag.boersego.v8annotations.V8Flags;
 @SuppressWarnings("unused")
 final public class JNIV8Function extends JNIV8Object {
     public interface Handler {
-        Object Callback(Object receiver, Object[] arguments);
+        Object Callback(@NonNull Object receiver, @NonNull Object[] arguments);
     }
 
-    public static native JNIV8Function Create(V8Engine engine, JNIV8Function.Handler handler);
+    public static native JNIV8Function Create(V8Engine engine, Handler handler);
 
     public @Nullable
     Object callAsV8Function(@Nullable Object... arguments) {

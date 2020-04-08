@@ -2,10 +2,10 @@ package ag.boersego.bgjs;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import ag.boersego.v8annotations.V8Flags;
+
 import java.lang.reflect.Modifier;
 import java.util.Map;
-
-import ag.boersego.v8annotations.V8Flags;
 
 /**
  * Created by martin on 18.08.17.
@@ -19,7 +19,7 @@ abstract public class JNIV8Object extends JNIObject {
     static private native void RegisterAliasForPrimitive(int aliasType, int primitiveType);
 
     static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
-        if(Modifier.isAbstract(derivedClass.getModifiers())) {
+        if (Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
         }
 
@@ -35,15 +35,20 @@ abstract public class JNIV8Object extends JNIObject {
 
     static private native void RegisterV8Class(String derivedClass, String baseClass);
 
+    static public native JNIV8Object Create(V8Engine engine, String name, Object... arguments);
+
     public native double toNumber();
     public native String toString();
     public native String toJSON();
+    public native boolean isInstanceOf(JNIV8Function constructor);
+    public native boolean isInstanceOf(String name);
 
     public V8Engine getV8Engine() {
         return _engine;
     }
 
-    public @Nullable Object applyV8Method(String name, Object[] arguments) {
+    public @Nullable
+    Object applyV8Method(String name, Object[] arguments) {
         return _applyV8Method(name, 0, 0, Object.class, arguments);
     }
     @SuppressWarnings({"unchecked"})
@@ -122,6 +127,7 @@ abstract public class JNIV8Object extends JNIObject {
 
     public native void setV8Field(@NonNull String name, @Nullable Object value);
     public native void setV8Fields(@NonNull Map< String, Object> fields);
+    public native void setV8Accessor(@NonNull String name, @NonNull JNIV8Function getter, @Nullable JNIV8Function setter);
 
     /**
      * convert a wrapped object to a number using the javascript coercion rules
@@ -200,6 +206,16 @@ abstract public class JNIV8Object extends JNIObject {
         throw new ClassCastException("Cannot convert to String: " + obj);
     }
 
+    public static boolean isInstanceOf(Object obj, JNIV8Function constructor) {
+        if(!(obj instanceof JNIV8Object)) return false;
+        return ((JNIV8Object)obj).isInstanceOf(constructor);
+    }
+
+    public static boolean isInstanceOf(Object obj, String name) {
+        if(!(obj instanceof JNIV8Object)) return false;
+        return ((JNIV8Object)obj).isInstanceOf(name);
+    }
+
     protected native void adjustJSExternalMemory(long change);
 
     //------------------------------------------------------------------------
@@ -209,14 +225,14 @@ abstract public class JNIV8Object extends JNIObject {
     public JNIV8Object(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(true);
         _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine, jsObjPtr);
+        initNativeJNIV8Object(getClass().getName(), engine, jsObjPtr);
         initAutomaticDisposure();
     }
 
     public JNIV8Object(V8Engine engine) {
         super(true);
         _engine = engine;
-        initNativeJNIV8Object(getClass().getCanonicalName(), engine, 0);
+        initNativeJNIV8Object(getClass().getName(), engine, 0);
         initAutomaticDisposure();
     }
 

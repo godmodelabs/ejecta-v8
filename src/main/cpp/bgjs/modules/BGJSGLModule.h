@@ -2,7 +2,6 @@
 #define __BGJSGLMODULE_H	1
 
 #include "../BGJSCanvasContext.h"
-#include "../BGJSModule.h"
 
 class BGJSV8Engine2dGL;
 
@@ -15,11 +14,7 @@ class BGJSV8Engine2dGL;
  */
 
 class BGJSGLModule  {
-	bool initialize();
-	~BGJSGLModule();
-
 public:
-	BGJSGLModule();
 	static void doRequire (BGJSV8Engine* engine, v8::Handle<v8::Object> target);
 
 	static void js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args);

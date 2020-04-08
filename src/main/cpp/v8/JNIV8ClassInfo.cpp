@@ -12,6 +12,76 @@
 
 using namespace v8;
 
+static bool startsWith(const std::string& s, const std::string& prefix) {
+    return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
+}
+
+Local<Name> JNIV8ClassInfo::_makeName(std::string name) {
+    Isolate* isolate = engine->getIsolate();
+    EscapableHandleScope handleScope(isolate);
+    Local<Name> nameRef;
+
+    if(startsWith(name, "string:")) {
+        nameRef = String::NewFromUtf8(isolate, name.c_str() + 7,
+                                      v8::NewStringType::kNormal).ToLocalChecked().As<Name>();
+    } else if(startsWith(name, "symbol:")) {
+        if(name == "symbol:ITERATOR") {
+            nameRef = v8::Symbol::GetIterator(isolate);
+        } else if(name == "symbol:ASYNC_ITERATOR") {
+            nameRef = v8::Symbol::GetAsyncIterator(isolate);
+        } else if(name == "symbol:MATCH") {
+            nameRef = v8::Symbol::GetMatch(isolate);
+        } else if(name == "symbol:REPLACE") {
+            nameRef = v8::Symbol::GetReplace(isolate);
+        } else if(name == "symbol:SEARCH") {
+            nameRef = v8::Symbol::GetSearch(isolate);
+        } else if(name == "symbol:SPLIT") {
+            nameRef = v8::Symbol::GetSplit(isolate);
+        } else if(name == "symbol:HAS_INSTANCE") {
+            nameRef = v8::Symbol::GetHasInstance(isolate);
+        } else if(name == "symbol:IS_CONCAT_SPREADABLE") {
+            nameRef = v8::Symbol::GetIsConcatSpreadable(isolate);
+        } else if(name == "symbol:UNSCOPABLES") {
+            nameRef = v8::Symbol::GetUnscopables(isolate);
+        } else if(name == "symbol:TO_PRIMITIVE") {
+            nameRef = v8::Symbol::GetToPrimitive(isolate);
+        } else if(name == "symbol:TO_STRING_TAG") {
+            nameRef = v8::Symbol::GetToStringTag(isolate);
+        }
+    }
+
+    JNI_ASSERTF(!nameRef.IsEmpty(), "Encountered invalid property name '%s'", name.c_str());
+
+    return handleScope.Escape(nameRef);
+}
+
+std::string JNIV8ClassInfo::_makeSymbolString(EJNIV8ObjectSymbolType symbol) {
+    switch (symbol) {
+        case kIterator:
+            return "symbol:ITERATOR";
+        case kAsyncIterator:
+            return "symbol:ASYNC_ITERATOR";
+        case kMatch:
+            return "symbol:MATCH";
+        case kReplace:
+            return "symbol:REPLACE";
+        case kSearch:
+            return "symbol:SEARCH";
+        case kSplit:
+            return "symbol:SPLIT";
+        case kHasInstance:
+            return "symbol:HAS_INSTANCE";
+        case kIsConcatSpreadable:
+            return "symbol:IS_CONCAT_SPREADABLE";
+        case kUnscopables:
+            return "symbol:UNSCOPABLES";
+        case kToPrimitive:
+            return "symbol:TO_PRIMITIVE";
+        case kToStringTag:
+            return "symbol:TO_STRING_TAG";
+    }
+}
+
 decltype(JNIV8ClassInfo::_jniObject) JNIV8ClassInfo::_jniObject = {0};
 
 /**
@@ -32,13 +102,13 @@ void JNIV8ClassInfo::v8JavaAccessorGetterCallback(Local<Name> property, const Pr
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
+    auto cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
     if (cb->javaGetterId) {
         jobject jobj = nullptr;
 
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
-            JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+            auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
             jobj = v8Object->getJObject();
         }
@@ -68,7 +138,7 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<Name> property, Local<Va
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectJavaAccessorHolder* cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectJavaAccessorHolder*>(ext->Value());
 
     if (cb->javaSetterId) {
         jobject jobj = nullptr;
@@ -77,7 +147,7 @@ void JNIV8ClassInfo::v8JavaAccessorSetterCallback(Local<Name> property, Local<Va
 
         if (!cb->isStatic) {
             ext = info.This()->GetInternalField(0).As<v8::External>();
-            JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+            auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
             jobj = v8Object->getJObject();
         }
@@ -135,7 +205,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
 
     v8::Local<v8::External> ext;
     ext = args.Data().As<v8::External>();
-    JNIV8ObjectJavaCallbackHolder* cb = static_cast<JNIV8ObjectJavaCallbackHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectJavaCallbackHolder*>(ext->Value());
 
     // we only check the "this" for non-static methods
     // otherwise "this" can be anything, we do not care..
@@ -144,7 +214,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
         v8::Local<v8::Value> internalField = thisArg->GetInternalField(0);
         // this is not really "safe".. but how could it be? another part of the program could store arbitrary stuff in internal fields
         ext = internalField.As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
         jobj = v8Object->getJObject();
     }
 
@@ -256,13 +326,13 @@ void JNIV8ClassInfo::v8AccessorGetterCallback(Local<Name> property, const Proper
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectAccessorHolder* cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
 
     if(cb->isStatic) {
         (cb->getterCallback.s)(cb->propertyName, info);
     } else {
         ext = info.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
         (v8Object->*(cb->getterCallback.i))(cb->propertyName, info);
     }
@@ -278,13 +348,13 @@ void JNIV8ClassInfo::v8AccessorSetterCallback(Local<Name> property, Local<Value>
     v8::Local<v8::External> ext;
 
     ext = info.Data().As<v8::External>();
-    JNIV8ObjectAccessorHolder* cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectAccessorHolder*>(ext->Value());
 
     if(cb->isStatic) {
         (cb->setterCallback.s)(cb->propertyName, value, info);
     } else {
         ext = info.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
         (v8Object->*(cb->setterCallback.i))(cb->propertyName, value, info);
     }
@@ -299,14 +369,14 @@ void JNIV8ClassInfo::v8MethodCallback(const v8::FunctionCallbackInfo<v8::Value>&
     v8::Local<v8::External> ext;
 
     ext = args.Data().As<v8::External>();
-    JNIV8ObjectCallbackHolder* cb = static_cast<JNIV8ObjectCallbackHolder*>(ext->Value());
+    auto * cb = static_cast<JNIV8ObjectCallbackHolder*>(ext->Value());
 
     if(cb->isStatic) {
         // we do NOT check how this function was invoked.. if a this was supplied, we just ignore it!
         (cb->callback.s)(cb->methodName, args);
     } else {
         ext = args.This()->GetInternalField(0).As<v8::External>();
-        JNIV8Object *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
+        auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
 
         (v8Object->*(cb->callback.i))(cb->methodName, args);
     }
@@ -338,6 +408,22 @@ JNIV8ClassInfoContainer::JNIV8ClassInfoContainer(JNIV8ObjectType type, const std
     } else {
         clsBinding = nullptr;
         env->ExceptionClear();
+    }
+
+    // if creation from native/javascript is allowed, we need the special constructor!
+    bool createFromJavaOnly = false;
+    if(clsBinding) {
+        jfieldID createFromJavaOnlyId = env->GetStaticFieldID(clsBinding, "createFromJavaOnly", "Z");
+        createFromJavaOnly = env->GetStaticBooleanField(clsBinding, createFromJavaOnlyId);
+    }
+    if(!createFromJavaOnly) {
+        jmethodID constructorId = env->GetMethodID(clsObject, "<init>",
+                                         "(Lag/boersego/bgjs/V8Engine;J[Ljava/lang/Object;)V");
+        JNI_ASSERTF(constructorId,
+                    "Constructor '(V8Engine, long, Object[])' does not exist on registered class '%s';\n"
+                    "Possible cause: non-static nested classes are not supported!",
+                    "Possible cause: missing class creating policy!",
+                    canonicalName.c_str());
     }
 }
 
@@ -385,18 +471,34 @@ void JNIV8ClassInfo::registerConstructor(JNIV8ObjectConstructorCallback callback
 }
 
 void JNIV8ClassInfo::registerMethod(const std::string &methodName, JNIV8ObjectMethodCallback callback) {
-    JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder();
+    auto * holder = new JNIV8ObjectCallbackHolder();
     holder->isStatic = false;
     holder->callback.i = callback;
-    holder->methodName = methodName;
+    holder->methodName = "string:" + methodName;
     _registerMethod(holder);
 }
 
 void JNIV8ClassInfo::registerStaticMethod(const std::string& methodName, JNIV8ObjectStaticMethodCallback callback) {
-    JNIV8ObjectCallbackHolder* holder = new JNIV8ObjectCallbackHolder();
+    auto * holder = new JNIV8ObjectCallbackHolder();
     holder->isStatic = true;
     holder->callback.s = callback;
-    holder->methodName = methodName;
+    holder->methodName = "string:" + methodName;
+    _registerMethod(holder);
+}
+
+void JNIV8ClassInfo::registerMethod(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectMethodCallback callback) {
+    auto * holder = new JNIV8ObjectCallbackHolder();
+    holder->isStatic = false;
+    holder->callback.i = callback;
+    holder->methodName = _makeSymbolString(symbol);
+    _registerMethod(holder);
+}
+
+void JNIV8ClassInfo::registerStaticMethod(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectStaticMethodCallback callback) {
+    auto * holder = new JNIV8ObjectCallbackHolder();
+    holder->isStatic = true;
+    holder->callback.s = callback;
+    holder->methodName = _makeSymbolString(symbol);
     _registerMethod(holder);
 }
 
@@ -414,7 +516,7 @@ void JNIV8ClassInfo::registerJavaMethod(const std::string& methodName, jmethodID
     }
 
     // otherwise register a new method
-    JNIV8ObjectJavaCallbackHolder *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
+    auto *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
     holder->methodName = methodName;
     holder->isStatic = false;
     holder->signatures.push_back({methodId, arguments});
@@ -435,7 +537,7 @@ void JNIV8ClassInfo::registerStaticJavaMethod(const std::string &methodName, jme
     }
 
     // otherwise register a new method
-    JNIV8ObjectJavaCallbackHolder *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
+    auto *holder = new JNIV8ObjectJavaCallbackHolder(returnType);
     holder->methodName = methodName;
     holder->isStatic = true;
     holder->signatures.push_back({methodId, arguments});
@@ -453,7 +555,7 @@ void JNIV8ClassInfo::registerJavaAccessor(const std::string& propertyName, const
 
 void JNIV8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId,
                                              jmethodID setterId) {
-    JNIV8ObjectJavaAccessorHolder* holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
+    auto * holder = new JNIV8ObjectJavaAccessorHolder(propertyType);
     holder->propertyName = propertyName;
     holder->javaGetterId = getterId;
     holder->javaSetterId = setterId;
@@ -465,8 +567,8 @@ void JNIV8ClassInfo::registerStaticJavaAccessor(const std::string &propertyName,
 void JNIV8ClassInfo::registerAccessor(const std::string& propertyName,
                       JNIV8ObjectAccessorGetterCallback getter,
                       JNIV8ObjectAccessorSetterCallback setter) {
-    JNIV8ObjectAccessorHolder* holder = new JNIV8ObjectAccessorHolder();
-    holder->propertyName = propertyName;
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = "string:" + propertyName;
     holder->getterCallback.i = getter;
     holder->setterCallback.i = setter;
     holder->isStatic = false;
@@ -476,8 +578,31 @@ void JNIV8ClassInfo::registerAccessor(const std::string& propertyName,
 void JNIV8ClassInfo::registerStaticAccessor(const std::string &propertyName,
                                          JNIV8ObjectStaticAccessorGetterCallback getter,
                                          JNIV8ObjectStaticAccessorSetterCallback setter) {
-    JNIV8ObjectAccessorHolder* holder = new JNIV8ObjectAccessorHolder();
-    holder->propertyName = propertyName;
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = "string:" + propertyName;
+    holder->getterCallback.s = getter;
+    holder->setterCallback.s = setter;
+    holder->isStatic = true;
+    accessorHolders.push_back(holder);
+    _registerAccessor(holder);
+}
+
+void JNIV8ClassInfo::registerAccessor(const EJNIV8ObjectSymbolType symbol,
+                                      JNIV8ObjectAccessorGetterCallback getter,
+                                      JNIV8ObjectAccessorSetterCallback setter) {
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = _makeSymbolString(symbol);
+    holder->getterCallback.i = getter;
+    holder->setterCallback.i = setter;
+    holder->isStatic = false;
+    _registerAccessor(holder);
+}
+
+void JNIV8ClassInfo::registerStaticAccessor(const EJNIV8ObjectSymbolType symbol,
+                                            JNIV8ObjectStaticAccessorGetterCallback getter,
+                                            JNIV8ObjectStaticAccessorSetterCallback setter) {
+    auto * holder = new JNIV8ObjectAccessorHolder();
+    holder->propertyName = _makeSymbolString(symbol);
     holder->getterCallback.s = getter;
     holder->setterCallback.s = setter;
     holder->isStatic = true;
@@ -497,9 +622,11 @@ void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) 
 
     Local<External> data = External::New(isolate, (void*)holder);
 
+    Local<Name> nameRef = _makeName(holder->methodName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
+        f->Set(nameRef, FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
         // but interestingly enough, we MUST store them there because they simply are not "copied" from the InstanceTemplate when using inherit later
@@ -508,10 +635,11 @@ void JNIV8ClassInfo::_registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder) 
         // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
-        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()),
+        instanceTpl->Set(nameRef,
                          FunctionTemplate::New(isolate, v8JavaMethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
     }
 }
+
 
 void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder) {
     Isolate* isolate = engine->getIsolate();
@@ -533,14 +661,16 @@ void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder
         settings = v8::PropertyAttribute::ReadOnly;
     }
 
+    Local<Name> nameRef = _makeName(holder->propertyName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->SetAccessor(engine->getContext(), String::NewFromUtf8(isolate, holder->propertyName.c_str(), v8::NewStringType::kNormal).ToLocalChecked().As<Name>(),
+        f->SetAccessor(engine->getContext(), nameRef,
                        v8JavaAccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
     } else {
         Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
-        instanceTpl->SetAccessor(String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        instanceTpl->SetAccessor(nameRef,
                                  v8JavaAccessorGetterCallback, finalSetter,
                                  data, DEFAULT, settings);
     }
@@ -555,9 +685,11 @@ void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
     callbackHolders.push_back(holder);
     Local<External> data = External::New(isolate, (void*)holder);
 
+    Local<Name> nameRef = _makeName(holder->methodName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()),
+        f->Set(nameRef,
                FunctionTemplate::New(isolate, v8MethodCallback, data, Local<Signature>(), 0, ConstructorBehavior::kThrow)->GetFunction());
     } else {
         // ofc functions belong on the prototype, and not on the actual instance for performance/memory reasons
@@ -567,7 +699,7 @@ void JNIV8ClassInfo::_registerMethod(JNIV8ObjectCallbackHolder *holder) {
         // functions can only exist in a context once and probaly can not be duplicated/copied in the same way as scalars and accessors, so there IS a difference.
         // maybe when doing inherit the function template is instanced, and then inherit copies over properties to its own instance template which can not be done for instanced functions..
         Local<ObjectTemplate> instanceTpl = ft->PrototypeTemplate();
-        instanceTpl->Set(String::NewFromUtf8(isolate, holder->methodName.c_str()), FunctionTemplate::New(isolate, v8MethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
+        instanceTpl->Set(nameRef, FunctionTemplate::New(isolate, v8MethodCallback, data, Signature::New(isolate, ft), 0, ConstructorBehavior::kThrow));
     }
 }
 
@@ -588,14 +720,16 @@ void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
         settings = v8::PropertyAttribute::ReadOnly;
     }
 
+    Local<Name> nameRef = _makeName(holder->propertyName);
+
     if(holder->isStatic) {
         Local<Function> f = ft->GetFunction();
-        f->SetAccessor(engine->getContext(), String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        f->SetAccessor(engine->getContext(), nameRef,
                        v8AccessorGetterCallback, finalSetter,
                        data, DEFAULT, settings);
     } else {
         Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
-        instanceTpl->SetAccessor(String::NewFromUtf8(isolate, holder->propertyName.c_str()),
+        instanceTpl->SetAccessor(nameRef,
                                  v8AccessorGetterCallback, finalSetter,
                                  data, DEFAULT, settings);
     }

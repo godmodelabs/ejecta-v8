@@ -30,7 +30,7 @@ public:
     /**
      * returns the referenced java object
      */
-    const jobject getJObject();
+    const jobject getJObject() const;
 
     /**
      * calls the specified java object method

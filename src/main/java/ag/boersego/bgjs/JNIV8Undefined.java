@@ -1,6 +1,7 @@
 package ag.boersego.bgjs;
 
 import android.support.annotation.Keep;
+import android.support.annotation.NonNull;
 
 /**
  * Created by martin on 27.09.17.
@@ -13,6 +14,12 @@ public class JNIV8Undefined {
             instance = new JNIV8Undefined();
         }
         return instance;
+    }
+
+    @NonNull
+    @Override
+    public String toString() {
+        return "undefined";
     }
 
     @Keep

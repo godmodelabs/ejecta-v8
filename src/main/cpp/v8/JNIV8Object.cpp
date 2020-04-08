@@ -5,6 +5,7 @@
 #include "JNIV8Object.h"
 #include "JNIV8Wrapper.h"
 #include "../bgjs/BGJSV8Engine.h"
+#include "JNIV8Function.h"
 
 #include <stdlib.h>
 
@@ -65,6 +66,9 @@ JNIV8Object::~JNIV8Object() {
         JNI_ASSERT(!_jsObject.IsWeak(), "JNIV8Object deleted while still referenced by JavaScript");
         _jsObject.Reset();
     }
+}
+
+void JNIV8Object::OnJSObjectAssigned() {
 }
 
 void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
@@ -164,6 +168,7 @@ void JNIV8Object::setJSObject(BGJSV8Engine *engine, JNIV8ClassInfo *cls,
         // a js object was provided, so we can assume the reference is already being used somewhere
         // => make the persistent reference weak, to get notified when it is no longer used
         makeWeak();
+        OnJSObjectAssigned();
     }
 }
 
@@ -179,11 +184,14 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerConstructor("(Lag/boersego/bgjs/V8Engine;J[Ljava/lang/Object;)V","<JNIV8ObjectInit>");
     info->registerConstructor("(Lag/boersego/bgjs/V8Engine;)V","<JNIV8ObjectInit#2>");
 
+    info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;Ljava/lang/String;[Ljava/lang/Object;)Lag/boersego/bgjs/JNIV8Object;", (void*)JNIV8Object::jniCreate);
+
     info->registerNativeMethod("adjustJSExternalMemory", "(J)V", (void*)JNIV8Object::jniAdjustJSExternalMemory);
     info->registerNativeMethod("_applyV8Method", "(Ljava/lang/String;IILjava/lang/Class;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Object::jniCallV8MethodWithReturnType);
     info->registerNativeMethod("_getV8Field", "(Ljava/lang/String;IILjava/lang/Class;)Ljava/lang/Object;", (void*)JNIV8Object::jniGetV8FieldWithReturnType);
     info->registerNativeMethod("setV8Field", "(Ljava/lang/String;Ljava/lang/Object;)V", (void*)JNIV8Object::jniSetV8Field);
     info->registerNativeMethod("setV8Fields", "(Ljava/util/Map;)V", (void*)JNIV8Object::jniSetV8Fields);
+    info->registerNativeMethod("setV8Accessor", "(Ljava/lang/String;Lag/boersego/bgjs/JNIV8Function;Lag/boersego/bgjs/JNIV8Function;)V", (void*)JNIV8Object::jniSetV8Accessor);
 
     info->registerNativeMethod("hasV8Field", "(Ljava/lang/String;Z)Z", (void*)JNIV8Object::jniHasV8Field);
     info->registerNativeMethod("getV8Keys", "(Z)[Ljava/lang/String;", (void*)JNIV8Object::jniGetV8Keys);
@@ -193,8 +201,73 @@ void JNIV8Object::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("toString", "()Ljava/lang/String;", (void*)JNIV8Object::jniToString);
     info->registerNativeMethod("toJSON", "()Ljava/lang/String;", (void*)JNIV8Object::jniToJSON);
 
+    info->registerNativeMethod("isInstanceOf", "(Lag/boersego/bgjs/JNIV8Function;)Z", (void*)JNIV8Object::jniIsInstanceOfByConstructor);
+    info->registerNativeMethod("isInstanceOf", "(Ljava/lang/String;)Z", (void*)JNIV8Object::jniIsInstanceOfByName);
+
     info->registerNativeMethod("RegisterV8Class", "(Ljava/lang/String;Ljava/lang/String;)V", (void*)JNIV8Object::jniRegisterV8Class);
     info->registerNativeMethod("RegisterAliasForPrimitive", "(II)V", (void*)JNIV8Object::jniRegisterAliasForPrimitive);
+}
+
+jobject JNIV8Object::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jstring name, jobjectArray arguments) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
+
+    v8::Isolate* isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    v8::Local<v8::Object> globalRef = context->Global();
+
+    v8::TryCatch try_catch(isolate);
+
+    v8::Local<v8::Value> localRef;
+    v8::MaybeLocal<v8::Value> maybeLocalRef = globalRef->Get(context, JNIV8Marshalling::jstring2v8string(name));
+    if(!maybeLocalRef.ToLocal(&localRef)) {
+        engine->forwardV8ExceptionToJNI(&try_catch);
+        return nullptr;
+    }
+
+    v8::Local<v8::Function> funcRef = localRef.As<v8::Function>();
+    if(!localRef->IsFunction() || !funcRef->IsConstructor()) {
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"),
+                      "A built in constructable type with the requested name does not exist");
+        return nullptr;
+    }
+
+    jsize numArgs;
+    Local<Value> *args;
+    jobject tempObj;
+
+    numArgs = env->GetArrayLength(arguments);
+    if (numArgs) {
+        args = (Local<Value>*)malloc(sizeof(Local<Value>)*numArgs);
+        for(jsize i=0; i<numArgs; i++) {
+            tempObj = env->GetObjectArrayElement(arguments, i);
+            args[i] = JNIV8Marshalling::jobject2v8value(tempObj);
+            env->DeleteLocalRef(tempObj);
+        }
+    } else {
+        args = nullptr;
+    }
+
+    v8::Local<v8::Value> objectRef;
+    maybeLocalRef = funcRef->CallAsConstructor(context, numArgs, args);
+    if(args) {
+        free(args);
+    }
+    if(!maybeLocalRef.ToLocal(&objectRef)) {
+        engine->forwardV8ExceptionToJNI(&try_catch);
+        return nullptr;
+    }
+
+    if(!objectRef->IsObject()) {
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"),
+                      "Failed to construct the requested object");
+    }
+    return JNIV8Marshalling::v8value2jobject(objectRef);
 }
 
 void JNIV8Object::jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change) {
@@ -285,6 +358,22 @@ void JNIV8Object::jniSetV8Fields(JNIEnv *env, jobject obj, jobject map) {
     }
 }
 
+void JNIV8Object::jniSetV8Accessor(JNIEnv *env, jobject obj, jstring name, jobject getter, jobject setter) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, void());
+
+    auto getterFunction = JNIWrapper::wrapObject<JNIV8Function>(getter);
+    auto setterFunction = JNIWrapper::wrapObject<JNIV8Function>(setter);
+
+    if(!getterFunction) return;
+
+    localRef->SetAccessorProperty(
+        JNIV8Marshalling::jstring2v8string(name),
+        getterFunction->getJSObject().As<Function>(),
+        setterFunction ? setterFunction->getJSObject().As<Function>() : Local<Function>(),
+        !setterFunction ? PropertyAttribute::ReadOnly : PropertyAttribute::None
+    );
+}
+
 jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType, jobjectArray arguments) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
@@ -322,13 +411,12 @@ jobject JNIV8Object::jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jst
 
     Local<Value> resultRef;
     maybeLocal = Local<Object>::Cast(funcRef)->CallAsFunction(context, localRef, numArgs, args);
+    if(args) {
+        free(args);
+    }
     if (!maybeLocal.ToLocal<Value>(&resultRef)) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
-    }
-
-    if(args) {
-        free(args);
     }
 
     jvalue jval;
@@ -515,6 +603,42 @@ jstring JNIV8Object::jniToString(JNIEnv *env, jobject obj) {
         return nullptr;
     }
     return JNIV8Marshalling::v8string2jstring(maybeLocal.ToLocalChecked());
+}
+
+jboolean JNIV8Object::jniIsInstanceOfByConstructor(JNIEnv *env, jobject obj, jobject constructor) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, false);
+
+    auto constructorPtr = JNIWrapper::wrapObject<JNIV8Function>(constructor);
+    if(!constructorPtr) return static_cast<jboolean>(false);
+
+    auto result = localRef->InstanceOf(context, constructorPtr->getJSObject());
+    if(result.IsNothing()) {
+        ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
+    }
+    return static_cast<jboolean>(result.ToChecked());
+}
+
+jboolean JNIV8Object::jniIsInstanceOfByName(JNIEnv *env, jobject obj, jstring name) {
+    JNIV8Object_PrepareJNICall(JNIV8Object, Object, false);
+
+    auto constructorName = JNIV8Marshalling::jstring2v8string(name);
+
+    v8::Local<v8::Value> constructorRef;
+    auto maybeConstructorRef = context->Global()->Get(context, constructorName);
+    if(!maybeConstructorRef.ToLocal(&constructorRef)) {
+        engine->forwardV8ExceptionToJNI(&try_catch);
+        return static_cast<jboolean>(false);
+    }
+
+    if(!constructorRef->IsFunction() || !(constructorRef.As<Function>()->IsConstructor())) {
+        return static_cast<jboolean>(false);
+    }
+
+    auto result = localRef->InstanceOf(context, constructorRef.As<Object>());
+    if(result.IsNothing()) {
+        ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
+    }
+    return static_cast<jboolean>(result.ToChecked());
 }
 
 void JNIV8Object::jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass) {

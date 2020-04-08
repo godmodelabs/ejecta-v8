@@ -4,10 +4,10 @@ import android.support.annotation.Keep;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import ag.boersego.v8annotations.V8Flags;
+
 import java.util.Arrays;
 import java.util.NoSuchElementException;
-
-import ag.boersego.v8annotations.V8Flags;
 
 /**
  * Created by martin on 26.09.17.
@@ -37,7 +37,8 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
         return _getV8Elements(0, 0, Object.class,0, Integer.MAX_VALUE);
     }
     @SuppressWarnings({"unchecked"})
-    public @NonNull <T> T[] getV8ElementsTyped(int flags, @NonNull Class<T> returnType) {
+    public @NonNull
+    <T> T[] getV8ElementsTyped(int flags, @NonNull Class<T> returnType) {
         return (T[]) _getV8Elements(flags, returnType.hashCode(), returnType, 0, Integer.MAX_VALUE);
     }
 
@@ -66,7 +67,8 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
      * Returns the object at the specified index
      * if index is out of bounds, returns JNIV8Undefined
      */
-    public @Nullable Object getV8Element(int index) {
+    public @Nullable
+    Object getV8Element(int index) {
         return _getV8Element(0, 0, Object.class, index);
     }
     @SuppressWarnings({"unchecked"})

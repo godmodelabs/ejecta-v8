@@ -7,9 +7,10 @@
 #include <string>
 #include <set>
 #include <mallocdebug.h>
+#include <stdlib.h>
+#include <uv.h>
 
 #include "os-android.h"
-#include "BGJSModule.h"
 
 #include "../jni/jni.h"
 
@@ -23,16 +24,6 @@
 
 class BGJSGLView;
 
-#define MAX_FRAME_REQUESTS 10
-
-struct WrapPersistentFunc {
-	v8::Persistent<v8::Function> callbackFunc;
-};
-
-struct WrapPersistentObj {
-	v8::Persistent<v8::Object> obj;
-};
-
 typedef  void (*requireHook) (class BGJSV8Engine* engine, v8::Handle<v8::Object> target);
 
 typedef enum EBGJSV8EngineEmbedderData {
@@ -43,10 +34,22 @@ typedef enum EBGJSV8EngineEmbedderData {
 class BGJSV8Engine : public JNIObject {
 	friend class JNIWrapper;
 public:
+	enum class EState {
+		kInitial,
+		kStarting,
+		kStarted,
+		kStopping,
+		kStopped
+	};
+
+	struct Options {
+		jobject assetManager;
+		const char *commonJSPath;
+		int maxHeapSize;
+	};
+
 	BGJSV8Engine(jobject obj, JNIClassInfo *info);
 	virtual ~BGJSV8Engine();
-
-	void setAssetManager(jobject jAssetManager);
 
 	/**
 	 * returns the engine instance for the specified isolate
@@ -62,39 +65,19 @@ public:
 	v8::Local<v8::Context> getContext() const;
 
 	bool forwardJNIExceptionToV8() const;
-	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch) const;
-
-	void setLocale(const char* locale, const char* lang, const char* tz, const char* deviceClass);
-	void setDensity(float density);
-	float getDensity() const;
-	void setDebug(bool debug);
+	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch, bool throwOnMainThread = true) const;
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
-	static void js_global_requestAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>&);
-    static void js_process_nextTick (const v8::FunctionCallbackInfo<v8::Value>&);
-	static void js_global_cancelAnimationFrame (const v8::FunctionCallbackInfo<v8::Value>& args);
+	static void js_process_nextTick (const v8::FunctionCallbackInfo<v8::Value>&);
 	static void js_global_setTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
-	static void js_global_clearTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
+	static void js_global_clearTimeoutOrInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_setInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
-	static void js_global_clearInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
-	static void js_global_getLocale(v8::Local<v8::String> property,
-			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_getLang(v8::Local<v8::String> property,
-			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_getTz(v8::Local<v8::String> property,
-			const v8::PropertyCallbackInfo<v8::Value>& info);
-	static void js_global_getDeviceClass(v8::Local<v8::String> property,
-                                const v8::PropertyCallbackInfo<v8::Value>& info);
-    static void setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info, bool recurring);
-	static void clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value>& info);
 
 	v8::MaybeLocal<v8::Value> parseJSON(v8::Handle<v8::String> source) const;
 	v8::MaybeLocal<v8::Value> stringifyJSON(v8::Handle<v8::Object> source, bool pretty = false) const;
 
     const char* enqueueMemoryDump(const char *basePath);
-
-	void createContext();
 
 	/**
      * cache JNI class references
@@ -105,13 +88,37 @@ public:
 	void log(int level, const v8::FunctionCallbackInfo<v8::Value>& args);
 	void doAssert(const v8::FunctionCallbackInfo<v8::Value> &info);
 
-    bool _debug;
+	void pause();
+	void unpause();
 
-    void setMaxHeapSize(int maxHeapSize);
+    // @TODO: make private after moving java methods inside class
+    void shutdown();
 
-    void setIsStoreBuild(bool isStoreBuild);
+    void start(const Options* options);
 
+    const EState getState() const;
 private:
+	struct RejectedPromiseHolder {
+		v8::Persistent<v8::Promise> promise;
+		v8::Persistent<v8::Value> value;
+		bool handled, collected;
+	};
+
+	struct TaskHolder {
+	    v8::Persistent<v8::Function> callback;
+	};
+
+	struct TimerHolder {
+		uv_timer_t handle;
+		bool scheduled, cleared, stopped, repeats;
+		uint64_t id, delay, repeat;
+		v8::Persistent<v8::Function> callback;
+		JNIRetainedRef<BGJSV8Engine> engine;
+	};
+
+	uint64_t createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat);
+	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, bool throwOnMainThread = false) const;
+
 	// utility method to convert v8 values to readable strings for debugging
 	const std::string toDebugString(v8::Handle<v8::Value> source) const;
 
@@ -123,6 +130,40 @@ private:
     static void OnGCCompletedForDump(v8::Isolate* isolate, v8::GCType type,
                                      v8::GCCallbackFlags flags);
 
+    static void PromiseRejectionHandler(v8::PromiseRejectMessage message);
+	static void UncaughtExceptionHandler(v8::Local<v8::Message> message, v8::Local<v8::Value> data);
+    static void OnPromiseRejectionMicrotask(void* data);
+    static void OnTaskMicrotask(void *data);
+
+    static void StartLoopThread(void *arg);
+	static void StopLoopThread(uv_async_t *handle);
+	static void SuspendLoopThread(uv_async_t *handle);
+	static void OnHandleClosed(uv_handle_t *handle);
+
+    static void OnTimerTriggeredCallback(uv_timer_t * handle);
+	static void OnTimerClosedCallback(uv_handle_t * handle);
+	static void OnTimerEventCallback(uv_async_t * handle);
+	static void RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data);
+
+	void createContext();
+
+	// jni methods
+    static void jniInitialize(JNIEnv * env, jobject v8Engine, jobject assetManager, jstring commonJSPath, jint maxHeapSize);
+    static void jniPause(JNIEnv *env, jobject obj);
+    static void jniUnpause(JNIEnv *env, jobject obj);
+    static void jniShutdown(JNIEnv *env, jobject obj);
+    static jstring jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn);
+    static void jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function);
+    static jobject jniParseJSON(JNIEnv *env, jobject obj, jstring json);
+    static jobject jniRequire(JNIEnv *env, jobject obj, jstring file);
+    static jlong jniLock(JNIEnv *env, jobject obj);
+    static jobject jniGetGlobalObject(JNIEnv *env, jobject obj);
+    static void jniUnlock(JNIEnv *env, jobject obj, jlong lockerPtr);
+    static jobject jniRunScript(JNIEnv *env, jobject obj, jstring script, jstring name);
+    static void jniRegisterModuleNative(JNIEnv *env, jobject obj, jobject module);
+    static jobject jniGetConstructor(JNIEnv *env, jobject obj, jstring canonicalName);
+
+	// jni class info caches
 	static struct {
 		jclass clazz;
 		jmethodID getNameId;
@@ -133,6 +174,7 @@ private:
 		jclass clazz;
 		jmethodID initId;
 		jmethodID setStackTraceId;
+		jmethodID getV8ExceptionId;
 	} _jniV8JSException;
 
 	static struct {
@@ -147,28 +189,37 @@ private:
 
 	static struct {
 		jclass clazz;
-		jmethodID removeTimeoutId;
-		jmethodID setTimeoutId;
-		jmethodID enqueueOnNextTick;
+		jmethodID onReadyId;
+		jmethodID onThrowId;
+		jmethodID onSuspendId;
+		jmethodID onResumeId;
 	} _jniV8Engine;
 
-	char *_locale;		// de_DE
-	char *_lang;		// de
-	char *_tz;			// Europe/Berlin
-	char *_deviceClass; // "phone"/"tablet"
-	int _maxHeapSize;	// in MB
-    bool _isStoreBuild;
 
-	float _density;
+	EState _state;
+	bool _isSuspended;
+
+	uv_thread_t _uvThread;
+	uv_loop_t _uvLoop;
+	uv_mutex_t _uvMutex;
+	uv_cond_t _uvCondSuspend;
+	uv_async_t _uvEventScheduleTimers, _uvEventStop, _uvEventSuspend;
+
+	int _maxHeapSize;	// in MB
 
     uint8_t _nextEmbedderDataIndex;
-	jobject _javaObject, _javaAssetManager;
-
-    void enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value>&);
+	jobject _javaAssetManager;
 
 	v8::Persistent<v8::Context> _context;
 
 	// Attributes
+	bool _didScheduleURPTask;
+	std::vector<RejectedPromiseHolder*> _unhandledRejectedPromises;
+
+	uint64_t _nextTimerId;
+	std::vector<TimerHolder*> _timers;
+
+	std::string _commonJSPath;
 	std::map<std::string, jobject> _javaModules;
 	std::map<std::string, requireHook> _modules;
     std::map<std::string, v8::Persistent<v8::Value>> _moduleCache;
@@ -176,12 +227,11 @@ private:
 
     v8::Persistent<v8::Function> _requireFn, _makeRequireFn;
 	v8::Persistent<v8::Function> _jsonParseFn, _jsonStringifyFn;
+	v8::Persistent<v8::Function> _debugDumpFn;
 	v8::Persistent<v8::Function> _makeJavaErrorFn;
 	v8::Persistent<v8::Function> _getStackTraceFn;
+
     v8::Local<v8::Function> makeRequireFunction(std::string pathName);
-
-	int _nextTimerId;
-
 };
 
 BGJS_JNI_LINK_DEF(BGJSV8Engine)

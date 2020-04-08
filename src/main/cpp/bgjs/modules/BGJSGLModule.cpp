@@ -1,7 +1,7 @@
-#include "BGJSGLModule.h"
-
 #include "../BGJSV8Engine.h"
 #include "../BGJSGLView.h"
+
+#include "BGJSGLModule.h"
 
 #include "v8.h"
 #include "../ejecta/EJConvert.h"
@@ -15,7 +15,6 @@
 #include <android/bitmap.h>
 #include <EJCanvasTypes.h>
 
-#include "../jniext.h"
 #include "../../jni/JNIWrapper.h"
 #include "../../v8/JNIV8Wrapper.h"
 
@@ -42,12 +41,12 @@ EscapableHandleScope scope(isolate);
 HandleScope scope(isolate);
 
 // Fetch the canvascontext from the context2d function in a FunctionTemplate
-#define CONTEXT_FETCH_BASE v8::Locker l(isolate); \
+#define CONTEXT_FETCH_BASE \
 if (!args.This()->IsObject()) { \
 	LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function"))); \
 } \
-BGJSCanvasContext *__context = BGJSClass::externalToClassPtr<BGJSV8Engine2dGL>(args.This()->ToObject(isolate)->GetInternalField(0))->context; \
+BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL*>(v8::External::Cast(*(args.This()->ToObject(isolate)->GetInternalField(0)))->Value()))->context; \
 if (!__context->_isRendering) { \
 	LOGI("Context is not in rendering phase in method '%s'", __PRETTY_FUNCTION__); \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run when not in rendering phase"))); \
@@ -967,7 +966,6 @@ void js_canvas_destruct(const v8::WeakCallbackInfo<void>& data) {
 
 void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = Isolate::GetCurrent();
-	v8::Locker l(isolate);
 	EscapableHandleScope scope(isolate);
 
 	// BGJSGLModule *objPtr = externalToClassPtr<BGJSGLModule>(args.Data());
@@ -1004,7 +1002,6 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
 
 void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate* isolate = Isolate::GetCurrent();
-	v8::Locker l(isolate);
 	EscapableHandleScope scope(isolate);
 	if (!args.This()->IsObject()) {
 		LOGE("js_canvas_getContext got no this object");
@@ -1040,7 +1037,6 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 
 void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target) {
     v8::Isolate* isolate = engine->getIsolate();
-	v8::Locker l(isolate);
 	HandleScope scope(isolate);
 
 	// Handle<Object> exports = Object::New();
@@ -1172,26 +1168,8 @@ void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target
 	target->Set(String::NewFromUtf8(isolate, "exports"), exports.ToLocalChecked());
 }
 
-
-BGJSGLModule::~BGJSGLModule() {
-
-}
-
 static void checkGlError(const char* op) {
 	for (GLint error = glGetError(); error; error = glGetError()) {
 		LOGI("after %s() glError (0x%x)\n", op, error);
 	}
-}
-
-JNIEXPORT jint JNICALL Java_ag_boersego_bgjs_ClientAndroid_cssColorToInt(JNIEnv * env, jobject obj, jstring color) {
-    const char* nativeString = env->GetStringUTFChars(color, 0);
-    EJColorRGBA colorRGBA = bufferToColorRBGA(nativeString, env->GetStringLength(color));
-
-    if (nativeString) {
-        env->ReleaseStringUTFChars(color, nativeString);
-    }
-
-    unsigned int colorsShifted = (colorRGBA.hex & 0xFF000000) + ((colorRGBA.hex & 0x00FF0000) >> 16) + (colorRGBA.hex & 0x0000FF00)
-                                 + ((colorRGBA.hex & 0x000000FF) << 16);
-    return colorsShifted;
 }

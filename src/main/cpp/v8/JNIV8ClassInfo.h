@@ -23,6 +23,66 @@ typedef void(JNIV8Object::*JNIV8ObjectAccessorSetterCallback)(const std::string 
 typedef void(*JNIV8ObjectStaticAccessorGetterCallback)(const std::string &propertyName, const v8::PropertyCallbackInfo<v8::Value> &info);
 typedef void(*JNIV8ObjectStaticAccessorSetterCallback)(const std::string &propertyName, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
 
+enum EJNIV8ObjectSymbolType {
+    // Iteration symbols
+
+    /**
+     * A method returning the default iterator for an object. Used by for...of.
+     */
+    kIterator,
+
+    /**
+     * A method that returns the default AsyncIterator for an object. Used by for await of.
+     */
+    kAsyncIterator,
+
+    // Regular expression symbols
+
+    /**
+     * A method that matches against a string, also used to determine if an object may be used as a regular expression. Used by String.prototype.match().
+     */
+    kMatch,
+
+    /**
+     * A method that replaces matched substrings of a string. Used by String.prototype.replace().
+     */
+    kReplace,
+    /**
+     * A method that returns the index within a string that matches the regular expression. Used by String.prototype.search().
+     */
+    kSearch,
+    /**
+     * A method that splits a string at the indices that match a regular expression. Used by String.prototype.split().
+     */
+    kSplit,
+
+    // Other symbols
+
+    /**
+     * A method determining if a constructor object recognizes an object as its instance. Used by instanceof.
+     */
+    kHasInstance,
+    /*
+    * A Boolean value indicating if an object should be flattened to its array elements. Used by Array.prototype.concat().
+    */
+    kIsConcatSpreadable,
+
+    /**
+     * An object value of whose own and inherited property names are excluded from the with environment bindings of the associated object.
+     */
+    kUnscopables,
+
+    /**
+     * A method converting an object to a primitive value.
+     */
+    kToPrimitive,
+
+    /**
+     * A string value used for the default description of an object. Used by Object.prototype.toString().
+     */
+    kToStringTag
+};
+
 /**
  * internal struct for storing information for property accessor bound to java methods
  */
@@ -128,6 +188,11 @@ public:
     void registerAccessor(const std::string& propertyName, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0);
     void registerStaticAccessor(const std::string& propertyName, JNIV8ObjectStaticAccessorGetterCallback getter, JNIV8ObjectStaticAccessorSetterCallback setter = 0);
 
+    void registerMethod(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectMethodCallback callback);
+    void registerStaticMethod(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectStaticMethodCallback callback);
+    void registerAccessor(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectAccessorGetterCallback getter, JNIV8ObjectAccessorSetterCallback setter = 0);
+    void registerStaticAccessor(const EJNIV8ObjectSymbolType symbol, JNIV8ObjectStaticAccessorGetterCallback getter, JNIV8ObjectStaticAccessorSetterCallback setter = 0);
+
     v8::Local<v8::Object> newInstance() const;
     v8::Local<v8::Function> getConstructor() const;
 
@@ -143,6 +208,9 @@ private:
     void registerStaticJavaMethod(const std::string& methodName, jmethodID methodId, const JNIV8JavaValue& returnType, std::vector<JNIV8JavaValue> *arguments);
     void registerJavaAccessor(const std::string& propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId, jmethodID setterId);
     void registerStaticJavaAccessor(const std::string& propertyName, const JNIV8JavaValue& propertyType, jmethodID getterId, jmethodID setterId);
+
+    v8::Local<v8::Name> _makeName(std::string name);
+    std::string _makeSymbolString(EJNIV8ObjectSymbolType symbol);
 
     void _registerJavaMethod(JNIV8ObjectJavaCallbackHolder *holder);
     void _registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder);

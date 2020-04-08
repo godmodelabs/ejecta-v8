@@ -26,6 +26,7 @@ private:
         jclass clazz;
     } _jniObject;
     static v8::MaybeLocal<v8::Function> getJNIV8FunctionBaseFunction();
+    static v8::MaybeLocal<v8::Function> createJavaBackedFunction(JNILocalRef<BGJSV8Engine> engine, jobject handler);
     static void v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 

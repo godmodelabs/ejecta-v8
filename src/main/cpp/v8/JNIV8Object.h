@@ -22,6 +22,7 @@ v8::Isolate::Scope isolateScope(isolate);\
 v8::HandleScope scope(isolate);\
 v8::Local<v8::Context> context = engine->getContext();\
 v8::Context::Scope ctxScope(context);\
+v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);\
 v8::TryCatch try_catch(isolate);\
 v8::Local<L> localRef = v8::Local<v8::Object>::New(isolate, ptr->getJSObject()).As<L>();
 
@@ -71,6 +72,7 @@ protected:
      */
     void adjustJSExternalMemory(int64_t change);
 
+    virtual void OnJSObjectAssigned();
 private:
     // private methods
     void makeWeak();
@@ -83,10 +85,12 @@ private:
     static void initializeV8Bindings(JNIV8ClassInfo *info);
 
     // jni callbacks
+    static jobject jniCreate(JNIEnv *env, jobject obj, jobject engine, jstring name, jobjectArray arguments);
     static void jniAdjustJSExternalMemory(JNIEnv *env, jobject obj, jlong change);
     static jobject jniGetV8FieldWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType);
     static void jniSetV8Field(JNIEnv *env, jobject obj, jstring name, jobject value);
     static void jniSetV8Fields(JNIEnv *env, jobject obj, jobject map);
+    static void jniSetV8Accessor(JNIEnv *env, jobject obj, jstring name, jobject getter, jobject setter);
     static jobject jniCallV8MethodWithReturnType(JNIEnv *env, jobject obj, jstring name, jint flags, jint type, jclass returnType, jobjectArray arguments);
     static jboolean jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboolean ownOnly);
     static jobjectArray jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly);
@@ -94,6 +98,8 @@ private:
     static jdouble jniToNumber(JNIEnv *env, jobject obj);
     static jstring jniToString(JNIEnv *env, jobject obj);
     static jstring jniToJSON(JNIEnv *env, jobject obj);
+    static jboolean jniIsInstanceOfByConstructor(JNIEnv *env, jobject obj, jobject constructor);
+    static jboolean jniIsInstanceOfByName(JNIEnv *env, jobject obj, jstring name);
     static void jniRegisterV8Class(JNIEnv *env, jobject obj, jstring derivedClass, jstring baseClass);
     static void jniRegisterAliasForPrimitive(JNIEnv *env, jobject obj, jint aliasType, jint primitiveType);
 

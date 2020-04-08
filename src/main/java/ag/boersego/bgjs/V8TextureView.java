@@ -40,11 +40,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
     private final V8Engine mEngine;
     protected RenderThread mRenderThread;
-    private final MotionEvent.PointerCoords[] mTouches = new MotionEvent.PointerCoords[MAX_NUM_TOUCHES];
+    private final PointerCoords[] mTouches = new PointerCoords[MAX_NUM_TOUCHES];
     private final boolean[] mTouchesThere = new boolean[MAX_NUM_TOUCHES];
     private int mNumTouches = 0;
     private double mTouchDistance;
-    protected static float mScaling;
+    protected static float mDensity;
     private boolean mInteractive;
     private PointerCoords mTouchStart;
     private final float mTouchSlop;
@@ -80,9 +80,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mEngine = engine;
         final Resources r = getResources();
         if (r != null) {
-            mScaling = r.getDisplayMetrics().density;
+            mDensity = r.getDisplayMetrics().density;
         }
-        mTouchSlop = TOUCH_SLOP * mScaling;
+        mTouchSlop = TOUCH_SLOP * mDensity;
         setSurfaceTextureListener(this);
     }
 
@@ -176,12 +176,12 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 // We have a limit on the number of touch points that we pass to JS
                 if (id < MAX_NUM_TOUCHES) {
                     if (mTouches[id] == null) {
-                        mTouches[id] = new MotionEvent.PointerCoords();
+                        mTouches[id] = new PointerCoords();
                     }
                     ev.getPointerCoords(index, mTouches[id]);
                     // Scale the touch pointers to logical pixels. JS doesn't know about dpi
-                    mTouches[id].x = (int) (mTouches[id].x / mScaling);
-                    mTouches[id].y = (int) (mTouches[id].y / mScaling);
+                    mTouches[id].x = (int) (mTouches[id].x / mDensity);
+                    mTouches[id].y = (int) (mTouches[id].y / mDensity);
 
                     // If this is the first pointer of a potential multi touch gesture, record the start position
                     // of the gesture
@@ -218,8 +218,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         final int oldX = (int) mTouches[id].x;
                         final int oldY = (int) mTouches[id].y;
                         ev.getPointerCoords(i, mTouches[id]);
-                        mTouches[id].x = (int) (mTouches[id].x / mScaling);
-                        mTouches[id].y = (int) (mTouches[id].y / mScaling);
+                        mTouches[id].x = (int) (mTouches[id].x / mDensity);
+                        mTouches[id].y = (int) (mTouches[id].y / mDensity);
 
                         // If the touch hasn't moved yet, check if we are over the
                         // slop before we report moves
@@ -640,7 +640,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      */
     protected BGJSGLView createGL() {
         final BGJSGLView glView = new BGJSGLView(mEngine, this);
-        glView.setViewData(mScaling, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
+        glView.setViewData(mDensity, mDontClearOnFlip, getMeasuredWidth(), getMeasuredHeight());
 
         return glView;
     }

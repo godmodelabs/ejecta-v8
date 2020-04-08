@@ -21,16 +21,35 @@
 #include <sstream>
 
 #include "BGJSGLView.h"
+#include "modules/BGJSGLModule.h"
 #include "v8-profiler.h"
 
 #define LOG_TAG    "BGJSV8Engine-jni"
 
+#define THROW_IF_NOT_STARTED()\
+if(engine->_state != EState::kStarted) {\
+jthrowable throwable = (jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId, JNIWrapper::string2jstring("Engine is not started"), nullptr);\
+env->Throw(throwable);\
+}
+
 using namespace v8;
 
 // We can only dump one Isolate's heap at a time
-char *_nextProfileDumpPath = NULL;
+char *_nextProfileDumpPath = nullptr;
 
 BGJS_JNI_LINK(BGJSV8Engine, "ag/boersego/bgjs/V8Engine")
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved)  {
+    if(!JNIWrapper::isInitialized()) {
+        JNIWrapper::init(vm);
+        JNIV8Wrapper::init();
+
+        JNIWrapper::registerObject<BGJSV8Engine>();
+        JNIV8Wrapper::registerObject<BGJSGLView>();
+    }
+
+    return JNI_VERSION_1_6;
+}
 
 //-----------------------------------------------------------
 // Utility functions
@@ -48,39 +67,50 @@ std::vector<std::string> &split(const std::string &s, char delim,
 
 std::string normalize_path(std::string &path) {
     std::vector<std::string> pathParts;
+
     std::stringstream ss(path);
     std::string item;
     while (std::getline(ss, item, '/')) {
         pathParts.push_back(item);
     }
-    std::string outPath;
 
-    int length = pathParts.size();
-    int i = 0;
-    if (length > 0 && pathParts.at(0).compare("..") == 0) {
-        i = 1;
-    }
-    for (; i < length - 1; i++) {
-        std::string pathPart = pathParts.at(i + 1);
-        if (pathPart.compare("..") != 0) {
-            std::string nextSegment = pathParts.at(i);
-            if (nextSegment.compare(".") == 0) {
-                continue;
+    for(size_t i = 0, n = pathParts.size(); i < n;) {
+        std::string part = pathParts[i];
+        // current directory "." can be ignored
+        // empty directories beyond root can also be ignored
+        // this also handles a trailing slash
+        if(part == "." || (i && part.empty())) {
+            pathParts.erase(pathParts.begin() + i);
+            n--;
+        } else if(part == "..") {
+            auto rangeStart = pathParts.begin() + i;
+            // do not go up beyond root
+            // only go up if this is not the first element
+            if(i > 0 && !pathParts[i-1].empty()) {
+                pathParts.erase(rangeStart - 1, rangeStart + 1);
+                i--;
+                n -= 2;
+                // in both of the above cases: part is a nop, just remove
+            } else {
+                pathParts.erase(rangeStart);
+                n--;
             }
-            if (outPath.length() > 0) {
-                outPath.append("/");
-            }
-            outPath.append(pathParts.at(i));
         } else {
             i++;
         }
     }
-    outPath.append("/").append(pathParts.at(length - 1));
+
+    std::string outPath;
+    for(size_t i = 0, n = pathParts.size(); i < n; i++) {
+        if(i) outPath += "/";
+        outPath += pathParts[i];
+    }
+
     return outPath;
 }
 
 std::string getPathName(std::string &path) {
-    size_t found = path.find_last_of("/");
+    size_t found = path.find_last_of('/');
 
     if (found == string::npos) {
         return path;
@@ -185,11 +215,17 @@ static void RequireCallback(const v8::FunctionCallbackInfo<v8::Value> &args) {
 // V8Engine
 //-----------------------------------------------------------
 
-decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module = {0};
-decltype(BGJSV8Engine::_jniV8Exception) BGJSV8Engine::_jniV8Exception = {0};
-decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {0};
-decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {0};
-decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {0};
+decltype(BGJSV8Engine::_jniV8Module) BGJSV8Engine::_jniV8Module = {nullptr};
+decltype(BGJSV8Engine::_jniV8Exception) BGJSV8Engine::_jniV8Exception = {nullptr};
+decltype(BGJSV8Engine::_jniV8JSException) BGJSV8Engine::_jniV8JSException = {nullptr};
+decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElement = {nullptr};
+decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {nullptr};
+
+void BGJSV8Engine::RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
+    auto *holder = reinterpret_cast<RejectedPromiseHolder *>(data.GetParameter());
+    holder->promise.Reset();
+    holder->collected = true;
+}
 
 /**
  * internal struct for storing information for wrapped java functions
@@ -197,12 +233,14 @@ decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {0};
 struct BGJSV8EngineJavaErrorHolder {
     v8::Persistent<v8::Object> persistent;
     jthrowable throwable;
+
+    BGJSV8EngineJavaErrorHolder() : throwable(nullptr) {}
 };
 
 void BGJSV8EngineJavaErrorHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
-    BGJSV8EngineJavaErrorHolder *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder *>(data.GetParameter());
+    auto *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder *>(data.GetParameter());
     env->DeleteGlobalRef(holder->throwable);
 
     holder->persistent.Reset();
@@ -229,9 +267,24 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() const {
     /*
      * `e` could be an instance of V8Exception containing a v8 error
      * but we do NOT unwrap it and use the existing error because then we would loose some additional java stack trace entries
+     * Example: Java (0) -> JS (1) -> Java (2) -> JS (3)
+     * If an exception is raised on #3, then it will first be converted to a JNI exception on #2 (V8Exception containing a V8JSException as cause);
+     * when it is passed to v8 again at #1 we COULD unwrap the original exception, but then we would lose the info that the code went through #2.
+     *
+     * however, if `e` is an instance of V8JSException we DO unwrap it.
+     * These exceptions are only thrown in java with the purpose of raising a specific javascript exception
+     * Example: Java (0) -> JS (1) -> Java (2)
+     * The java code at #2 wants to raise a special kind of v8 exception (e.g. a RangeError, because a parameter was invalid).
+     * To do that it throws a V8JSException containing the desired v8 object => We HAVE to unwrap here.
      */
 
-    BGJSV8EngineJavaErrorHolder *holder = new BGJSV8EngineJavaErrorHolder();
+    if(env->IsInstanceOf(e, _jniV8JSException.clazz)) {
+        jobject v8Exception = env->CallObjectMethod(e, _jniV8JSException.getV8ExceptionId);
+        _isolate->ThrowException(JNIV8Marshalling::jobject2v8value(v8Exception));
+        return true;
+    }
+
+    auto *holder = new BGJSV8EngineJavaErrorHolder();
     Handle<Value> args[] = {};
 
     Local<Function> makeJavaErrorFn = Local<Function>::New(_isolate, _makeJavaErrorFn);
@@ -259,27 +312,25 @@ V = JNIV8Marshalling::v8string2jstring(value.As<String>());\
 }\
 }
 
-bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
-    if (!try_catch->HasCaught()) {
-        return false;
-    }
+bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch, bool throwOnMainThread) const {
+    return forwardV8ExceptionToJNI("", try_catch->Exception(), try_catch->Message(), throwOnMainThread);
+}
 
+bool BGJSV8Engine::forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<Message> message, bool throwOnMainThread) const {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     HandleScope scope(_isolate);
     Local<Context> context = getContext();
 
-    jobject causeException = nullptr;
-
     MaybeLocal<Value> maybeValue;
     Local<Value> value;
 
+    jobject causeException = nullptr;
     // if the v8 error is a `JavaError` that means it already contains a java exception
     // => we unwrap the error and reuse that exception
     // if the original error was a v8 error we still have that contained in the java exception along with a full v8 stack trace steps
     // NOTE: if it was a java error, then we do lose the v8 stack trace however..
     // the only way to keep it would be to use yet another type of Java exception that contains both the original java exception and the first created JavaError
-    Local<Value> exception = try_catch->Exception();
     Local<Object> exceptionObj;
     if (exception->IsObject()) {
         exceptionObj = exception.As<Object>();
@@ -294,8 +345,12 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
                 // then we need to wrap it to preserve the v8 call stack
                 causeException = env->NewLocalRef(holder->throwable);
             } else {
-                // otherwise we can reuse the embedded V8Exception!
-                env->Throw((jthrowable) env->NewLocalRef(holder->throwable));
+                if(throwOnMainThread) {
+                    env->CallVoidMethod(getJObject(), _jniV8Engine.onThrowId, holder->throwable);
+                } else {
+                    // otherwise we can reuse the embedded V8Exception!
+                    env->Throw((jthrowable) env->NewLocalRef(holder->throwable));
+                }
                 return true;
             }
         }
@@ -334,11 +389,11 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
         // for errors thrown from native code it might not be available though
         if (strErrorName == "SyntaxError") {
             int lineNumber = -1;
-            Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
+            Maybe<int> maybeLineNumber = message->GetLineNumber(context);
             if (!maybeLineNumber.IsNothing()) {
                 lineNumber = maybeLineNumber.ToChecked();
             }
-            Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
+            Local<Value> jsScriptResourceName = message->GetScriptResourceName();
             if (jsScriptResourceName->IsString()) {
                 strExceptionMessage =
                         JNIV8Marshalling::v8string2string(jsScriptResourceName.As<String>()) +
@@ -347,7 +402,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
             }
         }
 
-        exceptionMessage = JNIWrapper::string2jstring("[" + strErrorName + "] " + strExceptionMessage);
+        exceptionMessage = JNIWrapper::string2jstring(messagePrefix + "[" + strErrorName + "] " + strExceptionMessage);
 
         Local<Function> getStackTraceFn = Local<Function>::New(_isolate, _getStackTraceFn);
 
@@ -403,14 +458,14 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
     // if no stack trace was provided by v8, or if there was an error converting it, we still have to show something
     if (error || !stackTrace) {
         int lineNumber = -1;
-        Maybe<int> maybeLineNumber = try_catch->Message()->GetLineNumber(context);
+        Maybe<int> maybeLineNumber = message->GetLineNumber(context);
         if (!maybeLineNumber.IsNothing()) {
             lineNumber = maybeLineNumber.ToChecked();
         }
 
         // script resource might not be set if the exception came from native code
         jstring fileName;
-        Local<Value> jsScriptResourceName = try_catch->Message()->GetScriptResourceName();
+        Local<Value> jsScriptResourceName = message->GetScriptResourceName();
         if (jsScriptResourceName->IsString()) {
             fileName = JNIV8Marshalling::v8string2jstring(jsScriptResourceName.As<String>());
         } else {
@@ -428,7 +483,7 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
 
     // if exception was not an Error object, or if .message is not set for some reason => use toString()
     if (!exceptionMessage) {
-        exceptionMessage = JNIV8Marshalling::v8string2jstring(exception->ToString(_isolate));
+        exceptionMessage = JNIWrapper::string2jstring(messagePrefix + JNIV8Marshalling::v8string2string(exception->ToString(_isolate)));
     }
 
     // apply trace to js exception
@@ -437,21 +492,21 @@ bool BGJSV8Engine::forwardV8ExceptionToJNI(v8::TryCatch *try_catch) const {
     env->CallVoidMethod(v8JSException, _jniV8JSException.setStackTraceId, stackTrace);
 
     // throw final exception
-    env->Throw((jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId,
-                                           JNIWrapper::string2jstring("An exception was thrown in JavaScript"),
-                                           v8JSException));
+    jthrowable throwable = (jthrowable) env->NewObject(_jniV8Exception.clazz, _jniV8Exception.initId,
+                                                       JNIWrapper::string2jstring("An exception was thrown in JavaScript"),
+                                                       v8JSException);
+    if(throwOnMainThread) {
+        env->CallVoidMethod(getJObject(), _jniV8Engine.onThrowId, throwable);
+    } else {
+        env->Throw(throwable);
+    }
 
     return true;
 }
 
 // Register
 bool BGJSV8Engine::registerModule(const char *name, requireHook requireFn) {
-    // v8::Locker l(Isolate::GetCurrent());
-    // HandleScope scope(Isolate::GetCurrent());
-    // module->initWithContext(this);
     _modules[name] = requireFn;
-    // _modules.insert(std::pair<char const*, BGJSModule*>(module->getName(), module));
-
     return true;
 }
 
@@ -515,17 +570,28 @@ MaybeLocal<Value> BGJSV8Engine::parseJSON(Handle<String> source) const {
 // utility method to convert v8 values to readable strings for debugging
 const std::string BGJSV8Engine::toDebugString(Handle<Value> source) const {
     Handle<Value> stringValue;
-    if (source->IsObject()) {
-        // stringify might throw an exception because of circular references, which is non-fatal
-        v8::TryCatch try_catch(Isolate::GetCurrent());
-        MaybeLocal<Value> maybeValue = stringifyJSON(source.As<Object>(), true);
+    // errors
+    if(source->IsNativeError()) {
+        auto messageRef = v8::Exception::CreateMessage(Isolate::GetCurrent(), source);
+        stringValue = messageRef->Get();
+    // other objects + primitives
+    } else {
+        Local<Function> debugDumpFn = Local<Function>::New(_isolate, _debugDumpFn);
+        Handle<Value> args[] = {source};
+        Local<Context> context = Isolate::GetCurrent()->GetCurrentContext();
+        MaybeLocal<Value> result = debugDumpFn->Call(context, context->Global(), 1, args);
+        if (!result.IsEmpty()) {
+            stringValue = result.ToLocalChecked();
+        }
+    }
+
+    if (stringValue.IsEmpty()) {
+        MaybeLocal<String> maybeValue = source->ToString(Isolate::GetCurrent()->GetCurrentContext());
         if (!maybeValue.IsEmpty()) {
             stringValue = maybeValue.ToLocalChecked();
         }
     }
-    if (stringValue.IsEmpty()) {
-        stringValue = source->ToString(Isolate::GetCurrent());
-    }
+
     return JNIV8Marshalling::v8string2string(stringValue);
 }
 
@@ -558,7 +624,8 @@ v8::Local<v8::Function> BGJSV8Engine::makeRequireFunction(std::string pathName) 
         const char *szJSRequireCode =
                 "(function(internalRequire, prefix) {"
                         "   return function require(path) {"
-                        "       return internalRequire(path.indexOf('./')===0?'./'+prefix+'/'+path.substr(2):path);"
+                        "       const l = path.indexOf('./');"
+                        "       return internalRequire(l>=0&&l<=1?'./'+prefix+'/'+path.substr(!l?2:0):path);"
                         "   };"
                         "})";
 
@@ -597,40 +664,52 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
     EscapableHandleScope handle_scope(_isolate);
 
     Local<Value> result;
+    LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
 
-    if (baseNameStr.find("./") == 0) {
+    // prefix "/" is basically identical to "./"
+    // both reference the root of the assets folder
+    if(baseNameStr.find('/') == 0) {
+        baseNameStr = "./" + baseNameStr.substr(1);
+    }
+
+    // if the name starts with "./" it's a path to a js module
+    // prefix "../" is handled by js require and also arrives here as "./../"
+    // path needs to be normalized
+    bool isRelativePath = (baseNameStr.find("./") == 0);
+    if (isRelativePath) {
         baseNameStr = baseNameStr.substr(2);
-        find_and_replace(baseNameStr, std::string("/./"), std::string("/"));
         baseNameStr = normalize_path(baseNameStr);
     }
-    bool isJson = false;
+    LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
 
     // check cache first
     _CHECK_AND_RETURN_REQUIRE_CACHE(baseNameStr)
 
+    if(!isRelativePath) {
+        // Check if this is an internal native module
+        requireHook module = _modules[baseNameStr];
+
+        if (module) {
+            Local<Object> exportsObj = Object::New(_isolate);
+            Local<Object> moduleObj = Object::New(_isolate);
+            moduleObj->Set(String::NewFromUtf8(_isolate, "id"),
+                           String::NewFromUtf8(_isolate, baseNameStr.c_str()));
+            moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
+
+            module(this, moduleObj);
+            result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
+            _moduleCache[baseNameStr].Reset(_isolate, result);
+            return handle_scope.Escape(result);
+        } else {
+            baseNameStr = _commonJSPath + baseNameStr;
+        }
+    }
 
     // Source of JS file if external code
     Handle<String> source;
-    const char *buf = 0;
+    const char *buf = nullptr;
+    bool isJson = false;
 
-    // Check if this is an internal module
-    requireHook module = _modules[baseNameStr];
-
-    if (module) {
-        Local<Object> exportsObj = Object::New(_isolate);
-        Local<Object> moduleObj = Object::New(_isolate);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, baseNameStr.c_str()));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
-
-        module(this, moduleObj);
-        result = moduleObj->Get(String::NewFromUtf8(_isolate, "exports"));
-        _moduleCache[baseNameStr].Reset(_isolate, result);
-        return handle_scope.Escape(result);
-    }
     std::string fileName, pathName;
 
     fileName = baseNameStr;
@@ -676,7 +755,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
                 fileName = baseNameStr + "/" + *jsFileNameC;
                 if (buf) {
                     free((void *) buf);
-                    buf = NULL;
                 }
 
                 // It might be a directory with an index.js
@@ -686,7 +764,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
                 LOGE("%s doesn't have a main object: %s", baseNameStr.c_str(), buf);
                 if (buf) {
                     free((void *) buf);
-                    buf = NULL;
+                    buf = nullptr;
                 }
             }
         }
@@ -698,7 +776,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
     if (!buf) {
         _isolate->ThrowException(v8::Exception::Error(
-                String::NewFromUtf8(_isolate, (const char *) ("Cannot find module '" + baseNameStr + "'").c_str())));
+                String::NewFromUtf8(_isolate, ("Cannot find module '" + baseNameStr + "'").c_str())));
         return maybeLocal;
     }
 
@@ -715,7 +793,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
 
     // wrap source in anonymous function to set up an isolated scope
     const char *szSourcePrefix = "(function (exports, require, module, __filename, __dirname) {";
-    const char *szSourcePostfix = "})";
+    const char *szSourcePostfix = "\n})";
     source = String::Concat(_isolate,
             String::Concat(_isolate,
                     String::NewFromUtf8(_isolate, szSourcePrefix),
@@ -745,11 +823,7 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
         Local<Object> exportsObj = Object::New(_isolate);
         Local<Object> moduleObj = Object::New(_isolate);
         moduleObj->Set(String::NewFromUtf8(_isolate, "id"), String::NewFromUtf8(_isolate, fileName.c_str()));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "environment"), String::NewFromUtf8(_isolate, "BGJSContext"));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "platform"), String::NewFromUtf8(_isolate, "android"));
         moduleObj->Set(String::NewFromUtf8(_isolate, "exports"), exportsObj);
-        moduleObj->Set(String::NewFromUtf8(_isolate, "debug"), Boolean::New(_isolate, _debug));
-        moduleObj->Set(String::NewFromUtf8(_isolate, "isStoreBuild"), Boolean::New(_isolate, _isStoreBuild));
 
         Handle<Value> fnModuleInitializerArgs[] = {
                 exportsObj,                                      // exports
@@ -788,189 +862,175 @@ v8::Local<v8::Context> BGJSV8Engine::getContext() const {
     return scope.Escape(Local<Context>::New(_isolate, _context));
 }
 
-void BGJSV8Engine::js_global_getLocale(Local<String> property,
-                                       const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_locale) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_locale)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_getLang(Local<String> property,
-                                     const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_lang) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_lang)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_getTz(Local<String> property,
-                                   const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_tz) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_tz)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_getDeviceClass(Local<String> property,
-                                            const v8::PropertyCallbackInfo<v8::Value> &info) {
-    EscapableHandleScope scope(Isolate::GetCurrent());
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(info.GetIsolate());
-
-    if (ctx->_deviceClass) {
-        info.GetReturnValue().Set(scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ctx->_deviceClass)));
-    } else {
-        info.GetReturnValue().SetNull();
-    }
-}
-
-void BGJSV8Engine::js_global_requestAnimationFrame(
-        const v8::FunctionCallbackInfo<v8::Value> &args) {
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(args.GetIsolate());
-    HandleScope scope(args.GetIsolate());
-
-    if (args.Length() >= 2 && args[0]->IsFunction() && args[1]->IsObject()) {
-        Local<Object> localFunc = args[0]->ToObject(args.GetIsolate());
-
-        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject(args.GetIsolate()));
-        jobject functionWrapped = JNIV8Marshalling::v8value2jobject(localFunc);
-        args.GetReturnValue().Set(view->callJavaIntMethod("requestAnimationFrame", functionWrapped));
-        JNIWrapper::getEnvironment()->DeleteLocalRef(functionWrapped);
-    } else {
-        LOGI("requestAnimationFrame: Wrong number or type of parameters (num %d, is function %d %d, is object %d %d, is null %d %d)",
-             args.Length(), args[0]->IsFunction(), args.Length() >= 2 ? args[1]->IsFunction() : false,
-             args[0]->IsObject(), args.Length() >= 2 ? args[1]->IsObject() : false,
-             args[0]->IsNull(), args.Length() >= 2 ? args[1]->IsNull() : false);
-        ctx->getIsolate()->ThrowException(
-                v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(),
-                                                "requestAnimationFrame: Wrong number or type of parameters")));
-        return;
-    }
-    args.GetReturnValue().Set(-1);
-}
-
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-
-    if (args.Length() >= 2 && args[0]->IsFunction()) {
-        ctx->enqueueNextTick(args);
-    }
-}
-
-void BGJSV8Engine::js_global_cancelAnimationFrame(
-        const v8::FunctionCallbackInfo<v8::Value> &args) {
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(ctx->getIsolate());
-    HandleScope scope(ctx->getIsolate());
-    if (args.Length() >= 2 && args[0]->IsNumber() && args[1]->IsObject()) {
-
-        int id = (int) (Local<Number>::Cast(args[0])->Value());
-        auto view = JNIV8Wrapper::wrapObject<JNIV8Object>(args[1]->ToObject(ctx->getIsolate()));
-        view->callJavaVoidMethod("cancelAnimationFrame", id);
+    if (args.Length() >= 1 && args[0]->IsFunction()) {
+        TaskHolder *holder = new TaskHolder();
+        holder->callback.Reset(args.GetIsolate(), args[0].As<v8::Function>());
+        args.GetIsolate()->EnqueueMicrotask(&BGJSV8Engine::OnTaskMicrotask, (void*)holder);
     } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(),
-                                                "cancelAnimationFrame: Wrong number or type of parameters")));
+                        v8::String::NewFromUtf8(ctx->getIsolate(), "callback must be a function")));
     }
-
-    args.GetReturnValue().SetUndefined();
 }
 
 void BGJSV8Engine::js_global_setTimeout(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    setTimeoutInt(args, false);
+    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
+    HandleScope scope(args.GetIsolate());
+
+    if (args.Length() == 2 && args[0]->IsFunction()) {
+        double numberValue = args[1]->NumberValue(args.GetIsolate()->GetCurrentContext()).FromMaybe(0.0f);
+        if (std::isnan(numberValue)) numberValue = 0.0f;
+
+        Local<v8::Function> funcRef = Local<Function>::Cast(args[0]);
+        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberValue, 0);
+
+        args.GetReturnValue().Set(v8::Number::New(args.GetIsolate(), (double)id));
+    } else {
+        ctx->getIsolate()->ThrowException(
+                v8::Exception::ReferenceError(
+                v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
+    }
 }
 
 void BGJSV8Engine::js_global_setInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    setTimeoutInt(args, true);
-}
-
-void BGJSV8Engine::setTimeoutInt(const v8::FunctionCallbackInfo<v8::Value> &args,
-                                 bool recurring) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(args.GetIsolate());
     HandleScope scope(args.GetIsolate());
 
+    if (args.Length() == 2 && args[0]->IsFunction()) {
+        double numberValue = args[1]->NumberValue(args.GetIsolate()->GetCurrentContext()).FromMaybe(0.0f);
+        if (std::isnan(numberValue)) numberValue = 0.0f;
 
-    if (args.Length() == 2 && args[0]->IsFunction() && args[1]->IsNumber()) {
-        Local<v8::Function> callback = Local<Function>::Cast(args[0]);
+        Local<v8::Function> funcRef = Local<Function>::Cast(args[0]);
+        uint64_t id = ctx->createTimer(funcRef, (uint64_t)numberValue, (uint64_t)numberValue);
 
-        WrapPersistentFunc *ws = new WrapPersistentFunc();
-        BGJS_RESET_PERSISTENT(ctx->getIsolate(), ws->callbackFunc, callback);
-        WrapPersistentObj *wo = new WrapPersistentObj();
-        BGJS_RESET_PERSISTENT(ctx->getIsolate(), wo->obj, args.This());
-
-        jlong timeout = (jlong) (Local<Number>::Cast(args[1])->Value());
-
-        JNIEnv *env = JNIWrapper::getEnvironment();
-        if (env == NULL) {
-            LOGE("Cannot execute setTimeout with no envCache");
-            args.GetReturnValue().SetUndefined();
-            return;
-        }
-
-        assert(ctx->_jniV8Engine.setTimeoutId);
-        assert(ctx->_jniV8Engine.clazz);
-        int subId = env->CallStaticIntMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.setTimeoutId, (jlong) ws,
-                                             (jlong) wo, timeout, (jboolean) recurring);
-        args.GetReturnValue().Set(subId);
+        args.GetReturnValue().Set(v8::Number::New(args.GetIsolate(), (double)id));
     } else {
         ctx->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
                         v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong number of parameters")));
     }
-    return;
 }
 
-void BGJSV8Engine::js_global_clearInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    clearTimeoutInt(args);
+uint64_t BGJSV8Engine::createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat) {
+    auto *holder = new TimerHolder();
+    holder->callback.Reset(_isolate, callback);
+    holder->engine = this;
+    holder->id = _nextTimerId++;
+    holder->repeats = repeat > 0;
+    holder->delay = delay;
+    holder->repeat = repeat;
+
+    uv_async_send(&_uvEventScheduleTimers);
+
+    _timers.push_back(holder);
+
+    return holder->id;
 }
 
-void BGJSV8Engine::js_global_clearTimeout(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    clearTimeoutInt(args);
+/**
+ * used to schedule or stop timers
+ * timers are created inside of V8 from arbitrary threads, but
+ * the libuv calls all need to happen inside of the libuv thread
+ * so this async event is triggered by the thread creating/stopping a timer,
+ * and the actual work is then done here
+ * the v8 locker is simply used for synchronization, no actual v8 calls are made here
+ */
+void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
+    auto *engine = (BGJSV8Engine*)handle->data;
+
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+
+    for (size_t i = 0; i < engine->_timers.size(); ++i) {
+        auto holder = engine->_timers.at(i);
+        if(!holder->scheduled) {
+            uv_timer_init(&engine->_uvLoop, &holder->handle);
+            holder->handle.data = holder;
+            uv_timer_start(&holder->handle, &BGJSV8Engine::OnTimerTriggeredCallback, holder->delay, holder->repeat);
+            holder->scheduled = true;
+        } else if(holder->cleared && !holder->stopped) {
+            holder->stopped = true;
+            uv_timer_stop(&holder->handle);
+            uv_close((uv_handle_t*)&holder->handle, &BGJSV8Engine::OnTimerClosedCallback);
+        }
+    }
 }
 
-void BGJSV8Engine::clearTimeoutInt(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
-    v8::Locker l(ctx->getIsolate());
-    HandleScope scope(ctx->getIsolate());
+/**
+ * called by libuv when a timer was triggered
+ */
+void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
+    auto *holder = (TimerHolder*)handle->data;
 
-    args.GetReturnValue().SetUndefined();
+    v8::Isolate *isolate = holder->engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = holder->engine->getContext();
+    v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
+
+    v8::TryCatch try_catch(isolate);
+
+    // timer might have been stopped while waiting for the locker
+    if(holder->cleared) return;
+
+    v8::Local<v8::Function> funcRef = v8::Local<v8::Function>::New(isolate, holder->callback);
+    v8::MaybeLocal<v8::Value> maybeValueRef = funcRef->Call(context, context->Global(), 0, nullptr);
+
+    if(!holder->repeats) {
+        uv_close((uv_handle_t *) handle, &BGJSV8Engine::OnTimerClosedCallback);
+    }
+
+    if(maybeValueRef.IsEmpty()) {
+        holder->engine->forwardV8ExceptionToJNI(&try_catch, true);
+    }
+}
+
+/**
+ * called by libuv when a timer was closed
+ * resource cleanup happens here
+ */
+void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
+    auto *holder = (TimerHolder*)handle->data;
+    BGJSV8Engine *engine = holder->engine.get();
+
+    v8::Locker l(engine->getIsolate());
+
+    holder->callback.Reset();
+    holder->engine.reset();
+    delete holder;
+
+    auto it = std::find(engine->_timers.begin(), engine->_timers.end(), holder);
+    if(it != engine->_timers.end()) {
+        engine->_timers.erase(it);
+    }
+}
+
+void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
+    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(args.GetIsolate());
 
     if (args.Length() == 1) {
-
-        int id = (int) ((Local<Integer>::Cast(args[0]))->Value());
-
-        if (id == 0) {
+        double numberValue = args[0]->NumberValue(args.GetIsolate()->GetCurrentContext()).FromMaybe(FP_NAN);
+        if (std::isnan(numberValue)) {
             return;
         }
-
-        JNIEnv *env = JNIWrapper::getEnvironment();
-        if (env == NULL) {
-            LOGE("Cannot execute setTimeout with no envCache");
-            return;
+        auto id = (uint64_t)numberValue;
+        for (size_t i = 0; i < engine->_timers.size(); ++i) {
+            auto holder = engine->_timers.at(i);
+            if (holder->id == id) {
+                if(holder->cleared) return;
+                holder->cleared = true;
+                uv_async_send(&engine->_uvEventScheduleTimers);
+                break;
+            }
         }
-
-        env->CallStaticVoidMethod(ctx->_jniV8Engine.clazz, ctx->_jniV8Engine.removeTimeoutId, (jint) id);
     } else {
-        ctx->getIsolate()->ThrowException(
+        engine->getIsolate()->ThrowException(
                 v8::Exception::ReferenceError(
-                        v8::String::NewFromUtf8(ctx->getIsolate(), "Wrong arguments for clearTimeout")));
-        LOGE("Wrong arguments for clearTimeout");
+                        v8::String::NewFromUtf8(engine->getIsolate(), "Wrong number of parameters")));
     }
 }
 
@@ -981,6 +1041,7 @@ void BGJSV8Engine::initJNICache() {
     JNIEnv *env = JNIWrapper::getEnvironment();
 
     _jniV8JSException.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8JSException"));
+    _jniV8JSException.getV8ExceptionId = env->GetMethodID(_jniV8JSException.clazz, "getV8Exception", "()Ljava/lang/Object;");
     _jniV8JSException.initId = env->GetMethodID(_jniV8JSException.clazz, "<init>",
                                                 "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Throwable;)V");
     _jniV8JSException.setStackTraceId = env->GetMethodID(_jniV8JSException.clazz, "setStackTrace",
@@ -994,29 +1055,58 @@ void BGJSV8Engine::initJNICache() {
     _jniStackTraceElement.initId = env->GetMethodID(_jniStackTraceElement.clazz, "<init>",
                                                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
     _jniV8Engine.clazz = (jclass) env->NewGlobalRef(env->FindClass("ag/boersego/bgjs/V8Engine"));
-    _jniV8Engine.enqueueOnNextTick = env->GetMethodID(_jniV8Engine.clazz, "enqueueOnNextTick",
-                                                      "(Lag/boersego/bgjs/JNIV8Function;)Z");
-    _jniV8Engine.setTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "setTimeout",
-                                                       "(JJJZ)I");
-    _jniV8Engine.removeTimeoutId = env->GetStaticMethodID(_jniV8Engine.clazz, "removeTimeout",
-                                                          "(I)V");
+    _jniV8Engine.onReadyId = env->GetMethodID(_jniV8Engine.clazz, "onReady", "()V");
+    _jniV8Engine.onThrowId = env->GetMethodID(_jniV8Engine.clazz, "onThrow", "(Ljava/lang/RuntimeException;)V");
+    _jniV8Engine.onSuspendId = env->GetMethodID(_jniV8Engine.clazz, "onSuspend", "()V");
+    _jniV8Engine.onResumeId = env->GetMethodID(_jniV8Engine.clazz, "onResume", "()V");
 }
 
 BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, info) {
     _nextTimerId = 1;
-    _locale = NULL;
     _nextEmbedderDataIndex = EBGJSV8EngineEmbedderData::FIRST_UNUSED;
     _javaAssetManager = nullptr;
-    _isolate = NULL;
+    _isolate = nullptr;
+    _isSuspended = false;
+    _state = EState::kInitial;
+
+    // create uv loop, async events, mutexes & conditions
+    // these are required for synchronization and dispatching events before the engine is actually started
+    uv_loop_init(&_uvLoop);
+    _uvLoop.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventStop, &BGJSV8Engine::StopLoopThread);
+    _uvEventStop.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventScheduleTimers, &BGJSV8Engine::OnTimerEventCallback);
+    _uvEventScheduleTimers.data = this;
+
+    uv_async_init(&_uvLoop, &_uvEventSuspend, &BGJSV8Engine::SuspendLoopThread);
+    _uvEventSuspend.data = this;
+
+    uv_mutex_init(&_uvMutex);
+    uv_cond_init(&_uvCondSuspend);
+
+}
+
+const BGJSV8Engine::EState BGJSV8Engine::getState() const {
+    return _state;
 }
 
 void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
-
-}
-
-void BGJSV8Engine::setAssetManager(jobject jAssetManager) {
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    _javaAssetManager = env->NewGlobalRef(jAssetManager);
+    info->registerNativeMethod("initialize", "(Landroid/content/res/AssetManager;Ljava/lang/String;I)V", (void*)BGJSV8Engine::jniInitialize);
+    info->registerNativeMethod("pause", "()V", (void*)BGJSV8Engine::jniPause);
+    info->registerNativeMethod("unpause", "()V", (void*)BGJSV8Engine::jniUnpause);
+    info->registerNativeMethod("shutdown", "()V", (void*)BGJSV8Engine::jniShutdown);
+    info->registerNativeMethod("dumpHeap", "(Ljava/lang/String;)Ljava/lang/String;", (void*)BGJSV8Engine::jniDumpHeap);
+    info->registerNativeMethod("enqueueOnNextTick", "(Lag/boersego/bgjs/JNIV8Function;)V", (void*)BGJSV8Engine::jniEnqueueOnNextTick);
+    info->registerNativeMethod("parseJSON", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniParseJSON);
+    info->registerNativeMethod("require", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRequire);
+    info->registerNativeMethod("lock", "()J", (void*)BGJSV8Engine::jniLock);
+    info->registerNativeMethod("unlock", "(J)V", (void*)BGJSV8Engine::jniUnlock);
+    info->registerNativeMethod("getGlobalObject", "()Lag/boersego/bgjs/JNIV8GenericObject;", (void*)BGJSV8Engine::jniGetGlobalObject);
+    info->registerNativeMethod("runScript", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRunScript);
+    info->registerNativeMethod("registerModuleNative", "(Lag/boersego/bgjs/JNIV8Module;)V", (void*)BGJSV8Engine::jniRegisterModuleNative);
+    info->registerNativeMethod("getConstructor", "(Ljava/lang/String;)Lag/boersego/bgjs/JNIV8Function;", (void*)BGJSV8Engine::jniGetConstructor);
 }
 
 void BGJSV8Engine::createContext() {
@@ -1041,6 +1131,7 @@ void BGJSV8Engine::createContext() {
             v8::ArrayBuffer::Allocator::NewDefaultAllocator();
 
     _isolate = v8::Isolate::New(create_params);
+    _isolate->SetMicrotasksPolicy(v8::MicrotasksPolicy::kScoped);
 
     v8::Locker l(_isolate);
     Isolate::Scope isolate_scope(_isolate);
@@ -1082,29 +1173,7 @@ void BGJSV8Engine::createContext() {
                                            Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "process"), process);
 
-    // environment variables
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_locale"),
-                              BGJSV8Engine::js_global_getLocale, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_lang"),
-                              BGJSV8Engine::js_global_getLang, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_tz"),
-                              BGJSV8Engine::js_global_getTz, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-    globalObjTpl->SetAccessor(String::NewFromUtf8(_isolate, "_deviceClass"),
-                              BGJSV8Engine::js_global_getDeviceClass, 0, Local<Value>(), AccessControl::DEFAULT,
-                              PropertyAttribute::ReadOnly);
-
     // global functions
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "requestAnimationFrame"),
-                      v8::FunctionTemplate::New(_isolate,
-                                                BGJSV8Engine::js_global_requestAnimationFrame, Local<Value>(),
-                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
-    globalObjTpl->Set(String::NewFromUtf8(_isolate, "cancelAnimationFrame"),
-                      v8::FunctionTemplate::New(_isolate,
-                                                BGJSV8Engine::js_global_cancelAnimationFrame, Local<Value>(),
-                                                Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "setTimeout"),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setTimeout, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
@@ -1112,14 +1181,14 @@ void BGJSV8Engine::createContext() {
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_setInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearTimeout"),
-                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeout, Local<Value>(),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval"),
-                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearInterval, Local<Value>(),
+                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
 
     // Create a new context.
-    Local<Context> context = v8::Context::New(_isolate, NULL, globalObjTpl);
+    Local<Context> context = v8::Context::New(_isolate, nullptr, globalObjTpl);
     context->SetAlignedPointerInEmbedderData(EBGJSV8EngineEmbedderData::kContext, this);
 
     // register global object for all required modules
@@ -1211,6 +1280,278 @@ void BGJSV8Engine::createContext() {
                                                                         NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
         _jsonStringifyFn.Reset(_isolate, jsonStringifyMethod_);
     }
+
+    // Init debug dump binding
+    {
+        Local<Function> debugDumpMethod =
+                Local<Function>::Cast(
+                        Script::Compile(
+                                context,
+                                String::NewFromOneByte(Isolate::GetCurrent(),
+                                                       (const uint8_t *) "(function debugDump(a,b,c){b||(b=5),c||(c=0);const d=typeof a;if(!a||\"string\"==d)return\"'\"+a+\"'\";if(\"boolean\"==d||\"number\"==d)return a;if(\"symbol\"==d)"
+                                                                         "return a.toString();if(\"function\"==d){const b=a.toString();return 100<b.length?b.substr(0,100)+\"\\n    ... \"+(b.length-100)+\" more chars ...\\n}\":b}if(c>b)"
+                                                                         "return\"...\";let e=\"\";Object.getPrototypeOf(a)!==Object.prototype&&a.constructor.name&&(e=a.constructor.name+\" \");const f=[],g=\"  \".repeat(c+1);"
+                                                                         "for(let d in a)f.push(g+d+\": \"+debugDump(a[d],b,c+1));return f.length?e+\"{\\n\"+f.join(\",\\n\")+\"\\n\"+\"  \".repeat(c)+\"}\":e+\"{}\"})",
+                                                       NewStringType::kInternalized).ToLocalChecked(),
+                                new ScriptOrigin(String::NewFromOneByte(Isolate::GetCurrent(),
+                                                                        (const uint8_t *) "binding:debugDump",
+                                                                        NewStringType::kInternalized).ToLocalChecked())).ToLocalChecked()->Run(context).ToLocalChecked());
+        _debugDumpFn.Reset(_isolate, debugDumpMethod);
+    }
+
+    // Init unhandled promise rejection handler
+    _isolate->SetPromiseRejectCallback(&BGJSV8Engine::PromiseRejectionHandler);
+    _didScheduleURPTask = false;
+
+    // uncaught exception handler
+    // should not be necessary because trycatch is used everywhere where jni is calling into v8
+    _isolate->SetCaptureStackTraceForUncaughtExceptions(true);
+    _isolate->AddMessageListener(&BGJSV8Engine::UncaughtExceptionHandler);
+}
+
+void BGJSV8Engine::start(const Options* options) {
+    JNI_ASSERT(_state == EState::kInitial, "BGJSV8Engine::start must only be called once after creation");
+    _state = EState::kStarting;
+
+    // apply options
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    _javaAssetManager = env->NewGlobalRef(options->assetManager);
+    _maxHeapSize = options->maxHeapSize;
+    _commonJSPath = options->commonJSPath;
+
+    // create dedicated looper thread
+    uv_thread_create(&_uvThread, &BGJSV8Engine::StartLoopThread, this);
+}
+
+void BGJSV8Engine::shutdown() {
+    uv_async_send(&_uvEventStop);
+}
+
+void BGJSV8Engine::pause() {
+    // if engine is not started yet, the event will still be scheduled
+    // once the eventloop is started, it will immediately suspend
+    uv_mutex_lock(&_uvMutex);
+    if(!_isSuspended) {
+        _isSuspended = true;
+        uv_async_send(&_uvEventSuspend);
+    }
+    uv_mutex_unlock(&_uvMutex);
+}
+
+void BGJSV8Engine::unpause() {
+    uv_mutex_lock(&_uvMutex);
+    if(_isSuspended) {
+        _isSuspended = false;
+        // if the eventloop is currently suspended => wake up using signal
+        uv_cond_signal(&_uvCondSuspend);
+    }
+    uv_mutex_unlock(&_uvMutex);
+}
+
+void BGJSV8Engine::StartLoopThread(void *arg) {
+    LOG(LOG_INFO, "BGJSV8Engine: EventLoop started");
+
+    // the event loop retains the engine for as long as it is running
+    JNIRetainedRef<BGJSV8Engine> engine = (BGJSV8Engine*)arg;
+
+    LOGD("BGJSV8Engine: creating context...");
+
+    engine->createContext();
+
+    LOGD("BGJSV8Engine: creating context [OK]");
+
+    LOGD("BGJSV8Engine: transitioning to ready state...");
+
+    engine->registerModule("canvas", BGJSGLModule::doRequire);
+
+    engine->_state = EState::kStarted;
+
+    JNIEnv* env = JNIWrapper::getEnvironment();
+    env->CallVoidMethod(engine->getJObject(), engine->_jniV8Engine.onReadyId);
+    if(env->ExceptionCheck()) {
+        LOGD("BGJSV8Engine: transitioning to ready state [FAILED]");
+        jthrowable e = env->ExceptionOccurred();
+        env->ExceptionClear();
+        env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onThrowId, e);
+        return;
+    }
+
+    LOGD("BGJSV8Engine: transitioning to ready state [OK]");
+
+    uv_run(&engine->_uvLoop, UV_RUN_DEFAULT);
+
+    engine->_state = EState::kStopped;
+    LOG(LOG_INFO, "BGJSV8Engine: EventLoop ended");
+}
+
+void BGJSV8Engine::StopLoopThread(uv_async_t *handle) {
+    auto *engine = (BGJSV8Engine*)handle->data;
+    engine->_state = EState::kStopping;
+    uv_stop(&engine->_uvLoop);
+}
+
+void BGJSV8Engine::SuspendLoopThread(uv_async_t *handle) {
+    auto *engine = (BGJSV8Engine*)handle->data;
+    bool waiting = false;
+    JNIEnv* env = JNIWrapper::getEnvironment();
+
+    uv_mutex_lock(&engine->_uvMutex);
+    while(engine->_isSuspended) {
+        // due to spurious wake ups, or suspend/resume in quick succession we might end up here multiple times
+        // if event loop has not been waiting before => run OnSuspend logic
+        if(!waiting) {
+            waiting = true;
+            uv_mutex_unlock(&engine->_uvMutex);
+
+            // because `pause`/`unpause` could be called from code executed by the OnSuspend handler
+            // we have to run this WITHOUT holding the mutex
+            env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onSuspendId);
+            if(env->ExceptionCheck()) {
+                jthrowable e = env->ExceptionOccurred();
+                env->ExceptionClear();
+                env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onThrowId, e);
+                return;
+            }
+
+            uv_mutex_lock(&engine->_uvMutex);
+            LOG(LOG_INFO, "BGJSV8Engine: EventLoop suspended");
+            continue; // to check if still waiting, because mutex was released temporarily
+        }
+        uv_cond_wait(&engine->_uvCondSuspend, &engine->_uvMutex);
+    }
+    uv_mutex_unlock(&engine->_uvMutex);
+
+    // if suspend/resume are triggered in quick succession this method might have been called after the engine was already resumed again
+    // if the event loop was actually suspended => run OnResume logic
+    if(waiting) {
+        env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onResumeId);
+        if(env->ExceptionCheck()) {
+            jthrowable e = env->ExceptionOccurred();
+            env->ExceptionClear();
+            env->CallVoidMethod(engine->getJObject(), _jniV8Engine.onThrowId, e);
+            return;
+        }
+        LOG(LOG_INFO, "BGJSV8Engine: EventLoop resumed");
+    }
+}
+
+void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
+}
+
+void BGJSV8Engine::OnTaskMicrotask(void *data) {
+    TaskHolder *holder = (TaskHolder*)data;
+    v8::Isolate *isolate = Isolate::GetCurrent();
+    v8::Locker l(isolate);
+    BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    v8::TryCatch try_catch(isolate);
+
+    v8::Local<v8::Function> funcRef = v8::Local<v8::Function>::New(isolate, holder->callback);
+    funcRef->Call(context, context->Global(), 0, nullptr);
+
+    if (try_catch.HasCaught()) {
+        engine->forwardV8ExceptionToJNI(&try_catch, true);
+    }
+
+    delete holder;
+}
+
+void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
+    v8::Isolate *isolate = Isolate::GetCurrent();
+    v8::Locker l(isolate);
+    BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+
+    v8::Local<v8::Symbol> symbolRef;
+
+    // loop through queue containing promises with unhandled rejections
+    for (size_t i = 0; i < engine->_unhandledRejectedPromises.size(); ++i) {
+        auto holder = engine->_unhandledRejectedPromises.at(i);
+        if (!holder->handled && !holder->collected) {
+
+            // check if the promise was wrapped by a JNIV8Promise Object and returned to the JVM
+            // if that happened, this microtask will run BEFORE the JVM code has the chance to register a handler
+            // so we must NOT throw an exception here in that case
+            // @TODO it would probably be a good idea to "postpone" the check instead of completely skipping it - but how? there seems to be no reliable way that does not rely on "magic timeouts"
+            if(symbolRef.IsEmpty()) {
+                symbolRef = v8::Symbol::ForApi(
+                        isolate,
+                        v8::String::NewFromOneByte(isolate, (const uint8_t*)"JNIV8Promise", v8::NewStringType::kInternalized).ToLocalChecked()
+                );
+            }
+
+            bool wasWrapped = false;
+            v8::Local<v8::Value> valueRef;
+            if (v8::Local<v8::Promise>::New(isolate, holder->promise)->Get(context, symbolRef).ToLocal(&valueRef)) {
+                wasWrapped = Local<v8::Boolean>::Cast(valueRef)->Value();
+            };
+
+            if (!wasWrapped) {
+                auto exception = v8::Local<v8::Value>::New(isolate, holder->value);
+
+                // exceptions detected here are thrown directly to the main thread
+                // due to asynchronous nature of the promises, these exceptions are often not related to the current call stack
+                // and might end up "all over the place" if we were to throw them directly on the current thread
+                // also, the event looper thread could end up here during initialization or when triggering timeouts;
+                // and it is NOT set up to log or otherwise handle exceptions! they would simply "disappear" if thrown there..
+                LOG(LOG_ERROR, "Unhandled rejected promise: %s", engine->toDebugString(exception).c_str());
+            }
+        }
+        holder->value.Reset();
+        holder->promise.Reset();
+        delete holder;
+    }
+    engine->_unhandledRejectedPromises.clear();
+    engine->_didScheduleURPTask = false;
+}
+
+void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
+    v8::Isolate *isolate = Isolate::GetCurrent();
+    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(isolate);
+
+    // See https://gist.github.com/domenic/9b40029f59f29b822f3b#promise-error-handling-hooks-rough-spec-algorithm
+    // "Host environment algorithm"
+    // Chromium Implementation: https://chromium.googlesource.com/chromium/blink/+/master/Source/bindings/core/v8/RejectedPromises.cpp
+    if(message.GetEvent() == kPromiseRejectWithNoHandler) {
+        // add promise to list
+        auto holder = new RejectedPromiseHolder();
+        holder->promise.Reset(isolate, message.GetPromise());
+        holder->promise.SetWeak((void *) holder, RejectedPromiseHolderWeakPersistentCallback,
+                                   v8::WeakCallbackType::kParameter);
+        holder->value.Reset(isolate, message.GetValue());
+        holder->handled = false;
+        holder->collected = false;
+        engine->_unhandledRejectedPromises.push_back(holder);
+        // using the isolate pointer here is safe, because microtasks are executed
+        // immediately when the javascript call stack depth reaches zero
+        // so the isolate CAN NOT be destroyed before
+        if(!engine->_didScheduleURPTask) {
+            engine->_didScheduleURPTask = true;
+            isolate->EnqueueMicrotask(&BGJSV8Engine::OnPromiseRejectionMicrotask, nullptr);
+        }
+    } else if(message.GetEvent() == kPromiseHandlerAddedAfterReject) {
+        // check if promise is listed; if yes, flag as handled
+        // Then look it up in the reported errors.
+        for (auto holder : engine->_unhandledRejectedPromises) {
+            auto promise = message.GetPromise();
+            if(promise == v8::Local<v8::Promise>::New(isolate, holder->promise)) {
+                holder->handled = true;
+                break;
+            }
+        }
+    }
+}
+
+void BGJSV8Engine::UncaughtExceptionHandler(v8::Local<v8::Message> message, v8::Local<v8::Value> data) {
+    v8::Isolate *isolate = Isolate::GetCurrent();
+    v8::Locker l(isolate);
+    BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
+    engine->forwardV8ExceptionToJNI("Uncaught exception: ", data, message, true);
 }
 
 void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value> &args) {
@@ -1224,38 +1565,6 @@ void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value>
     }
 
     LOG(debugLevel, "%s", str.str().c_str());
-}
-
-void BGJSV8Engine::setLocale(const char *locale, const char *lang,
-                             const char *tz, const char *deviceClass) {
-    _locale = strdup(locale);
-    _lang = strdup(lang);
-    _tz = strdup(tz);
-    _deviceClass = strdup(deviceClass);
-}
-
-void BGJSV8Engine::setDensity(float density) {
-    _density = density;
-}
-
-float BGJSV8Engine::getDensity() const {
-    return _density;
-}
-
-void BGJSV8Engine::setDebug(bool debug) {
-    _debug = debug;
-}
-
-void BGJSV8Engine::setIsStoreBuild(bool isStoreBuild) {
-    _isStoreBuild = isStoreBuild;
-}
-
-/**
- * Sets the maximum "old space" heap size in Megabytes we set for v8
- * @param maxHeapSize max heap in mb
- */
-void BGJSV8Engine::setMaxHeapSize(int maxHeapSize) {
-    _maxHeapSize = maxHeapSize;
 }
 
 char *BGJSV8Engine::loadFile(const char *path, unsigned int *length) const {
@@ -1289,6 +1598,10 @@ char *BGJSV8Engine::loadFile(const char *path, unsigned int *length) const {
 BGJSV8Engine::~BGJSV8Engine() {
     LOGI("Cleaning up");
 
+    uv_loop_close(&_uvLoop);
+    uv_close((uv_handle_t*)&_uvEventScheduleTimers, &BGJSV8Engine::OnHandleClosed);
+    uv_close((uv_handle_t*)&_uvEventStop, &BGJSV8Engine::OnHandleClosed);
+
     JNIEnv *env = JNIWrapper::getEnvironment();
     env->DeleteGlobalRef(_javaAssetManager);
 
@@ -1301,9 +1614,6 @@ BGJSV8Engine::~BGJSV8Engine() {
     _makeJavaErrorFn.Reset();
     _getStackTraceFn.Reset();
 
-    if (_locale) {
-        free(_locale);
-    }
     _isolate->Exit();
 
     for (auto &it : _javaModules) {
@@ -1311,14 +1621,6 @@ BGJSV8Engine::~BGJSV8Engine() {
     }
 
     JNIV8Wrapper::cleanupV8Engine(this);
-}
-
-void BGJSV8Engine::enqueueNextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
-    JNI_ASSERT(args.Length() >= 1 && args[0]->IsFunction(), "enqueueNextTick must be called with a callback function");
-    HandleScope scope(args.GetIsolate());
-    const auto wrappedFunction = JNIV8Wrapper::wrapObject<JNIV8Function>(args[0]->ToObject(args.GetIsolate()));
-    JNIEnv *env = JNIWrapper::getEnvironment();
-    env->CallBooleanMethod(getJObject(), _jniV8Engine.enqueueOnNextTick, wrappedFunction.get()->getJObject());
 }
 
 void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
@@ -1415,7 +1717,7 @@ private:
 
 inline bool WriteSnapshotHelper(Isolate *isolate, const char *filename) {
     FILE *fp = fopen(filename, "w");
-    if (fp == NULL) return false;
+    if (fp == nullptr) return false;
 
     const HeapSnapshot *const snap = isolate->GetHeapProfiler()->TakeHeapSnapshot();
     FileOutputStream stream(fp);
@@ -1432,11 +1734,11 @@ void BGJSV8Engine::OnGCCompletedForDump(Isolate *isolate, GCType type,
                                         GCCallbackFlags flags) {
 
 
-    if (_nextProfileDumpPath == NULL) {
+    if (_nextProfileDumpPath == nullptr) {
         return;
     }
     const char *dumpPath = _nextProfileDumpPath;
-    _nextProfileDumpPath = NULL;
+    _nextProfileDumpPath = nullptr;
     LOGI("GC completed, now dumping to %s", dumpPath);
 
     WriteSnapshotHelper(isolate, dumpPath);
@@ -1450,8 +1752,8 @@ const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
     v8::Isolate *isolate = getIsolate();
     v8::Locker l(isolate);
 
-    if (_nextProfileDumpPath != NULL) {
-        return NULL;
+    if (_nextProfileDumpPath != nullptr) {
+        return nullptr;
     }
 
     char *filename = static_cast<char *>(malloc(512));
@@ -1467,28 +1769,56 @@ const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
     return filename;
 }
 
-extern "C" {
+void BGJSV8Engine::jniInitialize(
+        JNIEnv * env, jobject v8Engine, jobject assetManager, jstring commonJSPath, jint maxHeapSize) {
 
-JNIEXPORT jstring JNICALL
-Java_ag_boersego_bgjs_V8Engine_dumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn) {
-    const char *path = env->GetStringUTFChars(pathToSaveIn, 0);
+    auto ct = JNIV8Wrapper::wrapObject<BGJSV8Engine>(v8Engine);
 
+    BGJSV8Engine::Options options = {0};
+    options.assetManager = assetManager;
+    options.commonJSPath = env->GetStringUTFChars(commonJSPath, nullptr);
+    options.maxHeapSize = maxHeapSize;
+
+    ct->start(&options);
+
+    env->ReleaseStringUTFChars(commonJSPath, options.commonJSPath);
+}
+
+
+void BGJSV8Engine::jniPause(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    engine->pause();
+}
 
+void BGJSV8Engine::jniUnpause(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    engine->unpause();
+}
+
+void BGJSV8Engine::jniShutdown(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    engine->shutdown();
+}
+
+jstring BGJSV8Engine::jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
+
+    const char *path = env->GetStringUTFChars(pathToSaveIn, 0);
     const char *outPath = engine->enqueueMemoryDump(path);
 
     env->ReleaseStringUTFChars(pathToSaveIn, path);
 
-    if (outPath != NULL) {
+    if (outPath != nullptr) {
         return env->NewStringUTF(outPath);
     } else {
-        return NULL;
+        return nullptr;
     }
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json) {
+void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1496,19 +1826,40 @@ Java_ag_boersego_bgjs_V8Engine_parseJSON(JNIEnv *env, jobject obj, jstring json)
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
+
+    auto funcRef = JNIV8Wrapper::wrapObject<JNIV8Function>(function)->getJSObject().As<v8::Function>();
+
+    TaskHolder *holder = new TaskHolder();
+    holder->callback.Reset(isolate, funcRef);
+    isolate->EnqueueMicrotask(&BGJSV8Engine::OnTaskMicrotask, (void*)holder);
+}
+
+jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
+
+    v8::Isolate *isolate = engine->getIsolate();
+    v8::Locker l(isolate);
+    v8::Isolate::Scope isolateScope(isolate);
+    v8::HandleScope scope(isolate);
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
     v8::MaybeLocal<v8::Value> value = engine->parseJSON(JNIV8Marshalling::jstring2v8string(json));
-    if (value.IsEmpty()) {
-        engine->forwardV8ExceptionToJNI(&try_catch);
+    if (&value == nullptr || value.IsEmpty()) {
+        env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "jniParseJSON failed");
         return nullptr;
     }
+
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
+jobject BGJSV8Engine::jniRequire(JNIEnv *env, jobject obj, jstring file) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1516,11 +1867,11 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
 
     v8::MaybeLocal<v8::Value> value = engine->require(JNIWrapper::jstring2string(file));
-
     if (value.IsEmpty()) {
         engine->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -1528,19 +1879,19 @@ Java_ag_boersego_bgjs_V8Engine_require(JNIEnv *env, jobject obj, jstring file) {
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
-JNIEXPORT jlong JNICALL
-Java_ag_boersego_bgjs_V8Engine_lock(JNIEnv *env, jobject obj) {
+jlong BGJSV8Engine::jniLock(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker *locker = new Locker(isolate);
+    auto *locker = new Locker(isolate);
 
     return (jlong) locker;
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
+jobject BGJSV8Engine::jniGetGlobalObject(JNIEnv *env, jobject obj) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1548,19 +1899,19 @@ Java_ag_boersego_bgjs_V8Engine_getGlobalObject(JNIEnv *env, jobject obj) {
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     return JNIV8Marshalling::v8value2jobject(context->Global());
 }
 
-JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_unlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
-    v8::Locker *locker = reinterpret_cast<Locker *>(lockerPtr);
+void BGJSV8Engine::jniUnlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
+    auto *locker = reinterpret_cast<Locker *>(lockerPtr);
     delete (locker);
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring script, jstring name) {
+jobject BGJSV8Engine::jniRunScript(JNIEnv *env, jobject obj, jstring script, jstring name) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1568,6 +1919,7 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
     v8::Context::Scope ctxScope(context);
+    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
 
     v8::TryCatch try_catch(isolate);
 
@@ -1588,15 +1940,14 @@ Java_ag_boersego_bgjs_V8Engine_runScript(JNIEnv *env, jobject obj, jstring scrip
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
-JNIEXPORT void JNICALL
-Java_ag_boersego_bgjs_V8Engine_registerModuleNative(JNIEnv *env, jobject obj, jobject module) {
+void BGJSV8Engine::jniRegisterModuleNative(JNIEnv *env, jobject obj, jobject module) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     engine->registerJavaModule(module);
 }
 
-JNIEXPORT jobject JNICALL
-Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jstring canonicalName) {
+jobject BGJSV8Engine::jniGetConstructor(JNIEnv *env, jobject obj, jstring canonicalName) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+    THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
     v8::Locker l(isolate);
@@ -1610,5 +1961,4 @@ Java_ag_boersego_bgjs_V8Engine_getConstructor(JNIEnv *env, jobject obj, jstring 
 
     return JNIV8Wrapper::wrapObject<JNIV8Function>(
             JNIV8Wrapper::getJSConstructor(engine.get(), strCanonicalName))->getJObject();
-}
 }
