@@ -29,8 +29,16 @@ import javax.tools.JavaFileObject;
 
 import ag.boersego.v8annotations.*;
 
-@SupportedAnnotationTypes("ag.boersego.v8annotations.V8Function")
-@SupportedSourceVersion(SourceVersion.RELEASE_7)
+@SupportedAnnotationTypes(
+        {
+                "ag.boersego.v8annotations.V8Class",
+                "ag.boersego.v8annotations.V8Function",
+                "ag.boersego.v8annotations.V8Getter",
+                "ag.boersego.v8annotations.V8Setter",
+                "ag.boersego.v8annotations.V8UndefinedIsNull"
+        }
+)
+@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class V8AnnotationProcessor extends AbstractProcessor {
 
     private static TypeMirror sBooleanBox, sCharBox, sLongBox, sIntBox, sFloatBox, sDoubleBox, sShortBox, sByteBox;
