@@ -14,11 +14,11 @@ buildscript {
     }
 }
 
-apply plugin: 'com.github.dcendents.android-maven'
 apply plugin: 'com.jfrog.bintray'
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'maven-publish'
 
 android {
     compileSdkVersion 29
@@ -113,39 +113,42 @@ afterEvaluate {
 }
 
 // Upload to bintray
+def createPom(pom) {
+    return pom.withXml {
+        def dependenciesNode = asNode().appendNode('dependencies')
+        configurations.implementation.allDependencies.each {
+            def dependencyNode = dependenciesNode.appendNode('dependency')
+            dependencyNode.appendNode('artifactId', 'ejecta-v8')
+            dependencyNode.appendNode('scope', 'compile')
+            dependencyNode.appendNode('groupId', 'de.boersego')
+            dependencyNode.appendNode('version', '1.0.0')
+            dependencyNode.appendNode('name', 'Ejecta-V8')
+            dependencyNode.appendNode('description', 'Embed Googles v8 into your Android app and have access to high-speed canvas, AJAX and websocket implementations as well as a powerful abstraction layer to add your own extensions. Comes with a Kotlin interface.')
+            dependencyNode.appendNode('url', 'https://github.com/godmodelabs/ejecta-v8')
+            dependencyNode.appendNode('inceptionYear', '2013')
+            dependencyNode.appendNode('packaging', 'aar')
+            def licenses = dependenciesNode.appendNode('licenses')
+            licenses.appendNode('name', 'The MIT License (MIT)')
+            licenses.appendNode('url', 'https://opensource.org/licenses/MIT')
+            def scm = dependenciesNode.appendNode('scm')
+            scm.appendNode('connection', 'https://github.com/godmodelabs/ejecta-v8.git')
+            scm.appendNode('url', 'https://github.com/godmodelabs/ejecta-v8')
+            def developers = dependenciesNode.appendNode('developers')
+            def developer = developers.appendNode('developer')
+            developer.appendNode('id', 'unverbraucht')
+            developer.appendNode('name', 'Kevin Read')
+        }
+    }
+}
 
-group = 'de.boersego'
-version = '1.0.0'
-
-install {
-    repositories.mavenInstaller {
-        pom.project {
-            name 'Ejecta-V8'
-            description 'Embed Googles v8 into your Android app and have access to high-speed canvas, AJAX and websocket implementations as well as a powerful abstraction layer to add your own extensions. Comes with a Kotlin interface.'
-            url 'https://github.com/godmodelabs/ejecta-v8'
-            inceptionYear '2013'
-
-            packaging 'aar'
-            groupId 'de.boersego'
-            artifactId 'ejecta-v8'
-            version '1.0.0'
-
-            licenses {
-                license {
-                    name 'The MIT License (MIT)'
-                    url 'https://opensource.org/licenses/MIT'
-                }
-            }
-            scm {
-                connection 'https://github.com/godmodelabs/ejecta-v8.git'
-                url 'https://github.com/godmodelabs/ejecta-v8'
-
-            }
-            developers {
-                developer {
-                    id = 'unverbraucht'
-                    name 'Kevin Read'
-                }
+publishing {
+    publications {
+        android.libraryVariants.all { variant ->
+            commons(MavenPublication) {
+                artifact(variant.packageLibraryProvider.get().archivePath)
+                groupId = 'de.boersego'
+                version = '1.0.0'
+                createPom(pom)
             }
         }
     }
