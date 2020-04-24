@@ -92,7 +92,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         @V8Getter get
 
     /**
-     * req/res timeout in ms, it resets on redirect. 0 to disable (OS limit applies). Signal is recommended instead.
+     * req/res timeout in seconds, it resets on redirect. 0 to disable (OS limit applies). Signal is recommended instead.
      */
     var timeout = 0
         internal set
