@@ -349,6 +349,6 @@ Local<String> ColorRGBAToJSValue (Isolate* isolate, EJColorRGBA c) {
     static char buffer[32];
     sprintf(buffer, "rgba(%d,%d,%d,%.3f)", c.rgba.r, c.rgba.g, c.rgba.b, (float)c.rgba.a/255.0f );
 
-    Local<String> string = String::NewFromUtf8(isolate, buffer);
+    Local<String> string = String::NewFromUtf8(isolate, buffer).ToLocalChecked();
     return scope.Escape(string);
 }

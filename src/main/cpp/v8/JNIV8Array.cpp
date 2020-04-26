@@ -98,7 +98,7 @@ jobjectArray JNIV8Array::jniGetV8ElementsInRange(JNIEnv *env, jobject obj, jint 
                     break;
                 case JNIV8MarshallingError::kOutOfRange:
                     ThrowV8RangeError("value '"+
-                                      JNIV8Marshalling::v8string2string(value->ToString(isolate))+"' is out of range for element element #" + std::to_string(i));
+                                      JNIV8Marshalling::v8string2string(value->ToString(context).ToLocalChecked())+"' is out of range for element element #" + std::to_string(i));
                     break;
             }
             return nullptr;
@@ -150,7 +150,7 @@ jobject JNIV8Array::jniGetV8Element(JNIEnv *env, jobject obj, jint flags, jint t
                 break;
             case JNIV8MarshallingError::kOutOfRange:
                 ThrowV8RangeError("value '"+
-                                  JNIV8Marshalling::v8string2string(value->ToString(isolate))+"' is out of range for element element #" + std::to_string(index));
+                                  JNIV8Marshalling::v8string2string(value->ToString(context).ToLocalChecked())+"' is out of range for element element #" + std::to_string(index));
                 break;
         }
         return nullptr;
@@ -186,7 +186,8 @@ jobject JNIV8Array::jniCreateWithArray(JNIEnv *env, jobject obj, jobject engineO
     v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
-    v8::Context::Scope ctxScope(engine->getContext());
+    v8::Local<v8::Context> context = engine->getContext();
+    v8::Context::Scope ctxScope(context);
 
     jsize numArgs = env->GetArrayLength(elements);
     v8::Local<v8::Object> objRef = v8::Array::New(isolate, numArgs);
@@ -194,7 +195,7 @@ jobject JNIV8Array::jniCreateWithArray(JNIEnv *env, jobject obj, jobject engineO
         jobject obj;
         for(jsize i=0; i<numArgs; i++) {
             obj = env->GetObjectArrayElement(elements, i);
-            objRef->Set(i, JNIV8Marshalling::jobject2v8value(obj));
+            objRef->Set(context, i, JNIV8Marshalling::jobject2v8value(obj));
             env->DeleteLocalRef(obj);
         }
     }

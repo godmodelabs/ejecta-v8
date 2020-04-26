@@ -44,12 +44,12 @@ HandleScope scope(isolate);
 #define CONTEXT_FETCH_BASE \
 if (!args.This()->IsObject()) { \
 	LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
-	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function"))); \
+	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function").ToLocalChecked())); \
 } \
-BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL*>(v8::External::Cast(*(args.This()->ToObject(isolate)->GetInternalField(0)))->Value()))->context; \
+BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL*>(v8::External::Cast(*(args.This()->ToObject(isolate->GetCurrentContext()).ToLocalChecked()->GetInternalField(0)))->Value()))->context; \
 if (!__context->_isRendering) { \
 	LOGI("Context is not in rendering phase in method '%s'", __PRETTY_FUNCTION__); \
-	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run when not in rendering phase"))); \
+	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run when not in rendering phase").ToLocalChecked())); \
 }
 
 
@@ -62,7 +62,7 @@ CONTEXT_FETCH_BASE
 // Bail if not exactly n parameters were passed
 #define REQUIRE_PARAMS(n)		if (args.Length() != n) { \
 	LOGI("Context method '%s' requires %i parameters", __PRETTY_FUNCTION__, n); \
-	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Wrong number of parameters"))); \
+	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Wrong number of parameters").ToLocalChecked())); \
 }
 
 // Fetch the canvascontext from the context2d function for Accessors
@@ -171,19 +171,19 @@ static void js_context_get_textAlign(Local<String> property,
 	Local<String> stringRef;
 	switch (__context->state->textAlign) {
 	case kEJTextAlignStart:
-		stringRef = String::NewFromUtf8(isolate, "start");
+		stringRef = String::NewFromUtf8(isolate, "start").ToLocalChecked();
 		break;
 	case kEJTextAlignEnd:
-		stringRef = String::NewFromUtf8(isolate, "end");
+		stringRef = String::NewFromUtf8(isolate, "end").ToLocalChecked();
 		break;
 	case kEJTextAlignLeft:
-		stringRef = String::NewFromUtf8(isolate, "left");
+		stringRef = String::NewFromUtf8(isolate, "left").ToLocalChecked();
 		break;
 	case kEJTextAlignRight:
-		stringRef = String::NewFromUtf8(isolate, "right");
+		stringRef = String::NewFromUtf8(isolate, "right").ToLocalChecked();
 		break;
 	case kEJTextAlignCenter:
-		stringRef = String::NewFromUtf8(isolate, "center");
+		stringRef = String::NewFromUtf8(isolate, "center").ToLocalChecked();
 		break;
 	}
 
@@ -222,10 +222,10 @@ static void js_context_get_globalCompositeOperation(Local<String> property,
 	Local<String> stringRef;
 	switch (__context->state->globalCompositeOperation) {
 	case kEJCompositeOperationLighter:
-		stringRef = String::NewFromUtf8(isolate, "lighter");
+		stringRef = String::NewFromUtf8(isolate, "lighter").ToLocalChecked();
 		break;
 	case kEJCompositeOperationSourceOver:
-		stringRef = String::NewFromUtf8(isolate, "source-over");
+		stringRef = String::NewFromUtf8(isolate, "source-over").ToLocalChecked();
 		break;
 	/* case kEJTextAlignLeft:
 		stringRef = String::New("left");
@@ -273,22 +273,22 @@ static void js_context_get_textBaseline(Local<String> property,
 	Local<String> stringRef;
 	switch (__context->state->textBaseline) {
 	case kEJTextBaselineAlphabetic:
-		stringRef = String::NewFromUtf8(isolate, "alphabetic");
+		stringRef = String::NewFromUtf8(isolate, "alphabetic").ToLocalChecked();
 		break;
 	case kEJTextBaselineIdeographic:
-		stringRef = String::NewFromUtf8(isolate, "ideographic");
+		stringRef = String::NewFromUtf8(isolate, "ideographic").ToLocalChecked();
 		break;
 	case kEJTextBaselineHanging:
-		stringRef = String::NewFromUtf8(isolate, "hanging");
+		stringRef = String::NewFromUtf8(isolate, "hanging").ToLocalChecked();
 		break;
 	case kEJTextBaselineTop:
-		stringRef = String::NewFromUtf8(isolate, "top");
+		stringRef = String::NewFromUtf8(isolate, "top").ToLocalChecked();
 		break;
 	case kEJTextBaselineBottom:
-		stringRef = String::NewFromUtf8(isolate, "bottom");
+		stringRef = String::NewFromUtf8(isolate, "bottom").ToLocalChecked();
 		break;
 	case kEJTextBaselineMiddle:
-		stringRef = String::NewFromUtf8(isolate, "middle");
+		stringRef = String::NewFromUtf8(isolate, "middle").ToLocalChecked();
 		break;
 	}
 
@@ -328,7 +328,7 @@ static void js_context_set_textBaseline(Local<String> property,
 static void js_context_get_font(Local<String> property,
 		const v8::PropertyCallbackInfo<Value>& info) {
 	EscapableHandleScope scope(Isolate::GetCurrent());
-	scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), ""));
+	scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), "").ToLocalChecked());
 }
 
 static void js_context_set_font(Local<String> property, Local<Value> value,
@@ -391,13 +391,13 @@ static void js_context_get_lineJoin(Local<String> property,
 
 	switch (__context->state->lineJoin) {
 	case kEJLineJoinRound:
-		stringRef = String::NewFromUtf8(isolate, "round");
+		stringRef = String::NewFromUtf8(isolate, "round").ToLocalChecked();
 		break;
 	case kEJLineJoinBevel:
-		stringRef = String::NewFromUtf8(isolate, "bevel");
+		stringRef = String::NewFromUtf8(isolate, "bevel").ToLocalChecked();
 		break;
 	case kEJLineJoinMiter:
-		stringRef = String::NewFromUtf8(isolate, "miter");
+		stringRef = String::NewFromUtf8(isolate, "miter").ToLocalChecked();
 		break;
 	}
 
@@ -433,13 +433,13 @@ static void js_context_get_lineCap(Local<String> property,
 
 	switch (__context->state->lineCap) {
 	case kEJLineCapButt:
-		stringRef = String::NewFromUtf8(isolate, "butt");
+		stringRef = String::NewFromUtf8(isolate, "butt").ToLocalChecked();
 		break;
 	case kEJLineCapRound:
-		stringRef = String::NewFromUtf8(isolate, "round");
+		stringRef = String::NewFromUtf8(isolate, "round").ToLocalChecked();
 		break;
 	case kEJLineCapSquare:
-		stringRef = String::NewFromUtf8(isolate, "square");
+		stringRef = String::NewFromUtf8(isolate, "square").ToLocalChecked();
 		break;
 	}
 	info.GetReturnValue().Set(scope.Escape(stringRef));
@@ -895,7 +895,7 @@ static void js_context_measureText(const v8::FunctionCallbackInfo<v8::Value>& ar
 	float stringWidth = __context->measureText(*utf8);
 
 	Local<Object> objRef = Object::New(isolate);
-	objRef->Set(String::NewFromUtf8(isolate, "width"), Number::New(isolate, stringWidth));
+	objRef->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "width").ToLocalChecked(), Number::New(isolate, stringWidth));
 
 	args.GetReturnValue().Set(scope.Escape(objRef));
 }
@@ -976,14 +976,13 @@ void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Valu
         return;
 	}
 	if (!args[0]->IsObject()) {
-		LOGE(
-				"js_canvas_constructor got non-object as first type: %s", *(String::Utf8Value(isolate, args[0]->ToString(isolate))));
+		LOGE("js_canvas_constructor got non-object as first type: %s", *(String::Utf8Value(isolate, args[0]->ToString(isolate->GetCurrentContext()).ToLocalChecked())));
 		args.GetReturnValue().SetUndefined();
         return;
 	}
-	Local<Object> obj = args[0]->ToObject(isolate);
+	Local<Object> obj = args[0]->ToObject(isolate->GetCurrentContext()).ToLocalChecked();
 	BGJSCanvasGL* canvas = new BGJSCanvasGL();
-	canvas->_view = JNIRetainedRef<BGJSGLView>::New(JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject(isolate)));
+	canvas->_view = JNIRetainedRef<BGJSGLView>::New(JNIV8Wrapper::wrapObject<BGJSGLView>(args[0]->ToObject(isolate->GetCurrentContext()).ToLocalChecked()));
 
 	MaybeLocal<Object> fn = Local<Function>::New(isolate, BGJSGLModule::g_classRefCanvasGL)->NewInstance(BGJSV8Engine::GetInstance(isolate)->getContext());
     if (fn.IsEmpty()) {
@@ -1009,7 +1008,7 @@ void BGJSGLModule::js_canvas_getContext(const v8::FunctionCallbackInfo<v8::Value
 		return;
 	}
 
-	Local<External> external = Local<External>::Cast(args.This()->ToObject(isolate)->GetInternalField(0));
+	Local<External> external = Local<External>::Cast(args.This()->ToObject(isolate->GetCurrentContext()).ToLocalChecked()->GetInternalField(0));
 	BGJSCanvasGL *canvas = reinterpret_cast<BGJSCanvasGL*>(external->Value());
 
 	if (canvas->_context2d) {
@@ -1043,129 +1042,129 @@ void BGJSGLModule::doRequire(BGJSV8Engine* engine, v8::Handle<v8::Object> target
 
 	// Create the template for the fake HTMLCanvasElement
 	v8::Local<v8::FunctionTemplate> bgjshtmlft = v8::FunctionTemplate::New(isolate);
-	bgjshtmlft->SetClassName(String::NewFromUtf8(isolate, "HTMLCanvasElement"));
+	bgjshtmlft->SetClassName(String::NewFromUtf8(isolate, "HTMLCanvasElement").ToLocalChecked());
 	v8::Local<v8::ObjectTemplate> bgjshtmlit = bgjshtmlft->InstanceTemplate();
 	bgjshtmlit->SetInternalFieldCount(1);
-	bgjshtmlit->SetAccessor(String::NewFromUtf8(isolate, "width"), BGJSCanvasGL::getWidth,
+	bgjshtmlit->SetAccessor(String::NewFromUtf8(isolate, "width").ToLocalChecked(), BGJSCanvasGL::getWidth,
 			BGJSCanvasGL::setWidth);
-	bgjshtmlit->SetAccessor(String::NewFromUtf8(isolate, "height"), BGJSCanvasGL::getHeight,
+	bgjshtmlit->SetAccessor(String::NewFromUtf8(isolate, "height").ToLocalChecked(), BGJSCanvasGL::getHeight,
 			BGJSCanvasGL::setHeight);
-    bgjshtmlit->SetAccessor(String::NewFromUtf8(isolate, "devicePixelRatio"), BGJSCanvasGL::getPixelRatio,
+    bgjshtmlit->SetAccessor(String::NewFromUtf8(isolate, "devicePixelRatio").ToLocalChecked(), BGJSCanvasGL::getPixelRatio,
 			BGJSCanvasGL::setPixelRatio);
 
 	// Call on construction
 	bgjshtmlit->SetCallAsFunctionHandler(BGJSGLModule::js_canvas_constructor);
-	bgjshtmlit->Set(String::NewFromUtf8(isolate, "getContext"),
+	bgjshtmlit->Set(String::NewFromUtf8(isolate, "getContext").ToLocalChecked(),
 			FunctionTemplate::New(isolate, BGJSGLModule::js_canvas_getContext));
 
 	// bgjsgl->Set(String::NewFromUtf8(isolate, "log"), FunctionTemplate::New(BGJSGLModule::log));
-	Local<Function> instance = bgjshtmlft->GetFunction();
+	Local<Function> instance = bgjshtmlft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked();
 	BGJS_RESET_PERSISTENT(isolate, BGJSGLModule::g_classRefCanvasGL, instance);
 	MaybeLocal<Object> exports = instance->NewInstance(BGJSV8Engine::GetInstance(isolate)->getContext());
 
 	// Create the template for Canvas objects
 	Local<FunctionTemplate> canvasft = FunctionTemplate::New(isolate);
-	canvasft->SetClassName(String::NewFromUtf8(isolate, "CanvasRenderingContext2D"));
+	canvasft->SetClassName(String::NewFromUtf8(isolate, "CanvasRenderingContext2D").ToLocalChecked());
 	Local<ObjectTemplate> canvasot = canvasft->InstanceTemplate();
 	canvasot->SetInternalFieldCount(1);
 
 	// Attributes
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "fillStyle"), js_context_get_fillStyle,
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "fillStyle").ToLocalChecked(), js_context_get_fillStyle,
 			js_context_set_fillStyle);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "strokeStyle"),
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "strokeStyle").ToLocalChecked(),
 			js_context_get_strokeStyle, js_context_set_strokeStyle);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "textAlign"), js_context_get_textAlign,
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "textAlign").ToLocalChecked(), js_context_get_textAlign,
 			js_context_set_textAlign);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "textBaseline"),
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "textBaseline").ToLocalChecked(),
 			js_context_get_textBaseline, js_context_set_textBaseline);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "font"), js_context_get_font,
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "font").ToLocalChecked(), js_context_get_font,
 			js_context_set_font);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "lineWidth"), js_context_get_lineWidth,
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "lineWidth").ToLocalChecked(), js_context_get_lineWidth,
 			js_context_set_lineWidth);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "globalAlpha"),
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "globalAlpha").ToLocalChecked(),
 			js_context_get_globalAlpha, js_context_set_globalAlpha);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "lineJoin"), js_context_get_lineJoin,
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "lineJoin").ToLocalChecked(), js_context_get_lineJoin,
 			js_context_set_lineJoin);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "lineCap"), js_context_get_lineCap,
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "lineCap").ToLocalChecked(), js_context_get_lineCap,
 			js_context_set_lineCap);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "miterLimit"), js_context_get_miterLimit,
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "miterLimit").ToLocalChecked(), js_context_get_miterLimit,
 			js_context_set_miterLimit);
-	canvasot->SetAccessor(String::NewFromUtf8(isolate, "globalCompositeOperation"), js_context_get_globalCompositeOperation, js_context_set_globalCompositeOperation);
+	canvasot->SetAccessor(String::NewFromUtf8(isolate, "globalCompositeOperation").ToLocalChecked(), js_context_get_globalCompositeOperation, js_context_set_globalCompositeOperation);
 
 	// Functions
-	canvasot->Set(String::NewFromUtf8(isolate, "beginPath"),
+	canvasot->Set(String::NewFromUtf8(isolate, "beginPath").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_beginPath));
-	canvasot->Set(String::NewFromUtf8(isolate, "closePath"),
+	canvasot->Set(String::NewFromUtf8(isolate, "closePath").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_closePath));
-	canvasot->Set(String::NewFromUtf8(isolate, "moveTo"),
+	canvasot->Set(String::NewFromUtf8(isolate, "moveTo").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_moveTo));
-	canvasot->Set(String::NewFromUtf8(isolate, "lineTo"),
+	canvasot->Set(String::NewFromUtf8(isolate, "lineTo").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_lineTo));
-	canvasot->Set(String::NewFromUtf8(isolate, "stroke"),
+	canvasot->Set(String::NewFromUtf8(isolate, "stroke").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_stroke));
-	canvasot->Set(String::NewFromUtf8(isolate, "fill"), FunctionTemplate::New(isolate, js_context_fill));
-	canvasot->Set(String::NewFromUtf8(isolate, "save"), FunctionTemplate::New(isolate, js_context_save));
-	canvasot->Set(String::NewFromUtf8(isolate, "restore"),
+	canvasot->Set(String::NewFromUtf8(isolate, "fill").ToLocalChecked(), FunctionTemplate::New(isolate, js_context_fill));
+	canvasot->Set(String::NewFromUtf8(isolate, "save").ToLocalChecked(), FunctionTemplate::New(isolate, js_context_save));
+	canvasot->Set(String::NewFromUtf8(isolate, "restore").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_restore));
-	canvasot->Set(String::NewFromUtf8(isolate, "scale"),
+	canvasot->Set(String::NewFromUtf8(isolate, "scale").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_scale));
-	canvasot->Set(String::NewFromUtf8(isolate, "rotate"),
+	canvasot->Set(String::NewFromUtf8(isolate, "rotate").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_rotate));
-	canvasot->Set(String::NewFromUtf8(isolate, "translate"),
+	canvasot->Set(String::NewFromUtf8(isolate, "translate").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_translate));
-	canvasot->Set(String::NewFromUtf8(isolate, "transform"),
+	canvasot->Set(String::NewFromUtf8(isolate, "transform").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_transform));
-	canvasot->Set(String::NewFromUtf8(isolate, "setTransform"),
+	canvasot->Set(String::NewFromUtf8(isolate, "setTransform").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_setTransform));
-	canvasot->Set(String::NewFromUtf8(isolate, "createLinearGradient"),
+	canvasot->Set(String::NewFromUtf8(isolate, "createLinearGradient").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_createLinearGradient));
-	canvasot->Set(String::NewFromUtf8(isolate, "createPattern"),
+	canvasot->Set(String::NewFromUtf8(isolate, "createPattern").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_createPattern));
-	canvasot->Set(String::NewFromUtf8(isolate, "clearRect"),
+	canvasot->Set(String::NewFromUtf8(isolate, "clearRect").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_clearRect));
-	canvasot->Set(String::NewFromUtf8(isolate, "fillRect"),
+	canvasot->Set(String::NewFromUtf8(isolate, "fillRect").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_fillRect));
-	canvasot->Set(String::NewFromUtf8(isolate, "strokeRect"),
+	canvasot->Set(String::NewFromUtf8(isolate, "strokeRect").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_strokeRect));
-	canvasot->Set(String::NewFromUtf8(isolate, "quadraticCurveTo"),
+	canvasot->Set(String::NewFromUtf8(isolate, "quadraticCurveTo").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_quadraticCurveTo));
-	canvasot->Set(String::NewFromUtf8(isolate, "bezierCurveTo"),
+	canvasot->Set(String::NewFromUtf8(isolate, "bezierCurveTo").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_bezierCurveTo));
-	canvasot->Set(String::NewFromUtf8(isolate, "arcTo"),
+	canvasot->Set(String::NewFromUtf8(isolate, "arcTo").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_arcTo));
-	canvasot->Set(String::NewFromUtf8(isolate, "rect"), FunctionTemplate::New(isolate, js_context_rect));
-	canvasot->Set(String::NewFromUtf8(isolate, "arc"), FunctionTemplate::New(isolate, js_context_arc));
-	canvasot->Set(String::NewFromUtf8(isolate, "drawSystemFocusRing"),
+	canvasot->Set(String::NewFromUtf8(isolate, "rect").ToLocalChecked(), FunctionTemplate::New(isolate, js_context_rect));
+	canvasot->Set(String::NewFromUtf8(isolate, "arc").ToLocalChecked(), FunctionTemplate::New(isolate, js_context_arc));
+	canvasot->Set(String::NewFromUtf8(isolate, "drawSystemFocusRing").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_drawSystemFocusRing));
-	canvasot->Set(String::NewFromUtf8(isolate, "drawCustomFocusRing"),
+	canvasot->Set(String::NewFromUtf8(isolate, "drawCustomFocusRing").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_drawCustomFocusRing));
-	canvasot->Set(String::NewFromUtf8(isolate, "scrollPathIntoView"),
+	canvasot->Set(String::NewFromUtf8(isolate, "scrollPathIntoView").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_scrollPathIntoView));
-	canvasot->Set(String::NewFromUtf8(isolate, "clip"), FunctionTemplate::New(isolate, js_context_clip));
-	canvasot->Set(String::NewFromUtf8(isolate, "clipRect"), FunctionTemplate::New(isolate, js_context_clipRect));
-	canvasot->Set(String::NewFromUtf8(isolate, "isPointInPath"),
+	canvasot->Set(String::NewFromUtf8(isolate, "clip").ToLocalChecked(), FunctionTemplate::New(isolate, js_context_clip));
+	canvasot->Set(String::NewFromUtf8(isolate, "clipRect").ToLocalChecked(), FunctionTemplate::New(isolate, js_context_clipRect));
+	canvasot->Set(String::NewFromUtf8(isolate, "isPointInPath").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_isPointInPath));
-	canvasot->Set(String::NewFromUtf8(isolate, "fillText"),
+	canvasot->Set(String::NewFromUtf8(isolate, "fillText").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_fillText));
-	canvasot->Set(String::NewFromUtf8(isolate, "strokeText"),
+	canvasot->Set(String::NewFromUtf8(isolate, "strokeText").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_strokeText));
-	canvasot->Set(String::NewFromUtf8(isolate, "measureText"),
+	canvasot->Set(String::NewFromUtf8(isolate, "measureText").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_measureText));
-	canvasot->Set(String::NewFromUtf8(isolate, "drawImage"),
+	canvasot->Set(String::NewFromUtf8(isolate, "drawImage").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_drawImage));
-	canvasot->Set(String::NewFromUtf8(isolate, "createImageData"),
+	canvasot->Set(String::NewFromUtf8(isolate, "createImageData").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_createImageData));
-	canvasot->Set(String::NewFromUtf8(isolate, "getImageData"),
+	canvasot->Set(String::NewFromUtf8(isolate, "getImageData").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_getImageData));
-	canvasot->Set(String::NewFromUtf8(isolate, "putImageData"),
+	canvasot->Set(String::NewFromUtf8(isolate, "putImageData").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_putImageData));
-	canvasot->Set(String::NewFromUtf8(isolate, "clipY"),
+	canvasot->Set(String::NewFromUtf8(isolate, "clipY").ToLocalChecked(),
 			FunctionTemplate::New(isolate, js_context_clipY));
 
-	BGJS_RESET_PERSISTENT(isolate, g_classRefContext2dGL, canvasft->GetFunction());
+	BGJS_RESET_PERSISTENT(isolate, g_classRefContext2dGL, canvasft->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
 	// g_classRefContext2dGL
 
-	target->Set(String::NewFromUtf8(isolate, "exports"), exports.ToLocalChecked());
+	target->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "exports").ToLocalChecked(), exports.ToLocalChecked());
 }
 
 static void checkGlError(const char* op) {

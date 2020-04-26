@@ -88,13 +88,13 @@ void JNIV8Wrapper::v8ConstructorCallback(const v8::FunctionCallbackInfo<v8::Valu
 
     // this method must be called as constructor
     if(!args.IsConstructCall()) {
-        args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Please use the 'new' operator, this object constructor cannot be called as a function")));
+        args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Please use the 'new' operator, this object constructor cannot be called as a function").ToLocalChecked()));
         return;
     }
 
     // check if class can be created from JS
     if(info->createFromJavaOnly) {
-        args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Illegal constructor")));
+        args.GetIsolate()->ThrowException(v8::Exception::TypeError(String::NewFromUtf8(isolate, "Illegal constructor").ToLocalChecked()));
         return;
     }
 
@@ -162,7 +162,7 @@ JNIV8ClassInfo* JNIV8Wrapper::_getV8ClassInfo(const std::string& canonicalName, 
 
     Local<External> data = External::New(isolate, (void*)v8ClassInfo);
     Handle<FunctionTemplate> ft = FunctionTemplate::New(isolate, v8ConstructorCallback, data);
-    ft->SetClassName(String::NewFromUtf8(isolate, strV8ClassName.c_str()));
+    ft->SetClassName(String::NewFromUtf8(isolate, strV8ClassName.c_str()).ToLocalChecked());
 
     // inherit from baseclass
     if(v8ClassInfo->container->baseClassInfo) {

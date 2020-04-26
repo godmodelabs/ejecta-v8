@@ -79,8 +79,6 @@ void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
     // IF we do, we have to make a strong reference to the java object again and also register this callback for
     // the provided JS object reference!
     jniV8Object->_jsObject.ClearWeak();
-    jniV8Object->_jsObject.MarkActive();
-
 
     // we are only holding the object because java/native is still alive, v8 can not gc it anymore
     // => adjust external memory counter
@@ -96,7 +94,6 @@ void JNIV8Object::makeWeak() {
     // they can be destroyed / gced from java at any time, and there can exist multiple
     if(_v8ClassInfo->container->type == JNIV8ObjectType::kWrapper || _jsObject.IsWeak()) return;
     _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kFinalizer);
-    _jsObject.MarkIndependent();
 
     // create a strong reference to the java object as long as the JS object is referenced from somewhere
     retainJObject();
@@ -467,7 +464,7 @@ jboolean JNIV8Object::jniHasV8Field(JNIEnv *env, jobject obj, jstring name, jboo
 jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnly) {
     JNIV8Object_PrepareJNICall(JNIV8Object, Object, nullptr);
 
-    MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames();
+    MaybeLocal<Array> maybeArrayRef = ownOnly ? localRef->GetOwnPropertyNames(context) : localRef->GetPropertyNames(context);
     if(maybeArrayRef.IsEmpty()) {
         ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
         return nullptr;
@@ -487,7 +484,7 @@ jobjectArray JNIV8Object::jniGetV8Keys(JNIEnv *env, jobject obj, jboolean ownOnl
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        string = JNIV8Marshalling::v8string2jstring(valueRef->ToString(isolate));
+        string = JNIV8Marshalling::v8string2jstring(valueRef->ToString(context).ToLocalChecked());
         if(!result) {
             result = env->NewObjectArray(n, _jniString.clazz, string);
         } else {
@@ -526,7 +523,7 @@ jobject JNIV8Object::jniGetV8Fields(JNIEnv *env, jobject obj, jboolean ownOnly, 
             ptr->getEngine()->forwardV8ExceptionToJNI(&try_catch);
             return nullptr;
         }
-        keyRef = valueRef->ToString(isolate);
+        keyRef = valueRef->ToString(context).ToLocalChecked();
 
         maybeValueRef = localRef->Get(context, keyRef);
         if(!maybeValueRef.ToLocal<Value>(&valueRef)) {

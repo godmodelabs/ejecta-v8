@@ -255,7 +255,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kCharacter: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsString())
                     return JNIV8MarshallingError::kWrongType;
-                jchar value = (jchar) JNIV8Marshalling::v8string2string(v8Value->ToString(isolate))[0];
+                jchar value = (jchar) JNIV8Marshalling::v8string2string(v8Value->ToString(isolate->GetCurrentContext()).ToLocalChecked())[0];
                 AutoboxArgument(Character, c);
                 break;
             }
@@ -310,7 +310,7 @@ JNIV8MarshallingError JNIV8Marshalling::convertV8ValueToJavaValue(JNIEnv *env, v
             case JNIV8JavaValueType::kString: {
                 if((arg.flags & JNIV8MarshallingFlags::kStrict) && !v8Value->IsString())
                     return JNIV8MarshallingError::kWrongType;
-                target->l = JNIV8Marshalling::v8value2jobject(v8Value->ToString(isolate));
+                target->l = JNIV8Marshalling::v8value2jobject(v8Value->ToString(isolate->GetCurrentContext()).ToLocalChecked());
                 break;
             }
             case JNIV8JavaValueType::kVoid: {
@@ -444,7 +444,7 @@ v8::Local<v8::String> JNIV8Marshalling::jstring2v8string(jstring string) {
 
     // string pointers can also be null
     if(env->IsSameObject(string, nullptr)) {
-        return scope.Escape(v8::Null(isolate)->ToString(isolate));
+        return scope.Escape(v8::Null(isolate)->ToString(isolate->GetCurrentContext()).ToLocalChecked());
     }
 
     len = env->GetStringLength(string);
@@ -579,5 +579,5 @@ jobject JNIV8Marshalling::undefinedInJava() {
  */
 std::string JNIV8Marshalling::v8string2string(v8::Local<v8::Value> value) {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    return (value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(isolate, value->ToString(isolate))));
+    return (value.IsEmpty() ? std::string("") : std::string(*v8::String::Utf8Value(isolate, value->ToString(isolate->GetCurrentContext()).ToLocalChecked())));
 }
