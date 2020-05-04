@@ -181,7 +181,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             headers.set("user-agent", "ejecta-v8")
         }
 
-        if (fields.containsKey(KEY_SIGNAL)) {
+        if (fields.containsKey(KEY_SIGNAL) && fields[KEY_SIGNAL] !is JNIV8Undefined) {
             if (fields[KEY_SIGNAL] !is BGJSModuleAbortSignal) {
                 throw V8JSException(v8Engine, "TypeError", "Expected signal to be an instanceof AbortSignal")
             }
