@@ -26,13 +26,9 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
         val resolver = JNIV8Promise.CreateResolver(v8Engine)
 
         if (consumeBody(resolver)) {
-            if (bodyReader != null) {
-                //TODO: Use correct JNIV8BufferArray here when it is implemented
+            bodyReader?.use {
                 resolver.resolve(Create(v8Engine, "ArrayBuffer", 0))
-                bodyReader!!.close()
-            } else {
-                resolver.reject(Create(v8Engine, "TypeError", "no body"))
-            }
+            } ?: resolver.reject(Create(v8Engine, "TypeError", "no body"))
         }
 
         return resolver.promise
@@ -43,19 +39,20 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
         val resolver = JNIV8Promise.CreateResolver(v8Engine)
 
         if (consumeBody(resolver)) {
-            if (bodyReader != null) {
+            bodyReader?.use { reader ->
                 try {
-                    resolver.resolve(v8Engine.parseJSON(bodyReader!!.readText()))
+                    resolver.resolve(v8Engine.parseJSON(reader.readText()))
                 } catch (e: Exception) {
-                    resolver.reject((v8Engine.runScript(BGJSModuleFetch.FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function).applyAsV8Constructor(
-                        arrayOf(
-                            "invalid json response body at ${this.url} reason: ${e.message}",
-                            "invalid-json"
-                        )))}
-                bodyReader!!.close()
-            } else {
-                resolver.reject(Create(v8Engine, "TypeError", "no body"))
-            }
+                    resolver.reject(
+                        (v8Engine.runScript(BGJSModuleFetch.FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function).applyAsV8Constructor(
+                            arrayOf(
+                                "invalid json response body at ${this.url} reason: ${e.message}",
+                                "invalid-json"
+                            )
+                        )
+                    )
+                }
+            } ?: resolver.reject(Create(v8Engine, "TypeError", "no body"))
         }
 
         return resolver.promise
@@ -66,12 +63,9 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
         val resolver = JNIV8Promise.CreateResolver(v8Engine)
 
         if (consumeBody(resolver)) {
-            if (bodyReader != null) {
-                resolver.resolve(bodyReader!!.readText())
-                bodyReader!!.close()
-            } else {
-                resolver.reject(Create(v8Engine, "TypeError", "no body"))
-            }
+            bodyReader?.use { reader ->
+                resolver.resolve(reader.readText())
+            } ?: resolver.reject(Create(v8Engine, "TypeError", "no body"))
         }
 
         return resolver.promise
