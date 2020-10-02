@@ -165,7 +165,6 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             if (DEBUG) {
                                 Log.d(TAG, "ajax ${method} error response $mErrorCode for ${url} with type $contentType and body $mErrorData")
                             }
-                            // Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
                             val errorObj = JNIV8GenericObject.Create(v8Engine)
                             if (_responseIsJson && mErrorData != null) {
                                 val parsedResponse: Any?
@@ -217,7 +216,9 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                         cb.second.callAsV8Function(returnObject, info, details)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Exception thrown when calling ajax " + cb.first + " callback", e)
+                if (DEBUG) {
+                    Log.e(TAG, "Exception thrown when calling ajax " + cb.first + " callback", e)
+                }
             }
         }
         callbacks.clear()
@@ -305,7 +306,9 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 } else if (body is String) {
                     this.body = body
                 } else {
-                    Log.w(TAG, "Cannot set body type $body")
+                    if (DEBUG) {
+                        Log.w(TAG, "Cannot set body type $body")
+                    }
                 }
             }
         } else {

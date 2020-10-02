@@ -366,7 +366,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             mClearBlue = (float) ((c & 0x000000ffL)) / 256f;
             mClearColorSet = true;
         } catch (final Exception e) {
-            Log.i(TAG, "Cannot set clear color from background color", e);
+            if (DEBUG) {
+                Log.i(TAG, "Cannot set clear color from background color", e);
+            }
         }
     }
 
@@ -543,9 +545,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
          */
         private void printConfigs(final EGL10 egl, final EGLDisplay display, final EGLConfig[] configs) {
             final int numConfigs = configs.length;
-            Log.w(TAG, String.format("%d configurations", numConfigs));
+            if (DEBUG) {
+                Log.w(TAG, String.format("%d configurations", numConfigs));
+            }
             for (int i = 0; i < numConfigs; i++) {
-                Log.w(TAG, String.format("Configuration %d:\n", i));
+                if (DEBUG) {
+                    Log.w(TAG, String.format("Configuration %d:\n", i));
+                }
                 printConfig(egl, display, configs[i]);
             }
         }
@@ -590,11 +596,13 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 final int attribute = attributes[i];
                 final String name = names[i];
                 if (egl.eglGetConfigAttrib(display, config, attribute, value)) {
-                    Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
+                    if (DEBUG) {
+                        Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
+                    }
                 } else {
-                    // Log.w(TAG, String.format("  %s: failed\n", name));
-                    while (egl.eglGetError() != EGL10.EGL_SUCCESS)
-                        ;
+                    while (egl.eglGetError() != EGL10.EGL_SUCCESS) {
+
+                    }
                 }
             }
         }
@@ -799,7 +807,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                                 Log.d(TAG, "Pause done");
                             }
                         } else {
-                            Log.d(TAG, "Paused, but resuming becquse rp " + (mRenderPending ? "true" : "false"));
+                            if (DEBUG) {
+                                Log.d(TAG, "Paused, but resuming becquse rp " + (mRenderPending ? "true" : "false"));
+                            }
                             break;
                         }
                     }
@@ -813,8 +823,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 final long startRender = System.currentTimeMillis();
                 final long now = startRender / 1000;
                 if (now != mLastRenderSec) {
-                    if (LOG_FPS) {
-                        Log.d(TAG, "FPS: " + mRenderCnt);
+                    if (DEBUG) {
+                        if (LOG_FPS) {
+                            Log.d(TAG, "FPS: " + mRenderCnt);
+                        }
                     }
                     mRenderCnt = 0;
                     mLastRenderSec = now;
@@ -827,10 +839,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 if (mBGJSGLView != null) {
                     mBGJSGLView.onRedraw();
                 }
-
-                /* if (DEBUG) {
-                    Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
-                } */
 
                 mRenderCnt++;
 
@@ -933,7 +941,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     looper.quit();
                 }
             } else {
-                Log.w(TAG, "Renderthread has no looper!");
+                if (DEBUG) {
+                    Log.w(TAG, "Renderthread has no looper!");
+                }
             }
             mRenderThread = null;
         }
@@ -942,7 +952,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         private void checkEglError(final String prompt) {
             int error;
             while ((error = mEgl.eglGetError()) != EGL10.EGL_SUCCESS) {
-                Log.e(TAG, String.format("%s: EGL error: 0x%x", prompt, error));
+                if (DEBUG) {
+                    Log.e(TAG, String.format("%s: EGL error: 0x%x", prompt, error));
+                }
             }
         }
 
@@ -978,7 +990,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
                 final int error = mEgl.eglGetError();
                 if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
-                    Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
+                    if (DEBUG) {
+                        Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
+                    }
                     return;
                 }
                 throw new RuntimeException("createWindowSurface failed " + GLUtils.getEGLErrorString(error));
@@ -1023,7 +1037,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
                 final int error = mEgl.eglGetError();
                 if (error == EGL10.EGL_BAD_NATIVE_WINDOW) {
-                    Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
+                    if (DEBUG) {
+                        Log.e(TAG, "createWindowSurface returned EGL_BAD_NATIVE_WINDOW.");
+                    }
                     return;
                 }
                 throw new RuntimeException("createWindowSurface failed " + GLUtils.getEGLErrorString(error));
@@ -1079,7 +1095,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             try {
                 renderthread.join();
             } catch (InterruptedException e) {
-                Log.d(TAG, "Cannot join render thread", e);
+                if (DEBUG) {
+                    Log.d(TAG, "Cannot join render thread", e);
+                }
             }
         }
     }

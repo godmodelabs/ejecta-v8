@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -222,7 +223,6 @@ public class AjaxRequest implements Runnable {
      * class read it into a string completely
      *
      * @param connection
-     * @return true if the subclass handled reading the Stream
      */
     protected void onInputStreamReady(final Response connection) throws IOException {
 
@@ -266,13 +266,17 @@ public class AjaxRequest implements Runnable {
             } else {
                 if (mReferer != null) {
                     try {
-                        requestBuilder.addHeader("Referer", new String(mReferer.getBytes("ISO-8859-1"), "ISO-8859-1"));
+                        requestBuilder.addHeader("Referer", new String(mReferer.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.ISO_8859_1));
                     } catch (final Exception ex) {
-                        Log.e(TAG, "Cannot set referer", ex);
+                        if (mDebug) {
+                            Log.e(TAG, "Cannot set referer", ex);
+                        }
                     }
                 } else {
                     try {
-                        Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
+                        if (mDebug) {
+                            Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
+                        }
                     } catch (final Exception ignored) {
                     }
                 }
@@ -325,7 +329,9 @@ public class AjaxRequest implements Runnable {
             final Request request = requestBuilder.build();
 
             if (mHttpClient == null) {
-                Log.d(TAG, "no http client");
+                if (mDebug) {
+                    Log.d(TAG, "no http client");
+                }
                 throw new RuntimeException("no http client");
             }
 
@@ -362,7 +368,9 @@ public class AjaxRequest implements Runnable {
                 try {
                     mResponseHeaders = response.headers();
                 } catch (final Exception e) {
-                    Log.i(TAG, "Cannot read headers", e);
+                    if (mDebug) {
+                        Log.i(TAG, "Cannot read headers", e);
+                    }
                 }
                 response.body().close();
             }
@@ -379,7 +387,9 @@ public class AjaxRequest implements Runnable {
                 mCache.storeInCache(connection.request().url().toString(), cachedObject, connection.cacheControl().maxAgeSeconds(), size);
             }
         } catch (Exception ex) {
-            Log.i(TAG, "Cannot set cache info", ex);
+            if (mDebug) {
+                Log.i(TAG, "Cannot set cache info", ex);
+            }
         }
     }
 
@@ -414,6 +424,7 @@ public class AjaxRequest implements Runnable {
         mReferer = referer;
     }
 
+    @NotNull
     public String toString() {
         if (mUrl != null) {
             return mUrl.toString();

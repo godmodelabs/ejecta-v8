@@ -181,7 +181,6 @@ public class V8Engine extends JNIObject implements Handler.Callback {
      * Execute a Runnable within a v8 level lock on this v8 engine and hence this v8 Isolate.
      *
      * @param runInLocker the Runnable to execute with the lock held
-     * @return the result of the block
      */
     public void runLocked(final Runnable runInLocker) {
         final long lockerInst = lock();
@@ -360,7 +359,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
         } catch (final InterruptedException e) {
             e.printStackTrace();
         }
-        Log.d(TAG, "Initializing V8Engine");
+        if (mDebug) {
+            Log.d(TAG, "Initializing V8Engine");
+        }
         final int maxHeapSizeForV8 = (int) (Runtime.getRuntime().maxMemory() / 1024 / 1024 / 3);
         if (mDebug) {
             Log.d(TAG, "Max heap size for v8 is " + maxHeapSizeForV8 + " MB");
@@ -520,7 +521,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                 Log.d(TAG, "Cleaned up " + count + " timeouts");
             }
         } catch (final Exception ex) {
-            Log.i(TAG, "Couldn't clear timeoutsGC", ex);
+            if (mDebug) {
+                Log.i(TAG, "Couldn't clear timeoutsGC", ex);
+            }
         }
     }
 
@@ -588,7 +591,9 @@ public class V8Engine extends JNIObject implements Handler.Callback {
                     mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_CLEANUP), DELAY_CLEANUP);
                 }
             } else {
-                Log.i(TAG, "Couldn't remove timeout (clearTimeout) " + id);
+                if (mDebug) {
+                    Log.i(TAG, "Couldn't remove timeout (clearTimeout) " + id);
+                }
             }
         }
     }

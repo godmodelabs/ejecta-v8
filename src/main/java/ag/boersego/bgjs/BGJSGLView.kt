@@ -21,7 +21,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
     private val callbacksRedraw = ArrayList<JNIV8Function>(2)
     private val callbacksEvent = ArrayList<JNIV8Function>(3)
 
-    class AnimationFrameRequest (val cb: JNIV8Function, val id: Int)
+    class AnimationFrameRequest(val cb: JNIV8Function, val id: Int)
 
     private val queuedAnimationRequests = Stack<AnimationFrameRequest>()
     private val nextAnimationRequestId = AtomicInteger(0)
@@ -48,11 +48,11 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
     @V8Function
     fun on(event: String, cb: JNIV8Function) {
         val list = when (event) {
-            "event" -> callbacksEvent
+            "event"  -> callbacksEvent
             "resize" -> callbacksResize
-            "close" -> callbacksClose
+            "close"  -> callbacksClose
             "redraw" -> callbacksRedraw
-            else -> throw IllegalArgumentException("invalid event type '$event'" )
+            else     -> throw IllegalArgumentException("invalid event type '$event'")
         }
         synchronized(list) {
             list.add(cb)
@@ -79,7 +79,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
 
     private fun executeCallbacks(callbacks: ArrayList<JNIV8Function>, vararg args: Any) {
         var lastException: Exception? = null
-        var cbs: Array<Any>? = null
+        var cbs: Array<Any>?
         synchronized(callbacks) {
             if (callbacks.isEmpty()) {
                 return
@@ -94,7 +94,9 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
                 }
             } catch (e: Exception) {
                 lastException = e
-                Log.e(TAG, "Exception when running close callback", e)
+                if (DEBUG) {
+                    Log.e(TAG, "Exception when running close callback", e)
+                }
             }
         }
         if (lastException != null) {
@@ -149,7 +151,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
     companion object {
         @Suppress("SimplifyBooleanWithConstants")
         val DEBUG = false && BuildConfig.DEBUG
-        val TAG = BGJSGLView::class.java.simpleName!!
+        val TAG = "BGJSGLView"
 
         @JvmStatic
         external fun Create(engine: V8Engine): BGJSGLView
