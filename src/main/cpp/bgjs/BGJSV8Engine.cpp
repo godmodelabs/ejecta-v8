@@ -953,8 +953,11 @@ void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
             holder->scheduled = true;
         } else if(holder->cleared && !holder->stopped) {
             holder->stopped = true;
-            uv_timer_stop(&holder->handle);
-            uv_close((uv_handle_t*)&holder->handle, &BGJSV8Engine::OnTimerClosedCallback);
+            if (holder->repeats) {
+                uv_close((uv_handle_t *) handle, &BGJSV8Engine::OnTimerClosedCallback);
+            } else {
+                uv_timer_stop(&holder->handle);
+            }
         }
     }
 }
@@ -996,6 +999,10 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
  */
 void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
     auto *holder = (TimerHolder*)handle->data;
+    if (holder == NULL) {
+        return;
+    }
+
     BGJSV8Engine *engine = holder->engine.get();
 
     v8::Locker l(engine->getIsolate());
@@ -1003,6 +1010,7 @@ void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
     holder->callback.Reset();
     holder->engine.reset();
     delete holder;
+    handle->data = NULL;
 
     auto it = std::find(engine->_timers.begin(), engine->_timers.end(), holder);
     if(it != engine->_timers.end()) {
