@@ -18,7 +18,7 @@
 
 # public *** doAjaxRequest(...);
 -keep class ag.boersego.bgjs.V8Engine {
-    public *;
+    *;
 }
 
 -keep class ag.boersego.bgjs.JNIV8Object {
@@ -87,8 +87,11 @@
 }
 
 -keep class ag.boersego.bgjs.V8Exception {
-    protected public <init>(***);
-    public *;
+    *;
+}
+
+-keep class ag.boersego.bgjs.V8JSException {
+    *;
 }
 
 -keep class ag.boersego.bgjs.V8JSException {
@@ -108,6 +111,14 @@
     @ag.boersego.v8annotations.V8Setter <methods>;
 }
 
+-keep class ag.boersego.bgjs.V8TextureView {
+    *;
+}
+
+-keep class ag.boersego.bgjs.IV8GLViewOnRender {
+    *;
+}
+
 -keep class java.lang.String {
     public <init>(java.lang.String);
     public byte[] getBytes(java.lang.String);
@@ -115,10 +126,6 @@
 
 -keep class java.lang.Object {
     public String toString();
-}
-
--keep class ag.boersego.bgjs.V8JSException {
-    public *;
 }
 
 -keep class java.lang.RuntimeException {
