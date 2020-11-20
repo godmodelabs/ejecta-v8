@@ -151,8 +151,6 @@ public class AjaxRequest implements Runnable {
     private static final int DEFAULT_READTIMEOUT = 5000;
 
     protected boolean mDoRunOnUiThread = true;
-
-    private static String mUserAgent = null;
     private static final String TAG = "AjaxRequest";
 
     protected AjaxRequest() {
@@ -243,22 +241,9 @@ public class AjaxRequest implements Runnable {
         Response response = null;
         try {
             // Create connection
-
-            if (AjaxRequest.mUserAgent == null) {
-                Locale here = Locale.getDefault();
-                AjaxRequest.mUserAgent = "myrmecophaga/" + version + " (Linux; U; Android " + Build.VERSION.RELEASE + "; " + here.getLanguage() + "-" + here.getCountry() + "; " + Build.MANUFACTURER + " " + Build.MODEL + " Build " + Build.DISPLAY + ") AppleWebKit/pi (KHTML, like Gecko) Version/4.0 Mobile Safari/beta";
-            }
-
             url = mUrl.toURL();
             Request.Builder requestBuilder = new Request.Builder()
                     .url(url);
-
-            try {
-                requestBuilder.addHeader("User-Agent", mUserAgent);
-            } catch (final Exception ignored) {
-            }
-
-            requestBuilder.addHeader("Origin", "service://app/android");
 
             if (mHeaders != null && !mHeaders.isEmpty()) {
                 final Set<Map.Entry<String, String>> headerSet = mHeaders.entrySet();
