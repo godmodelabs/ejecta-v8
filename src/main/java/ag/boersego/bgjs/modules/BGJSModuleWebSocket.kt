@@ -37,7 +37,7 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
     private lateinit var onClose: () -> Unit
 
     override fun run() {
-        val request = Request.Builder().header("Origin", "service://app/android").url(_url).build()
+        val request = Request.Builder().url(_url).build()
         socket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 super.onOpen(webSocket, response)

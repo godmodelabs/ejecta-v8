@@ -177,10 +177,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             }
         }
 
-        if (!headers.has("user-agent")) {
-            headers.set("user-agent", "ejecta-v8")
-        }
-
         if (fields.containsKey(KEY_SIGNAL) && fields[KEY_SIGNAL] is BGJSModuleAbortSignal) {
             signal = fields[KEY_SIGNAL] as BGJSModuleAbortSignal
         }
@@ -266,7 +262,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
 
         // Origin header set for Android App (differs from fetch spec)
-        headers.set("Origin", "service://app/android")
 
         // Idea: see what node-fetch does here: https://github.com/bitinn/node-fetch/blob/master/src/request.js
 
