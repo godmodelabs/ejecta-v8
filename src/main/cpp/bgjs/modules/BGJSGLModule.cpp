@@ -760,13 +760,15 @@ static void js_context_arc(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	 void arc(in double x, in double y, in double radius, in double startAngle, in double endAngle, in optional boolean anticlockwise);
 	 */
 	CONTEXT_FETCH();
-	REQUIRE_PARAMS(6);
 	float x = Local<Number>::Cast(args[0])->Value();
 	float y = Local<Number>::Cast(args[1])->Value();
 	float radius = Local<Number>::Cast(args[2])->Value();
 	float startAngle = Local<Number>::Cast(args[3])->Value();
 	float endAngle = Local<Number>::Cast(args[4])->Value();
-	bool antiClockWise = args[5]->BooleanValue(isolate);
+	bool antiClockWise = false;
+	if (args.Length() == 6) {
+		antiClockWise = args[5]->BooleanValue(isolate);
+	}
 	__context->arcX(x, y, radius, startAngle, endAngle, antiClockWise);
 	// [__context arcX:(float)JSValueToNumber(ctx,arguments[0],exception) y:(float)JSValueToNumber(ctx,arguments[1],exception) radius:(float)JSValueToNumber(ctx,arguments[2],exception) startAngle:(float)JSValueToNumber(ctx,arguments[3],exception) endAngle:(float)JSValueToNumber(ctx,arguments[4],exception) antiClockwise:JSValueToBoolean(ctx,arguments[5])];
 	args.GetReturnValue().SetUndefined();
