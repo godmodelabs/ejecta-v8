@@ -65,8 +65,10 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         var fetchResponse: BGJSModuleFetchResponse? = null
         val call = okHttpClient.newCall(httpRequest)
         val timeout = call.timeout()
+
+        val minute = 60000L
         val requestTimeOut = request.timeout.toLong() * 1000
-        timeout.timeout(requestTimeOut, TimeUnit.MILLISECONDS)
+        timeout.timeout(if (requestTimeOut > minute) requestTimeOut else minute, TimeUnit.MILLISECONDS)
 
         val signal = request.signal
         var abortAndFinalize :JNIV8Function? = null
