@@ -1168,7 +1168,7 @@ void BGJSV8Engine::createContext() {
                  v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
 
-    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "consoleWorkaround").ToLocalChecked(), console);
+    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console").ToLocalChecked(), console);
 
     // Add methods to process function
     v8::Local<v8::FunctionTemplate> process = v8::FunctionTemplate::New(_isolate);
