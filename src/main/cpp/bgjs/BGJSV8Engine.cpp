@@ -953,11 +953,7 @@ void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
             holder->scheduled = true;
         } else if(holder->cleared && !holder->stopped) {
             holder->stopped = true;
-            if (holder->repeats) {
-                uv_close((uv_handle_t *) handle, &BGJSV8Engine::OnTimerClosedCallback);
-            } else {
-                uv_timer_stop(&holder->handle);
-            }
+            uv_timer_stop(&holder->handle);
         }
     }
 }
@@ -1172,7 +1168,7 @@ void BGJSV8Engine::createContext() {
                  v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
 
-    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console").ToLocalChecked(), console);
+    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "consoleWorkaround").ToLocalChecked(), console);
 
     // Add methods to process function
     v8::Local<v8::FunctionTemplate> process = v8::FunctionTemplate::New(_isolate);
