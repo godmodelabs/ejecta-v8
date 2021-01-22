@@ -953,11 +953,7 @@ void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
             holder->scheduled = true;
         } else if(holder->cleared && !holder->stopped) {
             holder->stopped = true;
-            if (holder->repeats) {
-                uv_close((uv_handle_t *) handle, &BGJSV8Engine::OnTimerClosedCallback);
-            } else {
-                uv_timer_stop(&holder->handle);
-            }
+            uv_timer_stop(&holder->handle);
         }
     }
 }
