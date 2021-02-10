@@ -345,33 +345,33 @@ EJCompositeOperation EJCanvasContext::globalCompositeOperation ( ){
 }
 
 bool EJCanvasContext::setFont (char* font) {
-    if (state->fontName && strcmp (font, state->fontName) == 0) {
+    if (state->fontName && strcmp(font, state->fontName) == 0) {
         return false;
     }
     if (_font) {
         free(_font);
         _font = NULL;
     }
-	char delim = ' ';
-	std::string *str = new std::string(font);
-	size_t start;
-	size_t end = 0;
+    char delim = ' ';
+    std::string *str = new std::string(font);
+    size_t start;
+    size_t end = 0;
 
-	while ((start = str->find_first_not_of(delim, end)) != std::string::npos) {
-		end = str->find(delim, start);
-		std::string part = str->substr(start, end - start);
-		int partLength = part.length();
-		if (partLength >= 2) {
-			std::string startString = part.substr(0, partLength - 2);
-			std::string endString = part.substr(partLength - 2, partLength);
-			if (endString.compare("px") == 0) {
-				state->fontSize = std::stof(startString);
-			}
-		}
-	}
+    while ((start = str->find_first_not_of(delim, end)) != std::string::npos) {
+        end = str->find(delim, start);
+        std::string part = str->substr(start, end - start);
+        int partLength = part.length();
+        if (partLength >= 2) {
+            std::string startString = part.substr(0, partLength - 2);
+            std::string endString = part.substr(partLength - 2, partLength);
+            if (endString.compare("px") == 0) {
+                state->fontSize = std::stof(startString);
+            }
+        }
+    }
 
-	state->fontName = font;
-	return false;
+    state->fontName = font;
+    return false;
 }
 
 char* EJCanvasContext::getFont() {
