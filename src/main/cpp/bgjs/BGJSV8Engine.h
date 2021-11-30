@@ -110,7 +110,7 @@ private:
 
 	struct TimerHolder {
 		uv_timer_t handle;
-		bool scheduled, cleared, stopped, repeats;
+		bool scheduled, cleared, stopped, repeats, closed;
 		uint64_t id, delay, repeat;
 		v8::Persistent<v8::Function> callback;
 		JNIRetainedRef<BGJSV8Engine> engine;

@@ -995,9 +995,11 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
  */
 void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
     auto *holder = (TimerHolder*)handle->data;
-    if (holder == NULL) {
+    if (holder->closed) {
         return;
     }
+
+    ((TimerHolder*)handle->data)->closed = true;
 
     BGJSV8Engine *engine = holder->engine.get();
 
@@ -1006,7 +1008,7 @@ void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
     holder->callback.Reset();
     holder->engine.reset();
     delete holder;
-    handle->data = NULL;
+
 
     auto it = std::find(engine->_timers.begin(), engine->_timers.end(), holder);
     if(it != engine->_timers.end()) {
