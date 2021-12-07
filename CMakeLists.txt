@@ -60,7 +60,7 @@ add_library( # Sets the name of the library.
 # definitions
 #--------------------------------------------------
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-add_definitions(-DENABLE_JNI_ASSERT=1)
+  add_definitions(-DENABLE_JNI_ASSERT=1)
 endif()
 
 #--------------------------------------------------
@@ -71,10 +71,12 @@ if ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "i686")
   set(v8-abi x86)
 elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
   set(v8-abi x86_64)
+  add_definitions(-DV8_COMPRESS_POINTERS)
 elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
   set(v8-abi armeabi-v7a)
 elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
   set(v8-abi arm64-v8a)
+  add_definitions(-DV8_COMPRESS_POINTERS)
 endif()
 
 MESSAGE( STATUS "CMAKE_SYSTEM_PROCESSOR:         " ${CMAKE_SYSTEM_PROCESSOR} )
