@@ -863,6 +863,19 @@ v8::Local<v8::Context> BGJSV8Engine::getContext() const {
     return scope.Escape(Local<Context>::New(_isolate, _context));
 }
 
+//void BGJSV8Engine::js_global_logMemory(const v8::FunctionCallbackInfo<v8::Value> &args) {
+//    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(args.GetIsolate());
+//
+//    // V8 memory usage
+//    HeapStatistics v8_heap_stats;
+//    engine->getIsolate()->GetHeapStatistics(&v8_heap_stats);
+//    LOGD("--------------------------------Dada Memorydump--------------------------------");
+//    LOGD("dada total_heap_size: %zu", v8_heap_stats.total_heap_size());
+//    LOGD("dada used_heap_size: %zu", v8_heap_stats.used_heap_size());
+//    LOGD("dada heap_size_limit: %zu", v8_heap_stats.heap_size_limit());
+//    LOGD("dada total_available_size: %zu", v8_heap_stats.total_available_size());
+//}
+
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
     if (args.Length() >= 1 && args[0]->IsFunction()) {
@@ -954,6 +967,7 @@ void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
         } else if(holder->cleared && !holder->stopped) {
             holder->stopped = true;
             uv_timer_stop(&holder->handle);
+            uv_close((uv_handle_t *) &holder->handle, &BGJSV8Engine::OnTimerClosedCallback);
         }
     }
 }
@@ -1192,6 +1206,12 @@ void BGJSV8Engine::createContext() {
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval").ToLocalChecked(),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
+
+//    globalObjTpl->Set(String::NewFromUtf8(_isolate, "logMemory").ToLocalChecked(),
+//                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_logMemory,
+//                                                Local<Value>(),
+//                                                Local<Signature>(), 0,
+//                                                ConstructorBehavior::kThrow));
 
     // Create a new context.
     Local<Context> context = v8::Context::New(_isolate, nullptr, globalObjTpl);

@@ -69,7 +69,8 @@ public:
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
-	static void js_process_nextTick (const v8::FunctionCallbackInfo<v8::Value>&);
+//	static void js_global_logMemory(const v8::FunctionCallbackInfo<v8::Value> &);
+	static void js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &);
 	static void js_global_setTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_clearTimeoutOrInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_setInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
