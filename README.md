@@ -14,14 +14,14 @@ You can use our sample app under https://github.com/godmodelabs/ejecta-v8-sample
 to get a feel for the library.
 
 This library needs a precompiled, statically linked version of v8 to link
-against. Currently this is tested against 7.2.502.24. See also *Updating v8*.
+against. Currently this is tested against 8.2.297.3 See also *Updating v8*.
 
 It also needs a precompiled, statically linked version of libuv.
 
 # Getting v8 & uv libraries
 
 ## Precompiled from DropBox
-1. Download the precompiled libs from [DropBox](https://www.dropbox.com/s/0ijd6uamaohy4xa/ejecta-v8-libs.zip?dl=1)
+1. Download the precompiled libs from [DropBox](https://www.dropbox.com/s/om5wn6jnbtvwt2s/ejecta-v8-libs.zip?dl=0)
 2. Unpack into libs/
 
 The libs/v8 folder should look like this:
@@ -57,7 +57,7 @@ For steps 1 and 2 see also the [v8 project documentation](https://github.com/v8/
 1. [get depot_tools](https://www.chromium.org/developers/how-tos/install-depot-tools)
 2. Get the sources: `fetch v8`
 3. `cd v8`
-4. Checkout correct revision: `git checkout 7.9.317.29`
+4. Checkout correct revision: `git checkout 8.2.297.3`
 5. `echo "target_os = ['android']" >> ../.gclient && gclient sync --nohooks` as [described on v8 wiki](https://github.com/v8/v8/wiki/D8%20on%20Android)
 6. Create GN build configuration for each ABI.
 ### x64
@@ -79,7 +79,7 @@ Steps 6-7 can be repeated as mentioned for each ABI you want to support. Step 7 
 
 # Building the sample
 
-Set up at least NDK r15c and make sure it is in the search path.
+Set up at least NDK r20b and make sure it is in the search path.
 
 ./gradlew assembleDebug
 
