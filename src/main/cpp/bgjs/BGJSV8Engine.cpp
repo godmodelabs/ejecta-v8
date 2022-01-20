@@ -1122,7 +1122,7 @@ void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("enqueueOnNextTick", "(Lag/boersego/bgjs/JNIV8Function;)V", (void*)BGJSV8Engine::jniEnqueueOnNextTick);
     info->registerNativeMethod("parseJSON", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniParseJSON);
     info->registerNativeMethod("require", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRequire);
-    info->registerNativeMethod("lock", "()J", (void*)BGJSV8Engine::jniLock);
+    info->registerNativeMethod("lock", "(Ljava/lang/String;)J", (void*)BGJSV8Engine::jniLock);
     info->registerNativeMethod("unlock", "(J)V", (void*)BGJSV8Engine::jniUnlock);
     info->registerNativeMethod("getGlobalObject", "()Lag/boersego/bgjs/JNIV8GenericObject;", (void*)BGJSV8Engine::jniGetGlobalObject);
     info->registerNativeMethod("runScript", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRunScript);
@@ -1905,12 +1905,17 @@ jobject BGJSV8Engine::jniRequire(JNIEnv *env, jobject obj, jstring file) {
     return JNIV8Marshalling::v8value2jobject(value.ToLocalChecked());
 }
 
-jlong BGJSV8Engine::jniLock(JNIEnv *env, jobject obj) {
+jlong BGJSV8Engine::jniLock(JNIEnv *env, jobject obj, jstring ownerName) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
+#ifdef V8_LOCK_LOGGING
+    std::string ownerNameStr = std::string(__FUNCTION__) + ": " + JNIWrapper::jstring2string(ownerName);
+    auto *locker = new V8Locker(isolate, ownerNameStr.c_str());
+#else
     auto *locker = new V8Locker(isolate, __FUNCTION__);
+#endif
 
     return (jlong) locker;
 }

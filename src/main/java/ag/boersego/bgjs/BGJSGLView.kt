@@ -123,7 +123,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
 
         // Clone and empty both lists of callbacks in a v8::Locker so JS cannot add event listeners
         // while we execute them
-        v8Engine.runLocked {
+        v8Engine.runLocked ("BGJSGLView::onRedraw") {
             val callbacksForRedraw = ArrayList<JNIV8Function>(queuedAnimationRequests.size)
             queuedAnimationRequests.forEach { callbacksForRedraw.add(it.cb) }
             queuedAnimationRequests.clear()
