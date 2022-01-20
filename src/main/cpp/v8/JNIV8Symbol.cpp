@@ -28,7 +28,7 @@ jobject JNIV8Symbol::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jstr
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
@@ -44,7 +44,7 @@ jobject JNIV8Symbol::jniFor(JNIEnv *env, jobject obj, jobject engineObj, jstring
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
@@ -60,7 +60,7 @@ jobject JNIV8Symbol::jniForEnum(JNIEnv *env, jobject obj, jobject engineObj, jst
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);

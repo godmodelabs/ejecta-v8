@@ -22,6 +22,9 @@
  * Licensed under the MIT license.
  */
 
+// see V8LockerLogger for debugging locks:
+//#define V8_LOCK_LOGGING 1
+
 class BGJSGLView;
 
 typedef  void (*requireHook) (class BGJSV8Engine* engine, v8::Handle<v8::Object> target);
@@ -236,5 +239,125 @@ private:
 };
 
 BGJS_JNI_LINK_DEF(BGJSV8Engine)
+
+#ifdef V8_LOCK_LOGGING
+#define LOG_TAG "V8LockerLogger"
+
+static std::string v8LockOwnerName = "";
+static uv_thread_t v8LockOwnerThread = {};
+static std::string v8LockOwnerThreadName = "";
+static uv_mutex_t v8LockOwnerMutex = {};
+static auto __unused__ = uv_mutex_init(&v8LockOwnerMutex);
+
+class V8LockerLogger {
+    bool isTopLevel = true; // The v8::Locker is a recursive lock (can lock more than once in a given thread)
+    std::string ownerName;
+    std::string waitingForName;
+    uv_thread_t waitingForThread;
+    std::string waitingForThreadName;
+    uint64_t startTime;
+    const uint64_t logThresholdMs = 100; // log only if waiting/locking for more than this (ms)
+
+public:
+    V8LockerLogger(const char* ownerName) : ownerName(ownerName) {
+        uv_mutex_lock(&v8LockOwnerMutex);
+        waitingForName = v8LockOwnerName;
+        waitingForThread = v8LockOwnerThread;
+        waitingForThreadName = v8LockOwnerThreadName;
+        uv_mutex_unlock(&v8LockOwnerMutex);
+
+        //LOG(LOG_DEBUG, "V8Locker: %s: Waiting for Lock", this->ownerName.c_str());
+
+        startTime = uv_hrtime();
+    }
+
+    void gotLock() {
+        uint64_t waitingTime = (uv_hrtime() - startTime) / 1000000;
+
+        uv_mutex_lock(&v8LockOwnerMutex);
+        if (v8LockOwnerName.length() == 0) {
+            v8LockOwnerName = ownerName;
+            v8LockOwnerThread = uv_thread_self();
+            v8LockOwnerThreadName = getCurrentThreadName();
+        } else {
+            isTopLevel = false;
+        }
+        uv_mutex_unlock(&v8LockOwnerMutex);
+
+        //LOG(LOG_DEBUG, "V8Locker: %s: Got Lock", ownerName.c_str());
+
+        if (waitingTime > logThresholdMs) {
+            uv_thread_t currentThread = uv_thread_self();
+            LOG(LOG_ERROR, "V8Locker: %s (Thread %lu - %s) hat %llums auf %s (Thread %lu - %s) gewartet",
+                ownerName.c_str(), currentThread, getCurrentThreadName().c_str(), waitingTime,
+                waitingForName.length() > 0 ? waitingForName.c_str() : "(unbekannt)", waitingForThread, waitingForThreadName.c_str());
+        }
+
+        startTime = uv_hrtime();
+    }
+
+    void beforeUnlock() {
+        uint64_t lockingTime = (uv_hrtime() - startTime) / 1000000;
+        if (lockingTime > logThresholdMs) {
+            uv_thread_t currentThread = uv_thread_self();
+            LOG(LOG_ERROR, "V8Locker: %s (%s, Thread %lu - %s) hat %llums gelockt", ownerName.c_str(), isTopLevel ? "TopLevel" : "SubLock",
+                currentThread, getCurrentThreadName().c_str(), lockingTime);
+        }
+
+        //LOG(LOG_DEBUG, "V8Locker: %s: Unlocking now", ownerName.c_str());
+
+        if (isTopLevel) {
+            uv_mutex_lock(&v8LockOwnerMutex);
+            v8LockOwnerName = "";
+            v8LockOwnerThread = {};
+            v8LockOwnerThreadName = "";
+            uv_mutex_unlock(&v8LockOwnerMutex);
+        }
+    }
+
+    ~V8LockerLogger() {
+        //LOG(LOG_DEBUG, "V8Locker: %s: Unlocked", ownerName.c_str());
+    }
+
+    std::string getCurrentThreadName() {
+        JNIEnv* env = JNIWrapper::getEnvironment();
+
+        jclass threadClass = env->FindClass("java/lang/Thread");
+        jmethodID currentThreadMid = env->GetStaticMethodID(threadClass, "currentThread", "()Ljava/lang/Thread;");
+        jobject currentThread = env->CallStaticObjectMethod(threadClass, currentThreadMid);
+        jclass currentThreadClass = env->GetObjectClass(currentThread);
+        jmethodID getNameMid = env->GetMethodID(currentThreadClass, "getName", "()Ljava/lang/String;");
+        jstring name = (jstring) env->CallObjectMethod(currentThread, getNameMid);
+
+        return JNIWrapper::jstring2string(name);
+    }
+};
+
+class V8Unlocker {
+    V8LockerLogger& logger;
+
+public:
+    V8Unlocker(V8LockerLogger& logger) : logger(logger) {}
+    ~V8Unlocker() {
+        logger.beforeUnlock();
+    }
+};
+
+class V8Locker : public V8LockerLogger, public v8::Locker, public V8Unlocker {
+public:
+    V8Locker(v8::Isolate* isolate, const char* ownerName) : V8LockerLogger(ownerName), v8::Locker(isolate), V8Unlocker((V8LockerLogger&) *this) {
+        gotLock();
+    }
+};
+
+#undef LOG_TAG
+#else // V8_LOCK_LOGGING
+
+class V8Locker : public v8::Locker {
+public:
+    V8Locker(v8::Isolate* isolate, const char* ownerName) : v8::Locker(isolate) {}
+};
+
+#endif // V8_LOCK_LOGGING
 
 #endif
