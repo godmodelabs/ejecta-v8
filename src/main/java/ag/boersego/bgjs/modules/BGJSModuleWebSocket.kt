@@ -78,7 +78,7 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 super.onMessage(webSocket, text)
-                v8Engine.runLocked {
+                v8Engine.runLocked ("BGJSWebSocket::onMessage") {
                     if (_readyState == ReadyState.CLOSING || _readyState == ReadyState.CLOSED) {
                         return@runLocked
                     }

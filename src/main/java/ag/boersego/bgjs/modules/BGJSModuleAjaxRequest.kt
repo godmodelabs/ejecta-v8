@@ -89,7 +89,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
     @V8Function
     fun abort(): Boolean {
         var success = false
-        v8Engine.runLocked {
+        v8Engine.runLocked ("BGJSModuleAjaxRequest::abort") {
             if (!requestNotFinal) {
                 if (DEBUG) {
                     Log.d(TAG, "ajax ${method} for ${url} cannot  abort", RuntimeException("ajax abort impossible"))
@@ -124,7 +124,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 if (aborted) {
                     return
                 }
-                v8Engine.runLocked {
+                v8Engine.runLocked ("BGJSModuleAjaxRequest::run") {
 
                     if (!aborted) {
                         val contentType = responseHeaders?.get("content-type")

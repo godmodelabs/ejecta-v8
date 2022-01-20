@@ -160,7 +160,7 @@ private:
     static void jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function);
     static jobject jniParseJSON(JNIEnv *env, jobject obj, jstring json);
     static jobject jniRequire(JNIEnv *env, jobject obj, jstring file);
-    static jlong jniLock(JNIEnv *env, jobject obj);
+    static jlong jniLock(JNIEnv *env, jobject obj, jstring ownerName);
     static jobject jniGetGlobalObject(JNIEnv *env, jobject obj);
     static void jniUnlock(JNIEnv *env, jobject obj, jlong lockerPtr);
     static jobject jniRunScript(JNIEnv *env, jobject obj, jstring script, jstring name);

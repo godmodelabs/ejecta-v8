@@ -47,16 +47,30 @@ public class V8Engine extends JNIObject {
     /**
      * Execute a Runnable within a v8 level lock on this v8 engine and hence this v8 Isolate.
      *
+     * @param ownerName a descriptive lock-owner name for lock monitoring in C++
      * @param runInLocker the Runnable to execute with the lock held
      * @return the result of the block
      */
-    public void runLocked(final Runnable runInLocker) {
-        final long lockerInst = lock();
+    public void runLocked(String ownerName, final Runnable runInLocker) {
+        final long lockerInst = lock(ownerName);
         try {
             runInLocker.run();
         } finally {
             unlock(lockerInst);
         }
+    }
+
+    public void runLocked(final Runnable runInLocker) {
+        String ownerName = "JAVA-Stack";
+
+        /*
+        // enable for debugging locks (disabled by default for performance reasons):
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            ownerName += "/" + element.getClassName() + "::" + element.getMethodName();
+        }
+        */
+
+        runLocked(ownerName, runInLocker);
     }
 
     /**
@@ -140,9 +154,11 @@ public class V8Engine extends JNIObject {
     /**
      * Create a v8::Locker and return the pointer to the instance
      *
+     * @param ownerName a descriptive lock-owner name for lock monitoring in C++
+     *
      * @return pointer to v8::Locker
      */
-    private native long lock();
+    private native long lock(String ownerName);
 
     /**
      * Destroy / Leave a v8::Locker
