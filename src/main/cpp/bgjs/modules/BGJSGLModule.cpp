@@ -67,7 +67,7 @@ CONTEXT_FETCH_BASE
 
 // Fetch the canvascontext from the context2d function for Accessors
 #define CONTEXT_FETCH_VAR               v8::Isolate* isolate = Isolate::GetCurrent(); \
-v8::Locker l(isolate); \
+V8Locker l(isolate, __FUNCTION__); \
 HandleScope scope(isolate); \
 Local<Object> self = info.Holder(); \
 Local<External> wrap = Local<External>::Cast(self->GetInternalField(0)); \
@@ -75,7 +75,7 @@ void* ptr = wrap->Value(); \
 BGJSCanvasContext *__context = static_cast<BGJSV8Engine2dGL*>(ptr)->context;
 
 #define CONTEXT_FETCH_VAR_ESCAPABLE       v8::Isolate* isolate = Isolate::GetCurrent(); \
-v8::Locker l(isolate); \
+V8Locker l(isolate, __FUNCTION__); \
 EscapableHandleScope scope(isolate); \
 Local<Object> self = info.Holder(); \
 Local<External> wrap = Local<External>::Cast(self->GetInternalField(0)); \

@@ -59,7 +59,7 @@ JNIV8Object::JNIV8Object(jobject obj, JNIClassInfo *info) : JNIObject(obj, info)
 }
 
 JNIV8Object::~JNIV8Object() {
-    v8::Locker l(_bgjsEngine->getIsolate());
+    V8Locker l(_bgjsEngine->getIsolate(), __FUNCTION__);
     // __android_log_print(ANDROID_LOG_INFO, "JNIV8Object", "deleted v8 object: %s", getCanonicalName().c_str());
     if(!_jsObject.IsEmpty()) {
         // adjust external memory counter if required
@@ -209,7 +209,7 @@ jobject JNIV8Object::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jstr
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);

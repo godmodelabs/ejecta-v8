@@ -92,7 +92,7 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
 
     v8::Isolate* isolate = ptr->getEngine()->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = ptr->getEngine()->getContext();
@@ -242,7 +242,7 @@ jobject JNIV8Function::jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jo
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(engineObj);
 
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);

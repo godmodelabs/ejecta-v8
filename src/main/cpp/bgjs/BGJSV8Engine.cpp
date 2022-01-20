@@ -955,7 +955,7 @@ void BGJSV8Engine::OnTimerEventCallback(uv_async_t * handle) {
     auto *engine = (BGJSV8Engine*)handle->data;
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
 
     for (size_t i = 0; i < engine->_timers.size(); ++i) {
         auto holder = engine->_timers.at(i);
@@ -979,7 +979,7 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
     auto *holder = (TimerHolder*)handle->data;
 
     v8::Isolate *isolate = holder->engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = holder->engine->getContext();
@@ -1017,7 +1017,7 @@ void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
 
     BGJSV8Engine *engine = holder->engine.get();
 
-    v8::Locker l(engine->getIsolate());
+    V8Locker l(engine->getIsolate(), __FUNCTION__);
 
     holder->callback.Reset();
     holder->engine.reset();
@@ -1153,7 +1153,7 @@ void BGJSV8Engine::createContext() {
     _isolate = v8::Isolate::New(create_params);
     _isolate->SetMicrotasksPolicy(v8::MicrotasksPolicy::kScoped);
 
-    v8::Locker l(_isolate);
+    V8Locker l(_isolate, __FUNCTION__);
     Isolate::Scope isolate_scope(_isolate);
     HandleScope scope(_isolate);
 
@@ -1467,7 +1467,7 @@ void BGJSV8Engine::OnHandleClosed(uv_handle_t *handle) {
 void BGJSV8Engine::OnTaskMicrotask(void *data) {
     TaskHolder *holder = (TaskHolder*)data;
     v8::Isolate *isolate = Isolate::GetCurrent();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -1487,7 +1487,7 @@ void BGJSV8Engine::OnTaskMicrotask(void *data) {
 
 void BGJSV8Engine::OnPromiseRejectionMicrotask(void *data) {
     v8::Isolate *isolate = Isolate::GetCurrent();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -1575,13 +1575,13 @@ void BGJSV8Engine::PromiseRejectionHandler(v8::PromiseRejectMessage message) {
 
 void BGJSV8Engine::UncaughtExceptionHandler(v8::Local<v8::Message> message, v8::Local<v8::Value> data) {
     v8::Isolate *isolate = Isolate::GetCurrent();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     BGJSV8Engine* engine = BGJSV8Engine::GetInstance(isolate);
     engine->forwardV8ExceptionToJNI("Uncaught exception: ", data, message, true);
 }
 
 void BGJSV8Engine::log(int debugLevel, const v8::FunctionCallbackInfo<v8::Value> &args) {
-    v8::Locker locker(args.GetIsolate());
+    V8Locker locker(args.GetIsolate(), __FUNCTION__);
     HandleScope scope(args.GetIsolate());
 
     std::stringstream str;
@@ -1650,7 +1650,7 @@ BGJSV8Engine::~BGJSV8Engine() {
 }
 
 void BGJSV8Engine::trace(const FunctionCallbackInfo<Value> &args) {
-    v8::Locker locker(args.GetIsolate());
+    V8Locker locker(args.GetIsolate(), __FUNCTION__);
     HandleScope scope(args.GetIsolate());
 
     std::stringstream str;
@@ -1685,7 +1685,7 @@ void BGJSV8Engine::doAssert(const FunctionCallbackInfo<Value> &args) {
         return;
     }
 
-    v8::Locker locker(isolate);
+    V8Locker locker(isolate, __FUNCTION__);
     HandleScope scope(isolate);
 
     Local<Boolean> assertion = args[0]->ToBoolean(isolate);
@@ -1776,7 +1776,7 @@ void BGJSV8Engine::OnGCCompletedForDump(Isolate *isolate, GCType type,
 
 const char *BGJSV8Engine::enqueueMemoryDump(const char *basePath) {
     v8::Isolate *isolate = getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
 
     if (_nextProfileDumpPath != nullptr) {
         return nullptr;
@@ -1847,7 +1847,7 @@ void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject functi
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -1866,7 +1866,7 @@ jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -1888,7 +1888,7 @@ jobject BGJSV8Engine::jniRequire(JNIEnv *env, jobject obj, jstring file) {
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -1910,7 +1910,7 @@ jlong BGJSV8Engine::jniLock(JNIEnv *env, jobject obj) {
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    auto *locker = new Locker(isolate);
+    auto *locker = new V8Locker(isolate, __FUNCTION__);
 
     return (jlong) locker;
 }
@@ -1920,7 +1920,7 @@ jobject BGJSV8Engine::jniGetGlobalObject(JNIEnv *env, jobject obj) {
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -1931,7 +1931,7 @@ jobject BGJSV8Engine::jniGetGlobalObject(JNIEnv *env, jobject obj) {
 }
 
 void BGJSV8Engine::jniUnlock(JNIEnv *env, jobject obj, jlong lockerPtr) {
-    auto *locker = reinterpret_cast<Locker *>(lockerPtr);
+    auto *locker = reinterpret_cast<V8Locker *>(lockerPtr);
     delete (locker);
 }
 
@@ -1940,7 +1940,7 @@ jobject BGJSV8Engine::jniRunScript(JNIEnv *env, jobject obj, jstring script, jst
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();
@@ -1976,7 +1976,7 @@ jobject BGJSV8Engine::jniGetConstructor(JNIEnv *env, jobject obj, jstring canoni
     THROW_IF_NOT_STARTED();
 
     v8::Isolate *isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = engine->getContext();

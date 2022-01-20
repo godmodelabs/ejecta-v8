@@ -299,7 +299,7 @@ void JNIV8Wrapper::initializeNativeJNIV8Object(jobject obj, jobject engineObj, j
     JNI_ASSERT(v8Object, "Invalid object; object must extend JNIV8Object and be registered on JNIV8Wrapper");
 
     v8::Isolate* isolate = engine->getIsolate();
-    v8::Locker l(isolate);
+    V8Locker l(isolate, __FUNCTION__);
     v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
     Isolate::Scope isolateScope(isolate);
     HandleScope scope(isolate);

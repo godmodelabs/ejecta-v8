@@ -17,7 +17,7 @@ auto ptr = JNIWrapper::wrapObject<T>(obj);\
 if(!ptr){env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "Attempt to call method on disposed object"); return R;}\
 BGJSV8Engine *engine = ptr->getEngine();\
 v8::Isolate* isolate = engine->getIsolate();\
-v8::Locker l(isolate);\
+V8Locker l(isolate, __FUNCTION__);\
 v8::Isolate::Scope isolateScope(isolate);\
 v8::HandleScope scope(isolate);\
 v8::Local<v8::Context> context = engine->getContext();\
