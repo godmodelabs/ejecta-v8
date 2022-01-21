@@ -1374,8 +1374,21 @@ void BGJSV8Engine::unpause() {
     uv_mutex_unlock(&_uvMutex);
 }
 
+void BGJSV8Engine::SetCurrentThreadName(std::string name) {
+    JNIEnv* env = JNIWrapper::getEnvironment();
+
+    jclass threadClass = env->FindClass("java/lang/Thread");
+    jmethodID currentThreadMid = env->GetStaticMethodID(threadClass, "currentThread", "()Ljava/lang/Thread;");
+    jobject currentThread = env->CallStaticObjectMethod(threadClass, currentThreadMid);
+    jclass currentThreadClass = env->GetObjectClass(currentThread);
+    jmethodID setNameMid = env->GetMethodID(currentThreadClass, "setName", "(Ljava/lang/String;)V");
+    env->CallVoidMethod(currentThread, setNameMid, JNIWrapper::string2jstring(name));
+}
+
 void BGJSV8Engine::StartLoopThread(void *arg) {
     LOG(LOG_INFO, "BGJSV8Engine: EventLoop started");
+
+    SetCurrentThreadName("V8LoopThread");
 
     // the event loop retains the engine for as long as it is running
     JNIRetainedRef<BGJSV8Engine> engine = (BGJSV8Engine*)arg;
