@@ -139,6 +139,7 @@ private:
     static void OnPromiseRejectionMicrotask(void* data);
     static void OnTaskMicrotask(void *data);
 
+	static void SetCurrentThreadName(std::string name);
     static void StartLoopThread(void *arg);
 	static void StopLoopThread(uv_async_t *handle);
 	static void SuspendLoopThread(uv_async_t *handle);
