@@ -122,6 +122,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mSurfaceWidth = width;
         mSurfaceHeight = height;
 
+        mRenderThread.setName("EjectaV8RenderThread");
         mRenderThread.start();
     }
 
