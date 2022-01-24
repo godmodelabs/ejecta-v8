@@ -78,10 +78,10 @@ bool JNIV8Function::isWrappableV8Object(v8::Local<v8::Object> object) {
 
 void JNIV8Function::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("Create", "(Lag/boersego/bgjs/V8Engine;Lag/boersego/bgjs/JNIV8Function$Handler;)Lag/boersego/bgjs/JNIV8Function;", (void*)JNIV8Function::jniCreate);
-    info->registerNativeMethod("_callAsV8Function", "(ZIILjava/lang/Class;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
+    info->registerNativeMethod("_callAsV8Function", "(ZIILjava/lang/Class;Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", (void*)JNIV8Function::jniCallAsV8Function);
 }
 
-jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jobjectArray arguments) {
+jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jstring callContext, jobjectArray arguments) {
     auto ptr = JNIWrapper::wrapObject<JNIV8Function>(obj);
     if(!ptr) {
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"),
@@ -92,7 +92,12 @@ jobject JNIV8Function::jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean as
     JNIV8JavaValue arg = JNIV8Marshalling::valueWithClass(type, returnType, (JNIV8MarshallingFlags)flags);
 
     v8::Isolate* isolate = ptr->getEngine()->getIsolate();
+#ifdef V8_LOCK_LOGGING
+    std::string ownerNameStr = std::string(__FUNCTION__) + ": " + JNIWrapper::jstring2string(callContext);
+    V8Locker l(isolate, ownerNameStr.c_str());
+#else
     V8Locker l(isolate, __FUNCTION__);
+#endif
     v8::Isolate::Scope isolateScope(isolate);
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = ptr->getEngine()->getContext();

@@ -15,7 +15,7 @@ public:
     static void initializeJNIBindings(JNIClassInfo *info, bool isReload);
 
     static jobject jniCreate(JNIEnv *env, jobject obj, jobject engineObj, jobject handler);
-    static jobject jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jobjectArray arguments);
+    static jobject jniCallAsV8Function(JNIEnv *env, jobject obj, jboolean asConstructor, jint flags, jint type, jclass returnType, jobject receiver, jstring callContext, jobjectArray arguments);
 
     /**
      * cache JNI class references
