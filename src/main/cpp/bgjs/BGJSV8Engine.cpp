@@ -1184,8 +1184,6 @@ void BGJSV8Engine::createContext() {
                  v8::FunctionTemplate::New(_isolate, TraceCallback, Local<Value>(), Local<Signature>(), 0,
                                            ConstructorBehavior::kThrow));
 
-    globalObjTpl->Set(v8::String::NewFromUtf8(_isolate, "console").ToLocalChecked(), console);
-
     // Add methods to process function
     v8::Local<v8::FunctionTemplate> process = v8::FunctionTemplate::New(_isolate);
     process->Set(String::NewFromUtf8(_isolate, "nextTick").ToLocalChecked(),
@@ -1220,6 +1218,7 @@ void BGJSV8Engine::createContext() {
     // register global object for all required modules
     v8::Context::Scope ctxScope(context);
     context->Global()->Set(context, String::NewFromUtf8(_isolate, "global").ToLocalChecked(), context->Global());
+    context->Global()->Set(context, v8::String::NewFromUtf8(_isolate, "console").ToLocalChecked(), console->GetFunction(context).ToLocalChecked());
 
     _context.Reset(_isolate, context);
 
