@@ -120,6 +120,10 @@ private:
 		JNIRetainedRef<BGJSV8Engine> engine;
 	};
 
+	struct RunnableHolder {
+		jobject runnable;
+	};
+
 	uint64_t createTimer(v8::Local<v8::Function> callback, uint64_t delay, uint64_t repeat);
 	bool forwardV8ExceptionToJNI(std::string messagePrefix, v8::Local<v8::Value> exception, v8::Local<v8::Message> message, bool throwOnMainThread = false) const;
 
@@ -149,6 +153,7 @@ private:
 	static void OnTimerClosedCallback(uv_handle_t * handle);
 	static void OnTimerEventCallback(uv_async_t * handle);
 	static void RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data);
+	static void OnJniRunnables(uv_async_t* handle);
 
 	void createContext();
 
@@ -158,7 +163,7 @@ private:
     static void jniUnpause(JNIEnv *env, jobject obj);
     static void jniShutdown(JNIEnv *env, jobject obj);
     static jstring jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn);
-    static void jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function);
+    static void jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject runnable);
     static jobject jniParseJSON(JNIEnv *env, jobject obj, jstring json);
     static jobject jniRequire(JNIEnv *env, jobject obj, jstring file);
     static jlong jniLock(JNIEnv *env, jobject obj, jstring ownerName);
@@ -209,6 +214,10 @@ private:
 	uv_mutex_t _uvMutex;
 	uv_cond_t _uvCondSuspend;
 	uv_async_t _uvEventScheduleTimers, _uvEventStop, _uvEventSuspend;
+
+	uv_async_t _uvEventJniRunnables;
+	std::vector<RunnableHolder*> _nextTickRunnables;
+	uv_mutex_t _uvMutexRunnables;
 
 	int _maxHeapSize;	// in MB
 

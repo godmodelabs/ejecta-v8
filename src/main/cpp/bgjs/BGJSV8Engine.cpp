@@ -1104,6 +1104,11 @@ BGJSV8Engine::BGJSV8Engine(jobject obj, JNIClassInfo *info) : JNIObject(obj, inf
     uv_async_init(&_uvLoop, &_uvEventSuspend, &BGJSV8Engine::SuspendLoopThread);
     _uvEventSuspend.data = this;
 
+    uv_async_init(&_uvLoop, &_uvEventJniRunnables, &BGJSV8Engine::OnJniRunnables);
+    _uvEventJniRunnables.data = this;
+
+    uv_mutex_init(&_uvMutexRunnables);
+
     uv_mutex_init(&_uvMutex);
     uv_cond_init(&_uvCondSuspend);
 
@@ -1119,7 +1124,7 @@ void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("unpause", "()V", (void*)BGJSV8Engine::jniUnpause);
     info->registerNativeMethod("shutdown", "()V", (void*)BGJSV8Engine::jniShutdown);
     info->registerNativeMethod("dumpHeap", "(Ljava/lang/String;)Ljava/lang/String;", (void*)BGJSV8Engine::jniDumpHeap);
-    info->registerNativeMethod("enqueueOnNextTick", "(Lag/boersego/bgjs/JNIV8Function;)V", (void*)BGJSV8Engine::jniEnqueueOnNextTick);
+    info->registerNativeMethod("enqueueOnNextTick", "(Ljava/lang/Runnable;)V", (void*)BGJSV8Engine::jniEnqueueOnNextTick);
     info->registerNativeMethod("parseJSON", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniParseJSON);
     info->registerNativeMethod("require", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRequire);
     info->registerNativeMethod("lock", "(Ljava/lang/String;)J", (void*)BGJSV8Engine::jniLock);
@@ -1639,6 +1644,8 @@ BGJSV8Engine::~BGJSV8Engine() {
     uv_loop_close(&_uvLoop);
     uv_close((uv_handle_t*)&_uvEventScheduleTimers, &BGJSV8Engine::OnHandleClosed);
     uv_close((uv_handle_t*)&_uvEventStop, &BGJSV8Engine::OnHandleClosed);
+    uv_close((uv_handle_t*)&_uvEventJniRunnables, &BGJSV8Engine::OnHandleClosed);
+    uv_mutex_destroy(&_uvMutexRunnables);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
     env->DeleteGlobalRef(_javaAssetManager);
@@ -1854,23 +1861,37 @@ jstring BGJSV8Engine::jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn
     }
 }
 
-void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject function) {
+void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv* env, jobject obj, jobject runnable) {
     auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
     THROW_IF_NOT_STARTED();
 
-    v8::Isolate *isolate = engine->getIsolate();
-    V8Locker l(isolate, __FUNCTION__);
-    v8::Isolate::Scope isolateScope(isolate);
-    v8::HandleScope scope(isolate);
-    v8::Local<v8::Context> context = engine->getContext();
-    v8::Context::Scope ctxScope(context);
-    v8::MicrotasksScope taskScope(isolate, v8::MicrotasksScope::kRunMicrotasks);
+    auto* holder = new RunnableHolder();
+    holder->runnable = env->NewGlobalRef(runnable);
 
-    auto funcRef = JNIV8Wrapper::wrapObject<JNIV8Function>(function)->getJSObject().As<v8::Function>();
+    uv_mutex_lock(&engine->_uvMutexRunnables);
+    engine->_nextTickRunnables.push_back(holder);
+    uv_mutex_unlock(&engine->_uvMutexRunnables);
 
-    TaskHolder *holder = new TaskHolder();
-    holder->callback.Reset(isolate, funcRef);
-    isolate->EnqueueMicrotask(&BGJSV8Engine::OnTaskMicrotask, (void*)holder);
+    uv_async_send(&engine->_uvEventJniRunnables);
+}
+
+void BGJSV8Engine::OnJniRunnables(uv_async_t* handle) {
+    auto* engine = (BGJSV8Engine*) handle->data;
+    JNIEnv* env = JNIWrapper::getEnvironment();
+
+    // atomic move queue to local variable before executing:
+    uv_mutex_lock(&engine->_uvMutexRunnables);
+    auto runnables = engine->_nextTickRunnables;
+    engine->_nextTickRunnables.clear();
+    uv_mutex_unlock(&engine->_uvMutexRunnables);
+
+    for (auto holder : runnables) {
+        jclass runnableInterface = env->GetObjectClass(holder->runnable);
+        jmethodID runMid = env->GetMethodID(runnableInterface, "run","()V");
+        env->CallVoidMethod(holder->runnable, runMid);
+        env->DeleteGlobalRef(holder->runnable);
+        delete holder;
+    }
 }
 
 jobject BGJSV8Engine::jniParseJSON(JNIEnv *env, jobject obj, jstring json) {
