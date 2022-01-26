@@ -32,7 +32,6 @@ public class V8Engine extends JNIObject {
 
     protected static V8Engine mInstance;
     private String mStoragePath;
-    protected Handler mHandler;
     private boolean mReady;
     private ArrayList<V8EngineHandler> mHandlers = null;
 
@@ -74,18 +73,11 @@ public class V8Engine extends JNIObject {
     }
 
     /**
-     * Enqueue a wrapped v8 function to be executed on the next tick
+     * Enqueue a callback to be executed in v8 loop thread on next tick
      *
-     * @param function the function to execute once the currently executing JS block has relinquished control
+     * @param runnable the callback to execute
      */
-    public native void enqueueOnNextTick(JNIV8Function function);
-
-    public void enqueueOnNextTick(Runnable runnable) {
-        this.enqueueOnNextTick(JNIV8Function.Create(this, (Object receiver, Object[] arguments) -> {
-            runnable.run();
-            return JNIV8Undefined.GetInstance();
-        }));
-    }
+    public native void enqueueOnNextTick(Runnable runnable);
 
     public interface V8EngineHandler {
         void onReady();
