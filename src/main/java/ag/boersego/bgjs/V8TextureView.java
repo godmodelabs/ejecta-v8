@@ -285,76 +285,77 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         if (mRenderThread == null || mIsShuttingDown) {
             return;
         }
+        mEngine.enqueueOnNextTick(() -> {
+            // This is actually the pointer to the BGJSView and could have been cleared because
+            // it was closed.
+            final BGJSGLView jsGLView = mBGJSGLView;
 
-        // This is actually the pointer to the BGJSView and could have been cleared because
-        // it was closed.
-        final BGJSGLView jsGLView = mBGJSGLView;
-
-        if (jsGLView == null) {
-            return;
-        }
-        int count = 0;
-        for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
-            if (mTouchesThere[i]) {
-                count++;
+            if (jsGLView == null) {
+                return;
             }
-        }
-        mNumTouches = count;
-
-        // We need to calculate the scale of a pinch-zoom gesture from touches 1 & 2
-        double x1 = 0;
-        double y1 = 0;
-        double x2 = 0;
-        double y2 = 0;
-        final double scale;
-        // Also create a WhatWG compatible touch event object per touch
-        final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[mNumTouches];
-        int j = 0;
-        for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
-            if (mTouchesThere[i]) {
-                final float x = mTouches[i].x;
-                final float y = mTouches[i].y;
-                if (j == 0) {
-                    x1 = x;
-                    y1 = y;
-                } else if (j == 1) {
-                    x2 = x;
-                    y2 = y;
+            int count = 0;
+            for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
+                if (mTouchesThere[i]) {
+                    count++;
                 }
-                final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
-                touchObj.setV8Field("clientX", x);
-                touchObj.setV8Field("clientY", y);
-                touchObjs[j] = touchObj;
-                j++;
             }
-        }
-        if (mNumTouches == 2) {
-            scale = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) / mTouchDistance;
-        } else {
-            scale = 1f;
-        }
-        if (DEBUG) {
-            Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale "
-                    + scale);
-        }
+            mNumTouches = count;
 
-        final JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
+            // We need to calculate the scale of a pinch-zoom gesture from touches 1 & 2
+            double x1 = 0;
+            double y1 = 0;
+            double x2 = 0;
+            double y2 = 0;
+            final double scale;
+            // Also create a WhatWG compatible touch event object per touch
+            final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[mNumTouches];
+            int j = 0;
+            for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
+                if (mTouchesThere[i]) {
+                    final float x = mTouches[i].x;
+                    final float y = mTouches[i].y;
+                    if (j == 0) {
+                        x1 = x;
+                        y1 = y;
+                    } else if (j == 1) {
+                        x2 = x;
+                        y2 = y;
+                    }
+                    final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
+                    touchObj.setV8Field("clientX", x);
+                    touchObj.setV8Field("clientY", y);
+                    touchObjs[j] = touchObj;
+                    j++;
+                }
+            }
+            if (mNumTouches == 2) {
+                scale = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) / mTouchDistance;
+            } else {
+                scale = 1f;
+            }
+            if (DEBUG) {
+                Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale "
+                        + scale);
+            }
 
-        final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(mEngine);
-        touchEventObj.setV8Field("type", type);
-        touchEventObj.setV8Field("scale", scale);
-        touchEventObj.setV8Field("touches", touches);
+            final JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
 
-        // Just double check that it hasn't been removed since
-        if (mBGJSGLView != null) {
-            jsGLView.onEvent(touchEventObj);
-        }
+            final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(mEngine);
+            touchEventObj.setV8Field("type", type);
+            touchEventObj.setV8Field("scale", scale);
+            touchEventObj.setV8Field("touches", touches);
 
-        for (final JNIV8GenericObject touch : touchObjs) {
-            touch.dispose();
-        }
-        touches.dispose();
-        touchEventObj.dispose();
+            // Just double check that it hasn't been removed since
+            if (mBGJSGLView != null) {
+                jsGLView.onEvent(touchEventObj);
+            }
+
+            for (final JNIV8GenericObject touch : touchObjs) {
+                touch.dispose();
+            }
+            touches.dispose();
+            touchEventObj.dispose();
+        });
     }
 
     public void setClearColor(final int color) {
