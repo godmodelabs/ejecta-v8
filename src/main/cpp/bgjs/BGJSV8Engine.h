@@ -69,6 +69,7 @@ public:
 
 	bool forwardJNIExceptionToV8() const;
 	bool forwardV8ExceptionToJNI(v8::TryCatch* try_catch, bool throwOnMainThread = true) const;
+	bool forwardJNIExceptionToJNIMainThread() const;
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 

@@ -303,6 +303,17 @@ bool BGJSV8Engine::forwardJNIExceptionToV8() const {
     return true;
 }
 
+bool BGJSV8Engine::forwardJNIExceptionToJNIMainThread() const {
+    JNIEnv* env = JNIWrapper::getEnvironment();
+    jthrowable throwable = env->ExceptionOccurred();
+    if (!throwable) return false;
+    env->ExceptionClear();
+
+    env->CallVoidMethod(getJObject(), _jniV8Engine.onThrowId, throwable);
+
+    return true;
+}
+
 #define CALLSITE_STRING(L, M, V)\
 maybeValue = L->Get(context, String::NewFromOneByte(_isolate, (uint8_t *) M, NewStringType::kInternalized).ToLocalChecked());\
 if(maybeValue.ToLocal(&value) && value->IsFunction()) {\
@@ -1891,6 +1902,8 @@ void BGJSV8Engine::OnJniRunnables(uv_async_t* handle) {
         env->CallVoidMethod(holder->runnable, runMid);
         env->DeleteGlobalRef(holder->runnable);
         delete holder;
+
+        engine->forwardJNIExceptionToJNIMainThread();
     }
 }
 
