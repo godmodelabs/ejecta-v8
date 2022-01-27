@@ -357,8 +357,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         }
 
         if (!updateIsAlreadyScheduled) mEngine.enqueueOnNextTick(() -> {
+            final JNIV8GenericObject[] touchObjs;
+            final JNIV8GenericObject touchEventObj;
+            final JNIV8Array touches;
             synchronized (lastTouchObjects) {
-                final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[currentTouchObjects.size()];
+               touchObjs = new JNIV8GenericObject[currentTouchObjects.size()];
 
                 for (int i = 0; i < currentTouchObjects.size(); i++) {
                     final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
@@ -366,24 +369,22 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     touchObj.setV8Field("clientY", currentTouchObjects.get(i).clientY);
                     touchObjs[i] = touchObj;
                 }
-                final JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
-
-                final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(mEngine);
+                touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
+                touchEventObj = JNIV8GenericObject.Create(mEngine);
                 touchEventObj.setV8Field("type", type);
                 touchEventObj.setV8Field("scale", type.equals("touchmove") ? lastTouchScale : scale);
                 touchEventObj.setV8Field("touches", touches);
-
-                // Just double check that it hasn't been removed since
-                if (mBGJSGLView != null) {
-                    mBGJSGLView.onEvent(touchEventObj);
-                }
-                for (final JNIV8GenericObject touch : touchObjs) {
-                    touch.dispose();
-                }
-                touches.dispose();
-                touchEventObj.dispose();
                 currentTouchObjects.clear();
             }
+            // Just double check that it hasn't been removed since
+            if (mBGJSGLView != null) {
+                mBGJSGLView.onEvent(touchEventObj);
+            }
+            for (final JNIV8GenericObject touch : touchObjs) {
+                touch.dispose();
+            }
+            touches.dispose();
+            touchEventObj.dispose();
         });
     }
 
