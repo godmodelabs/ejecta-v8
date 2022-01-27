@@ -19,6 +19,8 @@ import android.view.MotionEvent.PointerCoords;
 import android.view.TextureView;
 import android.view.ViewParent;
 
+import java.util.ArrayList;
+
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLContext;
@@ -40,6 +42,8 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
     private final V8Engine mEngine;
     protected RenderThread mRenderThread;
+    private final ArrayList<TouchObject> lastTouchObjects = new ArrayList<>();
+    private double lastTouchScale = 0.0;
     private final MotionEvent.PointerCoords[] mTouches = new MotionEvent.PointerCoords[MAX_NUM_TOUCHES];
     private final boolean[] mTouchesThere = new boolean[MAX_NUM_TOUCHES];
     private int mNumTouches = 0;
@@ -282,10 +286,14 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
      * @param type the type of event: touchstart, touchmove or touchend
      */
     private void sendTouchEvent(final String type) {
-        if (mRenderThread == null || mIsShuttingDown) {
-            return;
-        }
-        mEngine.enqueueOnNextTick(() -> {
+        final ArrayList<TouchObject> currentTouchObjects;
+        boolean updateIsAlreadyScheduled = false;
+        final double scale;
+
+        synchronized (lastTouchObjects) {
+            if (mRenderThread == null || mIsShuttingDown) {
+                return;
+            }
             // This is actually the pointer to the BGJSView and could have been cleared because
             // it was closed.
             final BGJSGLView jsGLView = mBGJSGLView;
@@ -306,9 +314,26 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             double y1 = 0;
             double x2 = 0;
             double y2 = 0;
-            final double scale;
+
+            if (mNumTouches == 2) {
+                scale = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) / mTouchDistance;
+            } else {
+                scale = 1f;
+            }
+
             // Also create a WhatWG compatible touch event object per touch
-            final JNIV8GenericObject[] touchObjs = new JNIV8GenericObject[mNumTouches];
+            if (type.equals("touchmove")) {
+                currentTouchObjects = lastTouchObjects;
+                lastTouchScale = scale;
+            } else {
+                currentTouchObjects = new ArrayList<>();
+            }
+
+            if (!currentTouchObjects.isEmpty()) {
+                updateIsAlreadyScheduled = true;
+                currentTouchObjects.clear();
+            }
+
             int j = 0;
             for (int i = 0; i < MAX_NUM_TOUCHES; i++) {
                 if (mTouchesThere[i]) {
@@ -321,35 +346,40 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         x2 = x;
                         y2 = y;
                     }
-                    final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
-                    touchObj.setV8Field("clientX", x);
-                    touchObj.setV8Field("clientY", y);
-                    touchObjs[j] = touchObj;
+                    final TouchObject touchObj = new TouchObject(x, y);
+                    currentTouchObjects.add(touchObj);
                     j++;
                 }
             }
-            if (mNumTouches == 2) {
-                scale = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) / mTouchDistance;
-            } else {
-                scale = 1f;
-            }
             if (DEBUG) {
-                Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale "
-                        + scale);
+                Log.d(TAG, "touch event: type " + type + ", p1 " + x1 + ", " + y1 + ", p2 " + x2 + ", " + y2 + ", scale " + scale);
             }
+        }
 
-            final JNIV8Array touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
+        if (!updateIsAlreadyScheduled) mEngine.enqueueOnNextTick(() -> {
+            final JNIV8GenericObject[] touchObjs;
+            final JNIV8GenericObject touchEventObj;
+            final JNIV8Array touches;
+            synchronized (lastTouchObjects) {
+               touchObjs = new JNIV8GenericObject[currentTouchObjects.size()];
 
-            final JNIV8GenericObject touchEventObj = JNIV8GenericObject.Create(mEngine);
-            touchEventObj.setV8Field("type", type);
-            touchEventObj.setV8Field("scale", scale);
-            touchEventObj.setV8Field("touches", touches);
-
+                for (int i = 0; i < currentTouchObjects.size(); i++) {
+                    final JNIV8GenericObject touchObj = JNIV8GenericObject.Create(mEngine);
+                    touchObj.setV8Field("clientX", currentTouchObjects.get(i).clientX);
+                    touchObj.setV8Field("clientY", currentTouchObjects.get(i).clientY);
+                    touchObjs[i] = touchObj;
+                }
+                touches = JNIV8Array.CreateWithElements(mEngine, (Object[]) touchObjs);
+                touchEventObj = JNIV8GenericObject.Create(mEngine);
+                touchEventObj.setV8Field("type", type);
+                touchEventObj.setV8Field("scale", type.equals("touchmove") ? lastTouchScale : scale);
+                touchEventObj.setV8Field("touches", touches);
+                currentTouchObjects.clear();
+            }
             // Just double check that it hasn't been removed since
             if (mBGJSGLView != null) {
-                jsGLView.onEvent(touchEventObj);
+                mBGJSGLView.onEvent(touchEventObj);
             }
-
             for (final JNIV8GenericObject touch : touchObjs) {
                 touch.dispose();
             }
@@ -1055,6 +1085,16 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
         SurfaceTexture getSurface() {
             return mSurface;
+        }
+    }
+
+    private class TouchObject {
+        float clientX;
+        float clientY;
+
+        public TouchObject(float clientX, float clientY) {
+            this.clientX = clientX;
+            this.clientY = clientY;
         }
     }
 
