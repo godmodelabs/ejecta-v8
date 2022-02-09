@@ -141,6 +141,11 @@ public class V8Engine extends JNIObject {
         }
     }
 
+    /**
+     * Log v8 heap statistics
+     */
+    public native void logHeapStats();
+
     public native JNIV8GenericObject getGlobalObject();
 
     /**

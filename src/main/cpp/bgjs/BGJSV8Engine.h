@@ -73,7 +73,6 @@ public:
 
 	char* loadFile(const char* path, unsigned int* length = nullptr) const;
 
-//	static void js_global_logMemory(const v8::FunctionCallbackInfo<v8::Value> &);
 	static void js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &);
 	static void js_global_setTimeout (const v8::FunctionCallbackInfo<v8::Value>& info);
 	static void js_global_clearTimeoutOrInterval (const v8::FunctionCallbackInfo<v8::Value>& info);
@@ -164,7 +163,8 @@ private:
     static void jniUnpause(JNIEnv *env, jobject obj);
     static void jniShutdown(JNIEnv *env, jobject obj);
     static jstring jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn);
-    static void jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject runnable);
+	static void jniLogHeapStats(JNIEnv *env, jobject obj);
+	static void jniEnqueueOnNextTick(JNIEnv *env, jobject obj, jobject runnable);
     static jobject jniParseJSON(JNIEnv *env, jobject obj, jstring json);
     static jobject jniRequire(JNIEnv *env, jobject obj, jstring file);
     static jlong jniLock(JNIEnv *env, jobject obj, jstring ownerName);

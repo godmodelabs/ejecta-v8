@@ -874,19 +874,6 @@ v8::Local<v8::Context> BGJSV8Engine::getContext() const {
     return scope.Escape(Local<Context>::New(_isolate, _context));
 }
 
-//void BGJSV8Engine::js_global_logMemory(const v8::FunctionCallbackInfo<v8::Value> &args) {
-//    BGJSV8Engine *engine = BGJSV8Engine::GetInstance(args.GetIsolate());
-//
-//    // V8 memory usage
-//    HeapStatistics v8_heap_stats;
-//    engine->getIsolate()->GetHeapStatistics(&v8_heap_stats);
-//    LOGD("--------------------------------Dada Memorydump--------------------------------");
-//    LOGD("dada total_heap_size: %zu", v8_heap_stats.total_heap_size());
-//    LOGD("dada used_heap_size: %zu", v8_heap_stats.used_heap_size());
-//    LOGD("dada heap_size_limit: %zu", v8_heap_stats.heap_size_limit());
-//    LOGD("dada total_available_size: %zu", v8_heap_stats.total_available_size());
-//}
-
 void BGJSV8Engine::js_process_nextTick(const v8::FunctionCallbackInfo<v8::Value> &args) {
     BGJSV8Engine *ctx = BGJSV8Engine::GetInstance(args.GetIsolate());
     if (args.Length() >= 1 && args[0]->IsFunction()) {
@@ -1135,6 +1122,7 @@ void BGJSV8Engine::initializeJNIBindings(JNIClassInfo *info, bool isReload) {
     info->registerNativeMethod("unpause", "()V", (void*)BGJSV8Engine::jniUnpause);
     info->registerNativeMethod("shutdown", "()V", (void*)BGJSV8Engine::jniShutdown);
     info->registerNativeMethod("dumpHeap", "(Ljava/lang/String;)Ljava/lang/String;", (void*)BGJSV8Engine::jniDumpHeap);
+    info->registerNativeMethod("logHeapStats", "()V", (void *) BGJSV8Engine::jniLogHeapStats);
     info->registerNativeMethod("enqueueOnNextTick", "(Ljava/lang/Runnable;)V", (void*)BGJSV8Engine::jniEnqueueOnNextTick);
     info->registerNativeMethod("parseJSON", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniParseJSON);
     info->registerNativeMethod("require", "(Ljava/lang/String;)Ljava/lang/Object;", (void*)BGJSV8Engine::jniRequire);
@@ -1220,12 +1208,6 @@ void BGJSV8Engine::createContext() {
     globalObjTpl->Set(String::NewFromUtf8(_isolate, "clearInterval").ToLocalChecked(),
                       v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_clearTimeoutOrInterval, Local<Value>(),
                                                 Local<Signature>(), 0, ConstructorBehavior::kThrow));
-
-//    globalObjTpl->Set(String::NewFromUtf8(_isolate, "logMemory").ToLocalChecked(),
-//                      v8::FunctionTemplate::New(_isolate, BGJSV8Engine::js_global_logMemory,
-//                                                Local<Value>(),
-//                                                Local<Signature>(), 0,
-//                                                ConstructorBehavior::kThrow));
 
     // Create a new context.
     Local<Context> context = v8::Context::New(_isolate, nullptr, globalObjTpl);
@@ -1870,6 +1852,19 @@ jstring BGJSV8Engine::jniDumpHeap(JNIEnv *env, jobject obj, jstring pathToSaveIn
     } else {
         return nullptr;
     }
+}
+
+void BGJSV8Engine::jniLogHeapStats(JNIEnv *env, jobject obj) {
+    auto engine = JNIWrapper::wrapObject<BGJSV8Engine>(obj);
+
+    // V8 memory usage
+    HeapStatistics v8_heap_stats;
+    engine->getIsolate()->GetHeapStatistics(&v8_heap_stats);
+    LOGD("--------------------------------Dada V8 Memorylog--------------------------------");
+    LOGD("dada total_heap_size: %zu", v8_heap_stats.total_heap_size());
+    LOGD("dada used_heap_size: %zu", v8_heap_stats.used_heap_size());
+    LOGD("dada heap_size_limit: %zu", v8_heap_stats.heap_size_limit());
+    LOGD("dada total_available_size: %zu", v8_heap_stats.total_available_size());
 }
 
 void BGJSV8Engine::jniEnqueueOnNextTick(JNIEnv* env, jobject obj, jobject runnable) {
