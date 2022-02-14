@@ -1896,6 +1896,7 @@ void BGJSV8Engine::OnJniRunnables(uv_async_t* handle) {
         jmethodID runMid = env->GetMethodID(runnableInterface, "run","()V");
         env->CallVoidMethod(holder->runnable, runMid);
         env->DeleteGlobalRef(holder->runnable);
+        env->DeleteLocalRef(runnableInterface);
         delete holder;
 
         engine->forwardJNIExceptionToJNIMainThread();
