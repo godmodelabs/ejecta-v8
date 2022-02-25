@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import java.util.*
 
 
@@ -46,6 +47,7 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine, val ap
         exports.setV8Field("debug", BuildConfig.DEBUG)
         exports.setV8Field("isStoreBuild", BuildConfig.BUILD_TYPE.startsWith("release"))
         exports.setV8Field("deviceClass", if (isTablet) "tablet" else "phone")
+        exports.setV8Field("sdkVersion", Build.VERSION.SDK_INT)
         exports.setV8Accessor("locale", JNIV8Function.Create(engine) { _, _ -> Locale.getDefault().toString() }, null)
         exports.setV8Accessor("language", JNIV8Function.Create(engine) { _, _ -> Locale.getDefault().language }, null)
         exports.setV8Accessor("timezone", JNIV8Function.Create(engine) { _, _ -> TimeZone.getDefault().id }, null)
