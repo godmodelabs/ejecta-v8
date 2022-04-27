@@ -1,35 +1,27 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
-    ext.kotlin_version = '1.4.10'
+    ext.kotlin_version = '1.6.21'
     repositories {
         mavenCentral()
-        jcenter()
         google()
         maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.1.1'
+        classpath 'com.android.tools.build:gradle:7.1.3'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.5'
     }
 }
 
-apply plugin: 'com.jfrog.bintray'
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
-apply plugin: 'maven-publish'
 
 android {
-    compileSdkVersion 29
-    buildToolsVersion "29.0.3"
+    compileSdkVersion 31
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 29
-        versionCode 1
-        versionName "1.0"
+        targetSdkVersion 31
         consumerProguardFiles 'proguard-rules.txt'
         externalNativeBuild {
             cmake {
@@ -59,7 +51,6 @@ android {
 
 repositories {
     mavenCentral()
-    jcenter()
     flatDir {
         dirs 'libs'
     }
@@ -69,8 +60,8 @@ repositories {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
-    implementation 'com.squareup.okhttp3:okhttp:4.2.2'
-    compileOnly "androidx.annotation:annotation:1.1.0"
+    implementation 'com.squareup.okhttp3:okhttp:4.9.1'
+    compileOnly "androidx.annotation:annotation:1.3.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     kapt project(path: ':ejecta-v8:v8annotations-compiler')
     api project(path: ':ejecta-v8:v8annotations')
@@ -89,7 +80,6 @@ task distributeDebug() {
 }
 
 task distributeRelease {
-
     doFirst {
         delete "dist/release"
         mkdir "dist/release/jni"
@@ -103,68 +93,4 @@ task distributeRelease {
 afterEvaluate {
     copyDebugJniLibsProjectOnly.finalizedBy distributeDebug
     copyReleaseJniLibsProjectOnly.finalizedBy distributeRelease
-}
-
-// Upload to bintray
-def createPom(pom) {
-    return pom.withXml {
-        def dependenciesNode = asNode().appendNode('dependencies')
-        configurations.implementation.allDependencies.each {
-            def dependencyNode = dependenciesNode.appendNode('dependency')
-            dependencyNode.appendNode('artifactId', 'ejecta-v8')
-            dependencyNode.appendNode('scope', 'compile')
-            dependencyNode.appendNode('groupId', 'de.boersego')
-            dependencyNode.appendNode('version', '1.0.0')
-            dependencyNode.appendNode('name', 'Ejecta-V8')
-            dependencyNode.appendNode('description', 'Embed Googles v8 into your Android app and have access to high-speed canvas, AJAX and websocket implementations as well as a powerful abstraction layer to add your own extensions. Comes with a Kotlin interface.')
-            dependencyNode.appendNode('url', 'https://github.com/godmodelabs/ejecta-v8')
-            dependencyNode.appendNode('inceptionYear', '2013')
-            dependencyNode.appendNode('packaging', 'aar')
-            def licenses = dependenciesNode.appendNode('licenses')
-            licenses.appendNode('name', 'The MIT License (MIT)')
-            licenses.appendNode('url', 'https://opensource.org/licenses/MIT')
-            def scm = dependenciesNode.appendNode('scm')
-            scm.appendNode('connection', 'https://github.com/godmodelabs/ejecta-v8.git')
-            scm.appendNode('url', 'https://github.com/godmodelabs/ejecta-v8')
-            def developers = dependenciesNode.appendNode('developers')
-            def developer = developers.appendNode('developer')
-            developer.appendNode('id', 'unverbraucht')
-            developer.appendNode('name', 'Kevin Read')
-        }
-    }
-}
-
-publishing {
-    publications {
-        android.libraryVariants.all { variant ->
-            commons(MavenPublication) {
-                artifact(variant.packageLibraryProvider.get().archivePath)
-                groupId = 'de.boersego'
-                version = '1.0.0'
-                createPom(pom)
-            }
-        }
-    }
-}
-
-Properties bintrayProperties = new Properties()
-bintrayProperties.load(project.file('bintray.properties').newDataInputStream())
-
-bintray {
-    user = bintrayProperties.getProperty('user')
-    key = bintrayProperties.get('key')
-    configurations = ['archives']
-    pkg {
-        repo = 'ejecta-v8'
-        name = 'ejecta-v8'
-        licenses = ['MIT']
-        vcsUrl = 'https://github.com/godmodelabs/ejecta-v8.git'
-        publish = true
-        version {
-            name = '1.0.0'
-            desc = 'Ejecta-V8 1.0.0'
-            released = new Date()
-            vcsTag = 'v1.0.0'
-        }
-    }
 }
