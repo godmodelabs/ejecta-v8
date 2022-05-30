@@ -221,11 +221,10 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
                     return
                 }
 
-                //TODO: gzip working?
                 if (codings == "gzip" || codings == "x-gzip") {
                     try {
                         fetchResponse!!.body = GZIPInputStream(fetchResponse!!.body)
-                    } catch (e: IOException) {
+                    } catch (e: Exception) {
                         signal?.removeEventListener("abort", abortAndFinalize)
                         resolver.reject(fetchErrorCreator.applyAsV8Constructor(arrayOf("Invalid response body while trying to fetch ${fetchResponse!!.url}: ${e.message}", "system", "Z_DATA_ERROR")))
                         return
