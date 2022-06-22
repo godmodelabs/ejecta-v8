@@ -8,9 +8,9 @@
 #include "EJFont.h"
 #include "EJCanvasContext.h"
 
-#include "fonts/roboto-medium-24.h"
-#include "fonts/roboto-medium-30.h" 
-#include "fonts/roboto-medium-40.h"
+#include "fonts/basier-medium-24.h"
+#include "fonts/basier-medium-30.h"
+#include "fonts/basier-medium-40.h"
 #include "GLcompat.h"
 #include "NdkMisc.h"
 #include <utf8.h>
@@ -29,11 +29,11 @@ EJFont::EJFont (const char* font, int size, bool useFill, float cs) {
 	_copy = false;
     _isFilled = useFill;
 
-	_font = &font_roboto_medium_24;
+	_font = &font_basier_medium_24;
 	if (realPxSize >= 40) {
-		_font = &font_roboto_medium_40;
+		_font = &font_basier_medium_40;
 	} else if (realPxSize >= 30) {
-		_font = &font_roboto_medium_30;
+		_font = &font_basier_medium_30;
 	}
 
 	if (_font->size != (float)pxSize || cs != 1.0) {
