@@ -8,16 +8,9 @@
 #include "EJFont.h"
 #include "EJCanvasContext.h"
 
-//#include "fonts/arial-38.h"
-/*#include "fonts/roboto_regular-15.h"
-#include "fonts/roboto_regular-24.h"
-#include "fonts/roboto_regular-30.h" */
 #include "fonts/roboto-medium-24.h"
 #include "fonts/roboto-medium-30.h" 
-#include "fonts/roboto-medium-40.h" 
-/* #include "fonts/tahoma-15.h"
-#include "fonts/tahoma-24.h"
-#include "fonts/tahoma-30.h" */
+#include "fonts/roboto-medium-40.h"
 #include "GLcompat.h"
 #include "NdkMisc.h"
 #include <utf8.h>
@@ -41,7 +34,7 @@ EJFont::EJFont (const char* font, int size, bool useFill, float cs) {
 		_font = &font_roboto_medium_40;
 	} else if (realPxSize >= 30) {
 		_font = &font_roboto_medium_30;
-	} 
+	}
 
 	if (_font->size != (float)pxSize || cs != 1.0) {
 		_scale = (float)pxSize / _font->size;
