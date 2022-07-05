@@ -38,6 +38,9 @@ void JNIV8FunctionWeakPersistentCallback(const v8::WeakCallbackInfo<void>& data)
 }
 
 void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    JNIEnv *env = JNIWrapper::getEnvironment();
+    JNILocalFrame localFrame(env);
+
     v8::HandleScope scope(args.GetIsolate());
 
     v8::Local<v8::External> ext;
@@ -47,7 +50,6 @@ void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>
     JNI_ASSERT(numArgs >= 1, "invalid invocation of JNIV8Function");
 
     ext = args[0].As<v8::External>();
-    JNIEnv *env = JNIWrapper::getEnvironment();
 
     JNIV8FunctionCallbackHolder *holder = static_cast<JNIV8FunctionCallbackHolder*>(ext->Value());
 
