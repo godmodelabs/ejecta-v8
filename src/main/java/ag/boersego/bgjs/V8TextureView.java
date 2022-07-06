@@ -1077,6 +1077,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         }
 
         void finish() {
+            mIsShuttingDown = true;
             mFinished = true;
             synchronized (this) {
                 interrupt();
@@ -1119,7 +1120,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         if (renderthread != null) {
             renderthread.finish();
             try {
-                renderthread.join();
+                renderthread.join(500);
             } catch (InterruptedException e) {
                 Log.d(TAG, "Cannot join render thread", e);
             }
