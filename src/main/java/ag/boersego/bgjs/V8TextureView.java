@@ -12,12 +12,13 @@ import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.os.Build;
 import android.os.Looper;
-import androidx.annotation.NonNull;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.MotionEvent.PointerCoords;
 import android.view.TextureView;
 import android.view.ViewParent;
+
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 
@@ -54,7 +55,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private final float mTouchSlop;
     protected IV8GLViewOnRender mCallback;
     private Rect mViewRect;
-    private boolean mFinished = false;
+    private boolean textureViewFinished = false;
 
 
     protected boolean DEBUG;
@@ -115,7 +116,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     @Override
     public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width, final int height) {
         // It is possible that the containing view wants to kill this before we have even been able to start the render thread
-        if (mFinished || mIsShuttingDown) {
+        if (textureViewFinished || mIsShuttingDown) {
             return;
         }
         mRenderThread = new RenderThread(surface);
@@ -129,7 +130,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         mRenderThread.setName("EjectaV8RenderThread");
         mRenderThread.start();
     }
-
     /**
      * Interactive views absorb touches
      */
@@ -687,7 +687,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
         static final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
 
-        private volatile boolean mFinished = false;    // If the thread is finished and quit
+        private volatile boolean threadFinished = false;    // If the thread is finished and quit
         private final SurfaceTexture mSurface;
 
         private EGL10 mEgl;
@@ -765,7 +765,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
         @Override
         public void run() {
-            if (mFinished) {
+            if (threadFinished) {
                 return;
             }
             // This thread might ultimately house Handlers, so initialize a looper
@@ -776,7 +776,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
             // We try to initialize the OpenGL stack with a valid config
             try {
-                if (mFinished) {
+                if (threadFinished) {
                     return;
                 }
                 initGL();
@@ -794,7 +794,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 Log.d(TAG, "GL init done");
             }
 
-            if (mFinished) {
+            if (threadFinished) {
                 return;
             }
 
@@ -813,10 +813,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 mCallback.renderStarted(V8TextureView.this);
             }
 
-            while (!mFinished) {
+            while (!threadFinished) {
 
                 synchronized (this) {
-                    while (mPaused && !mFinished) {
+                    while (mPaused && !threadFinished) {
                         if (!mRenderPending) {
                             if (DEBUG) {
                                 Log.d(TAG, "Paused");
@@ -836,7 +836,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         }
                     }
                 }
-                if (mFinished) {
+                if (threadFinished) {
                     break;
                 }
                 checkCurrent();
@@ -866,7 +866,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
                 mRenderCnt++;
 
-                if (mFinished) {
+                if (threadFinished) {
                     break;
                 }
 
@@ -884,11 +884,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 }
 
                 synchronized (this) {
-                    if (mFinished) {
+                    if (threadFinished) {
                         break;
                     }
                     // If no rendering or other changes are pending, sleep till the next request
-                    if (!mRenderPending && !mFinished) {
+                    if (!mRenderPending && !threadFinished) {
                         if (DEBUG) {
                             Log.d(TAG, "No work pending, sleeping");
                         }
@@ -901,7 +901,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         }
                     }
 
-                    if (mFinished) {
+                    if (threadFinished) {
                         break;
                     }
 
@@ -919,19 +919,19 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                         }
                     }
                 }
-                if (mFinished) {
+                if (threadFinished) {
                     break;
                 }
 
                 mRenderPending = false;
-                if (mReinitPending && !mFinished) {
+                if (mReinitPending && !threadFinished) {
                     if (DEBUG) {
                         Log.d(TAG, "Reinit pending executing");
                     }
                     try {
                         reinitGL();
                     } catch (final Exception e) {
-                        if (mFinished) {
+                        if (threadFinished) {
                             // The surface went away while we were reinitializing, ignore
                             break;
                         }
@@ -1077,8 +1077,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         }
 
         void finish() {
-            mIsShuttingDown = true;
-            mFinished = true;
+            threadFinished = true;
             synchronized (this) {
                 interrupt();
             }
@@ -1115,7 +1114,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
 
     public void finish() {
         // Mark this finished in any case, even when there is no render thread running yet
-        mFinished = true;
+        textureViewFinished = true;
         final RenderThread renderthread = mRenderThread;
         if (renderthread != null) {
             renderthread.finish();
