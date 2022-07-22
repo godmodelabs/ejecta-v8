@@ -3,10 +3,8 @@ package ag.boersego.bgjs.modules
 import ag.boersego.bgjs.*
 import ag.boersego.bgjs.modules.fetch.*
 import android.util.Log
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.OkHttpClient
-import okhttp3.Response
+import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.IOException
 import java.net.URL
 import java.net.UnknownHostException
@@ -35,6 +33,27 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         fetchFunction.setV8Field("AbortController", engine.getConstructor(BGJSModuleAbortController::class.java))
         fetchFunction.setV8Field("AbortSignal", engine.getConstructor(BGJSModuleAbortSignal::class.java))
         fetchFunction.setV8Field("FormData", engine.getConstructor(BGJSModuleFormData::class.java))
+        fetchFunction.setV8Field("setCookie", JNIV8Function.Create(engine) { _, arguments ->
+            if (arguments.size != 3) return@Create JNIV8Undefined.GetInstance()
+
+            val key = arguments[0] as? String?: return@Create JNIV8Undefined.GetInstance()
+            val value = arguments[1] as? String ?: return@Create JNIV8Undefined.GetInstance()
+            val domain = arguments[2] as? String ?: return@Create JNIV8Undefined.GetInstance()
+
+            val url = "https://$domain".toHttpUrl()
+            val cookie = Cookie.Builder()
+                .domain(domain)
+                .path("/")
+                .name(key)
+                .value(value)
+                .httpOnly()
+                .secure()
+                .build()
+
+            okHttpClient.cookieJar.saveFromResponse(url, listOf(cookie))
+            return@Create JNIV8Undefined.GetInstance()
+        })
+
 
         fetchErrorCreator = engine.runScript(FETCHERROR_SCRIPT.trimIndent(), "FetchError") as JNIV8Function
         fetchFunction.setV8Field("FetchError", fetchErrorCreator)
