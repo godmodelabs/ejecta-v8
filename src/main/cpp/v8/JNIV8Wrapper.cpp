@@ -12,6 +12,7 @@ using namespace v8;
 #include "JNIV8Promise.h"
 #include "JNIV8Symbol.h"
 #include "JNIV8ArrayBuffer.h"
+#include "JNIV8TypedArray.h"
 #include "v8.h"
 
 #include <string>
@@ -45,6 +46,7 @@ void JNIV8Wrapper::init() {
     JNIV8Wrapper::registerObject<JNIV8Symbol>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8PromiseResolver>(JNIV8ObjectType::kWrapper);
     JNIV8Wrapper::registerObject<JNIV8ArrayBuffer>(JNIV8ObjectType::kWrapper);
+    JNIV8Wrapper::registerObject<JNIV8TypedArray>(JNIV8ObjectType::kWrapper);
 
     JNIEnv *env = JNIWrapper::getEnvironment();
 
