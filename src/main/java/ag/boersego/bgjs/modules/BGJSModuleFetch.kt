@@ -34,11 +34,11 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         fetchFunction.setV8Field("AbortSignal", engine.getConstructor(BGJSModuleAbortSignal::class.java))
         fetchFunction.setV8Field("FormData", engine.getConstructor(BGJSModuleFormData::class.java))
         fetchFunction.setV8Field("setCookie", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.size != 3) return@Create JNIV8Undefined.GetInstance()
+            if (arguments.size != 1) return@Create JNIV8Undefined.GetInstance()
 
-            val key = arguments[0] as? String?: return@Create JNIV8Undefined.GetInstance()
-            val value = arguments[1] as? String ?: return@Create JNIV8Undefined.GetInstance()
-            val domain = arguments[2] as? String ?: return@Create JNIV8Undefined.GetInstance()
+            val key = (arguments[0] as JNIV8GenericObject).getV8Field("key") as? String ?: return@Create JNIV8Undefined.GetInstance()
+            val value = (arguments[0] as JNIV8GenericObject).getV8Field("value") as? String ?: return@Create JNIV8Undefined.GetInstance()
+            val domain = (arguments[0] as JNIV8GenericObject).getV8Field("domain") as? String ?: return@Create JNIV8Undefined.GetInstance()
 
             val url = "https://$domain".toHttpUrl()
             val cookie = Cookie.Builder()
