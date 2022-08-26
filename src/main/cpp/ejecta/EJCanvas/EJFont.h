@@ -34,7 +34,7 @@ typedef struct
     float ascender;
     float descender;
     size_t glyphs_count;
-    texture_glyph_t glyphs[96];
+    texture_glyph_t glyphs[102];
 } texture_font_t;
 
 class EJFont {
