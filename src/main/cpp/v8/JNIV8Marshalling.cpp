@@ -12,6 +12,7 @@
 #include "JNIV8Promise.h"
 #include "JNIV8Array.h"
 #include "JNIV8ArrayBuffer.h"
+#include "JNIV8TypedArray.h"
 #include "JNIV8Symbol.h"
 #include "JNIV8GenericObject.h"
 
@@ -500,6 +501,8 @@ jobject JNIV8Marshalling::v8value2jobject(v8::Local<v8::Value> valueRef) {
             return JNIV8Wrapper::wrapObject<JNIV8Promise>(objectRef)->getJObject();
         } else if(valueRef->IsArrayBuffer()) {
             return JNIV8Wrapper::wrapObject<JNIV8ArrayBuffer>(objectRef)->getJObject();
+        } else if(valueRef->IsTypedArray()) {
+            return JNIV8Wrapper::wrapObject<JNIV8TypedArray>(objectRef)->getJObject();
         }
         auto ptr = JNIV8Wrapper::wrapObject<JNIV8Object>(objectRef);
         if (ptr) {
