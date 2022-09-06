@@ -114,7 +114,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         call.enqueue(object : Callback {
 
             override fun onFailure(call: Call, e: IOException) {
-                Log.d(TAG, "onFailure", e)
+                Log.e(TAG, "request failed for: ${call.request().url}", e)
                 // network error or timeout
                 signal?.removeEventListener("abort", abortAndFinalize)
                 when {
