@@ -691,10 +691,6 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
         baseNameStr = baseNameStr.substr(2);
         baseNameStr = normalize_path(baseNameStr);
     }
-    LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
-
-    // check cache first
-    _CHECK_AND_RETURN_REQUIRE_CACHE(baseNameStr)
 
     if(!isRelativePath) {
         // Check if this is an internal native module
@@ -715,6 +711,9 @@ MaybeLocal<Value> BGJSV8Engine::require(std::string baseNameStr) {
             baseNameStr = _commonJSPath + baseNameStr;
         }
     }
+
+    LOG(LOG_DEBUG, "require: %s", baseNameStr.c_str());
+    _CHECK_AND_RETURN_REQUIRE_CACHE(baseNameStr)
 
     // Source of JS file if external code
     Handle<String> source;
