@@ -5,6 +5,7 @@ import ag.boersego.bgjs.modules.fetch.*
 import android.util.Log
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.internal.closeQuietly
 import java.io.IOException
 import java.net.URL
 import java.net.UnknownHostException
@@ -94,7 +95,7 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
         abortAndFinalize = JNIV8Function.Create(v8Engine, object : JNIV8Function.Handler {
             override fun Callback(receiver: Any, arguments: Array<out Any>) {
-                fetchResponse?.body?.close()
+                fetchResponse?.body?.closeQuietly()
                 fetchResponse?.error = "abort"
                 resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
                 call.cancel()
