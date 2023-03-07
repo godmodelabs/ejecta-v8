@@ -18,7 +18,7 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
         private set
         @V8Getter get
 
-    var eventListeners = ArrayList<JNIV8Function>()
+    private var eventListeners = ArrayList<JNIV8Function>()
 
     init {
         if (args != null) {

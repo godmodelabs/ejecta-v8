@@ -1,4 +1,4 @@
-package ag.boersego.bgjs.modules
+package ag.boersego.bgjs.modules.fetch
 
 import ag.boersego.bgjs.*
 import ag.boersego.v8annotations.V8Function
@@ -9,14 +9,13 @@ import okhttp3.Request
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.*
-import kotlin.collections.HashMap
 
 class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
 
     private val headers = LinkedHashMap<String, ArrayList<Any>>()
 
     init {
-        if (args != null && !args.isEmpty()) {
+        if (args != null && args.isNotEmpty()) {
             val fields = (args[0] as JNIV8Object).v8Fields
 
             for (entry in fields) {
@@ -54,7 +53,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         if (name is JNIV8Array || name is JNIV8GenericObject || (name as? String)?.isEmpty() == true) {
             throw V8JSException(v8Engine, "TypeError", "illegal name")
         }
-        return name?.toString()?.trim()?.toLowerCase(Locale.ROOT)?:"null"
+        return name?.toString()?.trim()?.lowercase(Locale.ROOT) ?:"null"
     }
 
     val toString = "Headers"

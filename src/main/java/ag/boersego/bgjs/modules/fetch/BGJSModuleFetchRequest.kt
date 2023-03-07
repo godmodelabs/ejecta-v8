@@ -1,15 +1,13 @@
 package ag.boersego.bgjs.modules.fetch
 
 import ag.boersego.bgjs.*
-import ag.boersego.bgjs.modules.BGJSModuleFetchBody
-import ag.boersego.bgjs.modules.BGJSModuleFetchHeaders
-import ag.boersego.bgjs.modules.BGJSModuleFetchResponse
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
-import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -154,7 +152,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         }
     }
 
-    internal fun initRequest(init: JNIV8Object, isFromFetch: Boolean) {
+    private fun initRequest(init: JNIV8Object, isFromFetch: Boolean) {
         val fields = init.v8Fields
         // When initializing a request from init, set some defaults first
         //TODO: do we need this?
@@ -172,8 +170,8 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             val headerRaw = fields[KEY_HEADERS]
             headers = when (headerRaw) {
                 is BGJSModuleFetchHeaders -> headerRaw.clone()
-                is JNIV8Object -> BGJSModuleFetchHeaders.createFrom(headerRaw)
-                else -> throw V8JSException(v8Engine, "TypeError", "init.headers is not an object or Header instance")
+                is JNIV8Object            -> BGJSModuleFetchHeaders.createFrom(headerRaw)
+                else                      -> throw V8JSException(v8Engine, "TypeError", "init.headers is not an object or Header instance")
             }
         }
 
@@ -376,15 +374,15 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     }
 
     companion object {
-        val KEY_METHOD = "method"
-        val KEY_HEADERS = "headers"
-        val KEY_BODY = "body"
-        val KEY_CACHE = "cache"
-        val KEY_REDIRECT = "redirect"
-        val KEY_FOLLOW = "follow"
-        val KEY_SIGNAL = "signal"
-        val KEY_TIMEOUT = "timeout"
-        val KEY_COMPRESS = "compress"
-        val KEY_SIZE = "size"
+        const val KEY_METHOD = "method"
+        const val KEY_HEADERS = "headers"
+        const val KEY_BODY = "body"
+        const val KEY_CACHE = "cache"
+        const val KEY_REDIRECT = "redirect"
+        const val KEY_FOLLOW = "follow"
+        const val KEY_SIGNAL = "signal"
+        const val KEY_TIMEOUT = "timeout"
+        const val KEY_COMPRESS = "compress"
+        const val KEY_SIZE = "size"
     }
 }

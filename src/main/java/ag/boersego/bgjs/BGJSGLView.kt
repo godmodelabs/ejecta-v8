@@ -7,7 +7,6 @@ import ag.boersego.v8annotations.V8Getter
 import android.util.Log
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.collections.ArrayList
 
 /**
  * Created by Kevin Read <me@kevin-read.com> on 02.03.18 for myrmecophaga-2.0.

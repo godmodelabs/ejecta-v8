@@ -1,7 +1,8 @@
 package ag.boersego.bgjs;
 
-import ag.boersego.v8annotations.V8Symbols;
 import androidx.annotation.Keep;
+
+import ag.boersego.v8annotations.V8Symbols;
 
 public class JNIV8Symbol extends JNIV8Object {
     /**

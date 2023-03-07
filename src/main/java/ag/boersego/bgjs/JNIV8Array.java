@@ -1,12 +1,13 @@
 package ag.boersego.bgjs;
 
-import ag.boersego.v8annotations.V8Flags;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+
+import ag.boersego.v8annotations.V8Flags;
 
 /**
  * Created by martin on 26.09.17.

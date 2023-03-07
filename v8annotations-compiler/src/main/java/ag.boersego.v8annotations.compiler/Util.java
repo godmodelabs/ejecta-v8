@@ -121,7 +121,7 @@ public class Util {
             public Void visitArray(ArrayType arrayType, Void v) {
                 TypeMirror type = arrayType.getComponentType();
                 if (type instanceof PrimitiveType) {
-                    result.append(type.toString()); // Don't box, since this is an array.
+                    result.append(type); // Don't box, since this is an array.
                 } else {
                     typeToString(arrayType.getComponentType(), result, innerClassSeparator);
                 }

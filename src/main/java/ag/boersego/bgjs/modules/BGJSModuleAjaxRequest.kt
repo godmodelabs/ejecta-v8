@@ -92,12 +92,12 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         v8Engine.runLocked ("BGJSModuleAjaxRequest::abort") {
             if (!requestNotFinal) {
                 if (DEBUG) {
-                    Log.d(TAG, "ajax ${method} for ${url} cannot  abort", RuntimeException("ajax abort impossible"))
+                    Log.d(TAG, "ajax $method for $url cannot  abort", RuntimeException("ajax abort impossible"))
                 }
                 success = false
             } else {
                 if (DEBUG) {
-                    Log.d(TAG, "ajax ${method} for ${url} was aborted", RuntimeException("ajax abort"))
+                    Log.d(TAG, "ajax $method for $url was aborted", RuntimeException("ajax abort"))
                 }
                 aborted = true
                 val failDetails = HttpResponseDetails(v8Engine)
@@ -132,13 +132,13 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
                         if (mSuccessData != null) {
                             if (DEBUG) {
-                                Log.d(TAG, "ajax ${method} success response for ${url} with type $contentType and body $mSuccessData")
+                                Log.d(TAG, "ajax $method success response for $url with type $contentType and body $mSuccessData")
                             }
                             val details = HttpResponseDetails(v8Engine)
                             details.setReturnData(mSuccessCode, responseHeaders)
 
                             if (_responseIsJson) {
-                                var parsedResponse: Any?
+                                val parsedResponse: Any?
                                 try {
                                     parsedResponse = v8Engine.parseJSON(mSuccessData)
                                 } catch (e: Exception) {
@@ -163,7 +163,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             failDetails.setReturnData(mErrorCode, responseHeaders)
 
                             if (DEBUG) {
-                                Log.d(TAG, "ajax ${method} error response $mErrorCode for ${url} with type $contentType and body $mErrorData")
+                                Log.d(TAG, "ajax $method error response $mErrorCode for $url with type $contentType and body $mErrorData")
                             }
                             // Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
                             val errorObj = JNIV8GenericObject.Create(v8Engine)
@@ -243,7 +243,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         if (headerRaw != null) {
             val fields = headerRaw.v8Fields
             for ((key, value) in fields) {
-                val keyLower = key.toLowerCase()
+                val keyLower = key.lowercase(Locale.getDefault())
                 if (value is String) {
                     headers[keyLower] = value
                 } else {
@@ -281,8 +281,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
                     for (entry in bodyMap.entries) {
                         // Encoded as form fields, undefined or null are represented as empty
-                        val value = entry.value
-                        val stringValue = when (value) {
+                        val stringValue = when (val value = entry.value) {
                             is JNIV8Undefined -> ""
                             is Double -> if (value.rem(1.0) == 0.0) value.toInt().toString() else value.toString()
                             is Float -> if (value.rem(1.0) == 0.0) value.toInt().toString() else value.toString()
@@ -296,7 +295,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     this.formBody = formBody.build()
 
                     if (DEBUG && debugMap != null) {
-                        Log.d(TAG, "formbody is " + (Arrays.toString(debugMap.entries.toTypedArray())))
+                        Log.d(TAG, "formbody is " + (debugMap.entries.toTypedArray().contentToString()))
                     }
                 } else if (body is String) {
                     this.body = body
@@ -307,7 +306,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         } else {
             if (body is JNIV8Object) {
                 val bodyMap = body.v8Fields
-                if (!bodyMap.isEmpty()) {
+                if (bodyMap.isNotEmpty()) {
                     val urlBuilder = StringBuilder(url)
                     urlBuilder.append("?")
                     var isFirstItem = true
@@ -342,8 +341,8 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
         private val DEBUG = BuildConfig.DEBUG && true
 
         init {
-            JNIV8Object.RegisterV8Class(BGJSModuleAjaxRequest::class.java)
-            JNIV8Object.RegisterV8Class(HttpResponseDetails::class.java)
+            RegisterV8Class(BGJSModuleAjaxRequest::class.java)
+            RegisterV8Class(HttpResponseDetails::class.java)
             httpAdditionalHeaders = hashMapOf("Accept-Charset" to "utf-8",
                     "Accept-Language" to "en-US",
                     "Cache-Control" to "no-cache, no-store",

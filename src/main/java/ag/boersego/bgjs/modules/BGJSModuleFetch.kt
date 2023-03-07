@@ -17,7 +17,7 @@ import java.util.zip.GZIPInputStream
  * Copyright (c) 2019 BörseGo AG. All rights reserved.
  */
 
-class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
+class BGJSModuleFetch(private val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
 
     internal lateinit var fetchErrorCreator: JNIV8Function
     internal lateinit var abortErrorCreator: JNIV8Function
@@ -93,14 +93,13 @@ class BGJSModuleFetch(val okHttpClient: OkHttpClient) : JNIV8Module("fetch") {
         val signal = request.signal
         var abortAndFinalize :JNIV8Function? = null
 
-        abortAndFinalize = JNIV8Function.Create(v8Engine, object : JNIV8Function.Handler {
-            override fun Callback(receiver: Any, arguments: Array<out Any>) {
-                fetchResponse?.body?.closeQuietly()
-                fetchResponse?.error = "abort"
-                resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
-                call.cancel()
-                signal?.removeEventListener("abort", abortAndFinalize!!)
-            }})
+        abortAndFinalize = JNIV8Function.Create(v8Engine) { _, _ ->
+            fetchResponse?.body?.closeQuietly()
+            fetchResponse?.error = "abort"
+            resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
+            call.cancel()
+            signal?.removeEventListener("abort", abortAndFinalize!!)
+        }
 
 
         if (signal != null) {

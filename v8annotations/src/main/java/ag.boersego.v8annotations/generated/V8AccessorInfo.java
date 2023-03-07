@@ -1,7 +1,5 @@
 package ag.boersego.v8annotations.generated;
 
-import ag.boersego.v8annotations.V8Symbols;
-
 /**
  * Created by martin on 04.10.17.
  */
