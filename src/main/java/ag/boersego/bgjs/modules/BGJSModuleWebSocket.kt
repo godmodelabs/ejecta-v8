@@ -6,7 +6,6 @@ import android.annotation.SuppressLint
 import android.util.Log
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import java.lang.IllegalArgumentException
 import java.util.*
 
 
@@ -123,7 +122,7 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
     }
 
     @V8Function
-    fun send(msg: String): Any? {
+    fun send(msg: String): Any {
         var success = false
         v8Engine.runLocked {
             if (_readyState == ReadyState.CONNECTING) {

@@ -1,7 +1,7 @@
-package ag.boersego.bgjs.modules
+package ag.boersego.bgjs.modules.fetch
 
 import ag.boersego.bgjs.*
-import ag.boersego.bgjs.modules.fetch.BGJSModuleFormData
+import ag.boersego.bgjs.modules.BGJSModuleFetch
 import ag.boersego.v8annotations.V8Function
 import java.io.BufferedReader
 import java.io.InputStream

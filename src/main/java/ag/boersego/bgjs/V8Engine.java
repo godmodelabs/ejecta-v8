@@ -3,14 +3,14 @@ package ag.boersego.bgjs;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.AssetManager;
-import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
 
 /**
  * v8Engine

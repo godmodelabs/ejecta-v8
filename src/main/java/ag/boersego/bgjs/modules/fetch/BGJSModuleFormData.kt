@@ -1,7 +1,6 @@
 package ag.boersego.bgjs.modules.fetch
 
 import ag.boersego.bgjs.*
-import ag.boersego.bgjs.modules.BGJSModuleFetchHeaders
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
@@ -17,7 +16,7 @@ class BGJSModuleFormData @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Lo
     private val entryList: MutableList<Pair<String, String>> = mutableListOf()
 
     init {
-        if (args != null && !args.isEmpty()) {
+        if (args != null && args.isNotEmpty()) {
             val fields = (args[0] as JNIV8Object).v8Fields
 
             for (entry in fields) {

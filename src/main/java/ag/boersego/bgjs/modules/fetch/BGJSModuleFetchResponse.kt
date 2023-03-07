@@ -1,4 +1,4 @@
-package ag.boersego.bgjs.modules
+package ag.boersego.bgjs.modules.fetch
 
 import ag.boersego.bgjs.JNIV8Object
 import ag.boersego.bgjs.JNIV8Promise
@@ -42,7 +42,7 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
 
     init {
         if (args != null) {
-            if (args.size > 0) {
+            if (args.isNotEmpty()) {
                 // First argument: body
                 val bodyRaw = args[0]
                 body = createBodyFromRaw(bodyRaw)
@@ -80,7 +80,7 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
 
     @V8Function
     fun error(): BGJSModuleFetchResponse {
-        return Companion.error(v8Engine)
+        return error(v8Engine)
     }
 
     // Since ejecta-v8 currently cannot register abstract classes we have to override these methods here and just call super

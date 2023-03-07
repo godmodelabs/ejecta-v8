@@ -1,7 +1,5 @@
 package ag.boersego.bgjs;
 
-import ag.boersego.bgjs.V8Exception;
-
 /**
  * This Exception represents a JavaScript exception (available via getV8Exception)
  *

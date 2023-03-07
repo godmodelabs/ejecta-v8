@@ -1,8 +1,8 @@
 package ag.boersego.bgjs.data;
 
-import android.os.Build;
-import androidx.annotation.NonNull;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -14,7 +14,6 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -68,8 +67,8 @@ public class AjaxRequest implements Runnable {
     public static class AjaxTrafficCounter {
 
         private static long trafficIn = 0, trafficOut = 0;
-        private static int[] trafficInPerMinute = {-1, -1, -1, -1, -1, -1};
-        private static int[] trafficOutPerMinute = {-1, -1, -1, -1, -1, -1};
+        private static final int[] trafficInPerMinute = {-1, -1, -1, -1, -1, -1};
+        private static final int[] trafficOutPerMinute = {-1, -1, -1, -1, -1, -1};
         private static int lastTimeSlot;
 
         public static long getInTraffic() {

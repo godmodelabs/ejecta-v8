@@ -1,9 +1,10 @@
 package ag.boersego.bgjs;
 
-import ag.boersego.v8annotations.V8Flags;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import ag.boersego.v8annotations.V8Flags;
 
 public class JNIV8Promise extends JNIV8Object {
     public static class Resolver extends JNIV8Object {
