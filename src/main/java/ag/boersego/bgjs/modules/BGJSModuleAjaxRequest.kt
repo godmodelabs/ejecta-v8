@@ -214,6 +214,9 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                     cb.second.callAsV8Function(returnObject, errorCode, info)
                 type ->
                     cb.second.callAsV8Function(returnObject, info, details)
+                else                -> {
+                    // do nothing
+                }
             }
         }
         callbacks.clear()
