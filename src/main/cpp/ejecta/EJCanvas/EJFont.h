@@ -33,6 +33,7 @@ typedef struct
     float linegap;
     float ascender;
     float descender;
+	float hanging;
     size_t glyphs_count;
     texture_glyph_t glyphs[102];
 } texture_font_t;

@@ -15,7 +15,6 @@
 #include "NdkMisc.h"
 #include <utf8.h>
 
-// #define PT_TO_PX(pt) ceilf((pt)*(1.0f+(1.0f/3.0f)))
 #define PT_TO_PX(pt) pt
 #define LOG_TAG "EJFont"
 
@@ -38,19 +37,11 @@ EJFont::EJFont (const char* font, int size, bool useFill, float cs) {
 
 	if (_font->size != (float)pxSize || cs != 1.0) {
 		_scale = (float)pxSize / _font->size;
-		// LOGI("Scaling font to %f, wanted size is %f (%d), font size is %f, cs is %f, realPx %f", _scale, pxSize, size, _font->size, cs, realPxSize);
 	} else {
 		_scale = 1;
 	}
 	_utf32bufsize = 4096;
 	_utf32buffer = (uint32_t*)malloc(_utf32bufsize);
-
-	/* for (int i = 0; i < _font->tex_height * _font->tex_width; ++i) {
-		GLubyte alpha = _font->tex_data[i];
-		if (alpha == 0) {
-			_font->tex_data[i] = 96;
-		}
-	} */
 	_texture = EJTexture::initWithWidth(_font->tex_width, _font->tex_height, (GLubyte*)_font->tex_data, GL_ALPHA, 1);
 }
 
@@ -89,9 +80,11 @@ void EJFont::drawString (const char* utf8string, EJCanvasContext* toContext, flo
 		case kEJTextBaselineIdeographic:
 			break;
 		case kEJTextBaselineTop:
-		case kEJTextBaselineHanging:
-			pen_y += PT_TO_PX(_font->ascender * _scale/* + ascentDelta */);
+			pen_y += PT_TO_PX(_font->ascender * _scale);
 			break;
+        case kEJTextBaselineHanging:
+            pen_y += PT_TO_PX(_font->hanging * _scale);
+            break;
 		case kEJTextBaselineMiddle:
 			pen_y += PT_TO_PX(_font->ascender * _scale - (0.5*_font->height * _scale));
 			break;
@@ -99,7 +92,6 @@ void EJFont::drawString (const char* utf8string, EJCanvasContext* toContext, flo
 			pen_y += PT_TO_PX(_font->descender * _scale);
 			break;
 	}
-	// pen_y = floor(pen_y);
 
     toContext->save();
     toContext->setTexture(_texture);
@@ -121,35 +113,17 @@ void EJFont::drawString (const char* utf8string, EJCanvasContext* toContext, flo
             for( k=0; k < glyph->kerning_count; ++k) {
                 if (glyph->kerning[k].codepoint == nextCode) {
                     pen_x += (glyph->kerning[k].kerning * _scale);
-                    // LOGI("Kerning found for char %c %c: %f", (char)glyph->charcode, nextCode, (glyph->kerning[k].kerning * _scale));
                     break;
                 }
             }
         }
-
 
         float x = (pen_x + glyph->offset_x * _scale);
         float y = (pen_y - glyph->offset_y * _scale);
         float w  = (glyph->width * _scale);
         float h  = (glyph->height * _scale);
         toContext->pushRectX(x, y, w, h, glyph->s0, glyph->t0 /* - 1.0f/256 */, glyph->s1 - glyph->s0, glyph->t1 - glyph->t0 /* + 1.0f/256 */, _isFilled ? toContext->state->fillColor : toContext->state->strokeColor, toContext->state->transform);
-        /* glBegin( GL_TRIANGLES );
-        {
-            glTexCoord2f( glyph->s0, glyph->t0 ); glVertex2i( x,   y   );
-            glTexCoord2f( glyph->s0, glyph->t1 ); glVertex2i( x,   y-h );
-            glTexCoord2f( glyph->s1, glyph->t1 ); glVertex2i( x+w, y-h );
-            glTexCoord2f( glyph->s0, glyph->t0 ); glVertex2i( x,   y   );
-            glTexCoord2f( glyph->s1, glyph->t1 ); glVertex2i( x+w, y-h );
-            glTexCoord2f( glyph->s1, glyph->t0 ); glVertex2i( x+w, y   );
-        }
-        glEnd(); */
         pen_x += glyph->advance_x * _scale;
-        /* if (w < 2) {
-        	pen_x += 5;
-        } else {
-        	pen_x += w + 1;
-        } */
-        // pen_y += glyph->advance_y;
     }
     toContext->restore();
 }
@@ -181,12 +155,6 @@ float EJFont::measureString (const char* utf8string) {
         }
 
         width += glyph->advance_x * _scale;
-        // float w = glyph->width;
-        /* if (w < 2) {
-        	width += 5;
-        } else {
-        	width += w + 1;
-        } */
 
         // Find next glyph for kerning
         if (i < length - 1) {
@@ -219,8 +187,6 @@ float EJFont::measureStringFromBuffer (int length) {
             continue;
         }
 
-        // width += glyph->offset_x * _scale;
-
         // Find next glyph for kerning
         if (i < length - 1) {
         	uint32_t nextCode = _utf32buffer[i+1];
@@ -233,12 +199,6 @@ float EJFont::measureStringFromBuffer (int length) {
         }
 
          width += glyph->advance_x * _scale;
-        // float w = glyph->width;
-        /* if (w < 2) {
-        	width += 5;
-        } else {
-        	width += w + 1;
-        } */
     }
     return width;
 }
