@@ -94,7 +94,11 @@ class BGJSModuleFetch(private val okHttpClient: OkHttpClient) : JNIV8Module("fet
         var abortAndFinalize :JNIV8Function? = null
 
         abortAndFinalize = JNIV8Function.Create(v8Engine) { _, _ ->
-            fetchResponse?.body?.closeQuietly()
+            try {
+                fetchResponse?.body?.closeQuietly()
+            } catch (e: Exception) {
+                //do nothing
+            }
             fetchResponse?.error = "abort"
             resolver.reject(abortErrorCreator.applyAsV8Constructor(arrayOf("The user aborted a request.")))
             call.cancel()
