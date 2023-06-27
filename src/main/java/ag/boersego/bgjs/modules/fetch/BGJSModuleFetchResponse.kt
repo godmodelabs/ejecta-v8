@@ -7,6 +7,10 @@ import ag.boersego.bgjs.getV8Field
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
 import ag.boersego.v8annotations.V8Symbols
+import okhttp3.ResponseBody.Companion.toResponseBody
+import java.io.BufferedReader
+import java.io.InputStreamReader
+
 
 class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : BGJSModuleFetchBody(v8Engine, jsPtr, args) {
 
@@ -74,6 +78,10 @@ class BGJSModuleFetchResponse @JvmOverloads constructor(v8Engine: V8Engine, jsPt
         clone.type = type
         clone.url = url
         clone.useFinalURL = useFinalURL
+
+        val bodyString = BufferedReader(InputStreamReader(body)).readText()
+        clone.body = bodyString.toResponseBody().byteStream()
+        body = bodyString.toResponseBody().byteStream()
 
         return clone
     }

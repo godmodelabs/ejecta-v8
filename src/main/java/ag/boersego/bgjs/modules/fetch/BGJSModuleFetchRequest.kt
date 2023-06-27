@@ -348,7 +348,7 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
         response.url = parsedUrl.toString()
         response.status = httpResponse.code
         response.statusText = httpResponse.message
-        response.body = httpResponse.body?.byteStream()
+        response.body = httpResponse.body.byteStream()
         response.redirect = httpResponse.isRedirect
 
         return response
