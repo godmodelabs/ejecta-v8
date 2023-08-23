@@ -325,15 +325,16 @@ static void js_context_set_textBaseline(Local<String> property,
 	}
 }
 
-static void js_context_get_font(Local<String> property,
-		const v8::PropertyCallbackInfo<Value>& info) {
-	EscapableHandleScope scope(Isolate::GetCurrent());
-	scope.Escape(String::NewFromUtf8(Isolate::GetCurrent(), "").ToLocalChecked());
+static void js_context_get_font(Local<String> property,const v8::PropertyCallbackInfo<Value> &info) {
+	CONTEXT_FETCH_VAR_ESCAPABLE
+
+	Local<String> stringRef = String::NewFromUtf8(isolate, __context->getFont()).ToLocalChecked();
+    info.GetReturnValue().Set(scope.Escape(stringRef));
 }
 
 static void js_context_set_font(Local<String> property, Local<Value> value,
 		const v8::PropertyCallbackInfo<void>& info) {
-	CONTEXT_FETCH_VAR;
+	CONTEXT_FETCH_VAR
 	if (!value->IsString()) {
 #ifdef DEBUG
 		LOGI("context setFont expects string");
@@ -342,9 +343,8 @@ static void js_context_set_font(Local<String> property, Local<Value> value,
 	}
 
 	String::Utf8Value utf8(isolate, value);
-	const char *str = *utf8;
-
-	__context->setFont((char*)str);
+	char *str = *utf8;
+	__context->setFont(str);
 }
 
 static void js_context_get_lineWidth(Local<String> property,

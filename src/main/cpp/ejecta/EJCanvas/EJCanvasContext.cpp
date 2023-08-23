@@ -346,16 +346,16 @@ EJCompositeOperation EJCanvasContext::globalCompositeOperation ( ){
 
 // TODO: Font
 
-bool EJCanvasContext::setFont (char* font) {
+bool EJCanvasContext::setFont (char* font) const {
 	// TODO: If we use dynamic fonts later, destroy the old font object here
 	/* if (state->fontName) {
 		free(state->fontName);
 	} */
-	state->fontName = font;
+	state->fontName = strdup(font);
 	return false;
 }
 
-char* EJCanvasContext::getFont() {
+char* EJCanvasContext::getFont() const {
 	return state->fontName;
 }
 
@@ -556,7 +556,6 @@ void EJCanvasContext::arcX (float x, float y, float radius, float startAngle, fl
 }
 
 EJFont* EJCanvasContext::acquireFont (char* fontName, float pointSize, bool fill, float contentScale) {
-
 	if (state->fontName && strcmp (fontName, state->fontName) == 0 && pointSize - 0.99 <= state->fontSize && pointSize + 0.99 >= state->fontSize && _font) {
 		return _font;
 	}
