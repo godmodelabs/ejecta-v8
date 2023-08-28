@@ -1210,12 +1210,22 @@ void BGJSV8Engine::createContext() {
 
     // Create a new context.
     Local<Context> context = v8::Context::New(_isolate, nullptr, globalObjTpl);
+
+    // URLSearchParams are not supported! This is just a dummy object to prevent crashes of libraries that are referencing it, but do not use it
+    v8::Local<v8::FunctionTemplate> URLSearchParams = v8::FunctionTemplate::New(_isolate);
+    URLSearchParams->Set(
+    String::NewFromUtf8(_isolate, "youShallNotUseMe").ToLocalChecked(),
+    v8::FunctionTemplate::New(_isolate,LogCallback,Local<Value>(),Local<Signature>(),0,ConstructorBehavior::kThrow)
+    );
+
+
     context->SetAlignedPointerInEmbedderData(EBGJSV8EngineEmbedderData::kContext, this);
 
     // register global object for all required modules
     v8::Context::Scope ctxScope(context);
     context->Global()->Set(context, String::NewFromUtf8(_isolate, "global").ToLocalChecked(), context->Global());
     context->Global()->Set(context, v8::String::NewFromUtf8(_isolate, "console").ToLocalChecked(), console->GetFunction(context).ToLocalChecked());
+    context->Global()->Set(context, v8::String::NewFromUtf8(_isolate, "URLSearchParams").ToLocalChecked(),URLSearchParams->GetFunction(context).ToLocalChecked());
 
     _context.Reset(_isolate, context);
 
