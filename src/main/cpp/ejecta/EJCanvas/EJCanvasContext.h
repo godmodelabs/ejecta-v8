@@ -151,8 +151,8 @@ public:
 	void arcToX1 (float x1, float y1, float x2, float y2, float radius);
 	void arcX (float x, float y, float radius, float startAngle, float endAngle, bool antiClockwise);
 
-	bool setFont (char* font);
-	char* getFont();
+	bool setFont (char* font) const;
+	char* getFont() const;
 	EJFont* acquireFont (char* fontName, float pointSize, bool fill, float contentScale);
 	void fillText (const char* text, float x, float y);
 	void strokeText (const char* text, float x, float y);
