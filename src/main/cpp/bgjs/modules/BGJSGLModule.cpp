@@ -52,9 +52,15 @@ if (!__context->_isRendering) { \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run when not in rendering phase").ToLocalChecked())); \
 }
 
+#define CONTEXT_FETCH_WHILE_RENDERING \
+if (!args.This()->IsObject()) { \
+    LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
+    isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function").ToLocalChecked())); \
+} \
+BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL*>(v8::External::Cast(*(args.This()->ToObject(isolate->GetCurrentContext()).ToLocalChecked()->GetInternalField(0)))->Value()))->context; \
 
 #define CONTEXT_FETCH_ESCAPABLE()  CREATE_ESCAPABLE_CONTEXT \
-CONTEXT_FETCH_BASE
+CONTEXT_FETCH_WHILE_RENDERING
 
 #define CONTEXT_FETCH()  CREATE_UNESCAPABLE_CONTEXT \
 CONTEXT_FETCH_BASE
