@@ -135,10 +135,7 @@ class BGJSWebSocket(engine: V8Engine) : JNIV8Object(engine), Runnable {
                 success = false
                 return@runLocked
             }
-            if (socket != null) {
-                socket?.send(msg)
-                success = true
-            }
+            success = socket?.send(msg)?: false
         }
         return success
     }
