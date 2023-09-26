@@ -107,6 +107,8 @@ public abstract class V8TextureView extends TextureView implements TextureView.S
         }
     }
 
+    protected void onFrameRendered(final BGJSGLView jsViewObject) {}
+
     public abstract void onGLCreateError(Exception ex);
 
     @Override
@@ -918,6 +920,9 @@ public abstract class V8TextureView extends TextureView implements TextureView.S
                     onGLRecreated(mBGJSGLView);
                     mReinitPending = false;
                 }
+
+                // The party that created V8TextureView might want to be notified once we have rendered a frame
+                onFrameRendered(mBGJSGLView);
             }
 
             if (mCallback != null) {
