@@ -6,7 +6,7 @@ import androidx.annotation.NonNull;
  * Created by martin on 29.09.17.
  */
 
-abstract public class JNIV8Module {
+public abstract class JNIV8Module {
 
     /**
      * A JNIV8Module that wants to be informed by the V8Engine about engine suspension and resuming
@@ -34,5 +34,5 @@ abstract public class JNIV8Module {
      * @param engine
      * @param module
      */
-    abstract public void Require(@NonNull V8Engine engine, JNIV8GenericObject module);
+    public abstract void Require(@NonNull V8Engine engine, JNIV8GenericObject module);
 }

@@ -51,7 +51,8 @@ final class JNIObjectReference extends PhantomReference<JNIObject> {
         }
     }
 
-    public JNIObjectReference next, prev;
+    private JNIObjectReference next;
+    private JNIObjectReference prev;
     private long nativeHandle;
 
     private static ReferencePool referencePool = new ReferencePool();

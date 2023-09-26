@@ -13,7 +13,7 @@ import ag.boersego.v8annotations.V8Flags;
  * Created by martin on 26.09.17.
  */
 
-final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
+public final class JNIV8Array extends JNIV8Object implements Iterable<Object> {
     public static native JNIV8Array Create(V8Engine engine);
     public static native JNIV8Array CreateWithLength(V8Engine engine, int length);
     public static native JNIV8Array CreateWithArray(V8Engine engine, Object[] elements);
@@ -86,6 +86,7 @@ final public class JNIV8Array extends JNIV8Object implements Iterable<Object> {
      *
      * NOTE: object must not be used anymore after calling this method
      */
+    @Override
     public void dispose() throws RuntimeException {
         super.dispose();
     }

@@ -24,14 +24,14 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
     override fun Require(engine: V8Engine, module: JNIV8GenericObject?) {
         val exports = JNIV8GenericObject.Create(engine)
 
-        exports.setV8Accessor("length", JNIV8Function.Create(engine) { receiver, arguments ->
+        exports.setV8Accessor("length", JNIV8Function.Create(engine) { _, arguments ->
             if (arguments.isNotEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
             }
             preferences.all.size
         }, null)
 
-        exports.setV8Field("clear", JNIV8Function.Create(engine) { receiver, arguments ->
+        exports.setV8Field("clear", JNIV8Function.Create(engine) { _, arguments ->
             if (arguments.isNotEmpty()) {
                 throw IllegalArgumentException("clear needs no arguments")
             }
@@ -40,7 +40,7 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
             JNIV8Undefined.GetInstance()
         })
 
-        exports.setV8Field("getItem", JNIV8Function.Create(engine) { receiver, arguments ->
+        exports.setV8Field("getItem", JNIV8Function.Create(engine) { _, arguments ->
             if (arguments.isEmpty() || arguments[0] !is String) {
                 throw IllegalArgumentException("getItem needs one parameter of type String")
             }
@@ -68,7 +68,7 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
             }
         })
 
-        exports.setV8Field("removeItem", JNIV8Function.Create(engine) { receiver, arguments ->
+        exports.setV8Field("removeItem", JNIV8Function.Create(engine) { _, arguments ->
             if (arguments.isEmpty() || arguments[0] !is String) {
                 throw IllegalArgumentException("removeItem needs one parameter of type String")
             }

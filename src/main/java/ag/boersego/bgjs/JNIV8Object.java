@@ -11,13 +11,13 @@ import java.util.Map;
  */
 
 @SuppressWarnings("unused")
-abstract public class JNIV8Object extends JNIObject {
-    static public void RegisterAliasForPrimitive(Class alias, Class primitive) {
+public abstract class JNIV8Object extends JNIObject {
+    public static void RegisterAliasForPrimitive(Class alias, Class primitive) {
         RegisterAliasForPrimitive(alias.hashCode(), primitive.hashCode());
     }
-    static private native void RegisterAliasForPrimitive(int aliasType, int primitiveType);
+    private static native void RegisterAliasForPrimitive(int aliasType, int primitiveType);
 
-    static public void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
+    public static void RegisterV8Class(Class<? extends JNIV8Object> derivedClass) {
         if (Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
         }
@@ -32,9 +32,9 @@ abstract public class JNIV8Object extends JNIObject {
         RegisterV8Class(derivedClass.getCanonicalName(), superClass.getCanonicalName());
     }
 
-    static private native void RegisterV8Class(String derivedClass, String baseClass);
+    private static native void RegisterV8Class(String derivedClass, String baseClass);
 
-    static public native JNIV8Object Create(V8Engine engine, String name, Object... arguments);
+    public static native JNIV8Object Create(V8Engine engine, String name, Object... arguments);
 
     public native double toNumber();
     public native String toString();
@@ -43,7 +43,7 @@ abstract public class JNIV8Object extends JNIObject {
     public native boolean isInstanceOf(String name);
 
     public V8Engine getV8Engine() {
-        return _engine;
+        return engine;
     }
 
     public @Nullable Object applyV8Method(String name, Object[] arguments) {
@@ -218,18 +218,18 @@ abstract public class JNIV8Object extends JNIObject {
 
     //------------------------------------------------------------------------
     // internal fields & methods
-    private V8Engine _engine;
+    private final V8Engine engine;
 
     public JNIV8Object(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(true);
-        _engine = engine;
+        this.engine = engine;
         initNativeJNIV8Object(getClass().getName(), engine, jsObjPtr);
         initAutomaticDisposure();
     }
 
     public JNIV8Object(V8Engine engine) {
         super(true);
-        _engine = engine;
+        this.engine = engine;
         initNativeJNIV8Object(getClass().getName(), engine, 0);
         initAutomaticDisposure();
     }

@@ -16,7 +16,7 @@ class BGJSModuleFormData @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Lo
     private val entryList: MutableList<Pair<String, String>> = mutableListOf()
 
     init {
-        if (args != null && args.isNotEmpty()) {
+        if (!args.isNullOrEmpty()) {
             val fields = (args[0] as JNIV8Object).v8Fields
 
             for (entry in fields) {

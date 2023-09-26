@@ -15,7 +15,7 @@ class BGJSModuleFetchHeaders @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     private val headers = LinkedHashMap<String, ArrayList<Any>>()
 
     init {
-        if (args != null && args.isNotEmpty()) {
+        if (!args.isNullOrEmpty()) {
             val fields = (args[0] as JNIV8Object).v8Fields
 
             for (entry in fields) {

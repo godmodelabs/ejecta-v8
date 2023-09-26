@@ -78,7 +78,7 @@ open class BGJSGLView(engine: V8Engine, private var textureView: V8TextureView?)
 
     private fun executeCallbacks(callbacks: ArrayList<JNIV8Function>, vararg args: Any) {
         var lastException: Exception? = null
-        var cbs: Array<Any>? = null
+        var cbs: Array<Any>?
         synchronized(callbacks) {
             if (callbacks.isEmpty()) {
                 return

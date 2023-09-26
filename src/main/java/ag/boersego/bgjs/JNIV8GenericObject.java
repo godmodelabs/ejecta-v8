@@ -10,12 +10,13 @@ import java.util.Set;
  * Created by martin on 26.09.17.
  */
 
-final public class JNIV8GenericObject extends JNIV8Object {
+public final class JNIV8GenericObject extends JNIV8Object {
 
     public static final String TAG = JNIV8GenericObject.class.getSimpleName();
 
     public static native JNIV8GenericObject Create(V8Engine engine);
 
+    @Override
     public void dispose() throws RuntimeException {
         super.dispose();
     }
