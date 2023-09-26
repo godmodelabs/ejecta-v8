@@ -11,7 +11,7 @@ import ag.boersego.v8annotations.V8Flags;
  */
 
 @SuppressWarnings("unused")
-final public class JNIV8Function extends JNIV8Object {
+public final class JNIV8Function extends JNIV8Object {
     public interface Handler {
         Object Callback(@NonNull Object receiver, @NonNull Object[] arguments);
     }

@@ -8,8 +8,8 @@ import androidx.annotation.NonNull;
  */
 
 public class JNIV8Undefined {
-    private volatile static JNIV8Undefined instance;
-    public synchronized static JNIV8Undefined GetInstance() {
+    private static volatile JNIV8Undefined instance;
+    public static synchronized JNIV8Undefined GetInstance() {
         if(instance == null) {
             instance = new JNIV8Undefined();
         }

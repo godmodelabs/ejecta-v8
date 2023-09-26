@@ -28,8 +28,6 @@ import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
 
-// import org.jetbrains.annotations.NotNull;
-
 // TextureView is ICS+ only
 
 /**
@@ -39,7 +37,7 @@ import javax.microedition.khronos.egl.EGLSurface;
  */
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 @SuppressLint("LogNotTimber")
-abstract public class V8TextureView extends TextureView implements TextureView.SurfaceTextureListener {
+public abstract class V8TextureView extends TextureView implements TextureView.SurfaceTextureListener {
 
     private final V8Engine mEngine;
     protected RenderThread mRenderThread;
@@ -64,8 +62,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     private static final int MAX_NUM_TOUCHES = 10;
     private static final int TOUCH_SLOP = 5;
     private static final String TAG = "V8TextureView";
-    private int[] mEglVersion;
-    private float mClearRed, mClearGreen, mClearBlue, mClearAlpha;
+    private float mClearRed;
+    private float mClearGreen;
+    private float mClearBlue;
+    private float mClearAlpha;
     private boolean mClearColorSet;
     protected boolean mDontClearOnFlip;
     private BGJSGLView mBGJSGLView;
@@ -99,7 +99,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         DEBUG = debug;
     }
 
-    abstract public void onGLCreated(BGJSGLView jsViewObject);
+    public abstract void onGLCreated(BGJSGLView jsViewObject);
 
     public void onGLRecreated(final BGJSGLView jsViewObject) {
         if (mBGJSGLView != null) {
@@ -107,11 +107,9 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         }
     }
 
-    abstract public void onGLCreateError(Exception ex);
+    protected void onFrameRendered(final BGJSGLView jsViewObject) {}
 
-    protected void onFrameRendered(final BGJSGLView jsViewObject) {
-
-    }
+    public abstract void onGLCreateError(Exception ex);
 
     @Override
     public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width, final int height) {
@@ -392,10 +390,10 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         try {
             // Convert to long to make unsigned
             final long c = color & 0x00000000ffffffffL;
-            mClearAlpha = (float) ((c & 0xff000000L) >> 24) / 256f;
-            mClearRed = (float) ((c & 0x00ff0000L) >> 16) / 256f;
-            mClearGreen = (float) ((c & 0x0000ff00L) >> 8) / 256f;
-            mClearBlue = (float) ((c & 0x000000ffL)) / 256f;
+            mClearAlpha = ((c & 0xff000000L) >> 24) / 256f;
+            mClearRed = ((c & 0x00ff0000L) >> 16) / 256f;
+            mClearGreen = ((c & 0x0000ff00L) >> 8) / 256f;
+            mClearBlue = ((c & 0x000000ffL)) / 256f;
             mClearColorSet = true;
         } catch (final Exception e) {
             Log.i(TAG, "Cannot set clear color from background color", e);
@@ -407,7 +405,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 || Build.MODEL.contains("Emulator")
                 || Build.MODEL.contains("Android SDK built for x86")
                 || Build.MANUFACTURER.contains("Genymotion")
-                // || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
                 || "google_sdk".equals(Build.PRODUCT);
     }
 
@@ -460,7 +457,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
          * use a minimum size of 4 bits for red/green/blue, but will perform
          * actual matching in chooseConfig() below.
          */
-        // private static int EGL_OPENGL_ES2_BIT = 4;
+
         private static final int[] s_configAttribs2 = {EGL10.EGL_RED_SIZE, 4, EGL10.EGL_GREEN_SIZE, 4, EGL10.EGL_BLUE_SIZE,
                 4, EGL10.EGL_NONE};
 
@@ -624,7 +621,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                 if (egl.eglGetConfigAttrib(display, config, attribute, value)) {
                     Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
                 } else {
-                    // Log.w(TAG, String.format("  %s: failed\n", name));
                     while (egl.eglGetError() != EGL10.EGL_SUCCESS)
                         ;
                 }
@@ -703,12 +699,7 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
         private boolean mRenderPending;
         private boolean mReinitPending;
 
-
         private boolean mPaused;
-        private int[] mEglVersion;
-        // True if this surface can preserve color buffer contents on swap
-        private boolean mHasSwap;
-
 
         RenderThread(final SurfaceTexture surface) {
             mSurface = surface;
@@ -860,22 +851,11 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
                     mBGJSGLView.onRedraw();
                 }
 
-                /* if (DEBUG) {
-                    Log.d(TAG, "Draw for JSID " + String.format("0x%8s", Long.toHexString(mJSId)).replace(' ', '0') + ", TV " + V8TextureView.this);
-                } */
-
                 mRenderCnt++;
 
                 if (threadFinished) {
                     break;
                 }
-
-                // We don't swap buffers here. Because we don't want to clear buffers on buffer swap, we need to do it in native code.
-                // This is important because JS Canvas also doesn't clear except via fillRect
-                /* if (!mHasSwap && didDraw) {
-                    mEgl.eglSwapBuffers(mEglDisplay, mEglSurface);
-                    checkEglError("eglSwapBuffers");
-                } */
 
                 // Since we're double buffering, also clear the back buffer
                 if (mClearColorSet) {
@@ -1033,7 +1013,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             if (!mEgl.eglInitialize(mEglDisplay, version)) {
                 throw new RuntimeException("eglInitialize failed " + GLUtils.getEGLErrorString(mEgl.eglGetError()));
             }
-            mEglVersion = version;
 
             final ConfigChooser chooser = new ConfigChooser(8, 8, 8, 0, 0, 8, version);
             mEglConfig = chooser.chooseConfig(mEgl, mEglDisplay);
@@ -1044,13 +1023,6 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
             mEglContext = createContext(mEgl, mEglDisplay, mEglConfig);
 
             mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
-
-            final int[] surfaceSwapValues = new int[2];
-            if (mEgl.eglGetConfigAttrib(mEglDisplay, mEglConfig, EGL14.EGL_SURFACE_TYPE, surfaceSwapValues)) {
-                if ((surfaceSwapValues[0] & EGL14.EGL_SWAP_BEHAVIOR_PRESERVED_BIT) != 0) {
-                    mHasSwap = true;
-                }
-            }
 
             if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
                 final int error = mEgl.eglGetError();
@@ -1149,5 +1121,4 @@ abstract public class V8TextureView extends TextureView implements TextureView.S
     @Override
     public void onSurfaceTextureUpdated(final SurfaceTexture surface) {
     }
-
 }

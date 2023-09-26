@@ -155,7 +155,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
     private fun initRequest(init: JNIV8Object, isFromFetch: Boolean) {
         val fields = init.v8Fields
         // When initializing a request from init, set some defaults first
-        //TODO: do we need this?
         if (isFromFetch) {
             method = if (fields[KEY_METHOD] == "navigate") {
                 "same-origin"
@@ -269,9 +268,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             headers.append("accept", "*/*")
         }
 
-        if (parsedUrl.protocol.isEmpty() || parsedUrl.host.isEmpty()) {
-
-        }
         headers.applyToRequest(builder)
 
         body?.let {

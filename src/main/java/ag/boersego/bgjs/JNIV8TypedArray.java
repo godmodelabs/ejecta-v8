@@ -2,7 +2,7 @@ package ag.boersego.bgjs;
 
 import androidx.annotation.Keep;
 
-final public class JNIV8TypedArray extends JNIV8Object {
+public final class JNIV8TypedArray extends JNIV8Object {
     //------------------------------------------------------------------------
     // internal fields & methods
     @Keep

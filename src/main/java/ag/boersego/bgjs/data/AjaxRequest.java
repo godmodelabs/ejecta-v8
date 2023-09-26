@@ -66,7 +66,8 @@ public class AjaxRequest implements Runnable {
      */
     public static class AjaxTrafficCounter {
 
-        private static long trafficIn = 0, trafficOut = 0;
+        private static long trafficIn = 0;
+        private static long trafficOut = 0;
         private static final int[] trafficInPerMinute = {-1, -1, -1, -1, -1, -1};
         private static final int[] trafficOutPerMinute = {-1, -1, -1, -1, -1, -1};
         private static int lastTimeSlot;
@@ -94,7 +95,8 @@ public class AjaxRequest implements Runnable {
         }
 
         public static int getOutTrafficPerMinute() {
-            int numFieldsFound = 0, sum = 0;
+            int numFieldsFound = 0;
+            int sum = 0;
             for (int i = 0; i < 6; i++) {
                 if (trafficOutPerMinute[i] > -1) {
                     sum += trafficOutPerMinute[i];

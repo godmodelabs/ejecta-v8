@@ -41,9 +41,19 @@ import ag.boersego.v8annotations.*;
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class V8AnnotationProcessor extends AbstractProcessor {
 
-    private static TypeMirror sBooleanBox, sCharBox, sLongBox, sIntBox, sFloatBox, sDoubleBox, sShortBox, sByteBox;
+    private static TypeMirror sBooleanBox;
+    private static TypeMirror sCharBox;
+    private static TypeMirror sLongBox;
+    private static TypeMirror sIntBox;
+    private static TypeMirror sFloatBox;
+    private static TypeMirror sDoubleBox;
+    private static TypeMirror sShortBox;
+    private static TypeMirror sByteBox;
     private static TypeMirror sObjectType, sStringType;
-    private static TypeMirror sV8FunctionType, sV8GenericObjectType, sV8ObjectType, sV8ArrayType, sV8UndefinedType;
+    private static TypeMirror sV8FunctionType;
+    private static TypeMirror sV8GenericObjectType;
+    private static TypeMirror sV8ObjectType;
+    private static TypeMirror sV8ArrayType;
 
     private static class V8Nullable {
         boolean nullable;
@@ -227,7 +237,6 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             if (tuple.kind != null) {
                 typeCode = getJniCodeForType(tuple.getter, tuple.kind, false);
             }
-            String typeName = tuple.kind != null ? tuple.kind.toString() : null;
             boolean isGetterStatic = tuple.getter != null && tuple.getter.getModifiers().contains(Modifier.STATIC);
             boolean isSetterStatic = tuple.setter != null && tuple.setter.getModifiers().contains(Modifier.STATIC);
             if (tuple.getter != null && tuple.setter != null && isGetterStatic != isSetterStatic) {
@@ -366,7 +375,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             // validate signature
             ExecutableType emeth = (ExecutableType) element.asType();
             getterKind = emeth.getReturnType();
-            if (emeth.getParameterTypes().size() != 0) {
+            if (!emeth.getParameterTypes().isEmpty()) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "annotated method must not require parameters", element);
             }
             // store
@@ -409,9 +418,6 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             // store
             if (validateAccessorType(element, setterKind)) {
                 parseAccessorNullable(tuple, element, setterKind);
-                if (tuple.nullable) {
-                    // @TODO: something missing here?
-                }
             }
             if(tuple.kind == null) {
                 tuple.kind = setterKind;
@@ -437,10 +443,8 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         List<? extends AnnotationMirror> mirrors = param.getAnnotationMirrors();
         for (AnnotationMirror annotation : mirrors) {
             final String annotationName = annotation.toString();
-            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "Annotationmirror is " + annotationName, element);
             if (annotationName.equals("@ag.boersego.v8annotations.V8UndefinedIsNull")) {
                 undefinedIsNull = true;
-                // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "undefined is null", element);
                 continue;
             }
             if (annotationName.endsWith(".NotNull")) {
@@ -455,7 +459,6 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         tuple.nullable = true;
 
         if (!undefinedIsNull) {
-            // processingEnv.getMessager().printMessage(Diagnostic.Kind.MANDATORY_WARNING, "nullable annotation is " + element.getAnnotation(V8UndefinedIsNull.class), element);
             undefinedIsNull = element.getAnnotation(V8UndefinedIsNull.class) != null;
         }
 

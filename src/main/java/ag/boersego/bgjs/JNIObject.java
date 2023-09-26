@@ -7,7 +7,7 @@ import java.lang.reflect.Modifier;
  * Created by martin on 18.04.17.
  */
 
-abstract public class JNIObject {
+public abstract class JNIObject {
     private static ReferenceQueue<JNIObject> referenceQueue;
     private static final Thread finalizingThread;
 
@@ -23,7 +23,7 @@ abstract public class JNIObject {
         finalizingThread.start();
     }
 
-    static public void RegisterClass(Class<? extends JNIObject> derivedClass) {
+    public static void RegisterClass(Class<? extends JNIObject> derivedClass) {
         if (Modifier.isAbstract(derivedClass.getModifiers())) {
             throw new RuntimeException("Abstract classes can not be registered");
         }
@@ -37,7 +37,7 @@ abstract public class JNIObject {
 
         RegisterClass(derivedClass.getCanonicalName(), superClass.getCanonicalName());
     }
-    static private native void RegisterClass(String derivedClass, String baseClass);
+    private static native void RegisterClass(String derivedClass, String baseClass);
 
     /**
      * default constructor; will always initialize the jni side of the object automatically
