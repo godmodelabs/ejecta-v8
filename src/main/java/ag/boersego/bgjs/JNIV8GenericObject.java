@@ -24,7 +24,7 @@ public final class JNIV8GenericObject extends JNIV8Object {
     //------------------------------------------------------------------------
     // internal fields & methods
     @Keep
-    protected JNIV8GenericObject(V8Engine engine, long jsObjPtr, Object[] arguments) {
+    private JNIV8GenericObject(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
     }
 

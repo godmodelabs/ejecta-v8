@@ -1,13 +1,13 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
-    ext.kotlin_version = '1.7.0'
+    ext.kotlin_version = '1.8.0'
     repositories {
         mavenCentral()
         google()
         maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.1'
+        classpath 'com.android.tools.build:gradle:8.1.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -38,8 +38,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
 //    kotlin {
@@ -47,7 +47,7 @@ android {
 //    }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 
     externalNativeBuild {
@@ -62,7 +62,7 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
     implementation 'com.squareup.okhttp3:okhttp:5.0.0-alpha.11'
-    compileOnly "androidx.annotation:annotation:1.6.0"
+    compileOnly "androidx.annotation:annotation:1.7.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     kapt project(path: ':ejecta-v8:v8annotations-compiler')
     api project(path: ':ejecta-v8:v8annotations')
@@ -74,7 +74,7 @@ task distributeDebug() {
         delete "dist/debug"
         mkdir "dist/debug/jni"
         copy {
-            from "build/intermediates/cmake/debug/obj"
+            from "build/intermediates/library_jni/debug/jni"
             into "dist/debug/jni"
         }
     }
@@ -85,7 +85,7 @@ task distributeRelease {
         delete "dist/release"
         mkdir "dist/release/jni"
         copy {
-            from "build/intermediates/cmake/release/obj"
+            from "build/intermediates/library_jni/release/jni"
             into "dist/release/jni"
         }
     }
