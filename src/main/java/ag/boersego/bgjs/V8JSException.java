@@ -68,8 +68,8 @@ public class V8JSException extends RuntimeException {
 
     //------------------------------------------------------------------------
     // internal fields & methods
-    private Object v8Exception;
-    private boolean causedByJS;
+    private final Object v8Exception;
+    private final boolean causedByJS;
     private V8JSException(String message, Object v8Exception, Throwable cause) {
         super(message, cause);
         this.v8Exception = v8Exception;

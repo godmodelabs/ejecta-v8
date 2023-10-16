@@ -17,7 +17,7 @@ public abstract class JNIV8Module {
         void onResume();
     }
 
-    private String name;
+    private final String name;
 
     public JNIV8Module(String name) {
         this.name = name;

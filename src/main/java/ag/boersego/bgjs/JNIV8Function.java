@@ -115,7 +115,7 @@ public final class JNIV8Function extends JNIV8Object {
     private native Object _callAsV8Function(boolean asConstructor, int flags, int type, Class returnType, Object receiver, String callContext, Object... arguments);
 
     @Keep
-    protected JNIV8Function(V8Engine engine, long jsObjPtr, Object[] arguments) {
+    private JNIV8Function(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
     }
 }

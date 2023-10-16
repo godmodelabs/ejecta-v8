@@ -95,7 +95,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
 
     private static class AnnotatedFunctionParamHolder extends V8Nullable {
 
-        private String type;
+        private final String type;
 
         public AnnotatedFunctionParamHolder(String paramType) {
             type = paramType;

@@ -53,11 +53,11 @@ final class JNIObjectReference extends PhantomReference<JNIObject> {
 
     private JNIObjectReference next;
     private JNIObjectReference prev;
-    private long nativeHandle;
+    private final long nativeHandle;
 
-    private static ReferencePool referencePool = new ReferencePool();
+    private static final ReferencePool referencePool = new ReferencePool();
 
-    protected static native boolean disposeNative(long nativeHandle);
+    private static native boolean disposeNative(long nativeHandle);
 
     public JNIObjectReference(JNIObject obj, long nativeHandle, ReferenceQueue<JNIObject> referenceQueue) {
         super(obj, referenceQueue);

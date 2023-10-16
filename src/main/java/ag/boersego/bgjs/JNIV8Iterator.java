@@ -8,7 +8,7 @@ import java.util.Iterator;
 
 @V8Class(creationPolicy = V8ClassCreationPolicy.JAVA_ONLY)
 public class JNIV8Iterator extends JNIV8Object {
-    private Iterator<Object> iterator;
+    private final Iterator<Object> iterator;
 
     public JNIV8Iterator(V8Engine engine, Iterator<Object> iterator) {
         super(engine);

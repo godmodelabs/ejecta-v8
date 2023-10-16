@@ -97,7 +97,7 @@ public final class JNIV8Array extends JNIV8Object implements Iterable<Object> {
     private native Object[] _getV8Elements(int flags, int type, Class returnType, int from, int to);
 
     @Keep
-    protected JNIV8Array(V8Engine engine, long jsObjPtr, Object[] arguments) {
+    private JNIV8Array(V8Engine engine, long jsObjPtr, Object[] arguments) {
         super(engine, jsObjPtr, arguments);
     }
 
@@ -127,11 +127,10 @@ public final class JNIV8Array extends JNIV8Object implements Iterable<Object> {
 
     @Override
     public boolean equals(final Object other) {
-        if (!(other instanceof JNIV8Array)) {
+        if (!(other instanceof final JNIV8Array otherArray)) {
             return super.equals(other);
         }
 
-        final JNIV8Array otherArray = (JNIV8Array)other;
         if (otherArray.getV8Length() != getV8Length()) {
             return false;
         }

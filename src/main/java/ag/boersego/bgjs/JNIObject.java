@@ -8,7 +8,7 @@ import java.lang.reflect.Modifier;
  */
 
 public abstract class JNIObject {
-    private static ReferenceQueue<JNIObject> referenceQueue;
+    private static final ReferenceQueue<JNIObject> referenceQueue;
     private static final Thread finalizingThread;
 
     private JNIObjectReference reference;
