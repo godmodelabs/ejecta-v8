@@ -25,11 +25,10 @@ import javax.lang.model.util.SimpleTypeVisitor6;
 public class Util {
     /** Returns a string for the raw type of {@code type}. Primitive types are always boxed. */
     public static String rawTypeToString(TypeMirror type, char innerClassSeparator) {
-        if (!(type instanceof DeclaredType)) {
+        if (!(type instanceof DeclaredType declaredType)) {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
         StringBuilder result = new StringBuilder();
-        DeclaredType declaredType = (DeclaredType) type;
         rawTypeToString(result, (TypeElement) declaredType.asElement(), innerClassSeparator);
         return result.toString();
     }

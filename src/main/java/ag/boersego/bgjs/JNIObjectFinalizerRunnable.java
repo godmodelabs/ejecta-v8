@@ -9,7 +9,7 @@ import java.lang.ref.ReferenceQueue;
  * Running in the FinalizingDaemon thread (managed by JNIObject) to free native objects.
  */
 final class JNIObjectFinalizerRunnable implements Runnable {
-    private ReferenceQueue<JNIObject> referenceQueue;
+    private final ReferenceQueue<JNIObject> referenceQueue;
 
     JNIObjectFinalizerRunnable(ReferenceQueue<JNIObject> referenceQueue) {
         this.referenceQueue = referenceQueue;

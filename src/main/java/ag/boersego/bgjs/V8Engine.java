@@ -37,7 +37,7 @@ public class V8Engine extends JNIObject {
 
     private static final String TAG = V8Engine.class.getSimpleName();
 
-    private ArrayList<JNIV8Module> mModules = new ArrayList<>();
+    private final ArrayList<JNIV8Module> mModules = new ArrayList<>();
 
     public native void pause();
 
