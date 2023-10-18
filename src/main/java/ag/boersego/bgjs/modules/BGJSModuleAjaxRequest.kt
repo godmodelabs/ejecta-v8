@@ -155,7 +155,7 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
 
                         } else {
                             var info: String? = null
-                            var failDetails: HttpResponseDetails? = null
+                            val failDetails: HttpResponseDetails?
                             if (mErrorThrowable != null) {
                                 info = if (mErrorThrowable is SocketTimeoutException || mErrorThrowable is UnknownHostException) "timeout" else "error"
                             }
@@ -165,7 +165,6 @@ class BGJSModuleAjaxRequest(engine: V8Engine) : JNIV8Object(engine), Runnable {
                             if (DEBUG) {
                                 Log.d(TAG, "ajax $method error response $mErrorCode for $url with type $contentType and body $mErrorData")
                             }
-                            // Log.d(TAG, "Error code $mErrorCode, info $info, body $mErrorData")
                             val errorObj = JNIV8GenericObject.Create(v8Engine)
                             if (_responseIsJson && mErrorData != null) {
                                 val parsedResponse: Any?

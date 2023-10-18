@@ -62,7 +62,6 @@ public class AjaxRequest implements Runnable {
 
     /**
      * This traffic-counting code is also in Java-WebSocket.
-     * TODO: Share code.
      */
     public static class AjaxTrafficCounter {
 
@@ -81,7 +80,8 @@ public class AjaxRequest implements Runnable {
         }
 
         public static int getInTrafficPerMinute() {
-            int numFieldsFound = 0, sum = 0;
+            int numFieldsFound = 0;
+            int sum = 0;
             for (int i = 0; i < 6; i++) {
                 if (trafficInPerMinute[i] > -1) {
                     sum += trafficInPerMinute[i];
@@ -262,6 +262,7 @@ public class AjaxRequest implements Runnable {
                     try {
                         Log.w(TAG, "no referer set " + mCaller.getClass().getCanonicalName());
                     } catch (final Exception ignored) {
+                        //no action intended
                     }
                 }
             }
@@ -280,25 +281,25 @@ public class AjaxRequest implements Runnable {
                         if (mFileName != null) {
                             RequestBody requestBody = new MultipartBody.Builder()
                                     .setType(MultipartBody.FORM)
-                                    .addFormDataPart("filename", mFileName, RequestBody.create(MediaType.parse(mOutputType), mData))
+                                    .addFormDataPart("filename", mFileName, RequestBody.create(mData, MediaType.parse(mOutputType)))
                                     .build();
 
                             requestBuilder.post(requestBody);
 
                         } else {
-                            requestBuilder.post(RequestBody.create(MediaType.parse(mOutputType), mData));
+                            requestBuilder.post(RequestBody.create(mData, MediaType.parse(mOutputType)));
                         }
 
                     } else {
                         if (mMethod.equals("POST")) {
-                            requestBuilder.post(RequestBody.create(MediaType.parse("application/x-www-form-urlencoded"), mData));
+                            requestBuilder.post(RequestBody.create(mData, MediaType.parse("application/x-www-form-urlencoded")));
                         }
                     }
                 } else if (mMethod != null) {
                     if (mMethod.equals("DELETE")) {
                         requestBuilder.delete();
                     } else if (mMethod.equals("POST")) {
-                        requestBuilder.post(RequestBody.create(null, new byte[0]));
+                        requestBuilder.post(RequestBody.create(new byte[0], null));
                     }
                 }
             }
@@ -326,7 +327,6 @@ public class AjaxRequest implements Runnable {
             response = client.newCall(request).execute();
 
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
-            final String responseStr;
             int dataSizeGuess = (int) response.body().contentLength();
             if (dataSizeGuess > 0) {
                 AjaxTrafficCounter.addTraffic(0, dataSizeGuess);
@@ -340,6 +340,7 @@ public class AjaxRequest implements Runnable {
                 try {
                     mErrorData = response.body().string();
                 } catch (Exception ignored) {
+                    //no action intended
                 }
                 mErrorCode = response.code();
             }
