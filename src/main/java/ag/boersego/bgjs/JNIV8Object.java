@@ -135,19 +135,19 @@ public abstract class JNIV8Object extends JNIObject {
     public static double asNumber(Object obj) {
         if(obj == null) {
             return 0;
-        } else if(obj instanceof JNIV8Object) {
-            return ((JNIV8Object) obj).toNumber();
-        } else if(obj instanceof Number) {
+        } else if(obj instanceof JNIV8Object object) {
+            return object.toNumber();
+        } else if(obj instanceof Number number) {
             // handles Byte, Short, Integer, Long, Float, Double
-            return ((Number)obj).doubleValue();
-        } else if(obj instanceof String) {
-            return Double.valueOf((String)obj);
-        } else if(obj instanceof Boolean) {
-            return ((Boolean) obj ? 1 : 0);
+            return number.doubleValue();
+        } else if(obj instanceof String string) {
+            return Double.valueOf(string);
+        } else if(obj instanceof Boolean bool) {
+            return (bool ? 1 : 0);
         } else if(obj instanceof JNIV8Undefined) {
             return Double.NaN;
-        } else if(obj instanceof Character) {
-            return Character.getNumericValue((Character) obj);
+        } else if(obj instanceof Character character) {
+            return Character.getNumericValue(character);
         }
         // other java-only types are "false"
         throw new ClassCastException("Cannot convert to number: " + obj);

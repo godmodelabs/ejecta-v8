@@ -208,11 +208,6 @@ class BGJSModuleFetch(private val okHttpClient: OkHttpClient) : JNIV8Module("fet
                                 redirectRequest.parsedUrl = it
                                 redirectRequest.counter++
 
-                                // TODO:  HTTP-redirect fetch step 9
-                                if (httpResponse.code != 303 && request.body != null) {
-
-                                }
-
                                 // HTTP-redirect fetch step 11
                                 if (httpResponse.code == 303 || ((httpResponse.code == 301 || httpResponse.code == 302) && request.method == "POST")) {
                                     redirectRequest.method = "GET"
@@ -254,17 +249,9 @@ class BGJSModuleFetch(private val okHttpClient: OkHttpClient) : JNIV8Module("fet
                     }
                 }
 
-
-                //TODO: deflate
-                // handle the infamous raw deflate response from old servers
-                // a hack for old IIS and Apache servers
-                if (codings == "deflate" || codings == "x-deflate") {
-
-                }
                 resolver.resolve(fetchResponse)
             }
         })
-
     }
 
     companion object {

@@ -25,25 +25,28 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         val exports = JNIV8GenericObject.Create(engine)
 
         exports.setV8Accessor("length", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.isNotEmpty()) {
-                throw IllegalArgumentException("clear needs no arguments")
+            require(arguments.isEmpty()) {
+                "length needs no arguments"
             }
+
             preferences.all.size
         }, null)
 
         exports.setV8Field("clear", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.isNotEmpty()) {
-                throw IllegalArgumentException("clear needs no arguments")
+            require(arguments.isEmpty()) {
+                "clear needs no arguments"
             }
+
             preferences.edit().clear().apply()
             insertOrderPref.edit().clear().apply()
             JNIV8Undefined.GetInstance()
         })
 
         exports.setV8Field("getItem", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.isEmpty() || arguments[0] !is String) {
-                throw IllegalArgumentException("getItem needs one parameter of type String")
+            require(arguments.isNotEmpty() && arguments[0] is String) {
+                "getItem needs one parameter of type String"
             }
+
             val key = arguments[0] as String
 
             preferences.getString(key, null)
@@ -55,10 +58,11 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         // (Thus, adding or removing a key may change the order of the keys, but merely changing the value of an existing key must not.)
         // If n is greater than or equal to the number of key/value pairs in the object, then this method must return null.
 
-        exports.setV8Field("key", JNIV8Function.Create(engine) { receiver, arguments ->
-            if (arguments.isEmpty() || arguments[0] !is Double) {
-                throw IllegalArgumentException("getItem needs one parameter of type Number")
+        exports.setV8Field("key", JNIV8Function.Create(engine) { _, arguments ->
+            require(arguments.isNotEmpty() && arguments[0] is Double) {
+                "getItem needs one parameter of type Number"
             }
+
             val index = (arguments[0] as Double).toInt()
             val orderedKeys = insertOrderPref.getString(INSERT_ORDER_KEY, null)?.split(",")
             if (orderedKeys != null && index < orderedKeys.size) {
@@ -69,9 +73,10 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         })
 
         exports.setV8Field("removeItem", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.isEmpty() || arguments[0] !is String) {
-                throw IllegalArgumentException("removeItem needs one parameter of type String")
+            require(arguments.isNotEmpty() && arguments[0] is String) {
+                "removeItem needs one parameter of type String"
             }
+
             val key = arguments[0] as String
             preferences.edit().remove(key).apply()
 
@@ -83,9 +88,10 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         })
 
         exports.setV8Field("setItem", JNIV8Function.Create(engine) { _, arguments ->
-            if (arguments.size < 2 || arguments[0] !is String) {
-                throw IllegalArgumentException("setItem needs two parameters of type String")
+            require(arguments.size >= 2 && arguments[0] is String) {
+                "setItem needs two parameters of type String"
             }
+
             val key = arguments[0] as String
             val value = when (arguments[1]) {
                 is JNIV8Undefined -> "undefined"
@@ -116,8 +122,6 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         private const val SHARED_PREFS_INSERT_ORDER = "insertOrder"
         private const val INSERT_ORDER_KEY = "insert_order"
         @Volatile private var instance: BGJSModuleLocalStorage? = null
-
-        const val PREF_KEY_AUTH_STATE = "auth:state"
 
         @JvmStatic
         fun getInstance(ctx : Context) : BGJSModuleLocalStorage {

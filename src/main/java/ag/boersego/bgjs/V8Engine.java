@@ -215,8 +215,8 @@ public class V8Engine extends JNIObject {
      */
     protected void onSuspend() {
         for (final JNIV8Module module : mModules) {
-            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
-                ((JNIV8Module.IJNIV8Suspendable) module).onSuspend();
+            if (module instanceof JNIV8Module.IJNIV8Suspendable suspendable) {
+                suspendable.onSuspend();
             }
         }
     }
@@ -226,8 +226,8 @@ public class V8Engine extends JNIObject {
      */
     protected void onResume() {
         for (final JNIV8Module module : mModules) {
-            if (module instanceof JNIV8Module.IJNIV8Suspendable) {
-                ((JNIV8Module.IJNIV8Suspendable) module).onResume();
+            if (module instanceof JNIV8Module.IJNIV8Suspendable suspendable) {
+                suspendable.onResume();
             }
         }
     }

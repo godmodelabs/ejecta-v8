@@ -393,7 +393,7 @@ public abstract class V8TextureView extends TextureView implements TextureView.S
             mClearAlpha = ((c & 0xff000000L) >> 24) / 256f;
             mClearRed = ((c & 0x00ff0000L) >> 16) / 256f;
             mClearGreen = ((c & 0x0000ff00L) >> 8) / 256f;
-            mClearBlue = ((c & 0x000000ffL)) / 256f;
+            mClearBlue = (c & 0x000000ffL) / 256f;
             mClearColorSet = true;
         } catch (final Exception e) {
             Log.i(TAG, "Cannot set clear color from background color", e);
@@ -777,6 +777,7 @@ public abstract class V8TextureView extends TextureView implements TextureView.S
                 try {
                     finishGL();
                 } catch (final Exception ignored) {
+                    //no action intended
                 }
                 return;
             }
@@ -896,6 +897,7 @@ public abstract class V8TextureView extends TextureView implements TextureView.S
                         try {
                             Thread.sleep(16 - (renderDone - startRender));
                         } catch (final InterruptedException ignored) {
+                            //no action intended
                         }
                     }
                 }
