@@ -163,16 +163,16 @@ public abstract class JNIV8Object extends JNIObject {
             return false;
         } else if(obj instanceof JNIV8Object) {
             return true;
-        } else if (obj instanceof Number) {
-            return ((Number)obj).intValue() > 0;
-        } else if (obj instanceof String) {
-            return !((String)obj).isEmpty();
-        } else if (obj instanceof Boolean) {
-            return ((Boolean)obj);
+        } else if (obj instanceof Number n) {
+            return n.intValue() > 0;
+        } else if (obj instanceof String s) {
+            return !s.isEmpty();
+        } else if (obj instanceof Boolean b) {
+            return b;
         } else if (obj instanceof JNIV8Undefined) {
             return false;
-        } else if(obj instanceof Character) {
-            return (Character) obj > 0;
+        } else if(obj instanceof Character c) {
+            return c > 0;
         }
         // other java-only types are "false"
         throw new ClassCastException("Cannot convert to boolean: " + obj);

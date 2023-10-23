@@ -49,11 +49,14 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
     private static TypeMirror sDoubleBox;
     private static TypeMirror sShortBox;
     private static TypeMirror sByteBox;
-    private static TypeMirror sObjectType, sStringType;
+    private static TypeMirror sObjectType;
+    private static TypeMirror sStringType;
     private static TypeMirror sV8FunctionType;
     private static TypeMirror sV8GenericObjectType;
     private static TypeMirror sV8ObjectType;
     private static TypeMirror sV8ArrayType;
+
+    private static final String symbolIdentifier = "symbol:";
 
     private static class V8Nullable {
         boolean nullable;
@@ -176,7 +179,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             String property;
             V8Symbols symbol = e.getAnnotation(V8Function.class).symbol();
             if(symbol != V8Symbols.NONE) {
-                property = "symbol:" + symbol.toString();
+                property = symbolIdentifier + symbol.toString();
             } else {
                 property = e.getAnnotation(V8Function.class).property();
                 if (property.isEmpty()) {
@@ -360,7 +363,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             String property;
             V8Symbols symbol = element.getAnnotation(V8Getter.class).symbol();
             if(symbol != V8Symbols.NONE) {
-                property = "symbol:" + symbol.toString();
+                property = symbolIdentifier + symbol.toString();
             } else {
                 property = element.getAnnotation(V8Getter.class).property();
                 if (property.isEmpty()) {
@@ -391,7 +394,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             String property;
             V8Symbols symbol = element.getAnnotation(V8Setter.class).symbol();
             if(symbol != V8Symbols.NONE) {
-                property = "symbol:" + symbol.toString();
+                property = symbolIdentifier + symbol.toString();
             } else {
                 property = element.getAnnotation(V8Setter.class).property();
                 if (property.isEmpty()) {
@@ -432,10 +435,10 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         return true;
     }
 
-    private boolean parseAccessorNullable(final V8Nullable tuple, final Element element, final TypeMirror mirror) {
+    private void parseAccessorNullable(final V8Nullable tuple, final Element element, final TypeMirror mirror) {
         if (mirror.getKind().isPrimitive()) {
             tuple.nullable = false;
-            return false;
+            return;
         }
 
         boolean undefinedIsNull = false;
@@ -449,7 +452,7 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
             }
             if (annotationName.endsWith(".NotNull")) {
                 tuple.nullable = false;
-                return false;
+                return;
             }
             if (annotationName.endsWith(".Nullable")) {
                 tuple.nullable = true;
@@ -467,22 +470,15 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
         if (!tuple.nullable && tuple.undefinedIsNull) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "item not nullable but can be set to undefined", element);
         }
-        return tuple.nullable;
     }
 
     private boolean validateAccessorType(final Element element, final TypeMirror mirror) {
         final Types types = processingEnv.getTypeUtils();
         switch (mirror.getKind()) {
-            case BOOLEAN:
-            case INT:
-            case BYTE:
-            case CHAR:
-            case SHORT:
-            case LONG:
-            case FLOAT:
-            case DOUBLE:
+            case BOOLEAN, INT, BYTE, CHAR, SHORT, LONG, FLOAT, DOUBLE -> {
                 return true;
-            case DECLARED:
+            }
+            case DECLARED -> {
                 // Check if it is an autoboxed type
                 if (types.isSameType(mirror, sBooleanBox)
                         || types.isSameType(mirror, sCharBox)
@@ -511,9 +507,11 @@ public final class V8AnnotationProcessor extends AbstractProcessor {
                 // We can't accept other types
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot call accessor with type " + mirror + "  which is neither primitive, boxed or JNIV8 specific", element);
                 return false;
-            default:
+            }
+            default -> {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot call accessor with type " + mirror, element);
                 return false;
+            }
         }
     }
 

@@ -312,15 +312,6 @@ class BGJSModuleFetchRequest @JvmOverloads constructor(v8Engine: V8Engine, jsPtr
             headers.set("accept-encoding", "identity")
         }
 
-        // TODO: cookies
-        // test okhttp cookie jar
-
-        // TODO: 19. If httpRequest’s cache mode is neither "no-store" nor "reload", then:
-        // Set storedResponse to the result of selecting a response from the HTTP cache, possibly needing validation, as per the "Constructing Responses from Caches" chapter of HTTP Caching [HTTP-CACHING], if any.
-        // If storedResponse is non-null, then:
-        // If response is null: If httpRequest’s cache mode is "only-if-cached", then return a network error.
-        // If httpRequest’s method is unsafe and forwardResponse’s status is in the range 200 to 399, inclusive, invalidate appropriate stored responses in the HTTP cache, as per the "Invalidation" chapter of HTTP Caching, and set storedResponse to null. [HTTP-CACHING]
-
         headers.applyToRequest(builder)
 
         val body = body

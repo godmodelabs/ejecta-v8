@@ -574,7 +574,7 @@ public abstract class V8TextureView extends TextureView implements TextureView.S
             final int numConfigs = configs.length;
             Log.w(TAG, String.format("%d configurations", numConfigs));
             for (int i = 0; i < numConfigs; i++) {
-                Log.w(TAG, String.format("Configuration %d:\n", i));
+                Log.w(TAG, String.format("Configuration %d:%n", i));
                 printConfig(egl, display, configs[i]);
             }
         }
@@ -619,7 +619,7 @@ public abstract class V8TextureView extends TextureView implements TextureView.S
                 final int attribute = attributes[i];
                 final String name = names[i];
                 if (egl.eglGetConfigAttrib(display, config, attribute, value)) {
-                    Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
+                    Log.w(TAG, String.format("  %s: %d%n", name, value[0]));
                 } else {
                     while (egl.eglGetError() != EGL10.EGL_SUCCESS)
                         ;

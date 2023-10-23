@@ -88,15 +88,6 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
             return false
         }
 
-        //TODO: Timeout
-//        // allow timeout on slow response body
-//        if (this.timeout) {
-//            resTimeout = setTimeout(() => {
-//                abort = true;
-//                reject(new FetchError(`Response timeout while trying to fetch ${this.url} (over ${this.timeout}ms)`, 'body-timeout'));
-//            }, this.timeout);
-//        }
-
         return true
     }
 
@@ -104,10 +95,8 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
         fun createBodyFromRaw(bodyRaw: Any?): InputStream? {
             return when (bodyRaw) {
                 is InputStream -> bodyRaw
-                //TODO: URLSearchParams are parsed from javascript as JNIV8GenericObject, how do we check isURLSearchParam? see https://github.com/bitinn/node-fetch/issues/296#issuecomment-307598143
                 is JNIV8GenericObject -> (bodyRaw as? JNIV8Object)?.toString()?.byteInputStream()
                 is BGJSModuleFormData -> bodyRaw.toInputStream()
-                //TODO: Check how JNIv8Arraybuffer will be handled
                 is JNIV8ArrayBuffer -> bodyRaw.toString().byteInputStream()
                 else -> (bodyRaw as? String)?.byteInputStream()
             }
@@ -115,10 +104,9 @@ abstract class BGJSModuleFetchBody @JvmOverloads constructor(v8Engine: V8Engine,
 
         fun extractContentType (bodyRaw: Any?): String? {
             return when (bodyRaw) {
-                //TODO: check isURLSearchParam? see https://github.com/bitinn/node-fetch/issues/296#issuecomment-307598143
                 is JNIV8GenericObject -> "application/x-www-form-urlencoded"
                 is BGJSModuleFormData -> "application/x-www-form-urlencoded "
-                is JNIV8ArrayBuffer -> null //TODO
+                is JNIV8ArrayBuffer -> null
                 is InputStream -> null
                 else -> "text/plain;charset=UTF-8"
             }

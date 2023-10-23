@@ -55,28 +55,18 @@ public class Util {
     }
 
     private static TypeName box(PrimitiveType primitiveType) {
-        switch (primitiveType.getKind()) {
-            case BYTE:
-                return ClassName.get(Byte.class);
-            case SHORT:
-                return ClassName.get(Short.class);
-            case INT:
-                return ClassName.get(Integer.class);
-            case LONG:
-                return ClassName.get(Long.class);
-            case FLOAT:
-                return ClassName.get(Float.class);
-            case DOUBLE:
-                return ClassName.get(Double.class);
-            case BOOLEAN:
-                return ClassName.get(Boolean.class);
-            case CHAR:
-                return ClassName.get(Character.class);
-            case VOID:
-                return ClassName.get(Void.class);
-            default:
-                throw new AssertionError();
-        }
+        return switch (primitiveType.getKind()) {
+            case BYTE -> ClassName.get(Byte.class);
+            case SHORT -> ClassName.get(Short.class);
+            case INT -> ClassName.get(Integer.class);
+            case LONG -> ClassName.get(Long.class);
+            case FLOAT -> ClassName.get(Float.class);
+            case DOUBLE -> ClassName.get(Double.class);
+            case BOOLEAN -> ClassName.get(Boolean.class);
+            case CHAR -> ClassName.get(Character.class);
+            case VOID -> ClassName.get(Void.class);
+            default -> throw new AssertionError();
+        };
     }
 
     static void typeToString(final TypeMirror type, final StringBuilder result, final char innerClassSeparator)  {
