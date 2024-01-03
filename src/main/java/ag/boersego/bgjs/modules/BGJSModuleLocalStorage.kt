@@ -95,8 +95,8 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
             val key = arguments[0] as String
             val value = when (arguments[1]) {
                 is JNIV8Undefined -> "undefined"
-                null ->  "null"
-                else -> arguments[1].toString()
+                null              -> "null"
+                else              -> arguments[1].toString()
             }
             preferences.edit().putString(key, value).apply()
 
@@ -113,7 +113,7 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         preferences.registerOnSharedPreferenceChangeListener(listener)
     }
 
-    fun getItem(key: String) : String {
+    fun getItem(key: String): String {
         return preferences.getString(key, "") ?: ""
     }
 
@@ -121,18 +121,19 @@ class BGJSModuleLocalStorage private constructor(applicationContext: Context) : 
         const val SHARED_PREFS_LOCALSTORAGE = "localStorage"
         private const val SHARED_PREFS_INSERT_ORDER = "insertOrder"
         private const val INSERT_ORDER_KEY = "insert_order"
-        @Volatile private var instance: BGJSModuleLocalStorage? = null
+        @Volatile
+        private var instance: BGJSModuleLocalStorage? = null
 
         @JvmStatic
-        fun getInstance(ctx : Context) : BGJSModuleLocalStorage {
+        fun getInstance(ctx: Context): BGJSModuleLocalStorage {
             val i = instance
-            if(i != null) {
+            if (i != null) {
                 return i
             }
 
             return synchronized(this) {
                 val i2 = instance
-                if(i2 != null) {
+                if (i2 != null) {
                     i2
                 } else {
                     val created = BGJSModuleLocalStorage(ctx)
