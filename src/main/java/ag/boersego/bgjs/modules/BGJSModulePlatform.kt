@@ -16,8 +16,8 @@ import java.util.*
 class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine, val appVersion: String) : JNIV8Module("platform") {
     private var isTablet = applicationContext.resources.getBoolean(R.bool.isTablet)
     private val intentFilter = IntentFilter().apply {
-        addAction(Intent.ACTION_LOCALE_CHANGED)
         addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        addAction(ACTION_LOCALE_CHANGED)
     }
 
     private lateinit var eventBus: JNIV8GenericObject
@@ -25,7 +25,7 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine, val ap
     private var localeChangedReciever = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                Intent.ACTION_LOCALE_CHANGED -> eventBus.callV8Method("dispatch", "platform:locale", Locale.getDefault().toString())
+                ACTION_LOCALE_CHANGED -> eventBus.callV8Method("dispatch", "platform:locale", Locale.getDefault().toString())
                 Intent.ACTION_TIMEZONE_CHANGED -> eventBus.callV8Method("dispatch", "platform:timeZone", TimeZone.getDefault().id)
             }
         }
@@ -56,7 +56,6 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine, val ap
     }
 
     companion object {
-        private val TAG = BGJSModulePlatform::class.java.simpleName
+        const val ACTION_LOCALE_CHANGED = "actionLocaleChanged"
     }
-
 }
