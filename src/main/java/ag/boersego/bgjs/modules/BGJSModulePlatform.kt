@@ -34,7 +34,11 @@ class BGJSModulePlatform(applicationContext: Context, v8Engine: V8Engine, val ap
     init {
         v8Engine.addStatusHandler {
             eventBus = v8Engine.require("./js/core/EventBus.js") as JNIV8GenericObject
-            applicationContext.registerReceiver(localeChangedReciever, intentFilter)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                applicationContext.registerReceiver(localeChangedReciever, intentFilter, Context.RECEIVER_EXPORTED)
+            } else {
+                applicationContext.registerReceiver(localeChangedReciever, intentFilter)
+            }
         }
     }
 
