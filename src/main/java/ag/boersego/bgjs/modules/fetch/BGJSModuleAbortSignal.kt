@@ -6,19 +6,21 @@ import ag.boersego.bgjs.V8Engine
 import ag.boersego.bgjs.V8JSException
 import ag.boersego.v8annotations.V8Function
 import ag.boersego.v8annotations.V8Getter
+import java.util.concurrent.CopyOnWriteArrayList
 
 
 /**
  * Created by dseifert on 17.September.2019
  */
 
-class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) : JNIV8Object(v8Engine, jsPtr, args) {
+class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr: Long = 0, args: Array<Any>? = null) :
+    JNIV8Object(v8Engine, jsPtr, args) {
 
     var aborted = false
         private set
         @V8Getter get
 
-    private var eventListeners = ArrayList<JNIV8Function>()
+    private var eventListeners = CopyOnWriteArrayList<JNIV8Function>()
 
     init {
         if (args != null) {
@@ -31,12 +33,12 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
         if (aborted) return
         aborted = true
         for (cb in eventListeners) {
-          cb.callAsV8Function("abort")
+            cb.callAsV8Function("abort")
         }
     }
 
     @V8Function
-    fun addEventListener (type: String, cb: JNIV8Function) {
+    fun addEventListener(type: String, cb: JNIV8Function) {
         if (type == "abort") {
             eventListeners.add(cb)
         }
@@ -47,8 +49,7 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
      * This is only a preliminary implementation, that will remove every cb with the same method body
      */
     @V8Function
-    fun removeEventListener (type: String, cb: JNIV8Function) {
-        eventListeners = eventListeners.filter { it != cb && it.toString() != cb.toString()} as ArrayList<JNIV8Function>
+    fun removeEventListener(type: String, cb: JNIV8Function) {
+        eventListeners.removeAll { it == cb && it.toString() == cb.toString() }
     }
-
 }
