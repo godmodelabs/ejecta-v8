@@ -40,7 +40,9 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
     @V8Function
     fun addEventListener(type: String, cb: JNIV8Function) {
         if (type == "abort") {
-            eventListeners.add(cb)
+            synchronized(eventListeners) {
+                eventListeners.add(cb)
+            }
         }
     }
 
@@ -50,6 +52,8 @@ class BGJSModuleAbortSignal @JvmOverloads constructor(v8Engine: V8Engine, jsPtr:
      */
     @V8Function
     fun removeEventListener(type: String, cb: JNIV8Function) {
-        eventListeners.removeAll { it == cb && it.toString() == cb.toString() }
+        synchronized(eventListeners) {
+            eventListeners.removeAll { it == cb && it.toString() == cb.toString() }
+        }
     }
 }
