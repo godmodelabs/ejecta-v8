@@ -1,13 +1,13 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
-    ext.kotlin_version = '1.9.21'
+    ext.kotlin_version = '2.1.21'
     repositories {
         mavenCentral()
         google()
         maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.2'
+        classpath 'com.android.tools.build:gradle:8.10.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -17,7 +17,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
 
 android {
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         minSdkVersion 21
@@ -64,7 +64,7 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
     implementation 'com.squareup.okhttp3:okhttp:5.0.0-alpha.11'
-    compileOnly "androidx.annotation:annotation:1.7.0"
+    compileOnly "androidx.annotation:annotation:1.9.1"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     kapt project(path: ':ejecta-v8:v8annotations-compiler')
     api project(path: ':ejecta-v8:v8annotations')
@@ -76,7 +76,7 @@ task distributeDebug() {
         delete "dist/debug"
         mkdir "dist/debug/jni"
         copy {
-            from "build/intermediates/library_jni/debug/jni"
+            from "build/intermediates/library_jni/debug/copyDebugJniLibsProjectOnly/jni"
             into "dist/debug/jni"
         }
     }
@@ -87,7 +87,7 @@ task distributeRelease {
         delete "dist/release"
         mkdir "dist/release/jni"
         copy {
-            from "build/intermediates/library_jni/release/jni"
+            from "build/intermediates/library_jni/release/copyReleaseJniLibsProjectOnly/jni"
             into "dist/release/jni"
         }
     }
