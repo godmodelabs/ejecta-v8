@@ -40,19 +40,24 @@ typedef struct
 
 class EJFont {
 private:
-	texture_font_t* _font;
-	EJTexture* _texture;
-	float _scale;
-	bool _copy;
-	uint32_t* _utf32buffer;
-	int _utf32bufsize;
-    bool _isFilled;
+    texture_font_t* _font;
+    bool _copy;
+    bool isFilled;
+    float _scale;
+    uint32_t* _utf32buffer;
+    size_t utf32bufsize;
+    EJTexture* _texture;
+    bool _textureInitialized;
+
+    void ensureTextureInitialized();
+    float measureStringFromBuffer(int length);
+
 public:
-	EJFont (const char* font, int size, bool fill, float contentScale);
-	void drawString (const char* text, EJCanvasContext* context, float x, float y);
-	float measureString (const char* string);
-	float measureStringFromBuffer (int length);
-	~EJFont();
+    EJFont(const char* font, int size, bool useFill, float cs);
+    ~EJFont();
+
+    void drawString(const char* utf8string, EJCanvasContext* toContext, float pen_x, float pen_y);
+    float measureString(const char* utf8string);
 };
 
 #endif
