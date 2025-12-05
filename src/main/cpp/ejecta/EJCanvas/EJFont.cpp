@@ -45,11 +45,6 @@ EJFont::EJFont(const char* font, int size, bool useFill, float cs) {
     utf32bufsize = 4096;
     _utf32buffer = (uint32_t*)malloc(utf32bufsize);
 
-    // Validate font data
-    LOGI("Font selected: size=%f, tex_width=%d, tex_height=%d, glyphs=%d, scale=%f",
-         _font->size, _font->tex_width, _font->tex_height,
-         _font->glyphs_count, _scale);
-
     if (!_font->tex_data) {
         LOGE("ERROR: Font texture data is NULL!");
     }
@@ -76,8 +71,6 @@ void EJFont::ensureTextureInitialized() {
     if (_textureInitialized && _texture && _texture->textureId != 0) {
         return;
     }
-
-    LOGI("Lazy initializing font texture...");
 
     // Validate font data before creating texture
     if (!_font->tex_data) {
@@ -122,8 +115,6 @@ void EJFont::ensureTextureInitialized() {
             return;
         }
 
-        LOGI("Manual texture creation: generated ID %d", texId);
-
         glBindTexture(GL_TEXTURE_2D, texId);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA,
                      _font->tex_width, _font->tex_height,
@@ -154,7 +145,6 @@ void EJFont::ensureTextureInitialized() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     _textureInitialized = true;
-    LOGI("Font texture initialized successfully: textureId=%d", _texture->textureId);
 }
 
 void EJFont::drawString(const char* utf8string, EJCanvasContext* toContext, float pen_x, float pen_y) {
@@ -216,9 +206,6 @@ void EJFont::drawString(const char* utf8string, EJCanvasContext* toContext, floa
     _texture->bind();
     toContext->setTexture(_texture);
 
-    LOGI("Drawing string '%s' with textureId=%d, length=%d",
-         utf8string, _texture->textureId, length);
-
     // Draw each glyph
     for (i = 0; i < length; ++i) {
         texture_glyph_t* glyph = 0;
@@ -235,13 +222,6 @@ void EJFont::drawString(const char* utf8string, EJCanvasContext* toContext, floa
             LOGI("Glyph not found for codepoint: %d (char: %c)",
                  _utf32buffer[i], _utf32buffer[i]);
             continue;
-        }
-
-        // Debug first character
-        if (i == 0) {
-            LOGI("First glyph: cp=%d, s0=%f, t0=%f, s1=%f, t1=%f, w=%d, h=%d",
-                 glyph->codepoint, glyph->s0, glyph->t0,
-                 glyph->s1, glyph->t1, glyph->width, glyph->height);
         }
 
         float x = (pen_x + glyph->offset_x * _scale);
