@@ -1020,19 +1020,23 @@ void BGJSV8Engine::OnTimerClosedCallback(uv_handle_t * handle) {
 
     ((TimerHolder*)handle->data)->closed = true;
 
-    BGJSV8Engine *engine = holder->engine.get();
+    // Keep the engine alive for the duration of this callback by retaining a copy of the
+    // shared_ptr. Without this, holder->engine.reset() below could drop the last reference
+    // and destroy the engine before engine->_timers.erase() is called (SIGSEGV).
+    auto engineRef = holder->engine;
+    BGJSV8Engine *engine = engineRef.get();
 
     V8Locker l(engine->getIsolate(), __FUNCTION__);
 
     holder->callback.Reset();
-    holder->engine.reset();
-    delete holder;
-
 
     auto it = std::find(engine->_timers.begin(), engine->_timers.end(), holder);
     if(it != engine->_timers.end()) {
         engine->_timers.erase(it);
     }
+
+    holder->engine.reset();
+    delete holder;
 }
 
 void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackInfo<v8::Value> &args) {
