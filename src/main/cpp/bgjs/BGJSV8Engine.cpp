@@ -1000,6 +1000,10 @@ void BGJSV8Engine::OnTimerTriggeredCallback(uv_timer_t * handle) {
     v8::MaybeLocal<v8::Value> maybeValueRef = funcRef->Call(context, context->Global(), 0, nullptr);
 
     if(!holder->repeats) {
+        // mark as cleared/stopped so that a later clearTimeout() does not close the handle a second time
+        // (a second uv_close would call OnTimerClosedCallback on the already deleted holder)
+        holder->cleared = true;
+        holder->stopped = true;
         uv_close((uv_handle_t *) handle, &BGJSV8Engine::OnTimerClosedCallback);
     }
 
@@ -1051,7 +1055,7 @@ void BGJSV8Engine::js_global_clearTimeoutOrInterval(const v8::FunctionCallbackIn
         for (size_t i = 0; i < engine->_timers.size(); ++i) {
             auto holder = engine->_timers.at(i);
             if (holder->id == id) {
-                if(holder->cleared) return;
+                if(holder->cleared || holder->stopped) return;
                 holder->cleared = true;
                 uv_async_send(&engine->_uvEventScheduleTimers);
                 break;
